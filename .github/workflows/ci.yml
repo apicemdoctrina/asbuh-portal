@@ -2,13 +2,32 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   pull_request:
-    branches: [main, master]
+    branches: [main]
 
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: asbuh
+          POSTGRES_PASSWORD: asbuh_test
+          POSTGRES_DB: asbuh_portal_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://asbuh:asbuh_test@localhost:5432/asbuh_portal_test
+      JWT_SECRET: ci-test-secret
 
     strategy:
       matrix:
@@ -25,6 +44,15 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate --schema=apps/api/prisma/schema.prisma
+
+      - name: Run Prisma migrations
+        run: npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
+
+      - name: Seed database
+        run: npx prisma db seed --schema=apps/api/prisma/schema.prisma
 
       - name: Lint
         run: npm run lint
