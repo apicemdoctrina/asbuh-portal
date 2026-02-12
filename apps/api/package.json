@@ -4,19 +4,32 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/index.js",
+    "dev": "tsx watch src/index.ts",
     "build": "echo 'no build step yet'",
-    "start": "node src/index.js",
-    "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix",
+    "start": "node dist/index.js",
+    "lint": "eslint src/ prisma/",
+    "lint:fix": "eslint src/ prisma/ --fix",
     "test": "vitest",
-    "test:ci": "vitest run"
+    "test:ci": "vitest run",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed",
+    "db:generate": "prisma generate",
+    "db:reset": "prisma migrate reset"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@prisma/client": "^6.9.0",
     "express": "^5.1.0",
     "cors": "^2.8.5"
   },
   "devDependencies": {
+    "prisma": "^6.9.0",
+    "typescript": "^5.8.3",
+    "tsx": "^4.19.4",
+    "@types/express": "^5.0.2",
+    "@types/node": "^22.15.0",
     "vitest": "^3.1.0",
     "supertest": "^7.1.0"
   }

@@ -2,9 +2,11 @@ import js from "@eslint/js";
 import globals from "globals";
 import reactPlugin from "eslint-plugin-react";
 import prettierConfig from "eslint-config-prettier";
+import tseslint from "typescript-eslint";
 
 export default [
   js.configs.recommended,
+  ...tseslint.configs.recommended,
   prettierConfig,
   {
     files: ["apps/web/**/*.{js,jsx}"],
@@ -22,7 +24,7 @@ export default [
     },
   },
   {
-    files: ["apps/api/**/*.{js,jsx}"],
+    files: ["apps/api/**/*.{js,jsx,ts,tsx}"],
     languageOptions: {
       globals: { ...globals.node },
     },
