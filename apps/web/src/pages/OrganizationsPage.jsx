@@ -95,11 +95,23 @@ export default function OrganizationsPage() {
     }
   }
 
+  const STATUS_LABELS = {
+    active: "Активный",
+    new: "Новый",
+    liquidating: "В процессе ликвидации",
+    left: "Ушёл",
+    closed: "Закрылся",
+    not_paying: "Не платит",
+  };
+
   const statusBadge = (status) => {
     const map = {
       active: "bg-green-100 text-green-700",
       new: "bg-blue-100 text-blue-700",
-      archived: "bg-slate-100 text-slate-500",
+      liquidating: "bg-amber-100 text-amber-700",
+      left: "bg-slate-100 text-slate-500",
+      closed: "bg-slate-100 text-slate-500",
+      not_paying: "bg-red-100 text-red-700",
     };
     return map[status] || "bg-slate-100 text-slate-500";
   };
@@ -145,9 +157,11 @@ export default function OrganizationsPage() {
             className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
           >
             <option value="">Все статусы</option>
-            <option value="active">Активные</option>
-            <option value="new">Новые</option>
-            <option value="archived">Архив</option>
+            {Object.entries(STATUS_LABELS).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
           </select>
         </div>
         {sections.length > 0 && (
@@ -207,7 +221,7 @@ export default function OrganizationsPage() {
                       <span
                         className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusBadge(org.status)}`}
                       >
-                        {org.status}
+                        {STATUS_LABELS[org.status] || org.status}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-600">{org._count?.members ?? 0}</td>

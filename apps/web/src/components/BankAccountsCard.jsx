@@ -2,6 +2,30 @@ import { useState } from "react";
 import { api } from "../lib/api.js";
 import { Plus, Pencil, Trash2, X } from "lucide-react";
 
+const BANKS = [
+  { name: "Сбербанк", bg: "bg-green-100", text: "text-green-700" },
+  { name: "БСПБ", bg: "bg-rose-100", text: "text-rose-700" },
+  { name: "ВТБ", bg: "bg-blue-100", text: "text-blue-700" },
+  { name: "ЭТБ", bg: "bg-cyan-100", text: "text-cyan-700" },
+  { name: "Альфа", bg: "bg-red-100", text: "text-red-700" },
+  { name: "Т-Банк", bg: "bg-yellow-100", text: "text-yellow-700" },
+  { name: "ПСБ", bg: "bg-indigo-100", text: "text-indigo-700" },
+  { name: "Точка", bg: "bg-orange-100", text: "text-orange-700" },
+  { name: "РСБ", bg: "bg-teal-100", text: "text-teal-700" },
+  { name: "Открытие", bg: "bg-sky-100", text: "text-sky-700" },
+  { name: "ГазПромБанк", bg: "bg-slate-200", text: "text-slate-700" },
+  { name: "Локо", bg: "bg-purple-100", text: "text-purple-700" },
+  { name: "Авангард", bg: "bg-amber-100", text: "text-amber-700" },
+];
+
+const BANK_STYLE = Object.fromEntries(BANKS.map((b) => [b.name, { bg: b.bg, text: b.text }]));
+
+function bankBadgeCls(name) {
+  const s = BANK_STYLE[name];
+  if (s) return `${s.bg} ${s.text}`;
+  return "bg-slate-100 text-slate-600";
+}
+
 export default function BankAccountsCard({
   organizationId,
   bankAccounts,
@@ -12,7 +36,6 @@ export default function BankAccountsCard({
   const [showModal, setShowModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
   const [bankName, setBankName] = useState("");
-  const [accountNumber, setAccountNumber] = useState("");
   const [login, setLogin] = useState("");
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -21,7 +44,6 @@ export default function BankAccountsCard({
   function openAdd() {
     setEditingAccount(null);
     setBankName("");
-    setAccountNumber("");
     setLogin("");
     setComment("");
     setFormError("");
@@ -31,7 +53,6 @@ export default function BankAccountsCard({
   function openEdit(acc) {
     setEditingAccount(acc);
     setBankName(acc.bankName || "");
-    setAccountNumber(acc.accountNumber || "");
     setLogin(acc.login || "");
     setComment(acc.comment || "");
     setFormError("");
@@ -39,16 +60,15 @@ export default function BankAccountsCard({
   }
 
   async function handleSubmit() {
-    if (!bankName.trim()) {
-      setFormError("Название банка обязательно");
+    if (!bankName) {
+      setFormError("Выберите банк");
       return;
     }
     setSubmitting(true);
     setFormError("");
     try {
       const body = JSON.stringify({
-        bankName: bankName.trim(),
-        accountNumber: accountNumber.trim() || null,
+        bankName,
         ...(showLogin ? { login: login.trim() || null } : {}),
         comment: comment.trim() || null,
       });
@@ -109,8 +129,13 @@ export default function BankAccountsCard({
               className="flex items-center justify-between bg-slate-50 rounded-lg p-3"
             >
               <div className="text-sm text-slate-600 space-y-0.5">
-                <p className="font-medium text-slate-900">{acc.bankName}</p>
-                {acc.accountNumber && <p>Счёт: {acc.accountNumber}</p>}
+                <p>
+                  <span
+                    className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${bankBadgeCls(acc.bankName)}`}
+                  >
+                    {acc.bankName}
+                  </span>
+                </p>
                 {showLogin && acc.login && <p>Логин: {acc.login}</p>}
                 {acc.comment && <p className="text-slate-400">{acc.comment}</p>}
               </div>
@@ -152,25 +177,23 @@ export default function BankAccountsCard({
 
             <div className="flex flex-col gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Название банка *
-                </label>
-                <input
-                  type="text"
-                  value={bankName}
-                  onChange={(e) => setBankName(e.target.value)}
-                  autoFocus
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Номер счёта</label>
-                <input
-                  type="text"
-                  value={accountNumber}
-                  onChange={(e) => setAccountNumber(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
-                />
+                <label className="block text-sm font-medium text-slate-700 mb-2">Банк *</label>
+                <div className="flex flex-wrap gap-2">
+                  {BANKS.map((b) => (
+                    <button
+                      key={b.name}
+                      type="button"
+                      onClick={() => setBankName(b.name)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all ${
+                        bankName === b.name
+                          ? `${b.bg} ${b.text} border-current ring-2 ring-current/20`
+                          : `${b.bg} ${b.text} border-transparent opacity-60 hover:opacity-100`
+                      }`}
+                    >
+                      {b.name}
+                    </button>
+                  ))}
+                </div>
               </div>
               {showLogin && (
                 <div>

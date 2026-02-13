@@ -179,14 +179,23 @@ router.post("/staff", authenticate, requireRole("admin"), async (req, res) => {
       data: { email, passwordHash, firstName, lastName },
     });
 
-    // Assign roles
+    // Assign exactly one role
     const validRoles = Array.isArray(roleNames) ? roleNames : [];
-    if (validRoles.length > 0) {
-      const roles = await prisma.role.findMany({ where: { name: { in: validRoles } } });
-      await prisma.userRole.createMany({
-        data: roles.map((r) => ({ userId: user.id, roleId: r.id })),
-      });
+    if (validRoles.length !== 1) {
+      // clean up created user if role invalid
+      await prisma.user.delete({ where: { id: user.id } });
+      res.status(400).json({ error: "Необходимо выбрать ровно одну роль" });
+      return;
     }
+    const roles = await prisma.role.findMany({ where: { name: { in: validRoles } } });
+    if (roles.length === 0) {
+      await prisma.user.delete({ where: { id: user.id } });
+      res.status(400).json({ error: "Недопустимая роль" });
+      return;
+    }
+    await prisma.userRole.createMany({
+      data: roles.map((r) => ({ userId: user.id, roleId: r.id })),
+    });
 
     await logAudit({
       action: "user_created",

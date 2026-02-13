@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link } from "react-router";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
-import { ArrowLeft, Save, UserPlus, Trash2, Search } from "lucide-react";
+import { ArrowLeft, Save, Pencil, X, UserPlus, Trash2, Search } from "lucide-react";
 import BankAccountsCard from "../components/BankAccountsCard.jsx";
 import ContactsCard from "../components/ContactsCard.jsx";
 
@@ -28,7 +28,14 @@ const SERVICE_TYPE_LABELS = {
   HR_REPORTING: "Кадры+Отчётность",
   PARTIAL: "Частичное",
 };
-const STATUS_LABELS = { active: "Активная", new: "Новая", archived: "Архив" };
+const STATUS_LABELS = {
+  active: "Активный",
+  new: "Новый",
+  liquidating: "В процессе ликвидации",
+  left: "Ушёл",
+  closed: "Закрылся",
+  not_paying: "Не платит",
+};
 
 const INPUT_CLS =
   "w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]";
@@ -87,6 +94,8 @@ export default function OrganizationDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [editing, setEditing] = useState(false);
+
   const [form, setForm] = useState(INITIAL_FORM);
   const setField = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
 
@@ -114,6 +123,31 @@ export default function OrganizationDetailPage() {
     }
   }, [hasPermission]);
 
+  function populateForm(data) {
+    setForm({
+      name: data.name || "",
+      inn: data.inn || "",
+      kpp: data.kpp || "",
+      form: data.form || "",
+      status: data.status || "active",
+      sectionId: data.sectionId || "",
+      taxSystems: data.taxSystems || [],
+      employeeCount: data.employeeCount != null ? String(data.employeeCount) : "",
+      opsPerMonth: data.opsPerMonth != null ? String(data.opsPerMonth) : "",
+      hasCashRegister: data.hasCashRegister || false,
+      legalAddress: data.legalAddress || "",
+      digitalSignature: data.digitalSignature || "",
+      digitalSignatureExpiry: data.digitalSignatureExpiry
+        ? data.digitalSignatureExpiry.slice(0, 10)
+        : "",
+      reportingChannel: data.reportingChannel || "",
+      serviceType: data.serviceType || "",
+      monthlyPayment: data.monthlyPayment != null ? String(data.monthlyPayment) : "",
+      paymentDestination: data.paymentDestination || "",
+      debtAmount: data.debtAmount != null ? String(data.debtAmount) : "",
+    });
+  }
+
   const fetchOrganization = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -125,28 +159,7 @@ export default function OrganizationDetailPage() {
       }
       const data = await res.json();
       setOrganization(data);
-      setForm({
-        name: data.name || "",
-        inn: data.inn || "",
-        kpp: data.kpp || "",
-        form: data.form || "",
-        status: data.status || "active",
-        sectionId: data.sectionId || "",
-        taxSystems: data.taxSystems || [],
-        employeeCount: data.employeeCount != null ? String(data.employeeCount) : "",
-        opsPerMonth: data.opsPerMonth != null ? String(data.opsPerMonth) : "",
-        hasCashRegister: data.hasCashRegister || false,
-        legalAddress: data.legalAddress || "",
-        digitalSignature: data.digitalSignature || "",
-        digitalSignatureExpiry: data.digitalSignatureExpiry
-          ? data.digitalSignatureExpiry.slice(0, 10)
-          : "",
-        reportingChannel: data.reportingChannel || "",
-        serviceType: data.serviceType || "",
-        monthlyPayment: data.monthlyPayment != null ? String(data.monthlyPayment) : "",
-        paymentDestination: data.paymentDestination || "",
-        debtAmount: data.debtAmount != null ? String(data.debtAmount) : "",
-      });
+      populateForm(data);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -184,13 +197,8 @@ export default function OrganizationDetailPage() {
     return () => clearTimeout(searchTimeout.current);
   }, [memberSearch, showAddMember, organization]);
 
-  function toggleTaxSystem(key) {
-    setField(
-      "taxSystems",
-      form.taxSystems.includes(key)
-        ? form.taxSystems.filter((t) => t !== key)
-        : [...form.taxSystems, key],
-    );
+  function selectTaxSystem(key) {
+    setField("taxSystems", [key]);
   }
 
   async function handleSave(e) {
@@ -226,6 +234,7 @@ export default function OrganizationDetailPage() {
         throw new Error(data.error || "Failed to update");
       }
       await fetchOrganization();
+      setEditing(false);
       setSaveMsg("Сохранено");
       setTimeout(() => setSaveMsg(""), 2000);
     } catch (err) {
@@ -311,9 +320,31 @@ export default function OrganizationDetailPage() {
         <ArrowLeft size={16} /> Все организации
       </Link>
 
-      <h1 className="text-2xl font-bold text-slate-900 mb-6">{organization.name}</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-slate-900">{organization.name}</h1>
+        {canEdit && !editing && (
+          <button
+            onClick={() => {
+              populateForm(organization);
+              setEditing(true);
+              setSaveMsg("");
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+          >
+            <Pencil size={16} />
+            Изменить
+          </button>
+        )}
+        {saveMsg && (
+          <span
+            className={`text-sm ${saveMsg === "Сохранено" ? "text-green-600" : "text-red-600"}`}
+          >
+            {saveMsg}
+          </span>
+        )}
+      </div>
 
-      {canEdit ? (
+      {editing ? (
         /* ================ EDIT MODE ================ */
         <>
           <form onSubmit={handleSave} className="space-y-6">
@@ -365,9 +396,11 @@ export default function OrganizationDetailPage() {
                     onChange={(e) => setField("status", e.target.value)}
                     className={SELECT_CLS}
                   >
-                    <option value="active">Активная</option>
-                    <option value="new">Новая</option>
-                    <option value="archived">Архив</option>
+                    {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>
+                        {v}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 {sections.length > 0 && (
@@ -422,7 +455,7 @@ export default function OrganizationDetailPage() {
 
               {/* Tax systems */}
               <div className="mt-4">
-                <label className={LABEL_CLS}>Системы налогообложения</label>
+                <label className={LABEL_CLS}>Система налогообложения</label>
                 <div className="flex flex-wrap gap-2 mt-1">
                   {Object.entries(TAX_SYSTEM_LABELS).map(([key, label]) => (
                     <label
@@ -430,10 +463,11 @@ export default function OrganizationDetailPage() {
                       className="flex items-center gap-1.5 text-sm text-slate-700 cursor-pointer"
                     >
                       <input
-                        type="checkbox"
+                        type="radio"
+                        name="taxSystem"
                         checked={form.taxSystems.includes(key)}
-                        onChange={() => toggleTaxSystem(key)}
-                        className="w-4 h-4 rounded border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                        onChange={() => selectTaxSystem(key)}
+                        className="w-4 h-4 border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
                       />
                       {label}
                     </label>
@@ -530,7 +564,7 @@ export default function OrganizationDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className={LABEL_CLS}>Назначение платежа</label>
+                  <label className={LABEL_CLS}>Куда поступает платёж</label>
                   <input
                     type="text"
                     value={form.paymentDestination}
@@ -560,33 +594,20 @@ export default function OrganizationDetailPage() {
                   <Save size={16} />
                   {saving ? "Сохранение..." : "Сохранить"}
                 </button>
-                {saveMsg && (
-                  <span
-                    className={`text-sm ${saveMsg === "Сохранено" ? "text-green-600" : "text-red-600"}`}
-                  >
-                    {saveMsg}
-                  </span>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    populateForm(organization);
+                    setEditing(false);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 border-2 border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg text-sm font-medium transition-colors"
+                >
+                  <X size={16} />
+                  Отмена
+                </button>
               </div>
             </div>
           </form>
-
-          {/* Bank accounts & contacts — outside <form> */}
-          <div className="space-y-6 mt-6">
-            <BankAccountsCard
-              organizationId={id}
-              bankAccounts={organization.bankAccounts || []}
-              canEdit={canEdit}
-              showLogin={canEdit && !hasRole("client")}
-              onDataChanged={fetchOrganization}
-            />
-            <ContactsCard
-              organizationId={id}
-              contacts={organization.contacts || []}
-              canEdit={canEdit}
-              onDataChanged={fetchOrganization}
-            />
-          </div>
         </>
       ) : (
         /* ================ READ-ONLY MODE ================ */
@@ -627,9 +648,9 @@ export default function OrganizationDetailPage() {
                 {organization.hasCashRegister ? "Да" : "Нет"}
               </p>
               <p className="md:col-span-2 lg:col-span-3">
-                <span className="font-medium">Системы налогообложения:</span>{" "}
+                <span className="font-medium">Система налогообложения:</span>{" "}
                 {organization.taxSystems?.length > 0
-                  ? organization.taxSystems.map((t) => TAX_SYSTEM_LABELS[t] || t).join(", ")
+                  ? TAX_SYSTEM_LABELS[organization.taxSystems[0]] || organization.taxSystems[0]
                   : "—"}
               </p>
               <p className="md:col-span-2 lg:col-span-3">
@@ -671,7 +692,7 @@ export default function OrganizationDetailPage() {
                 {formatCurrency(organization.monthlyPayment)}
               </p>
               <p>
-                <span className="font-medium">Назначение платежа:</span>{" "}
+                <span className="font-medium">Куда поступает платёж:</span>{" "}
                 {organization.paymentDestination || "—"}
               </p>
               <p>
@@ -680,25 +701,25 @@ export default function OrganizationDetailPage() {
               </p>
             </div>
           </div>
-
-          {/* Bank accounts & contacts — read-only */}
-          <div className="space-y-6 mb-6">
-            <BankAccountsCard
-              organizationId={id}
-              bankAccounts={organization.bankAccounts || []}
-              canEdit={false}
-              showLogin={false}
-              onDataChanged={fetchOrganization}
-            />
-            <ContactsCard
-              organizationId={id}
-              contacts={organization.contacts || []}
-              canEdit={false}
-              onDataChanged={fetchOrganization}
-            />
-          </div>
         </>
       )}
+
+      {/* Bank accounts & contacts — always visible */}
+      <div className="space-y-6 mt-6">
+        <BankAccountsCard
+          organizationId={id}
+          bankAccounts={organization.bankAccounts || []}
+          canEdit={canEdit}
+          showLogin={canEdit && !hasRole("client")}
+          onDataChanged={fetchOrganization}
+        />
+        <ContactsCard
+          organizationId={id}
+          contacts={organization.contacts || []}
+          canEdit={canEdit}
+          onDataChanged={fetchOrganization}
+        />
+      </div>
 
       {/* Members */}
       <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mt-6">

@@ -125,12 +125,12 @@ export default function SectionsPage() {
               <tbody>
                 {sections.map((s) => (
                   <tr key={s.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                    <td className="px-4 py-3 font-medium text-slate-900">
+                    <td className="px-4 py-3 font-medium text-slate-900">{s.number}</td>
+                    <td className="px-4 py-3 text-slate-600">
                       <Link to={`/sections/${s.id}`} className="text-[#6567F1] hover:underline">
-                        {s.number}
+                        {s.name || "—"}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{s.name || "—"}</td>
                     <td className="px-4 py-3 text-slate-600">{s._count?.members ?? 0}</td>
                     <td className="px-4 py-3 text-slate-600">{s._count?.organizations ?? 0}</td>
                   </tr>

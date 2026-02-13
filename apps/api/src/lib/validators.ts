@@ -24,7 +24,7 @@ const SERVICE_TYPES = [
   "PARTIAL",
 ] as const;
 
-const VALID_STATUSES = ["active", "new", "archived"] as const;
+const VALID_STATUSES = ["active", "new", "liquidating", "left", "closed", "not_paying"] as const;
 
 const decimalField = z
   .union([z.string(), z.number()])
