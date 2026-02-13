@@ -1,5 +1,8 @@
 import { Router } from "express";
 import { Prisma } from "@prisma/client";
+import fs from "node:fs/promises";
+import path from "node:path";
+import multer from "multer";
 import prisma from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
 import { authenticate, requirePermission } from "../middleware/auth.js";
@@ -10,7 +13,9 @@ import {
   updateBankAccountSchema,
   createContactSchema,
   updateContactSchema,
+  createDocumentSchema,
 } from "../lib/validators.js";
+import { upload, UPLOADS_DIR } from "../lib/upload.js";
 
 const router = Router();
 
@@ -223,6 +228,21 @@ router.get("/:id", authenticate, requirePermission("organization", "view"), asyn
         },
         bankAccounts: true,
         contacts: true,
+        documents: {
+          select: {
+            id: true,
+            organizationId: true,
+            type: true,
+            originalName: true,
+            mimeType: true,
+            size: true,
+            comment: true,
+            uploadedById: true,
+            createdAt: true,
+            uploadedBy: { select: { firstName: true, lastName: true } },
+          },
+          orderBy: { createdAt: "desc" },
+        },
       },
     });
 
@@ -762,6 +782,220 @@ router.delete(
       res.json({ message: "Contact deleted" });
     } catch (err) {
       console.error("Delete contact error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// --- Nested CRUD: Documents ---
+
+/** Select fields for document responses (never expose storagePath). */
+const documentSelect = {
+  id: true,
+  organizationId: true,
+  type: true,
+  originalName: true,
+  mimeType: true,
+  size: true,
+  comment: true,
+  uploadedById: true,
+  createdAt: true,
+  uploadedBy: { select: { firstName: true, lastName: true } },
+} as const;
+
+// POST /api/organizations/:id/documents — upload
+router.post(
+  "/:id/documents",
+  authenticate,
+  requirePermission("document", "create"),
+  (req, res, next) => {
+    upload.single("file")(req, res, (err) => {
+      if (err instanceof multer.MulterError) {
+        if (err.code === "LIMIT_FILE_SIZE") {
+          res.status(400).json({ error: "File too large (max 10 MB)" });
+          return;
+        }
+        if (err.code === "LIMIT_UNEXPECTED_FILE") {
+          res.status(400).json({ error: "File type not allowed" });
+          return;
+        }
+        res.status(400).json({ error: err.message });
+        return;
+      }
+      if (err) {
+        next(err);
+        return;
+      }
+      next();
+    });
+  },
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        res.status(400).json({ error: "File is required" });
+        return;
+      }
+
+      const scope = getScopedWhere(req.user!.userId, req.user!.roles);
+      const org = await prisma.organization.findFirst({
+        where: { id: req.params.id, ...scope },
+      });
+      if (!org) {
+        // Clean up uploaded file
+        await fs.unlink(req.file.path).catch(() => {});
+        res.status(404).json({ error: "Organization not found" });
+        return;
+      }
+
+      const result = createDocumentSchema.safeParse(req.body);
+      if (!result.success) {
+        await fs.unlink(req.file.path).catch(() => {});
+        res.status(400).json({ error: "Validation failed", issues: result.error.issues });
+        return;
+      }
+
+      const doc = await prisma.organizationDocument.create({
+        data: {
+          organizationId: org.id,
+          type: result.data.type,
+          originalName: req.file.originalname,
+          storagePath: req.file.filename,
+          mimeType: req.file.mimetype,
+          size: req.file.size,
+          comment: result.data.comment ?? null,
+          uploadedById: req.user!.userId,
+        },
+        select: documentSelect,
+      });
+
+      await logAudit({
+        action: "document_uploaded",
+        userId: req.user!.userId,
+        entity: "organization",
+        entityId: org.id,
+        details: {
+          documentId: doc.id,
+          originalName: req.file.originalname,
+          type: result.data.type,
+        },
+        ipAddress: req.ip,
+      });
+
+      res.status(201).json(doc);
+    } catch (err) {
+      console.error("Upload document error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// GET /api/organizations/:id/documents — list
+router.get(
+  "/:id/documents",
+  authenticate,
+  requirePermission("document", "view"),
+  async (req, res) => {
+    try {
+      const scope = getScopedWhere(req.user!.userId, req.user!.roles);
+      const org = await prisma.organization.findFirst({
+        where: { id: req.params.id, ...scope },
+      });
+      if (!org) {
+        res.status(404).json({ error: "Organization not found" });
+        return;
+      }
+
+      const documents = await prisma.organizationDocument.findMany({
+        where: { organizationId: org.id },
+        select: documentSelect,
+        orderBy: { createdAt: "desc" },
+      });
+
+      res.json(documents);
+    } catch (err) {
+      console.error("List documents error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// GET /api/organizations/:id/documents/:docId/download — download file
+router.get(
+  "/:id/documents/:docId/download",
+  authenticate,
+  requirePermission("document", "view"),
+  async (req, res) => {
+    try {
+      const scope = getScopedWhere(req.user!.userId, req.user!.roles);
+      const org = await prisma.organization.findFirst({
+        where: { id: req.params.id, ...scope },
+      });
+      if (!org) {
+        res.status(404).json({ error: "Organization not found" });
+        return;
+      }
+
+      const doc = await prisma.organizationDocument.findFirst({
+        where: { id: req.params.docId, organizationId: org.id },
+      });
+      if (!doc) {
+        res.status(404).json({ error: "Document not found" });
+        return;
+      }
+
+      const filePath = path.join(UPLOADS_DIR, doc.storagePath);
+      res.download(filePath, doc.originalName);
+    } catch (err) {
+      console.error("Download document error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// DELETE /api/organizations/:id/documents/:docId
+router.delete(
+  "/:id/documents/:docId",
+  authenticate,
+  requirePermission("document", "delete"),
+  async (req, res) => {
+    try {
+      const scope = getScopedWhere(req.user!.userId, req.user!.roles);
+      const org = await prisma.organization.findFirst({
+        where: { id: req.params.id, ...scope },
+      });
+      if (!org) {
+        res.status(404).json({ error: "Organization not found" });
+        return;
+      }
+
+      const doc = await prisma.organizationDocument.findFirst({
+        where: { id: req.params.docId, organizationId: org.id },
+      });
+      if (!doc) {
+        res.status(404).json({ error: "Document not found" });
+        return;
+      }
+
+      // Delete file from disk (ignore ENOENT)
+      const filePath = path.join(UPLOADS_DIR, doc.storagePath);
+      await fs.unlink(filePath).catch((err) => {
+        if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+      });
+
+      await prisma.organizationDocument.delete({ where: { id: doc.id } });
+
+      await logAudit({
+        action: "document_deleted",
+        userId: req.user!.userId,
+        entity: "organization",
+        entityId: org.id,
+        details: { documentId: doc.id, originalName: doc.originalName },
+        ipAddress: req.ip,
+      });
+
+      res.json({ message: "Document deleted" });
+    } catch (err) {
+      console.error("Delete document error:", err);
       res.status(500).json({ error: "Internal server error" });
     }
   },

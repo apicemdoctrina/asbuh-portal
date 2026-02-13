@@ -16,7 +16,11 @@ export function clearAccessToken() {
 
 export async function api(path, options = {}) {
   const url = `${API_BASE}${path}`;
-  const headers = { "Content-Type": "application/json", ...options.headers };
+  const isFormData = options.body instanceof FormData;
+  const headers = {
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
+    ...options.headers,
+  };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
   let res = await fetch(url, { ...options, headers, credentials: "include" });

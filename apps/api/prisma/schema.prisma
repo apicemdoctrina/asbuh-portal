@@ -23,6 +23,8 @@ model User {
   organizationMembers OrganizationMember[]
   createdInvites      InviteToken[]
   auditLogs           AuditLog[]
+  uploadedDocuments   OrganizationDocument[]
+  workContacts        WorkContact[]
 
   @@map("users")
 }
@@ -87,6 +89,15 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("refresh_tokens")
+}
+
+enum DocumentType {
+  CONTRACT // Договор
+  ACT      // Акт
+  INVOICE  // Счёт
+  REPORT   // Отчёт
+  WAYBILL  // Накладная
+  OTHER    // Прочее
 }
 
 enum TaxSystem {
@@ -185,6 +196,7 @@ model Organization {
   inviteTokens InviteToken[]
   bankAccounts OrganizationBankAccount[]
   contacts     OrganizationContact[]
+  documents    OrganizationDocument[]
 
   @@map("organizations")
 }
@@ -260,5 +272,42 @@ model AuditLog {
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
+  @@index([createdAt])
+  @@index([userId])
+  @@index([entity])
+  @@index([action])
   @@map("audit_logs")
+}
+
+model OrganizationDocument {
+  id             String       @id @default(uuid())
+  organizationId String       @map("organization_id")
+  type           DocumentType
+  originalName   String       @map("original_name")
+  storagePath    String       @map("storage_path")
+  mimeType       String       @map("mime_type")
+  size           Int
+  comment        String?
+  uploadedById   String       @map("uploaded_by_id")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  uploadedBy   User         @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  @@map("organization_documents")
+}
+
+model WorkContact {
+  id          String   @id @default(uuid())
+  name        String
+  position    String?
+  phone       String?
+  comment     String?
+  createdById String?  @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@map("work_contacts")
 }

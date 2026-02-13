@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { ArrowLeft, Save, Pencil, X, UserPlus, Trash2, Search } from "lucide-react";
 import BankAccountsCard from "../components/BankAccountsCard.jsx";
 import ContactsCard from "../components/ContactsCard.jsx";
+import DocumentsCard from "../components/DocumentsCard.jsx";
 
 const TAX_SYSTEM_LABELS = {
   USN6: "УСН 6%",
@@ -711,6 +712,13 @@ export default function OrganizationDetailPage() {
           bankAccounts={organization.bankAccounts || []}
           canEdit={canEdit}
           showLogin={canEdit && !hasRole("client")}
+          onDataChanged={fetchOrganization}
+        />
+        <DocumentsCard
+          organizationId={id}
+          documents={organization.documents || []}
+          canCreate={hasPermission("document", "create")}
+          canDelete={hasPermission("document", "delete")}
           onDataChanged={fetchOrganization}
         />
         <ContactsCard

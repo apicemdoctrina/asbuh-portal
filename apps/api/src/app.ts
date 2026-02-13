@@ -5,6 +5,9 @@ import authRouter from "./routes/auth.js";
 import usersRouter from "./routes/users.js";
 import sectionsRouter from "./routes/sections.js";
 import organizationsRouter from "./routes/organizations.js";
+import statsRouter from "./routes/stats.js";
+import workContactsRouter from "./routes/work-contacts.js";
+import auditLogsRouter from "./routes/audit-logs.js";
 
 const app = express();
 
@@ -23,6 +26,9 @@ app.use("/api/auth", authRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/sections", sectionsRouter);
 app.use("/api/organizations", organizationsRouter);
+app.use("/api/stats", statsRouter);
+app.use("/api/work-contacts", workContactsRouter);
+app.use("/api/audit-logs", auditLogsRouter);
 
 // Global error handler (Express requires all 4 params for error middleware)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

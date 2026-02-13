@@ -12,3 +12,5 @@ services:
 
 volumes:
   pgdata:
+  # uploads: # Uncomment for production to persist document uploads
+  #   In production with Docker: mount as -v /path/to/uploads:/app/uploads

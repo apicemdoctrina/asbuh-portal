@@ -108,3 +108,24 @@ export const updateContactSchema = z.object({
   telegram: z.string().nullable().optional(),
   comment: z.string().nullable().optional(),
 });
+
+export const createWorkContactSchema = z.object({
+  name: z.string().min(1, "name is required"),
+  position: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  comment: z.string().nullable().optional(),
+});
+
+export const updateWorkContactSchema = z.object({
+  name: z.string().min(1).optional(),
+  position: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  comment: z.string().nullable().optional(),
+});
+
+const DOCUMENT_TYPES = ["CONTRACT", "ACT", "INVOICE", "REPORT", "WAYBILL", "OTHER"] as const;
+
+export const createDocumentSchema = z.object({
+  type: z.enum(DOCUMENT_TYPES),
+  comment: z.string().nullable().optional(),
+});

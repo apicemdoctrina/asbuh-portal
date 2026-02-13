@@ -28,6 +28,11 @@ const PERMISSIONS: Array<{ entity: string; action: string }> = [
   { entity: "document", action: "delete" },
   // Audit log
   { entity: "audit_log", action: "view" },
+  // Work contacts
+  { entity: "work_contact", action: "view" },
+  { entity: "work_contact", action: "create" },
+  { entity: "work_contact", action: "edit" },
+  { entity: "work_contact", action: "delete" },
 ];
 
 // Role → permitted (entity, action) pairs
@@ -39,6 +44,9 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "organization", action: "view" },
     { entity: "document", action: "view" },
     { entity: "audit_log", action: "view" },
+    { entity: "work_contact", action: "view" },
+    { entity: "work_contact", action: "create" },
+    { entity: "work_contact", action: "edit" },
   ],
   accountant: [
     { entity: "section", action: "view" },
@@ -47,6 +55,9 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "document", action: "view" },
     { entity: "document", action: "create" },
     { entity: "document", action: "edit" },
+    { entity: "work_contact", action: "view" },
+    { entity: "work_contact", action: "create" },
+    { entity: "work_contact", action: "edit" },
   ],
   client: [
     { entity: "organization", action: "view" },

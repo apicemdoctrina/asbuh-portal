@@ -1,6 +1,16 @@
 import { Outlet, NavLink, useNavigate } from "react-router";
 import { useAuth } from "../context/AuthContext.jsx";
-import { LayoutDashboard, Map, Building2, Users, LogOut, Menu, X } from "lucide-react";
+import {
+  LayoutDashboard,
+  Map,
+  Building2,
+  Users,
+  Phone,
+  ScrollText,
+  LogOut,
+  Menu,
+  X,
+} from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
@@ -13,6 +23,8 @@ const navItems = [
     permission: ["organization", "view"],
   },
   { to: "/staff", label: "Сотрудники", icon: Users, role: "admin" },
+  { to: "/contacts", label: "Контакты", icon: Phone, permission: ["work_contact", "view"] },
+  { to: "/audit-log", label: "Журнал", icon: ScrollText, role: "admin" },
 ];
 
 export default function Layout() {

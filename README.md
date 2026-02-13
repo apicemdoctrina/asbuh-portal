@@ -41,6 +41,15 @@ The seed creates an admin user from environment variables:
 
 **In production, always set these via env vars. Do not use defaults.**
 
+## File Storage
+
+Uploaded organization documents are stored in `apps/api/uploads/`.
+In production with Docker, mount a persistent volume:
+
+```bash
+-v /path/to/uploads:/app/uploads
+```
+
 ## Auth Flow
 
 - **Access token**: JWT (15 min), stored in memory on the client
