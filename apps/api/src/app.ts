@@ -3,6 +3,8 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import authRouter from "./routes/auth.js";
 import usersRouter from "./routes/users.js";
+import sectionsRouter from "./routes/sections.js";
+import organizationsRouter from "./routes/organizations.js";
 
 const app = express();
 
@@ -19,6 +21,8 @@ app.get("/api/health", (_req, res) => {
 
 app.use("/api/auth", authRouter);
 app.use("/api/users", usersRouter);
+app.use("/api/sections", sectionsRouter);
+app.use("/api/organizations", organizationsRouter);
 
 // Global error handler (Express requires all 4 params for error middleware)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

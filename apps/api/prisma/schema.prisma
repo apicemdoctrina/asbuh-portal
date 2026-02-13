@@ -89,6 +89,40 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
+enum TaxSystem {
+  USN6
+  USN15
+  AUSN8
+  AUSN20
+  PSN
+  OSNO
+  USN_NDS5
+  USN_NDS7
+  USN_NDS22
+}
+
+enum DigitalSignatureStatus {
+  NONE
+  CLIENT
+  US
+}
+
+enum ReportingChannel {
+  KONTUR
+  SBIS
+  ASTRAL
+}
+
+enum ServiceType {
+  ZERO
+  MINIMAL
+  FULL
+  HR
+  REPORTING
+  HR_REPORTING
+  PARTIAL
+}
+
 model Section {
   id        String   @id @default(uuid())
   number    Int      @unique
@@ -125,9 +159,32 @@ model Organization {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  // --- Общая ---
+  taxSystems      TaxSystem[]                    @map("tax_systems")
+  employeeCount   Int?                           @map("employee_count")
+  opsPerMonth     Int?                           @map("ops_per_month")
+  hasCashRegister Boolean     @default(false)    @map("has_cash_register")
+
+  // --- Юридическая ---
+  kpp          String?
+  legalAddress String? @map("legal_address")
+
+  // --- Бухгалтерская ---
+  digitalSignature       DigitalSignatureStatus? @map("digital_signature")
+  digitalSignatureExpiry DateTime?               @map("digital_signature_expiry")
+  reportingChannel       ReportingChannel?       @map("reporting_channel")
+  serviceType            ServiceType?            @map("service_type")
+
+  // --- Финансовая ---
+  monthlyPayment     Decimal? @db.Decimal(12, 2) @map("monthly_payment")
+  paymentDestination String?                     @map("payment_destination")
+  debtAmount         Decimal? @db.Decimal(12, 2) @map("debt_amount")
+
   section      Section?             @relation(fields: [sectionId], references: [id], onDelete: SetNull)
   members      OrganizationMember[]
   inviteTokens InviteToken[]
+  bankAccounts OrganizationBankAccount[]
+  contacts     OrganizationContact[]
 
   @@map("organizations")
 }
@@ -158,6 +215,37 @@ model InviteToken {
   createdBy    User         @relation(fields: [createdById], references: [id], onDelete: Cascade)
 
   @@map("invite_tokens")
+}
+
+model OrganizationBankAccount {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  bankName       String   @map("bank_name")
+  accountNumber  String?  @map("account_number")
+  login          String?
+  comment        String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organization_bank_accounts")
+}
+
+model OrganizationContact {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  contactPerson  String   @map("contact_person")
+  phone          String?
+  email          String?
+  telegram       String?
+  comment        String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organization_contacts")
 }
 
 model AuditLog {
