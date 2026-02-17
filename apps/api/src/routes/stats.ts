@@ -32,6 +32,7 @@ router.get("/", authenticate, async (req, res) => {
     const orgWhere = getOrgWhere(userId, roles);
 
     const canViewSections = await hasPermission(userId, "section", "view");
+    const canViewUsers = await hasPermission(userId, "user", "view");
     const isAdmin = roles.includes("admin");
 
     // Build parallel queries
@@ -65,9 +66,28 @@ router.get("/", authenticate, async (req, res) => {
       queries.push(prisma.section.count({ where: sectionWhere }));
     }
 
-    // 5: users count (only if admin)
+    // 5: staff count (only if admin)
     if (isAdmin) {
-      queries.push(prisma.user.count({ where: { isActive: true } }));
+      queries.push(
+        prisma.user.count({
+          where: {
+            isActive: true,
+            userRoles: { some: { role: { name: { not: "client" } } } },
+          },
+        }),
+      );
+    }
+
+    // 6: clients count (if user can view users)
+    if (canViewUsers) {
+      queries.push(
+        prisma.user.count({
+          where: {
+            isActive: true,
+            userRoles: { some: { role: { name: "client" } } },
+          },
+        }),
+      );
     }
 
     const results = await Promise.all(queries);
@@ -84,12 +104,14 @@ router.get("/", authenticate, async (req, res) => {
 
     let idx = 4;
     const sectionsCount = canViewSections ? (results[idx++] as number) : null;
-    const usersCount = isAdmin ? (results[idx] as number) : null;
+    const usersCount = isAdmin ? (results[idx++] as number) : null;
+    const clientsCount = canViewUsers ? (results[idx] as number) : null;
 
     res.json({
       organizations: { total: orgTotal, byStatus },
       sections: sectionsCount,
       users: usersCount,
+      clients: clientsCount,
       documents: documentsCount,
       recentOrganizations,
     });

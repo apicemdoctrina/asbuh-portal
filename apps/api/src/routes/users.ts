@@ -1,7 +1,15 @@
 import { Router } from "express";
+import fs from "node:fs";
+import path from "node:path";
+import crypto from "node:crypto";
 import prisma from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
+import { upload, UPLOADS_DIR } from "../lib/upload.js";
+import { hashPassword, comparePassword } from "../lib/password.js";
+import { signAccessToken, generateRefreshToken, hashToken } from "../lib/tokens.js";
+import { setRefreshCookie } from "../lib/cookie.js";
+import { updateProfileSchema, changePasswordSchema } from "../lib/validators.js";
 import type { Prisma } from "@prisma/client";
 
 const router = Router();
@@ -27,7 +35,7 @@ router.get("/", authenticate, async (req, res) => {
       return;
     }
 
-    const { search, role } = req.query;
+    const { search, role, excludeRole } = req.query;
 
     const isAdmin = req.user!.roles?.includes("admin");
 
@@ -44,32 +52,76 @@ router.get("/", authenticate, async (req, res) => {
           }
         : {}),
       ...(role ? { userRoles: { some: { role: { name: String(role) } } } } : {}),
+      ...(excludeRole ? { userRoles: { none: { role: { name: String(excludeRole) } } } } : {}),
     };
 
-    const users = await prisma.user.findMany({
-      where,
-      take: 20,
-      orderBy: { lastName: "asc" },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        isActive: true,
-        userRoles: { include: { role: { select: { name: true } } } },
-      },
-    });
+    const includeOrgs = role === "client";
 
-    res.json(
-      users.map((u) => ({
-        id: u.id,
-        email: u.email,
-        firstName: u.firstName,
-        lastName: u.lastName,
-        isActive: u.isActive,
-        roles: u.userRoles.map((ur) => ur.role.name),
-      })),
-    );
+    if (includeOrgs) {
+      const users = await prisma.user.findMany({
+        where,
+        take: 50,
+        orderBy: { lastName: "asc" },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          isActive: true,
+          lastSeenAt: true,
+          userRoles: { include: { role: { select: { name: true } } } },
+          organizationMembers: {
+            include: {
+              organization: { select: { id: true, name: true } },
+            },
+          },
+        },
+      });
+
+      res.json(
+        users.map((u) => ({
+          id: u.id,
+          email: u.email,
+          firstName: u.firstName,
+          lastName: u.lastName,
+          isActive: u.isActive,
+          lastSeenAt: u.lastSeenAt,
+          roles: u.userRoles.map((ur) => ur.role.name),
+          organizations: u.organizationMembers.map((om) => ({
+            id: om.organization.id,
+            name: om.organization.name,
+            role: om.role,
+          })),
+        })),
+      );
+    } else {
+      const users = await prisma.user.findMany({
+        where,
+        take: 50,
+        orderBy: { lastName: "asc" },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          isActive: true,
+          lastSeenAt: true,
+          userRoles: { include: { role: { select: { name: true } } } },
+        },
+      });
+
+      res.json(
+        users.map((u) => ({
+          id: u.id,
+          email: u.email,
+          firstName: u.firstName,
+          lastName: u.lastName,
+          isActive: u.isActive,
+          lastSeenAt: u.lastSeenAt,
+          roles: u.userRoles.map((ur) => ur.role.name),
+        })),
+      );
+    }
   } catch (err) {
     console.error("List users error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -131,6 +183,10 @@ router.get("/me", authenticate, async (req, res) => {
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
+      avatarUrl: user.avatarPath ? `/uploads/${user.avatarPath}` : null,
+      phone: user.phone,
+      birthDate: user.birthDate,
+      lastSeenAt: user.lastSeenAt,
       isActive: user.isActive,
       roles,
       permissions,
@@ -138,6 +194,221 @@ router.get("/me", authenticate, async (req, res) => {
     });
   } catch (err) {
     console.error("Get me error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// PUT /api/users/me — update own profile
+router.put("/me", authenticate, async (req, res) => {
+  try {
+    const parsed = updateProfileSchema.parse(req.body);
+
+    try {
+      const updated = await prisma.user.update({
+        where: { id: req.user!.userId },
+        data: parsed,
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          avatarPath: true,
+          phone: true,
+          birthDate: true,
+        },
+      });
+
+      await logAudit({
+        action: "profile_updated",
+        userId: req.user!.userId,
+        entity: "user",
+        entityId: req.user!.userId,
+        details: parsed,
+        ipAddress: req.ip,
+      });
+
+      res.json({
+        id: updated.id,
+        email: updated.email,
+        firstName: updated.firstName,
+        lastName: updated.lastName,
+        avatarUrl: updated.avatarPath ? `/uploads/${updated.avatarPath}` : null,
+        phone: updated.phone,
+        birthDate: updated.birthDate,
+      });
+    } catch (err: unknown) {
+      if (
+        typeof err === "object" &&
+        err !== null &&
+        "code" in err &&
+        (err as { code: string }).code === "P2002"
+      ) {
+        res.status(409).json({ error: "Email уже используется" });
+        return;
+      }
+      throw err;
+    }
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === "ZodError") {
+      res.status(400).json({ error: "Некорректные данные", details: err });
+      return;
+    }
+    console.error("Update profile error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /api/users/me/avatar — upload avatar
+router.post("/me/avatar", authenticate, upload.single("avatar"), async (req, res) => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: "Файл не загружен" });
+      return;
+    }
+
+    // Only allow images for avatars
+    if (!req.file.mimetype.startsWith("image/")) {
+      fs.unlink(req.file.path, () => {});
+      res.status(400).json({ error: "Допустимы только изображения" });
+      return;
+    }
+
+    // Delete old avatar file if exists
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      select: { avatarPath: true },
+    });
+    if (user?.avatarPath) {
+      const oldPath = path.join(UPLOADS_DIR, user.avatarPath);
+      fs.unlink(oldPath, () => {});
+    }
+
+    await prisma.user.update({
+      where: { id: req.user!.userId },
+      data: { avatarPath: req.file.filename },
+    });
+
+    await logAudit({
+      action: "avatar_updated",
+      userId: req.user!.userId,
+      entity: "user",
+      entityId: req.user!.userId,
+      ipAddress: req.ip,
+    });
+
+    res.json({ avatarUrl: `/uploads/${req.file.filename}` });
+  } catch (err) {
+    console.error("Upload avatar error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+const REFRESH_EXPIRES_MS = 7 * 24 * 60 * 60 * 1000;
+
+// PATCH /api/users/me/password — change own password
+router.patch("/me/password", authenticate, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = changePasswordSchema.parse(req.body);
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      include: { userRoles: { include: { role: { select: { name: true } } } } },
+    });
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    const valid = await comparePassword(currentPassword, user.passwordHash);
+    if (!valid) {
+      res.status(401).json({ error: "Неверный текущий пароль" });
+      return;
+    }
+
+    const newHash = await hashPassword(newPassword);
+    await prisma.user.update({
+      where: { id: req.user!.userId },
+      data: { passwordHash: newHash },
+    });
+
+    // Revoke all refresh tokens
+    await prisma.refreshToken.deleteMany({ where: { userId: req.user!.userId } });
+
+    // Issue new session
+    const roles = user.userRoles.map((ur) => ur.role.name);
+    const accessToken = signAccessToken({ userId: user.id, roles });
+    const refreshToken = generateRefreshToken();
+    const jti = crypto.randomUUID();
+    await prisma.refreshToken.create({
+      data: {
+        jti,
+        tokenHash: hashToken(refreshToken),
+        userId: user.id,
+        expiresAt: new Date(Date.now() + REFRESH_EXPIRES_MS),
+      },
+    });
+    setRefreshCookie(res, refreshToken);
+
+    await logAudit({
+      action: "password_changed",
+      userId: req.user!.userId,
+      entity: "user",
+      entityId: req.user!.userId,
+      ipAddress: req.ip,
+    });
+
+    res.json({ accessToken });
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === "ZodError") {
+      res.status(400).json({ error: "Некорректные данные", details: err });
+      return;
+    }
+    console.error("Change password error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET /api/users/:id — view user profile (admin only)
+router.get("/:id", authenticate, requireRole("admin"), async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.params.id },
+      include: {
+        userRoles: {
+          include: { role: { select: { name: true } } },
+        },
+        organizationMembers: {
+          include: { organization: { select: { id: true, name: true, inn: true } } },
+        },
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    res.json({
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      avatarUrl: user.avatarPath ? `/uploads/${user.avatarPath}` : null,
+      phone: user.phone,
+      birthDate: user.birthDate,
+      lastSeenAt: user.lastSeenAt,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      roles: user.userRoles.map((ur) => ur.role.name),
+      organizations: user.organizationMembers.map((om) => ({
+        id: om.organization.id,
+        name: om.organization.name,
+        inn: om.organization.inn,
+        role: om.role,
+      })),
+    });
+  } catch (err) {
+    console.error("Get user error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

@@ -7,6 +7,10 @@ export interface AuthUser {
   roles: string[];
 }
 
+// Throttle lastSeenAt updates: at most once per SEEN_INTERVAL_MS per user
+const SEEN_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
+const lastSeenCache = new Map<string, number>();
+
 export function authenticate(req: Request, res: Response, next: NextFunction) {
   const header = req.headers.authorization;
   if (!header?.startsWith("Bearer ")) {
@@ -16,6 +20,17 @@ export function authenticate(req: Request, res: Response, next: NextFunction) {
   try {
     const payload = verifyAccessToken(header.slice(7));
     req.user = { userId: payload.userId, roles: payload.roles };
+
+    // Update lastSeenAt in background (throttled)
+    const now = Date.now();
+    const lastUpdate = lastSeenCache.get(payload.userId) || 0;
+    if (now - lastUpdate > SEEN_INTERVAL_MS) {
+      lastSeenCache.set(payload.userId, now);
+      prisma.user
+        .update({ where: { id: payload.userId }, data: { lastSeenAt: new Date(now) } })
+        .catch(() => {});
+    }
+
     next();
   } catch {
     res.status(401).json({ error: "Invalid or expired token" });

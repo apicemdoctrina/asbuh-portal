@@ -1,10 +1,11 @@
-import { Outlet, NavLink, useNavigate } from "react-router";
+import { Outlet, NavLink, Link, useNavigate } from "react-router";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
   LayoutDashboard,
   Map,
   Building2,
   Users,
+  UserCheck,
   Phone,
   BookOpen,
   ScrollText,
@@ -24,6 +25,7 @@ const navItems = [
     permission: ["organization", "view"],
   },
   { to: "/staff", label: "Сотрудники", icon: Users, role: "admin" },
+  { to: "/clients", label: "Клиенты", icon: UserCheck, permission: ["user", "view"] },
   { to: "/contacts", label: "Контакты", icon: Phone, permission: ["work_contact", "view"] },
   {
     to: "/knowledge",
@@ -72,10 +74,27 @@ export default function Layout() {
             AS <span className="text-[#6567F1]">|</span> BUH
           </span>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-slate-600 hidden sm:inline">
-            {user?.firstName} {user?.lastName}
-          </span>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/profile"
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          >
+            {user?.avatarUrl ? (
+              <img
+                src={`${import.meta.env.VITE_API_URL || ""}${user.avatarUrl}`}
+                alt=""
+                className="w-8 h-8 rounded-full object-cover border border-slate-200"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-[#6567F1]/10 flex items-center justify-center text-[#6567F1] text-xs font-bold">
+                {(user?.firstName?.[0] || "").toUpperCase()}
+                {(user?.lastName?.[0] || "").toUpperCase()}
+              </div>
+            )}
+            <span className="text-sm text-slate-600 hidden sm:inline">
+              {user?.firstName} {user?.lastName}
+            </span>
+          </Link>
           <button
             onClick={handleLogout}
             className="flex items-center gap-1 text-sm text-slate-500 hover:text-[#6567F1] transition-colors"

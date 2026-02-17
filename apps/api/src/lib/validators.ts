@@ -148,6 +148,19 @@ export const updateKnowledgeItemSchema = z.object({
   url: z.string().url().nullable().optional(),
 });
 
+export const updateProfileSchema = z.object({
+  firstName: z.string().min(1).optional(),
+  lastName: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+  phone: z.string().nullable().optional(),
+  birthDate: z.coerce.date().nullable().optional(),
+});
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Текущий пароль обязателен"),
+  newPassword: z.string().min(8, "Пароль должен быть не менее 8 символов"),
+});
+
 const DOCUMENT_TYPES = ["CONTRACT", "ACT", "INVOICE", "REPORT", "WAYBILL", "OTHER"] as const;
 
 export const createDocumentSchema = z.object({

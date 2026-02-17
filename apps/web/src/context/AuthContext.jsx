@@ -76,12 +76,19 @@ export function AuthProvider({ children }) {
     return user?.permissions?.some((p) => p.entity === entity && p.action === action) ?? false;
   }
 
+  async function setSession(token) {
+    setAccessToken(token);
+    await fetchMe();
+  }
+
   function hasRole(roleName) {
     return user?.roles?.includes(roleName) ?? false;
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, hasPermission, hasRole }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, logout, setSession, fetchMe, hasPermission, hasRole }}
+    >
       {children}
     </AuthContext.Provider>
   );

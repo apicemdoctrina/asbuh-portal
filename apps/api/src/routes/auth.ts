@@ -268,6 +268,103 @@ router.post(
   },
 );
 
+// GET /api/auth/invite-info/:token — public: validate invite token
+router.get("/invite-info/:token", authLimiter, async (req, res) => {
+  try {
+    const invite = await prisma.inviteToken.findUnique({
+      where: { token: req.params.token },
+      include: { organization: { select: { id: true, name: true } } },
+    });
+    if (!invite) {
+      res.json({ valid: false, reason: "Недействительная ссылка" });
+      return;
+    }
+    if (invite.usedAt) {
+      res.json({ valid: false, reason: "Приглашение уже использовано" });
+      return;
+    }
+    if (invite.expiresAt < new Date()) {
+      res.json({ valid: false, reason: "Срок приглашения истёк" });
+      return;
+    }
+    res.json({
+      valid: true,
+      organizationId: invite.organization.id,
+      organizationName: invite.organization.name,
+    });
+  } catch (err) {
+    console.error("Invite info error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /api/auth/accept-invite — authenticated: join org via invite token
+router.post("/accept-invite", authenticate, async (req, res) => {
+  try {
+    const { inviteToken } = req.body;
+    if (!inviteToken) {
+      res.status(400).json({ error: "inviteToken is required" });
+      return;
+    }
+
+    const invite = await prisma.inviteToken.findUnique({
+      where: { token: inviteToken },
+      include: { organization: { select: { id: true, name: true } } },
+    });
+    if (!invite) {
+      res.status(400).json({ error: "Invalid invite token" });
+      return;
+    }
+    if (invite.usedAt) {
+      res.status(400).json({ error: "Invite token already used" });
+      return;
+    }
+    if (invite.expiresAt < new Date()) {
+      res.status(400).json({ error: "Invite token expired" });
+      return;
+    }
+
+    const existing = await prisma.organizationMember.findFirst({
+      where: { userId: req.user!.userId, organizationId: invite.organizationId },
+    });
+    if (existing) {
+      res.status(409).json({ error: "Вы уже состоите в этой организации" });
+      return;
+    }
+
+    await prisma.$transaction([
+      prisma.organizationMember.create({
+        data: {
+          userId: req.user!.userId,
+          organizationId: invite.organizationId,
+          role: "client",
+        },
+      }),
+      prisma.inviteToken.update({
+        where: { id: invite.id },
+        data: { usedAt: new Date() },
+      }),
+    ]);
+
+    await logAudit({
+      action: "invite_accepted",
+      userId: req.user!.userId,
+      entity: "organization",
+      entityId: invite.organizationId,
+      details: { organizationName: invite.organization.name },
+      ipAddress: req.ip,
+    });
+
+    res.json({
+      organizationId: invite.organization.id,
+      organizationName: invite.organization.name,
+    });
+  } catch (err) {
+    console.error("Accept invite error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // POST /api/auth/register — public: client self-registration via invite token
 router.post("/register", authLimiter, async (req, res) => {
   try {
@@ -310,18 +407,35 @@ router.post("/register", authLimiter, async (req, res) => {
       return;
     }
 
-    const user = await prisma.user.create({
-      data: { email, passwordHash, firstName, lastName },
+    const user = await prisma.$transaction(async (tx) => {
+      const u = await tx.user.create({
+        data: { email, passwordHash, firstName, lastName },
+      });
+      await tx.userRole.create({ data: { userId: u.id, roleId: clientRole.id } });
+      await tx.organizationMember.create({
+        data: { userId: u.id, organizationId: invite.organizationId, role: "client" },
+      });
+      await tx.inviteToken.update({
+        where: { id: invite.id },
+        data: { usedAt: new Date() },
+      });
+      return u;
     });
 
-    // Assign client role + organization membership
-    await prisma.userRole.create({ data: { userId: user.id, roleId: clientRole.id } });
-    await prisma.organizationMember.create({
-      data: { userId: user.id, organizationId: invite.organizationId, role: "client" },
+    // Auto-login: create refresh token + access token
+    const roles = ["client"];
+    const accessToken = signAccessToken({ userId: user.id, roles });
+    const refreshToken = generateRefreshToken();
+    const jti = crypto.randomUUID();
+    await prisma.refreshToken.create({
+      data: {
+        jti,
+        tokenHash: hashToken(refreshToken),
+        userId: user.id,
+        expiresAt: new Date(Date.now() + REFRESH_EXPIRES_MS),
+      },
     });
-
-    // Mark invite as used
-    await prisma.inviteToken.update({ where: { id: invite.id }, data: { usedAt: new Date() } });
+    setRefreshCookie(res, refreshToken);
 
     await logAudit({
       action: "client_registered",
@@ -333,10 +447,13 @@ router.post("/register", authLimiter, async (req, res) => {
     });
 
     res.status(201).json({
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
+      accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
     });
   } catch (err) {
     console.error("Register error:", err);

@@ -2,7 +2,18 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link } from "react-router";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
-import { ArrowLeft, Save, Pencil, X, UserPlus, Trash2, Search } from "lucide-react";
+import {
+  ArrowLeft,
+  Save,
+  Pencil,
+  X,
+  UserPlus,
+  Trash2,
+  Search,
+  Link2,
+  Copy,
+  Check,
+} from "lucide-react";
 import BankAccountsCard from "../components/BankAccountsCard.jsx";
 import ContactsCard from "../components/ContactsCard.jsx";
 import DocumentsCard from "../components/DocumentsCard.jsx";
@@ -113,6 +124,14 @@ export default function OrganizationDetailPage() {
   const [memberError, setMemberError] = useState("");
   const [searchingUsers, setSearchingUsers] = useState(false);
   const searchTimeout = useRef(null);
+
+  // Invite modal state
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteLink, setInviteLink] = useState("");
+  const [inviteExpiry, setInviteExpiry] = useState("");
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState("");
+  const [copied, setCopied] = useState(false);
 
   // Load sections for dropdown
   useEffect(() => {
@@ -291,6 +310,40 @@ export default function OrganizationDetailPage() {
     }
   }
 
+  async function handleGenerateInvite() {
+    setInviteLoading(true);
+    setInviteError("");
+    setInviteLink("");
+    setCopied(false);
+    try {
+      const res = await api("/api/auth/invite", {
+        method: "POST",
+        body: JSON.stringify({ organizationId: id }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Ошибка генерации приглашения");
+      }
+      const data = await res.json();
+      setInviteLink(`${window.location.origin}/invite/${data.token}`);
+      setInviteExpiry(new Date(data.expiresAt).toLocaleString("ru-RU"));
+    } catch (err) {
+      setInviteError(err.message);
+    } finally {
+      setInviteLoading(false);
+    }
+  }
+
+  async function handleCopyInvite() {
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback
+    }
+  }
+
   function openAddMember() {
     setShowAddMember(true);
     setMemberSearch("");
@@ -323,19 +376,35 @@ export default function OrganizationDetailPage() {
 
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-900">{organization.name}</h1>
-        {canEdit && !editing && (
-          <button
-            onClick={() => {
-              populateForm(organization);
-              setEditing(true);
-              setSaveMsg("");
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
-          >
-            <Pencil size={16} />
-            Изменить
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {canEdit && !editing && (
+            <button
+              onClick={() => {
+                setShowInvite(true);
+                setInviteLink("");
+                setInviteError("");
+                setCopied(false);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+            >
+              <Link2 size={16} />
+              Пригласить клиента
+            </button>
+          )}
+          {canEdit && !editing && (
+            <button
+              onClick={() => {
+                populateForm(organization);
+                setEditing(true);
+                setSaveMsg("");
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+            >
+              <Pencil size={16} />
+              Изменить
+            </button>
+          )}
+        </div>
         {saveMsg && (
           <span
             className={`text-sm ${saveMsg === "Сохранено" ? "text-green-600" : "text-red-600"}`}
@@ -775,6 +844,68 @@ export default function OrganizationDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Invite Client Modal */}
+      {showInvite && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md mx-4 p-6">
+            <h2 className="text-lg font-bold text-slate-900 mb-4">Пригласить клиента</h2>
+
+            {!inviteLink && !inviteError && (
+              <div className="text-center">
+                <p className="text-sm text-slate-500 mb-4">
+                  Будет сгенерирована ссылка-приглашение для регистрации клиента в организации{" "}
+                  <span className="font-semibold text-slate-900">
+                    &laquo;{organization.name}&raquo;
+                  </span>
+                  .
+                </p>
+                <button
+                  onClick={handleGenerateInvite}
+                  disabled={inviteLoading}
+                  className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
+                >
+                  {inviteLoading ? "Генерация..." : "Сгенерировать ссылку"}
+                </button>
+              </div>
+            )}
+
+            {inviteLink && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={inviteLink}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-700"
+                  />
+                  <button
+                    onClick={handleCopyInvite}
+                    className="shrink-0 inline-flex items-center gap-1 px-3 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    {copied ? <Check size={16} /> : <Copy size={16} />}
+                    {copied ? "Скопировано" : "Копировать"}
+                  </button>
+                </div>
+                <p className="text-xs text-slate-400">Действительна до: {inviteExpiry}</p>
+              </div>
+            )}
+
+            {inviteError && (
+              <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{inviteError}</div>
+            )}
+
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => setShowInvite(false)}
+                className="px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Member Modal */}
       {showAddMember && (

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router";
-import { Building2, Map, Users, FileText, Plus, ArrowRight } from "lucide-react";
+import { Building2, Map, Users, UserCheck, FileText, Plus, ArrowRight } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
@@ -140,6 +140,15 @@ export default function DashboardPage() {
                 value={stats.users}
                 color="bg-amber-500/10 text-amber-500"
                 to="/staff"
+              />
+            )}
+            {stats.clients != null && (
+              <StatCard
+                icon={UserCheck}
+                label="Клиенты"
+                value={stats.clients}
+                color="bg-cyan-500/10 text-cyan-500"
+                to="/clients"
               />
             )}
             <StatCard

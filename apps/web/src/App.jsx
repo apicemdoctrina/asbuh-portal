@@ -9,9 +9,13 @@ import SectionDetailPage from "./pages/SectionDetailPage.jsx";
 import OrganizationsPage from "./pages/OrganizationsPage.jsx";
 import OrganizationDetailPage from "./pages/OrganizationDetailPage.jsx";
 import StaffPage from "./pages/StaffPage.jsx";
+import ClientsPage from "./pages/ClientsPage.jsx";
+import UserProfilePage from "./pages/UserProfilePage.jsx";
 import WorkContactsPage from "./pages/WorkContactsPage.jsx";
 import AuditLogPage from "./pages/AuditLogPage.jsx";
 import KnowledgePage from "./pages/KnowledgePage.jsx";
+import ProfilePage from "./pages/ProfilePage.jsx";
+import InvitePage from "./pages/InvitePage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
 
 export default function App() {
@@ -20,6 +24,7 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/invite/:token" element={<InvitePage />} />
           <Route
             element={
               <ProtectedRoute>
@@ -33,9 +38,12 @@ export default function App() {
             <Route path="organizations" element={<OrganizationsPage />} />
             <Route path="organizations/:id" element={<OrganizationDetailPage />} />
             <Route path="staff" element={<StaffPage />} />
+            <Route path="clients" element={<ClientsPage />} />
+            <Route path="users/:id" element={<UserProfilePage />} />
             <Route path="contacts" element={<WorkContactsPage />} />
             <Route path="knowledge" element={<KnowledgePage />} />
             <Route path="audit-log" element={<AuditLogPage />} />
+            <Route path="profile" element={<ProfilePage />} />
           </Route>
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

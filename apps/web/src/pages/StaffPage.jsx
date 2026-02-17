@@ -1,7 +1,28 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
 import { Search, Plus, X, Loader2, Pencil, Trash2 } from "lucide-react";
+
+const ONLINE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+
+function isOnline(lastSeenAt) {
+  if (!lastSeenAt) return false;
+  return Date.now() - new Date(lastSeenAt).getTime() < ONLINE_THRESHOLD_MS;
+}
+
+function formatLastSeen(lastSeenAt) {
+  if (!lastSeenAt) return "Никогда";
+  const diff = Date.now() - new Date(lastSeenAt).getTime();
+  if (diff < ONLINE_THRESHOLD_MS) return "Онлайн";
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 60) return `${minutes} мин. назад`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} ч. назад`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} дн. назад`;
+  return new Date(lastSeenAt).toLocaleDateString("ru-RU");
+}
 
 const ASSIGNABLE_ROLES = ["admin", "manager", "accountant"];
 
@@ -25,8 +46,9 @@ export default function StaffPage() {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const params = search ? `?search=${encodeURIComponent(search)}` : "";
-      const res = await api(`/api/users${params}`);
+      const qs = new URLSearchParams({ excludeRole: "client" });
+      if (search) qs.set("search", search);
+      const res = await api(`/api/users?${qs}`);
       if (res.ok) {
         setUsers(await res.json());
       }
@@ -127,7 +149,18 @@ export default function StaffPage() {
                   className={`border-b border-slate-50 hover:bg-slate-50/50 ${!u.isActive ? "opacity-50" : ""}`}
                 >
                   <td className="px-6 py-3 font-medium text-slate-900">
-                    {u.lastName} {u.firstName}
+                    {isAdmin ? (
+                      <Link
+                        to={`/users/${u.id}`}
+                        className="hover:text-[#6567F1] transition-colors"
+                      >
+                        {u.lastName} {u.firstName}
+                      </Link>
+                    ) : (
+                      <>
+                        {u.lastName} {u.firstName}
+                      </>
+                    )}
                   </td>
                   <td className="px-6 py-3 text-slate-600">{u.email}</td>
                   <td className="px-6 py-3">
@@ -144,9 +177,16 @@ export default function StaffPage() {
                   </td>
                   <td className="px-6 py-3">
                     {u.isActive ? (
-                      <span className="text-green-600 bg-green-50 px-2 py-0.5 rounded-full text-xs font-medium">
-                        Активен
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-block w-2 h-2 rounded-full ${isOnline(u.lastSeenAt) ? "bg-green-500" : "bg-slate-300"}`}
+                        />
+                        <span
+                          className={`text-xs font-medium ${isOnline(u.lastSeenAt) ? "text-green-600" : "text-slate-500"}`}
+                        >
+                          {formatLastSeen(u.lastSeenAt)}
+                        </span>
+                      </div>
                     ) : (
                       <span className="text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full text-xs font-medium">
                         Неактивен

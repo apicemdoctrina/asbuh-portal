@@ -13,7 +13,11 @@ model User {
   passwordHash String   @map("password_hash")
   firstName    String   @map("first_name")
   lastName     String   @map("last_name")
-  isActive     Boolean  @default(true) @map("is_active")
+  avatarPath   String?   @map("avatar_path")
+  phone        String?
+  birthDate    DateTime? @map("birth_date") @db.Date
+  lastSeenAt   DateTime? @map("last_seen_at")
+  isActive     Boolean   @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
