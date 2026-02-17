@@ -25,6 +25,7 @@ model User {
   auditLogs           AuditLog[]
   uploadedDocuments   OrganizationDocument[]
   workContacts        WorkContact[]
+  knowledgeItems      KnowledgeItem[]
 
   @@map("users")
 }
@@ -296,6 +297,41 @@ model OrganizationDocument {
   uploadedBy   User         @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
 
   @@map("organization_documents")
+}
+
+enum KnowledgeItemType {
+  ARTICLE
+  VIDEO
+  FILE
+}
+
+enum KnowledgeAudience {
+  STAFF
+  CLIENT
+}
+
+model KnowledgeItem {
+  id           String              @id @default(uuid())
+  title        String
+  type         KnowledgeItemType
+  audience     KnowledgeAudience
+  tags         String[]
+  description    String?
+  content        String?
+  url            String?
+  coverImagePath String?           @map("cover_image_path")
+  coverImageName String?           @map("cover_image_name")
+  originalName   String?           @map("original_name")
+  storagePath    String?           @map("storage_path")
+  mimeType       String?           @map("mime_type")
+  fileSize       Int?              @map("file_size")
+  createdById  String              @map("created_by_id")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@map("knowledge_items")
 }
 
 model WorkContact {

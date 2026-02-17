@@ -6,6 +6,7 @@ import {
   Building2,
   Users,
   Phone,
+  BookOpen,
   ScrollText,
   LogOut,
   Menu,
@@ -24,6 +25,12 @@ const navItems = [
   },
   { to: "/staff", label: "Сотрудники", icon: Users, role: "admin" },
   { to: "/contacts", label: "Контакты", icon: Phone, permission: ["work_contact", "view"] },
+  {
+    to: "/knowledge",
+    label: null,
+    icon: BookOpen,
+    permission: ["knowledge_item", "view"],
+  },
   { to: "/audit-log", label: "Журнал", icon: ScrollText, role: "admin" },
 ];
 
@@ -103,7 +110,7 @@ export default function Layout() {
               onClick={() => setSidebarOpen(false)}
             >
               <item.icon size={18} />
-              {item.label}
+              {item.label ?? (hasRole("client") ? "Материалы" : "База знаний")}
             </NavLink>
           ))}
         </nav>

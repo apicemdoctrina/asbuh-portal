@@ -125,6 +125,29 @@ export const updateWorkContactSchema = z.object({
   comment: z.string().nullable().optional(),
 });
 
+const KNOWLEDGE_ITEM_TYPES = ["ARTICLE", "VIDEO", "FILE"] as const;
+const KNOWLEDGE_AUDIENCES = ["STAFF", "CLIENT"] as const;
+
+export const createKnowledgeItemSchema = z.object({
+  title: z.string().min(1, "title is required"),
+  type: z.enum(KNOWLEDGE_ITEM_TYPES),
+  audience: z.enum(KNOWLEDGE_AUDIENCES),
+  tags: z.array(z.string()).optional().default([]),
+  description: z.string().nullable().optional(),
+  content: z.string().nullable().optional(),
+  url: z.string().url().nullable().optional(),
+});
+
+export const updateKnowledgeItemSchema = z.object({
+  title: z.string().min(1).optional(),
+  type: z.enum(KNOWLEDGE_ITEM_TYPES).optional(),
+  audience: z.enum(KNOWLEDGE_AUDIENCES).optional(),
+  tags: z.array(z.string()).optional(),
+  description: z.string().nullable().optional(),
+  content: z.string().nullable().optional(),
+  url: z.string().url().nullable().optional(),
+});
+
 const DOCUMENT_TYPES = ["CONTRACT", "ACT", "INVOICE", "REPORT", "WAYBILL", "OTHER"] as const;
 
 export const createDocumentSchema = z.object({

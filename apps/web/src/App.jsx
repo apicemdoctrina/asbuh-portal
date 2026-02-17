@@ -11,6 +11,7 @@ import OrganizationDetailPage from "./pages/OrganizationDetailPage.jsx";
 import StaffPage from "./pages/StaffPage.jsx";
 import WorkContactsPage from "./pages/WorkContactsPage.jsx";
 import AuditLogPage from "./pages/AuditLogPage.jsx";
+import KnowledgePage from "./pages/KnowledgePage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
 
 export default function App() {
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="organizations/:id" element={<OrganizationDetailPage />} />
             <Route path="staff" element={<StaffPage />} />
             <Route path="contacts" element={<WorkContactsPage />} />
+            <Route path="knowledge" element={<KnowledgePage />} />
             <Route path="audit-log" element={<AuditLogPage />} />
           </Route>
           <Route path="*" element={<NotFoundPage />} />
