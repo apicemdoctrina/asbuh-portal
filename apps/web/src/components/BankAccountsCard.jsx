@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api } from "../lib/api.js";
-import { Plus, Pencil, Trash2, X } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Eye, EyeOff } from "lucide-react";
 
 const BANKS = [
   { name: "Сбербанк", bg: "bg-green-100", text: "text-green-700" },
@@ -26,25 +26,41 @@ function bankBadgeCls(name) {
   return "bg-slate-100 text-slate-600";
 }
 
+const SECRET_DISPLAY_DURATION = 30_000;
+
 export default function BankAccountsCard({
   organizationId,
   bankAccounts,
   canEdit,
   showLogin,
+  canViewSecrets,
   onDataChanged,
 }) {
   const [showModal, setShowModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
   const [bankName, setBankName] = useState("");
   const [login, setLogin] = useState("");
+  const [password, setPassword] = useState("");
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+
+  // Revealed secrets: { [accountId]: { login, password } }
+  const [revealedSecrets, setRevealedSecrets] = useState({});
+  const hideTimers = useRef({});
+
+  // Cleanup all timers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(hideTimers.current).forEach(clearTimeout);
+    };
+  }, []);
 
   function openAdd() {
     setEditingAccount(null);
     setBankName("");
     setLogin("");
+    setPassword("");
     setComment("");
     setFormError("");
     setShowModal(true);
@@ -53,7 +69,8 @@ export default function BankAccountsCard({
   function openEdit(acc) {
     setEditingAccount(acc);
     setBankName(acc.bankName || "");
-    setLogin(acc.login || "");
+    setLogin("");
+    setPassword("");
     setComment(acc.comment || "");
     setFormError("");
     setShowModal(true);
@@ -69,7 +86,7 @@ export default function BankAccountsCard({
     try {
       const body = JSON.stringify({
         bankName,
-        ...(showLogin ? { login: login.trim() || null } : {}),
+        ...(showLogin ? { login: login.trim() || null, password: password.trim() || null } : {}),
         comment: comment.trim() || null,
       });
       const url = editingAccount
@@ -105,6 +122,52 @@ export default function BankAccountsCard({
     }
   }
 
+  async function handleRevealSecrets(accId) {
+    // If already revealed, hide
+    if (revealedSecrets[accId]) {
+      clearTimeout(hideTimers.current[accId]);
+      delete hideTimers.current[accId];
+      setRevealedSecrets((prev) => {
+        const next = { ...prev };
+        delete next[accId];
+        return next;
+      });
+      return;
+    }
+
+    try {
+      const res = await api(`/api/organizations/${organizationId}/bank-accounts/${accId}/secrets`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Ошибка получения данных");
+      }
+      const secrets = await res.json();
+      setRevealedSecrets((prev) => ({ ...prev, [accId]: secrets }));
+
+      // Auto-hide after 30 seconds
+      hideTimers.current[accId] = setTimeout(() => {
+        setRevealedSecrets((prev) => {
+          const next = { ...prev };
+          delete next[accId];
+          return next;
+        });
+        delete hideTimers.current[accId];
+      }, SECRET_DISPLAY_DURATION);
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
+  function getDisplayLogin(acc) {
+    if (revealedSecrets[acc.id]) return revealedSecrets[acc.id].login;
+    return acc.login;
+  }
+
+  function getDisplayPassword(acc) {
+    if (revealedSecrets[acc.id]) return revealedSecrets[acc.id].password;
+    return acc.password;
+  }
+
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
       <div className="flex items-center justify-between mb-4">
@@ -123,40 +186,66 @@ export default function BankAccountsCard({
         <p className="text-sm text-slate-400">Нет банковских счетов</p>
       ) : (
         <div className="space-y-2">
-          {bankAccounts.map((acc) => (
-            <div
-              key={acc.id}
-              className="flex items-center justify-between bg-slate-50 rounded-lg p-3"
-            >
-              <div className="text-sm text-slate-600 space-y-0.5">
-                <p>
-                  <span
-                    className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${bankBadgeCls(acc.bankName)}`}
-                  >
-                    {acc.bankName}
-                  </span>
-                </p>
-                {showLogin && acc.login && <p>Логин: {acc.login}</p>}
-                {acc.comment && <p className="text-slate-400">{acc.comment}</p>}
-              </div>
-              {canEdit && (
-                <div className="flex items-center gap-2 ml-4 shrink-0">
-                  <button
-                    onClick={() => openEdit(acc)}
-                    className="text-slate-400 hover:text-[#6567F1] transition-colors"
-                  >
-                    <Pencil size={16} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(acc.id)}
-                    className="text-slate-400 hover:text-red-500 transition-colors"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+          {bankAccounts.map((acc) => {
+            const displayLogin = getDisplayLogin(acc);
+            const displayPassword = getDisplayPassword(acc);
+            const isRevealed = !!revealedSecrets[acc.id];
+
+            return (
+              <div
+                key={acc.id}
+                className="flex items-center justify-between bg-slate-50 rounded-lg p-3"
+              >
+                <div className="text-sm text-slate-600 space-y-0.5">
+                  <p>
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${bankBadgeCls(acc.bankName)}`}
+                    >
+                      {acc.bankName}
+                    </span>
+                  </p>
+                  {showLogin && displayLogin != null && (
+                    <p>
+                      Логин: <span className="font-mono">{displayLogin}</span>
+                    </p>
+                  )}
+                  {showLogin && displayPassword != null && (
+                    <p>
+                      Пароль: <span className="font-mono">{displayPassword}</span>
+                    </p>
+                  )}
+                  {acc.comment && <p className="text-slate-400">{acc.comment}</p>}
                 </div>
-              )}
-            </div>
-          ))}
+                <div className="flex items-center gap-2 ml-4 shrink-0">
+                  {canViewSecrets && (acc.login != null || acc.password != null) && (
+                    <button
+                      onClick={() => handleRevealSecrets(acc.id)}
+                      className="text-slate-400 hover:text-[#6567F1] transition-colors"
+                      title={isRevealed ? "Скрыть" : "Показать секреты"}
+                    >
+                      {isRevealed ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  )}
+                  {canEdit && (
+                    <>
+                      <button
+                        onClick={() => openEdit(acc)}
+                        className="text-slate-400 hover:text-[#6567F1] transition-colors"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(acc.id)}
+                        className="text-slate-400 hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -196,15 +285,28 @@ export default function BankAccountsCard({
                 </div>
               </div>
               {showLogin && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Логин</label>
-                  <input
-                    type="text"
-                    value={login}
-                    onChange={(e) => setLogin(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
-                  />
-                </div>
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Логин</label>
+                    <input
+                      type="text"
+                      value={login}
+                      onChange={(e) => setLogin(e.target.value)}
+                      placeholder={editingAccount ? "Оставьте пустым, чтобы не менять" : ""}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Пароль</label>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder={editingAccount ? "Оставьте пустым, чтобы не менять" : ""}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                    />
+                  </div>
+                </>
               )}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Комментарий</label>

@@ -3,8 +3,10 @@ import { Prisma } from "@prisma/client";
 import fs from "node:fs/promises";
 import path from "node:path";
 import multer from "multer";
+import rateLimit from "express-rate-limit";
 import prisma from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
+import { encrypt, decrypt } from "../lib/crypto.js";
 import { authenticate, requirePermission } from "../middleware/auth.js";
 import {
   createOrganizationSchema,
@@ -16,6 +18,14 @@ import {
   createDocumentSchema,
 } from "../lib/validators.js";
 import { upload, UPLOADS_DIR } from "../lib/upload.js";
+
+const secretsLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { error: "Too many secret view requests, try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 const router = Router();
 
@@ -33,6 +43,22 @@ function getScopedWhere(userId: string, roles: string[]): Prisma.OrganizationWhe
 /** Check if user has only client-level access (no admin/manager/accountant). */
 function isClientOnly(roles: string[]): boolean {
   return !roles.some((r) => ["admin", "manager", "accountant"].includes(r));
+}
+
+/** Mask bank account secrets for staff: login/password → "***", null stays null. */
+function maskBankAccountSecrets(
+  accounts: Array<Record<string, unknown>>,
+  stripForClient: boolean,
+): void {
+  for (const account of accounts) {
+    if (stripForClient) {
+      delete account.login;
+      delete account.password;
+    } else {
+      account.login = account.login != null ? "***" : null;
+      account.password = account.password != null ? "***" : null;
+    }
+  }
 }
 
 /** Build Prisma data from validated fields, converting decimals. */
@@ -251,12 +277,11 @@ router.get("/:id", authenticate, requirePermission("organization", "view"), asyn
       return;
     }
 
-    // DTO filtering: clients should not see bank account login fields
-    if (isClientOnly(req.user!.roles)) {
-      for (const account of organization.bankAccounts) {
-        delete (account as Record<string, unknown>).login;
-      }
-    }
+    // Mask bank account secrets: staff sees "***", client gets fields stripped
+    maskBankAccountSecrets(
+      organization.bankAccounts as unknown as Array<Record<string, unknown>>,
+      isClientOnly(req.user!.roles),
+    );
 
     res.json(organization);
   } catch (err) {
@@ -508,12 +533,16 @@ router.post(
         return;
       }
 
+      const loginValue = result.data.login ?? null;
+      const passwordValue = result.data.password ?? null;
+
       const account = await prisma.organizationBankAccount.create({
         data: {
           organizationId: org.id,
           bankName: result.data.bankName,
           accountNumber: result.data.accountNumber ?? null,
-          login: result.data.login ?? null,
+          login: loginValue ? encrypt(loginValue) : null,
+          password: passwordValue ? encrypt(passwordValue) : null,
           comment: result.data.comment ?? null,
         },
       });
@@ -527,7 +556,13 @@ router.post(
         ipAddress: req.ip,
       });
 
-      res.status(201).json(account);
+      // Mask secrets in response — never return ciphertext
+      const responseAccount = {
+        ...account,
+        login: account.login != null ? "***" : null,
+        password: account.password != null ? "***" : null,
+      };
+      res.status(201).json(responseAccount);
     } catch (err) {
       console.error("Create bank account error:", err);
       res.status(500).json({ error: "Internal server error" });
@@ -570,6 +605,14 @@ router.put(
         if (value !== undefined) data[key] = value;
       }
 
+      // Encrypt login/password if provided
+      if (data.login !== undefined) {
+        data.login = data.login ? encrypt(data.login as string) : null;
+      }
+      if (data.password !== undefined) {
+        data.password = data.password ? encrypt(data.password as string) : null;
+      }
+
       const updated = await prisma.organizationBankAccount.update({
         where: { id: account.id },
         data,
@@ -584,7 +627,13 @@ router.put(
         ipAddress: req.ip,
       });
 
-      res.json(updated);
+      // Mask secrets in response
+      const responseAccount = {
+        ...updated,
+        login: updated.login != null ? "***" : null,
+        password: updated.password != null ? "***" : null,
+      };
+      res.json(responseAccount);
     } catch (err) {
       console.error("Update bank account error:", err);
       res.status(500).json({ error: "Internal server error" });
@@ -630,6 +679,52 @@ router.delete(
       res.json({ message: "Bank account deleted" });
     } catch (err) {
       console.error("Delete bank account error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// GET /api/organizations/:id/bank-accounts/:accountId/secrets — decrypt secrets
+router.get(
+  "/:id/bank-accounts/:accountId/secrets",
+  authenticate,
+  requirePermission("organization_secret", "view"),
+  secretsLimiter,
+  async (req, res) => {
+    try {
+      const scope = getScopedWhere(req.user!.userId, req.user!.roles);
+      const org = await prisma.organization.findFirst({
+        where: { id: req.params.id, ...scope },
+      });
+      if (!org) {
+        res.status(404).json({ error: "Organization not found" });
+        return;
+      }
+
+      const account = await prisma.organizationBankAccount.findFirst({
+        where: { id: req.params.accountId, organizationId: org.id },
+      });
+      if (!account) {
+        res.status(404).json({ error: "Bank account not found" });
+        return;
+      }
+
+      const decryptedLogin = account.login ? decrypt(account.login) : null;
+      const decryptedPassword = account.password ? decrypt(account.password) : null;
+
+      await logAudit({
+        action: "organization_secret_viewed",
+        userId: req.user!.userId,
+        entity: "organization",
+        entityId: org.id,
+        details: { bankAccountId: account.id, bankName: account.bankName },
+        ipAddress: req.ip,
+      });
+
+      res.set("Cache-Control", "no-store");
+      res.json({ login: decryptedLogin, password: decryptedPassword });
+    } catch (err) {
+      console.error("View bank account secrets error:", err);
       res.status(500).json({ error: "Internal server error" });
     }
   },

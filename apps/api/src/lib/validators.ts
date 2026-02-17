@@ -83,6 +83,7 @@ export const createBankAccountSchema = z.object({
   bankName: z.string().min(1, "bankName is required"),
   accountNumber: z.string().nullable().optional(),
   login: z.string().nullable().optional(),
+  password: z.string().nullable().optional(),
   comment: z.string().nullable().optional(),
 });
 
@@ -90,6 +91,7 @@ export const updateBankAccountSchema = z.object({
   bankName: z.string().min(1).optional(),
   accountNumber: z.string().nullable().optional(),
   login: z.string().nullable().optional(),
+  password: z.string().nullable().optional(),
   comment: z.string().nullable().optional(),
 });
 

@@ -235,6 +235,7 @@ model OrganizationBankAccount {
   bankName       String   @map("bank_name")
   accountNumber  String?  @map("account_number")
   login          String?
+  password       String?
   comment        String?
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")

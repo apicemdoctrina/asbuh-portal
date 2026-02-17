@@ -28,6 +28,8 @@ const PERMISSIONS: Array<{ entity: string; action: string }> = [
   { entity: "document", action: "delete" },
   // Audit log
   { entity: "audit_log", action: "view" },
+  // Organization secrets (bank login/password decryption)
+  { entity: "organization_secret", action: "view" },
   // Work contacts
   { entity: "work_contact", action: "view" },
   { entity: "work_contact", action: "create" },
@@ -44,6 +46,7 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "organization", action: "view" },
     { entity: "document", action: "view" },
     { entity: "audit_log", action: "view" },
+    { entity: "organization_secret", action: "view" },
     { entity: "work_contact", action: "view" },
     { entity: "work_contact", action: "create" },
     { entity: "work_contact", action: "edit" },
@@ -55,6 +58,7 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "document", action: "view" },
     { entity: "document", action: "create" },
     { entity: "document", action: "edit" },
+    { entity: "organization_secret", action: "view" },
     { entity: "work_contact", action: "view" },
     { entity: "work_contact", action: "create" },
     { entity: "work_contact", action: "edit" },

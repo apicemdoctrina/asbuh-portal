@@ -712,6 +712,7 @@ export default function OrganizationDetailPage() {
           bankAccounts={organization.bankAccounts || []}
           canEdit={canEdit}
           showLogin={canEdit && !hasRole("client")}
+          canViewSecrets={hasPermission("organization_secret", "view")}
           onDataChanged={fetchOrganization}
         />
         <DocumentsCard

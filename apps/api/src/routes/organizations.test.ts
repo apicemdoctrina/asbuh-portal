@@ -4,6 +4,15 @@ import app from "../app.js";
 import prisma from "../lib/prisma.js";
 import { signAccessToken } from "../lib/tokens.js";
 
+vi.mock("../lib/crypto.js", () => ({
+  encrypt: vi.fn((v: string) => `enc_v1:mock_iv:mock_tag:${Buffer.from(v).toString("hex")}`),
+  decrypt: vi.fn((v: string) => {
+    const parts = v.split(":");
+    if (parts[0] !== "enc_v1") throw new Error("Invalid format");
+    return Buffer.from(parts[3], "hex").toString("utf8");
+  }),
+}));
+
 vi.mock("../lib/prisma.js", () => {
   const mockPrisma = {
     organization: {
@@ -138,14 +147,21 @@ describe("GET /api/organizations", () => {
 // --------------- GET /api/organizations/:id ---------------
 
 describe("GET /api/organizations/:id", () => {
-  it("admin: can view any organization with bankAccounts and contacts (200)", async () => {
+  it("admin: can view organization with bankAccounts masked as *** (200)", async () => {
     mockPermission(true);
     (prisma.organization.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "o1",
       name: "Org1",
       section: null,
       members: [],
-      bankAccounts: [{ id: "ba1", bankName: "Sber", login: "secret123" }],
+      bankAccounts: [
+        {
+          id: "ba1",
+          bankName: "Sber",
+          login: "enc_v1:iv:tag:cipher",
+          password: "enc_v1:iv:tag:pw",
+        },
+      ],
       contacts: [{ id: "c1", contactPerson: "Ivan" }],
     });
 
@@ -155,7 +171,8 @@ describe("GET /api/organizations/:id", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.bankAccounts).toHaveLength(1);
-    expect(res.body.bankAccounts[0].login).toBe("secret123");
+    expect(res.body.bankAccounts[0].login).toBe("***");
+    expect(res.body.bankAccounts[0].password).toBe("***");
     expect(res.body.contacts).toHaveLength(1);
   });
 
@@ -170,7 +187,7 @@ describe("GET /api/organizations/:id", () => {
     expect(res.status).toBe(404);
   });
 
-  it("client: bankAccounts login field is stripped (DTO filtering)", async () => {
+  it("client: bankAccounts login and password fields are stripped (DTO filtering)", async () => {
     mockPermission(true);
     (prisma.organization.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "o1",
@@ -178,7 +195,14 @@ describe("GET /api/organizations/:id", () => {
       section: null,
       members: [],
       bankAccounts: [
-        { id: "ba1", bankName: "Sber", accountNumber: "123", login: "secret", comment: null },
+        {
+          id: "ba1",
+          bankName: "Sber",
+          accountNumber: "123",
+          login: "enc_v1:iv:tag:cipher",
+          password: "enc_v1:iv:tag:pw",
+          comment: null,
+        },
       ],
       contacts: [],
     });
@@ -189,6 +213,7 @@ describe("GET /api/organizations/:id", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.bankAccounts[0]).not.toHaveProperty("login");
+    expect(res.body.bankAccounts[0]).not.toHaveProperty("password");
     expect(res.body.bankAccounts[0].bankName).toBe("Sber");
   });
 });
@@ -688,6 +713,109 @@ describe("DELETE /api/organizations/:id/contacts/:contactId", () => {
 
     const res = await request(app)
       .delete("/api/organizations/o1/contacts/c-none")
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(404);
+  });
+});
+
+// --------------- Bank Account Encryption ---------------
+
+describe("POST /api/organizations/:id/bank-accounts (encryption)", () => {
+  it("encrypts login and password, response shows ***", async () => {
+    mockPermission(true);
+    (prisma.organization.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "o1",
+      name: "Org1",
+    });
+    (prisma.organizationBankAccount.create as ReturnType<typeof vi.fn>).mockImplementation(
+      async ({ data }: { data: Record<string, unknown> }) => ({
+        id: "ba-new",
+        organizationId: "o1",
+        ...data,
+      }),
+    );
+    (prisma.auditLog.create as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+    const res = await request(app)
+      .post("/api/organizations/o1/bank-accounts")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ bankName: "Sber", login: "mylogin", password: "mypass" });
+
+    expect(res.status).toBe(201);
+    // Response should show masked values
+    expect(res.body.login).toBe("***");
+    expect(res.body.password).toBe("***");
+
+    // Verify prisma.create was called with encrypted values
+    const createCall = (prisma.organizationBankAccount.create as ReturnType<typeof vi.fn>).mock
+      .calls[0][0];
+    expect(createCall.data.login).toMatch(/^enc_v1:/);
+    expect(createCall.data.password).toMatch(/^enc_v1:/);
+  });
+});
+
+// --------------- GET secrets endpoint ---------------
+
+describe("GET /api/organizations/:id/bank-accounts/:accountId/secrets", () => {
+  it("returns decrypted secrets with audit log (200)", async () => {
+    mockPermission(true);
+    (prisma.organization.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "o1",
+      name: "Org1",
+    });
+    const encLogin = `enc_v1:aabbcc:ddeeff:${Buffer.from("mylogin").toString("hex")}`;
+    const encPassword = `enc_v1:aabbcc:ddeeff:${Buffer.from("mypass").toString("hex")}`;
+    (prisma.organizationBankAccount.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "ba1",
+      organizationId: "o1",
+      bankName: "Sber",
+      login: encLogin,
+      password: encPassword,
+    });
+    (prisma.auditLog.create as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+    const res = await request(app)
+      .get("/api/organizations/o1/bank-accounts/ba1/secrets")
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.login).toBe("mylogin");
+    expect(res.body.password).toBe("mypass");
+    expect(res.headers["cache-control"]).toBe("no-store");
+
+    // Audit log should have been created
+    expect(prisma.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: "organization_secret_viewed",
+          entity: "organization",
+          entityId: "o1",
+        }),
+      }),
+    );
+  });
+
+  it("returns 403 without organization_secret:view permission", async () => {
+    mockPermission(false);
+
+    const res = await request(app)
+      .get("/api/organizations/o1/bank-accounts/ba1/secrets")
+      .set("Authorization", `Bearer ${clientToken}`);
+
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 404 for bank account not in scope", async () => {
+    mockPermission(true);
+    (prisma.organization.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "o1",
+      name: "Org1",
+    });
+    (prisma.organizationBankAccount.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    const res = await request(app)
+      .get("/api/organizations/o1/bank-accounts/ba-none/secrets")
       .set("Authorization", `Bearer ${adminToken}`);
 
     expect(res.status).toBe(404);
