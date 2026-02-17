@@ -67,6 +67,7 @@ function buildOrgData(validated: Record<string, unknown>): Prisma.OrganizationUp
   const directFields = [
     "name",
     "inn",
+    "ogrn",
     "form",
     "status",
     "taxSystems",
@@ -80,6 +81,11 @@ function buildOrgData(validated: Record<string, unknown>): Prisma.OrganizationUp
     "reportingChannel",
     "serviceType",
     "paymentDestination",
+    "importantComment",
+    "checkingAccount",
+    "bik",
+    "correspondentAccount",
+    "requisitesBank",
   ] as const;
 
   for (const field of directFields) {
@@ -198,6 +204,16 @@ router.post("/", authenticate, requirePermission("organization", "create"), asyn
     if (validated.serviceType !== undefined) createData.serviceType = validated.serviceType;
     if (validated.paymentDestination !== undefined)
       createData.paymentDestination = validated.paymentDestination;
+    if (validated.ogrn !== undefined) createData.ogrn = validated.ogrn;
+    if (validated.importantComment !== undefined)
+      createData.importantComment = validated.importantComment;
+    if (validated.checkingAccount !== undefined)
+      createData.checkingAccount = validated.checkingAccount;
+    if (validated.bik !== undefined) createData.bik = validated.bik;
+    if (validated.correspondentAccount !== undefined)
+      createData.correspondentAccount = validated.correspondentAccount;
+    if (validated.requisitesBank !== undefined)
+      createData.requisitesBank = validated.requisitesBank;
     if (validated.monthlyPayment !== undefined) {
       createData.monthlyPayment =
         validated.monthlyPayment === null ? null : new Prisma.Decimal(validated.monthlyPayment);

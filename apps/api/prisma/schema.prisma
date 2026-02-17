@@ -182,8 +182,18 @@ model Organization {
   hasCashRegister Boolean     @default(false)    @map("has_cash_register")
 
   // --- Юридическая ---
+  ogrn         String?
   kpp          String?
   legalAddress String? @map("legal_address")
+
+  // --- Реквизиты ---
+  checkingAccount     String? @map("checking_account")
+  bik                 String?
+  correspondentAccount String? @map("correspondent_account")
+  requisitesBank      String? @map("requisites_bank")
+
+  // --- Прочее ---
+  importantComment String? @map("important_comment")
 
   // --- Бухгалтерская ---
   digitalSignature       DigitalSignatureStatus? @map("digital_signature")

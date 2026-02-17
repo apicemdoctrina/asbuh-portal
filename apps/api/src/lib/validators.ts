@@ -37,6 +37,15 @@ const innField = z.string().regex(/^\d{10}(\d{2})?$/, "INN must be 10 or 12 digi
 
 const kppField = z.string().regex(/^\d{9}$/, "KPP must be 9 digits");
 
+const orgRequisitesFields = {
+  ogrn: z.string().nullable().optional(),
+  importantComment: z.string().nullable().optional(),
+  checkingAccount: z.string().nullable().optional(),
+  bik: z.string().nullable().optional(),
+  correspondentAccount: z.string().nullable().optional(),
+  requisitesBank: z.string().nullable().optional(),
+};
+
 export const createOrganizationSchema = z.object({
   name: z.string().min(1, "name is required"),
   inn: innField.nullable().optional(),
@@ -56,6 +65,7 @@ export const createOrganizationSchema = z.object({
   monthlyPayment: decimalField.nullable().optional(),
   paymentDestination: z.string().nullable().optional(),
   debtAmount: decimalField.nullable().optional(),
+  ...orgRequisitesFields,
 });
 
 export const updateOrganizationSchema = z.object({
@@ -77,6 +87,7 @@ export const updateOrganizationSchema = z.object({
   monthlyPayment: decimalField.nullable().optional(),
   paymentDestination: z.string().nullable().optional(),
   debtAmount: decimalField.nullable().optional(),
+  ...orgRequisitesFields,
 });
 
 export const createBankAccountSchema = z.object({

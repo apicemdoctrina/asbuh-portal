@@ -78,6 +78,7 @@ function formatDate(val) {
 const INITIAL_FORM = {
   name: "",
   inn: "",
+  ogrn: "",
   kpp: "",
   form: "",
   status: "active",
@@ -87,6 +88,7 @@ const INITIAL_FORM = {
   opsPerMonth: "",
   hasCashRegister: false,
   legalAddress: "",
+  importantComment: "",
   digitalSignature: "",
   digitalSignatureExpiry: "",
   reportingChannel: "",
@@ -94,6 +96,10 @@ const INITIAL_FORM = {
   monthlyPayment: "",
   paymentDestination: "",
   debtAmount: "",
+  checkingAccount: "",
+  bik: "",
+  correspondentAccount: "",
+  requisitesBank: "",
 };
 
 export default function OrganizationDetailPage() {
@@ -147,6 +153,7 @@ export default function OrganizationDetailPage() {
     setForm({
       name: data.name || "",
       inn: data.inn || "",
+      ogrn: data.ogrn || "",
       kpp: data.kpp || "",
       form: data.form || "",
       status: data.status || "active",
@@ -156,6 +163,7 @@ export default function OrganizationDetailPage() {
       opsPerMonth: data.opsPerMonth != null ? String(data.opsPerMonth) : "",
       hasCashRegister: data.hasCashRegister || false,
       legalAddress: data.legalAddress || "",
+      importantComment: data.importantComment || "",
       digitalSignature: data.digitalSignature || "",
       digitalSignatureExpiry: data.digitalSignatureExpiry
         ? data.digitalSignatureExpiry.slice(0, 10)
@@ -165,6 +173,10 @@ export default function OrganizationDetailPage() {
       monthlyPayment: data.monthlyPayment != null ? String(data.monthlyPayment) : "",
       paymentDestination: data.paymentDestination || "",
       debtAmount: data.debtAmount != null ? String(data.debtAmount) : "",
+      checkingAccount: data.checkingAccount || "",
+      bik: data.bik || "",
+      correspondentAccount: data.correspondentAccount || "",
+      requisitesBank: data.requisitesBank || "",
     });
   }
 
@@ -231,6 +243,7 @@ export default function OrganizationDetailPage() {
         body: JSON.stringify({
           name: form.name,
           inn: form.inn || null,
+          ogrn: form.ogrn || null,
           kpp: form.kpp || null,
           form: form.form || null,
           status: form.status,
@@ -240,6 +253,7 @@ export default function OrganizationDetailPage() {
           opsPerMonth: toIntOrNull(form.opsPerMonth),
           hasCashRegister: form.hasCashRegister,
           legalAddress: form.legalAddress || null,
+          importantComment: form.importantComment || null,
           digitalSignature: form.digitalSignature || null,
           digitalSignatureExpiry: form.digitalSignatureExpiry || null,
           reportingChannel: form.reportingChannel || null,
@@ -247,6 +261,10 @@ export default function OrganizationDetailPage() {
           monthlyPayment: toDecimalOrNull(form.monthlyPayment),
           paymentDestination: form.paymentDestination || null,
           debtAmount: toDecimalOrNull(form.debtAmount),
+          checkingAccount: form.checkingAccount || null,
+          bik: form.bik || null,
+          correspondentAccount: form.correspondentAccount || null,
+          requisitesBank: form.requisitesBank || null,
         }),
       });
       if (!res.ok) {
@@ -442,6 +460,16 @@ export default function OrganizationDetailPage() {
                   />
                 </div>
                 <div>
+                  <label className={LABEL_CLS}>ОГРН</label>
+                  <input
+                    type="text"
+                    value={form.ogrn}
+                    onChange={(e) => setField("ogrn", e.target.value)}
+                    className={INPUT_CLS}
+                    placeholder="13 или 15 цифр"
+                  />
+                </div>
+                <div>
                   <label className={LABEL_CLS}>КПП</label>
                   <input
                     type="text"
@@ -554,6 +582,65 @@ export default function OrganizationDetailPage() {
                   rows={2}
                   className={INPUT_CLS}
                 />
+              </div>
+
+              {/* Important comment — full width */}
+              <div className="mt-4">
+                <label className={LABEL_CLS}>Важный комментарий</label>
+                <textarea
+                  value={form.importantComment}
+                  onChange={(e) => setField("importantComment", e.target.value)}
+                  rows={2}
+                  placeholder="Отображается в карточке организации"
+                  className={INPUT_CLS}
+                />
+              </div>
+            </div>
+
+            {/* Реквизиты */}
+            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+              <h2 className="text-lg font-bold text-slate-900 mb-4">Реквизиты</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={LABEL_CLS}>Расчётный счёт (Р/С)</label>
+                  <input
+                    type="text"
+                    value={form.checkingAccount}
+                    onChange={(e) => setField("checkingAccount", e.target.value)}
+                    className={INPUT_CLS}
+                    placeholder="40702810..."
+                  />
+                </div>
+                <div>
+                  <label className={LABEL_CLS}>БИК</label>
+                  <input
+                    type="text"
+                    value={form.bik}
+                    onChange={(e) => setField("bik", e.target.value)}
+                    className={INPUT_CLS}
+                    placeholder="9 цифр"
+                  />
+                </div>
+                <div>
+                  <label className={LABEL_CLS}>Корр. счёт (К/С)</label>
+                  <input
+                    type="text"
+                    value={form.correspondentAccount}
+                    onChange={(e) => setField("correspondentAccount", e.target.value)}
+                    className={INPUT_CLS}
+                    placeholder="30101810..."
+                  />
+                </div>
+                <div>
+                  <label className={LABEL_CLS}>Банк</label>
+                  <input
+                    type="text"
+                    value={form.requisitesBank}
+                    onChange={(e) => setField("requisitesBank", e.target.value)}
+                    className={INPUT_CLS}
+                    placeholder="Название банка"
+                  />
+                </div>
               </div>
             </div>
 
@@ -685,9 +772,17 @@ export default function OrganizationDetailPage() {
           {/* Основная информация */}
           <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mb-6">
             <h2 className="text-lg font-bold text-slate-900 mb-4">Основная информация</h2>
+            {organization.importantComment && (
+              <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-900">
+                <span className="font-semibold">⚠ Важно:</span> {organization.importantComment}
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-sm text-slate-600">
               <p>
                 <span className="font-medium">ИНН:</span> {organization.inn || "—"}
+              </p>
+              <p>
+                <span className="font-medium">ОГРН:</span> {organization.ogrn || "—"}
               </p>
               <p>
                 <span className="font-medium">КПП:</span> {organization.kpp || "—"}
@@ -729,6 +824,31 @@ export default function OrganizationDetailPage() {
               </p>
             </div>
           </div>
+
+          {/* Реквизиты */}
+          {(organization.checkingAccount ||
+            organization.bik ||
+            organization.correspondentAccount ||
+            organization.requisitesBank) && (
+            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mb-6">
+              <h2 className="text-lg font-bold text-slate-900 mb-4">Реквизиты</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-sm text-slate-600">
+                <p>
+                  <span className="font-medium">Р/С:</span> {organization.checkingAccount || "—"}
+                </p>
+                <p>
+                  <span className="font-medium">БИК:</span> {organization.bik || "—"}
+                </p>
+                <p>
+                  <span className="font-medium">К/С:</span>{" "}
+                  {organization.correspondentAccount || "—"}
+                </p>
+                <p>
+                  <span className="font-medium">Банк:</span> {organization.requisitesBank || "—"}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Бухгалтерская информация */}
           <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mb-6">
