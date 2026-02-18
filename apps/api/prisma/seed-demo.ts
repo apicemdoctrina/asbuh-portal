@@ -7,6 +7,11 @@
  */
 import { PrismaClient } from "@prisma/client";
 
+if (process.env.NODE_ENV === "production") {
+  console.error("❌ Демо-данные нельзя загружать в production!");
+  process.exit(1);
+}
+
 const prisma = new PrismaClient();
 
 // --------------- Секции ---------------
