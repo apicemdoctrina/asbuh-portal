@@ -7,6 +7,7 @@ import BankAccountsCard from "../components/BankAccountsCard.jsx";
 import SystemAccessesCard from "../components/SystemAccessesCard.jsx";
 import ContactsCard from "../components/ContactsCard.jsx";
 import DocumentsCard from "../components/DocumentsCard.jsx";
+import OrgCompletenessCard from "../components/OrgCompletenessCard.jsx";
 
 const TAX_SYSTEM_LABELS = {
   USN6: "УСН 6%",
@@ -870,8 +871,11 @@ export default function OrganizationDetailPage() {
             )}
           </div>
 
-          {/* ── Right: Members + Contacts ── */}
+          {/* ── Right: Completeness + Members + Contacts ── */}
           <div className="flex flex-col gap-4">
+            {/* Completeness indicator */}
+            <OrgCompletenessCard org={org} />
+
             {/* Members */}
             <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
               <div className="flex items-center justify-between mb-3">
