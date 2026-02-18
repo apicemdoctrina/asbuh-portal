@@ -929,7 +929,7 @@ export default function OrganizationDetailPage() {
       <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mt-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-slate-900">Участники</h2>
-          {canEdit && (
+          {hasRole("admin") && (
             <button
               onClick={openAddMember}
               className="inline-flex items-center gap-1 text-sm text-[#6567F1] hover:text-[#5557E1] font-medium"
@@ -957,7 +957,7 @@ export default function OrganizationDetailPage() {
                     {m.role}
                   </span>
                 </div>
-                {canEdit && (
+                {hasRole("admin") && (
                   <button
                     onClick={() => handleRemoveMember(m.user.id)}
                     className="text-slate-400 hover:text-red-500 transition-colors"
@@ -1033,8 +1033,8 @@ export default function OrganizationDetailPage() {
         </div>
       )}
 
-      {/* Add Member Modal */}
-      {showAddMember && (
+      {/* Add Member Modal — admin only */}
+      {showAddMember && hasRole("admin") && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md mx-4 p-6">
             <h2 className="text-lg font-bold text-slate-900 mb-4">Добавить участника</h2>

@@ -7,7 +7,7 @@ import rateLimit from "express-rate-limit";
 import prisma from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
 import { encrypt, decrypt } from "../lib/crypto.js";
-import { authenticate, requirePermission } from "../middleware/auth.js";
+import { authenticate, requirePermission, requireRole } from "../middleware/auth.js";
 import {
   createOrganizationSchema,
   updateOrganizationSchema,
@@ -406,124 +406,114 @@ router.delete(
   },
 );
 
-// POST /api/organizations/:id/members — add member
-router.post(
-  "/:id/members",
-  authenticate,
-  requirePermission("organization", "edit"),
-  async (req, res) => {
-    try {
-      const { email, role } = req.body;
+// POST /api/organizations/:id/members — add member (admin only)
+router.post("/:id/members", authenticate, requireRole("admin"), async (req, res) => {
+  try {
+    const { email, role } = req.body;
 
-      if (!email) {
-        res.status(400).json({ error: "email is required" });
-        return;
-      }
-
-      const memberRole = role || "client";
-
-      const scope = getScopedWhere(req.user!.userId, req.user!.roles);
-      const organization = await prisma.organization.findFirst({
-        where: { id: req.params.id, ...scope },
-      });
-      if (!organization) {
-        res.status(404).json({ error: "Organization not found" });
-        return;
-      }
-
-      const user = await prisma.user.findUnique({ where: { email } });
-      if (!user) {
-        res.status(404).json({ error: "User not found" });
-        return;
-      }
-
-      const member = await prisma.organizationMember.create({
-        data: {
-          organizationId: organization.id,
-          userId: user.id,
-          role: memberRole,
-        },
-        include: {
-          user: {
-            select: { id: true, email: true, firstName: true, lastName: true },
-          },
-        },
-      });
-
-      await logAudit({
-        action: "organization_member_added",
-        userId: req.user!.userId,
-        entity: "organization",
-        entityId: organization.id,
-        details: { memberId: user.id, email, role: memberRole },
-        ipAddress: req.ip,
-      });
-
-      res.status(201).json(member);
-    } catch (err: unknown) {
-      if (
-        typeof err === "object" &&
-        err !== null &&
-        "code" in err &&
-        (err as { code: string }).code === "P2002"
-      ) {
-        res.status(409).json({ error: "User is already a member of this organization" });
-        return;
-      }
-      console.error("Add organization member error:", err);
-      res.status(500).json({ error: "Internal server error" });
+    if (!email) {
+      res.status(400).json({ error: "email is required" });
+      return;
     }
-  },
-);
 
-// DELETE /api/organizations/:id/members/:userId — remove member
-router.delete(
-  "/:id/members/:userId",
-  authenticate,
-  requirePermission("organization", "edit"),
-  async (req, res) => {
-    try {
-      const scope = getScopedWhere(req.user!.userId, req.user!.roles);
-      const organization = await prisma.organization.findFirst({
-        where: { id: req.params.id, ...scope },
-      });
-      if (!organization) {
-        res.status(404).json({ error: "Organization not found" });
-        return;
-      }
+    const memberRole = role || "client";
 
-      const member = await prisma.organizationMember.findUnique({
-        where: {
-          userId_organizationId: {
-            organizationId: req.params.id,
-            userId: req.params.userId,
-          },
-        },
-      });
-
-      if (!member) {
-        res.status(404).json({ error: "Member not found" });
-        return;
-      }
-
-      await prisma.organizationMember.delete({ where: { id: member.id } });
-
-      await logAudit({
-        action: "organization_member_removed",
-        userId: req.user!.userId,
-        entity: "organization",
-        entityId: req.params.id,
-        details: { removedUserId: req.params.userId },
-        ipAddress: req.ip,
-      });
-
-      res.json({ message: "Member removed" });
-    } catch (err) {
-      console.error("Remove organization member error:", err);
-      res.status(500).json({ error: "Internal server error" });
+    const scope = getScopedWhere(req.user!.userId, req.user!.roles);
+    const organization = await prisma.organization.findFirst({
+      where: { id: req.params.id, ...scope },
+    });
+    if (!organization) {
+      res.status(404).json({ error: "Organization not found" });
+      return;
     }
-  },
-);
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    const member = await prisma.organizationMember.create({
+      data: {
+        organizationId: organization.id,
+        userId: user.id,
+        role: memberRole,
+      },
+      include: {
+        user: {
+          select: { id: true, email: true, firstName: true, lastName: true },
+        },
+      },
+    });
+
+    await logAudit({
+      action: "organization_member_added",
+      userId: req.user!.userId,
+      entity: "organization",
+      entityId: organization.id,
+      details: { memberId: user.id, email, role: memberRole },
+      ipAddress: req.ip,
+    });
+
+    res.status(201).json(member);
+  } catch (err: unknown) {
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      (err as { code: string }).code === "P2002"
+    ) {
+      res.status(409).json({ error: "User is already a member of this organization" });
+      return;
+    }
+    console.error("Add organization member error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// DELETE /api/organizations/:id/members/:userId — remove member (admin only)
+router.delete("/:id/members/:userId", authenticate, requireRole("admin"), async (req, res) => {
+  try {
+    const scope = getScopedWhere(req.user!.userId, req.user!.roles);
+    const organization = await prisma.organization.findFirst({
+      where: { id: req.params.id, ...scope },
+    });
+    if (!organization) {
+      res.status(404).json({ error: "Organization not found" });
+      return;
+    }
+
+    const member = await prisma.organizationMember.findUnique({
+      where: {
+        userId_organizationId: {
+          organizationId: req.params.id,
+          userId: req.params.userId,
+        },
+      },
+    });
+
+    if (!member) {
+      res.status(404).json({ error: "Member not found" });
+      return;
+    }
+
+    await prisma.organizationMember.delete({ where: { id: member.id } });
+
+    await logAudit({
+      action: "organization_member_removed",
+      userId: req.user!.userId,
+      entity: "organization",
+      entityId: req.params.id,
+      details: { removedUserId: req.params.userId },
+      ipAddress: req.ip,
+    });
+
+    res.json({ message: "Member removed" });
+  } catch (err) {
+    console.error("Remove organization member error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 // --- Nested CRUD: Bank Accounts ---
 
