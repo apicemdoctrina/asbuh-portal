@@ -163,6 +163,7 @@ describe("GET /api/organizations/:id", () => {
         },
       ],
       contacts: [{ id: "c1", contactPerson: "Ivan" }],
+      systemAccesses: [],
     });
 
     const res = await request(app)
@@ -205,6 +206,7 @@ describe("GET /api/organizations/:id", () => {
         },
       ],
       contacts: [],
+      systemAccesses: [],
     });
 
     const res = await request(app)

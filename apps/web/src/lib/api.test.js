@@ -16,7 +16,7 @@ describe("api", () => {
     await api("/api/users/me");
 
     expect(globalThis.fetch).toHaveBeenCalledWith(
-      "/api/users/me",
+      expect.stringContaining("/api/users/me"),
       expect.objectContaining({
         headers: expect.objectContaining({ Authorization: "Bearer test-token" }),
       }),

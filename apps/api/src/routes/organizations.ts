@@ -65,9 +65,10 @@ function maskBankAccountSecrets(
 
 /** Mask system access secrets identically to bank accounts. */
 function maskSystemAccessSecrets(
-  accesses: Array<Record<string, unknown>>,
+  accesses: Array<Record<string, unknown>> | null | undefined,
   stripForClient: boolean,
 ): void {
+  if (!accesses) return;
   for (const access of accesses) {
     if (stripForClient) {
       delete access.login;
