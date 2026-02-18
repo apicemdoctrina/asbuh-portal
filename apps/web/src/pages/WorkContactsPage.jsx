@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
+import { useDebouncedEffect } from "../hooks/useDebouncedEffect.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
 import { Search, Plus, X, Loader2, Pencil, Trash2 } from "lucide-react";
@@ -33,10 +34,7 @@ export default function WorkContactsPage() {
     }
   }, [search]);
 
-  useEffect(() => {
-    const timer = setTimeout(fetchContacts, 300);
-    return () => clearTimeout(timer);
-  }, [fetchContacts]);
+  useDebouncedEffect(fetchContacts, [fetchContacts]);
 
   function handleSaved() {
     setShowModal(false);

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useDebouncedEffect } from "../hooks/useDebouncedEffect.js";
 import { Link } from "react-router";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -57,9 +58,7 @@ export default function OrganizationsPage() {
     }
   }, [page, search, statusFilter, sectionId]);
 
-  useEffect(() => {
-    fetchOrganizations();
-  }, [fetchOrganizations]);
+  useDebouncedEffect(fetchOrganizations, [fetchOrganizations]);
 
   const totalPages = Math.ceil(total / limit);
 

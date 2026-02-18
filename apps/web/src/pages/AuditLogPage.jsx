@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useDebouncedEffect } from "../hooks/useDebouncedEffect.js";
 import { api } from "../lib/api.js";
 import { Search, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -49,10 +50,7 @@ export default function AuditLogPage() {
     }
   }, [page, search, entity, from, to]);
 
-  useEffect(() => {
-    const timer = setTimeout(fetchLogs, 300);
-    return () => clearTimeout(timer);
-  }, [fetchLogs]);
+  useDebouncedEffect(fetchLogs, [fetchLogs]);
 
   // Reset to page 1 when filters change
   useEffect(() => {

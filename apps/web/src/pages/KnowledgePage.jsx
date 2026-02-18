@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from "react";
+import { useState, useCallback, useMemo, lazy, Suspense } from "react";
+import { useDebouncedEffect } from "../hooks/useDebouncedEffect.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
 import {
@@ -74,10 +75,7 @@ export default function KnowledgePage() {
     }
   }, [search, typeFilter, audienceFilter, tagFilter]);
 
-  useEffect(() => {
-    const timer = setTimeout(fetchItems, 300);
-    return () => clearTimeout(timer);
-  }, [fetchItems]);
+  useDebouncedEffect(fetchItems, [fetchItems]);
 
   function handleSaved() {
     setShowModal(false);
@@ -124,7 +122,7 @@ export default function KnowledgePage() {
   }
 
   // Collect all unique tags from items for filter dropdown
-  const allTags = [...new Set(items.flatMap((i) => i.tags || []))].sort();
+  const allTags = useMemo(() => [...new Set(items.flatMap((i) => i.tags || []))].sort(), [items]);
 
   return (
     <div className="relative">

@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
+import { useDebouncedEffect } from "../hooks/useDebouncedEffect.js";
 import { Link } from "react-router";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
@@ -59,10 +60,7 @@ export default function StaffPage() {
     }
   }, [search]);
 
-  useEffect(() => {
-    const timer = setTimeout(fetchUsers, 300);
-    return () => clearTimeout(timer);
-  }, [fetchUsers]);
+  useDebouncedEffect(fetchUsers, [fetchUsers]);
 
   function handleCreated() {
     setShowCreateModal(false);
