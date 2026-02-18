@@ -108,6 +108,22 @@ export const updateBankAccountSchema = z.object({
   comment: z.string().nullable().optional(),
 });
 
+export const createSystemAccessSchema = z.object({
+  systemType: z.enum(["KASSA", "ONE_C", "OTHER"]),
+  name: z.string().nullable().optional(),
+  login: z.string().nullable().optional(),
+  password: z.string().nullable().optional(),
+  comment: z.string().nullable().optional(),
+});
+
+export const updateSystemAccessSchema = z.object({
+  systemType: z.enum(["KASSA", "ONE_C", "OTHER"]).optional(),
+  name: z.string().nullable().optional(),
+  login: z.string().nullable().optional(),
+  password: z.string().nullable().optional(),
+  comment: z.string().nullable().optional(),
+});
+
 export const createContactSchema = z.object({
   contactPerson: z.string().min(1, "contactPerson is required"),
   phone: z.string().nullable().optional(),

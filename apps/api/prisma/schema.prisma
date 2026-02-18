@@ -148,6 +148,12 @@ enum OrgForm {
   PAO  // ПАО
 }
 
+enum SystemAccessType {
+  KASSA   // Касса
+  ONE_C   // 1С
+  OTHER   // Другое
+}
+
 model Section {
   id        String   @id @default(uuid())
   number    Int      @unique
@@ -216,12 +222,13 @@ model Organization {
   paymentDestination String?                     @map("payment_destination")
   debtAmount         Decimal? @db.Decimal(12, 2) @map("debt_amount")
 
-  section      Section?             @relation(fields: [sectionId], references: [id], onDelete: SetNull)
-  members      OrganizationMember[]
-  inviteTokens InviteToken[]
-  bankAccounts OrganizationBankAccount[]
-  contacts     OrganizationContact[]
-  documents    OrganizationDocument[]
+  section        Section?             @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  members        OrganizationMember[]
+  inviteTokens   InviteToken[]
+  bankAccounts   OrganizationBankAccount[]
+  systemAccesses OrganizationSystemAccess[]
+  contacts       OrganizationContact[]
+  documents      OrganizationDocument[]
 
   @@index([sectionId])
   @@map("organizations")
@@ -358,6 +365,23 @@ model KnowledgeItem {
   createdBy User @relation(fields: [createdById], references: [id], onDelete: Cascade)
 
   @@map("knowledge_items")
+}
+
+model OrganizationSystemAccess {
+  id             String           @id @default(uuid())
+  organizationId String           @map("organization_id")
+  systemType     SystemAccessType @map("system_type")
+  name           String?
+  login          String?
+  password       String?
+  comment        String?
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("organization_system_accesses")
 }
 
 model WorkContact {

@@ -4,6 +4,7 @@ import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { ArrowLeft, Save, Pencil, X, UserPlus, Trash2, Link2, Copy, Check } from "lucide-react";
 import BankAccountsCard from "../components/BankAccountsCard.jsx";
+import SystemAccessesCard from "../components/SystemAccessesCard.jsx";
 import ContactsCard from "../components/ContactsCard.jsx";
 import DocumentsCard from "../components/DocumentsCard.jsx";
 
@@ -932,6 +933,13 @@ export default function OrganizationDetailPage() {
           bankAccounts={org.bankAccounts || []}
           canEdit={canEdit}
           showLogin={canEdit && !hasRole("client")}
+          canViewSecrets={hasPermission("organization_secret", "view")}
+          onDataChanged={fetchOrganization}
+        />
+        <SystemAccessesCard
+          organizationId={id}
+          systemAccesses={org.systemAccesses || []}
+          canEdit={canEdit && !hasRole("client")}
           canViewSecrets={hasPermission("organization_secret", "view")}
           onDataChanged={fetchOrganization}
         />
