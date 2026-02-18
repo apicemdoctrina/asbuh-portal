@@ -60,7 +60,6 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "knowledge_item", action: "edit" },
   ],
   accountant: [
-    { entity: "section", action: "view" },
     { entity: "organization", action: "view" },
     { entity: "organization", action: "edit" },
     { entity: "document", action: "view" },
