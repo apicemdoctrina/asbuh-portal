@@ -108,7 +108,9 @@ describe("GET /api/stats", () => {
       { status: "new", _count: { _all: 7 } },
     ]);
     (prisma.organizationDocument.count as ReturnType<typeof vi.fn>).mockResolvedValue(120);
-    (prisma.organization.findMany as ReturnType<typeof vi.fn>).mockResolvedValue(recentOrgs);
+    (prisma.organization.findMany as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(recentOrgs) // recent orgs
+      .mockResolvedValueOnce([]); // completeness data
     (prisma.section.count as ReturnType<typeof vi.fn>).mockResolvedValue(8);
     (prisma.user.count as ReturnType<typeof vi.fn>).mockResolvedValue(15);
 
@@ -133,7 +135,9 @@ describe("GET /api/stats", () => {
       { status: "active", _count: { _all: 10 } },
     ]);
     (prisma.organizationDocument.count as ReturnType<typeof vi.fn>).mockResolvedValue(25);
-    (prisma.organization.findMany as ReturnType<typeof vi.fn>).mockResolvedValue(recentOrgs);
+    (prisma.organization.findMany as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(recentOrgs) // recent orgs
+      .mockResolvedValueOnce([]); // completeness data
     (prisma.section.count as ReturnType<typeof vi.fn>).mockResolvedValue(3);
 
     const res = await request(app).get("/api/stats").set("Authorization", `Bearer ${managerToken}`);
@@ -154,7 +158,9 @@ describe("GET /api/stats", () => {
       { status: "active", _count: { _all: 2 } },
     ]);
     (prisma.organizationDocument.count as ReturnType<typeof vi.fn>).mockResolvedValue(5);
-    (prisma.organization.findMany as ReturnType<typeof vi.fn>).mockResolvedValue(recentOrgs);
+    (prisma.organization.findMany as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(recentOrgs) // recent orgs
+      .mockResolvedValueOnce([]); // completeness data
 
     const res = await request(app).get("/api/stats").set("Authorization", `Bearer ${clientToken}`);
 

@@ -22,6 +22,18 @@ const STATUS_BADGE = {
   not_paying: "bg-red-100 text-red-700",
 };
 
+function barColor(pct) {
+  if (pct >= 80) return "bg-green-500";
+  if (pct >= 50) return "bg-amber-400";
+  return "bg-red-400";
+}
+
+function textColor(pct) {
+  if (pct >= 80) return "text-green-700";
+  if (pct >= 50) return "text-amber-700";
+  return "text-red-600";
+}
+
 function StatCard({ icon: Icon, label, value, color, to }) {
   return (
     <Link
@@ -161,6 +173,40 @@ export default function DashboardPage() {
           </>
         ) : null}
       </div>
+
+      {/* Completeness KPI */}
+      {loading ? (
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5 mb-8 animate-pulse">
+          <div className="flex justify-between mb-3">
+            <div className="h-4 w-48 bg-slate-200 rounded" />
+            <div className="h-4 w-8 bg-slate-200 rounded" />
+          </div>
+          <div className="h-2.5 bg-slate-200 rounded-full mb-2" />
+          <div className="h-3 w-40 bg-slate-200 rounded" />
+        </div>
+      ) : stats?.avgCompleteness != null ? (
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5 mb-8">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-semibold text-slate-700">
+              Заполненность карточек организаций
+            </h2>
+            <span className={`text-sm font-bold tabular-nums ${textColor(stats.avgCompleteness)}`}>
+              {stats.avgCompleteness}%
+            </span>
+          </div>
+          <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden mb-2">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${barColor(stats.avgCompleteness)}`}
+              style={{ width: `${stats.avgCompleteness}%` }}
+            />
+          </div>
+          <p className="text-xs text-slate-400">
+            {stats.completedOrganizations} из {stats.organizations.total}{" "}
+            {stats.organizations.total === 1 ? "организация заполнена" : "организаций заполнены"}{" "}
+            полностью
+          </p>
+        </div>
+      ) : null}
 
       {/* Quick actions */}
       {(hasPermission("organization", "create") || hasPermission("section", "create")) && (

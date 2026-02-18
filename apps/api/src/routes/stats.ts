@@ -3,6 +3,49 @@ import { Prisma } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 
+const COMPLETENESS_TOTAL = 17;
+
+type OrgCompletenessRow = {
+  inn: string | null;
+  form: string | null;
+  ogrn: string | null;
+  sectionId: string | null;
+  taxSystems: string[];
+  legalAddress: string | null;
+  digitalSignature: string | null;
+  reportingChannel: string | null;
+  serviceType: string | null;
+  monthlyPayment: Prisma.Decimal | null;
+  paymentDestination: string | null;
+  checkingAccount: string | null;
+  bik: string | null;
+  correspondentAccount: string | null;
+  requisitesBank: string | null;
+  _count: { contacts: number; members: number };
+};
+
+function calcOrgScore(org: OrgCompletenessRow): number {
+  return [
+    !!org.inn,
+    !!org.form,
+    !!org.ogrn,
+    !!org.sectionId,
+    org.taxSystems.length > 0,
+    !!org.legalAddress,
+    !!org.digitalSignature,
+    !!org.reportingChannel,
+    !!org.serviceType,
+    org.monthlyPayment != null,
+    !!org.paymentDestination,
+    !!org.checkingAccount,
+    !!org.bik,
+    !!org.correspondentAccount,
+    !!org.requisitesBank,
+    org._count.contacts > 0,
+    org._count.members > 0,
+  ].filter(Boolean).length;
+}
+
 const router = Router();
 
 /** Build a Prisma `where` filter that enforces data-scoping rules. */
@@ -56,6 +99,28 @@ router.get("/", authenticate, async (req, res) => {
           section: { select: { id: true, number: true, name: true } },
         },
       }),
+      // 4: completeness fields for all scoped orgs
+      prisma.organization.findMany({
+        where: orgWhere,
+        select: {
+          inn: true,
+          form: true,
+          ogrn: true,
+          sectionId: true,
+          taxSystems: true,
+          legalAddress: true,
+          digitalSignature: true,
+          reportingChannel: true,
+          serviceType: true,
+          monthlyPayment: true,
+          paymentDestination: true,
+          checkingAccount: true,
+          bik: true,
+          correspondentAccount: true,
+          requisitesBank: true,
+          _count: { select: { contacts: true, members: true } },
+        },
+      }),
     ];
 
     // 4: sections count (only if user can view sections)
@@ -96,13 +161,28 @@ router.get("/", authenticate, async (req, res) => {
     const groupByResult = results[1] as { status: string; _count: { _all: number } }[];
     const documentsCount = results[2] as number;
     const recentOrganizations = results[3];
+    const completenessOrgs = results[4] as OrgCompletenessRow[];
 
     const byStatus: Record<string, number> = {};
     for (const row of groupByResult) {
       byStatus[row.status] = row._count._all;
     }
 
-    let idx = 4;
+    let avgCompleteness: number | null = null;
+    let completedOrganizations = 0;
+    if (completenessOrgs.length > 0) {
+      let totalScore = 0;
+      for (const org of completenessOrgs) {
+        const score = calcOrgScore(org);
+        totalScore += score;
+        if (score === COMPLETENESS_TOTAL) completedOrganizations++;
+      }
+      avgCompleteness = Math.round(
+        (totalScore / (completenessOrgs.length * COMPLETENESS_TOTAL)) * 100,
+      );
+    }
+
+    let idx = 5;
     const sectionsCount = canViewSections ? (results[idx++] as number) : null;
     const usersCount = isAdmin ? (results[idx++] as number) : null;
     const clientsCount = canViewUsers ? (results[idx] as number) : null;
@@ -114,6 +194,8 @@ router.get("/", authenticate, async (req, res) => {
       clients: clientsCount,
       documents: documentsCount,
       recentOrganizations,
+      avgCompleteness,
+      completedOrganizations,
     });
   } catch (err) {
     console.error("Stats error:", err);
