@@ -93,6 +93,7 @@ model RefreshToken {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
   @@map("refresh_tokens")
 }
 
@@ -170,6 +171,7 @@ model SectionMember {
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([sectionId, userId])
+  @@index([userId])
   @@map("section_members")
 }
 
@@ -221,6 +223,7 @@ model Organization {
   contacts     OrganizationContact[]
   documents    OrganizationDocument[]
 
+  @@index([sectionId])
   @@map("organizations")
 }
 
@@ -234,6 +237,7 @@ model OrganizationMember {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([userId, organizationId])
+  @@index([organizationId])
   @@map("organization_members")
 }
 
