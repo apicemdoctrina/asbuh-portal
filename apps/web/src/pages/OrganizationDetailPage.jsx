@@ -37,12 +37,20 @@ const STATUS_LABELS = {
   closed: "Закрылся",
   not_paying: "Не платит",
 };
-
 const ROLE_LABELS = {
   admin: "Администратор",
   manager: "Менеджер",
   accountant: "Бухгалтер",
   client: "Клиент",
+};
+const ORG_FORM_LABELS = { OOO: "ООО", IP: "ИП", NKO: "НКО", AO: "АО", PAO: "ПАО" };
+const STATUS_BADGE_COLORS = {
+  active: "bg-green-100 text-green-700",
+  new: "bg-blue-100 text-blue-700",
+  liquidating: "bg-amber-100 text-amber-700",
+  left: "bg-slate-100 text-slate-500",
+  closed: "bg-slate-100 text-slate-500",
+  not_paying: "bg-red-100 text-red-700",
 };
 
 const INPUT_CLS =
@@ -60,15 +68,28 @@ function toDecimalOrNull(v) {
   const n = Number(s);
   return isNaN(n) ? null : s;
 }
-
 function formatCurrency(val) {
   if (val == null) return "—";
   return Number(val).toLocaleString("ru-RU") + " ₽";
 }
-
 function formatDate(val) {
   if (!val) return "—";
   return new Date(val).toLocaleDateString("ru-RU");
+}
+
+/** Compact key-value field for read mode. */
+function Field({ label, value }) {
+  const empty = value == null || value === "" || value === "—";
+  return (
+    <div className="min-w-0">
+      <dt className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide leading-none">
+        {label}
+      </dt>
+      <dd className="text-sm text-slate-700 mt-1 leading-snug break-words">
+        {empty ? <span className="text-slate-300">—</span> : value}
+      </dd>
+    </div>
+  );
 }
 
 const INITIAL_FORM = {
@@ -109,21 +130,18 @@ export default function OrganizationDetailPage() {
   const [error, setError] = useState("");
 
   const [editing, setEditing] = useState(false);
-
   const [form, setForm] = useState(INITIAL_FORM);
   const setField = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
 
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
 
-  // Add member state
   const [showAddMember, setShowAddMember] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [addingMember, setAddingMember] = useState(false);
   const [memberError, setMemberError] = useState("");
 
-  // Invite modal state
   const [showInvite, setShowInvite] = useState(false);
   const [inviteLink, setInviteLink] = useState("");
   const [inviteExpiry, setInviteExpiry] = useState("");
@@ -131,7 +149,6 @@ export default function OrganizationDetailPage() {
   const [inviteError, setInviteError] = useState("");
   const [copied, setCopied] = useState(false);
 
-  // Load sections for dropdown
   useEffect(() => {
     if (hasPermission("section", "view")) {
       api("/api/sections?limit=100")
@@ -195,7 +212,6 @@ export default function OrganizationDetailPage() {
     fetchOrganization();
   }, [fetchOrganization]);
 
-  // Load all users when add-member modal opens
   useEffect(() => {
     if (!showAddMember) return;
     api("/api/users")
@@ -291,9 +307,7 @@ export default function OrganizationDetailPage() {
   async function handleRemoveMember(userId) {
     if (!confirm("Удалить участника из организации?")) return;
     try {
-      const res = await api(`/api/organizations/${id}/members/${userId}`, {
-        method: "DELETE",
-      });
+      const res = await api(`/api/organizations/${id}/members/${userId}`, { method: "DELETE" });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Failed to remove member");
@@ -357,18 +371,42 @@ export default function OrganizationDetailPage() {
     );
   if (!organization) return null;
 
+  const org = organization;
+  const hasRequisites =
+    org.checkingAccount || org.bik || org.correspondentAccount || org.requisitesBank;
+
   return (
     <>
       <Link
         to="/organizations"
-        className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-[#6567F1] mb-4"
+        className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-[#6567F1] mb-3"
       >
-        <ArrowLeft size={16} /> Все организации
+        <ArrowLeft size={15} /> Все организации
       </Link>
 
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">{organization.name}</h1>
-        <div className="flex items-center gap-2">
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+        <div className="flex items-center gap-2.5 flex-wrap min-w-0">
+          <h1 className="text-xl font-bold text-slate-900 leading-tight">{org.name}</h1>
+          {org.form && (
+            <span className="shrink-0 px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs font-semibold">
+              {ORG_FORM_LABELS[org.form] || org.form}
+            </span>
+          )}
+          <span
+            className={`shrink-0 px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE_COLORS[org.status] || "bg-slate-100 text-slate-500"}`}
+          >
+            {STATUS_LABELS[org.status] || org.status}
+          </span>
+          {saveMsg && (
+            <span
+              className={`text-sm font-medium ${saveMsg === "Сохранено" ? "text-green-600" : "text-red-600"}`}
+            >
+              {saveMsg}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
           {canEdit && !editing && (
             <button
               onClick={() => {
@@ -377,212 +415,207 @@ export default function OrganizationDetailPage() {
                 setInviteError("");
                 setCopied(false);
               }}
-              className="inline-flex items-center gap-2 px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg text-sm font-medium transition-colors"
             >
-              <Link2 size={16} />
-              Пригласить клиента
+              <Link2 size={14} /> Пригласить
             </button>
           )}
           {canEdit && !editing && (
             <button
               onClick={() => {
-                populateForm(organization);
+                populateForm(org);
                 setEditing(true);
                 setSaveMsg("");
               }}
-              className="inline-flex items-center gap-2 px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg text-sm font-medium shadow-md shadow-[#6567F1]/20 transition-all"
             >
-              <Pencil size={16} />
-              Изменить
+              <Pencil size={14} /> Изменить
             </button>
           )}
         </div>
-        {saveMsg && (
-          <span
-            className={`text-sm ${saveMsg === "Сохранено" ? "text-green-600" : "text-red-600"}`}
-          >
-            {saveMsg}
-          </span>
-        )}
       </div>
 
+      {/* ── Important comment ── */}
+      {org.importantComment && (
+        <div className="mb-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-900">
+          <span className="font-semibold">⚠ Важно:</span> {org.importantComment}
+        </div>
+      )}
+
       {editing ? (
-        /* ================ EDIT MODE ================ */
-        <>
-          <form onSubmit={handleSave} className="space-y-6">
-            {/* Основная информация */}
-            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-              <h2 className="text-lg font-bold text-slate-900 mb-4">Основная информация</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        /* ══════════════════ EDIT MODE ══════════════════ */
+        <form onSubmit={handleSave} className="space-y-4">
+          {/* Основная информация */}
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+            <h2 className="text-base font-bold text-slate-900 mb-4">Основная информация</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <label className={LABEL_CLS}>Название *</label>
+                <input
+                  type="text"
+                  required
+                  value={form.name}
+                  onChange={(e) => setField("name", e.target.value)}
+                  className={INPUT_CLS}
+                />
+              </div>
+              <div>
+                <label className={LABEL_CLS}>ИНН</label>
+                <input
+                  type="text"
+                  value={form.inn}
+                  onChange={(e) => setField("inn", e.target.value)}
+                  className={INPUT_CLS}
+                />
+              </div>
+              <div>
+                <label className={LABEL_CLS}>ОГРН</label>
+                <input
+                  type="text"
+                  value={form.ogrn}
+                  onChange={(e) => setField("ogrn", e.target.value)}
+                  className={INPUT_CLS}
+                  placeholder="13 или 15 цифр"
+                />
+              </div>
+              <div>
+                <label className={LABEL_CLS}>КПП</label>
+                <input
+                  type="text"
+                  value={form.kpp}
+                  onChange={(e) => setField("kpp", e.target.value)}
+                  className={INPUT_CLS}
+                />
+              </div>
+              <div>
+                <label className={LABEL_CLS}>Форма собственности</label>
+                <select
+                  value={form.form}
+                  onChange={(e) => setField("form", e.target.value)}
+                  className={SELECT_CLS}
+                >
+                  <option value="">Не указано</option>
+                  <option value="OOO">ООО</option>
+                  <option value="IP">ИП</option>
+                  <option value="NKO">НКО</option>
+                  <option value="AO">АО</option>
+                  <option value="PAO">ПАО</option>
+                </select>
+              </div>
+              <div>
+                <label className={LABEL_CLS}>Статус</label>
+                <select
+                  value={form.status}
+                  onChange={(e) => setField("status", e.target.value)}
+                  className={SELECT_CLS}
+                >
+                  {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {sections.length > 0 && (
                 <div>
-                  <label className={LABEL_CLS}>Название *</label>
-                  <input
-                    type="text"
-                    required
-                    value={form.name}
-                    onChange={(e) => setField("name", e.target.value)}
-                    className={INPUT_CLS}
-                  />
-                </div>
-                <div>
-                  <label className={LABEL_CLS}>ИНН</label>
-                  <input
-                    type="text"
-                    value={form.inn}
-                    onChange={(e) => setField("inn", e.target.value)}
-                    className={INPUT_CLS}
-                  />
-                </div>
-                <div>
-                  <label className={LABEL_CLS}>ОГРН</label>
-                  <input
-                    type="text"
-                    value={form.ogrn}
-                    onChange={(e) => setField("ogrn", e.target.value)}
-                    className={INPUT_CLS}
-                    placeholder="13 или 15 цифр"
-                  />
-                </div>
-                <div>
-                  <label className={LABEL_CLS}>КПП</label>
-                  <input
-                    type="text"
-                    value={form.kpp}
-                    onChange={(e) => setField("kpp", e.target.value)}
-                    className={INPUT_CLS}
-                  />
-                </div>
-                <div>
-                  <label className={LABEL_CLS}>Форма собственности</label>
+                  <label className={LABEL_CLS}>Участок</label>
                   <select
-                    value={form.form}
-                    onChange={(e) => setField("form", e.target.value)}
+                    value={form.sectionId}
+                    onChange={(e) => setField("sectionId", e.target.value)}
                     className={SELECT_CLS}
                   >
-                    <option value="">Не указано</option>
-                    <option value="OOO">ООО</option>
-                    <option value="IP">ИП</option>
-                    <option value="NKO">НКО</option>
-                    <option value="AO">АО</option>
-                    <option value="PAO">ПАО</option>
-                  </select>
-                </div>
-                <div>
-                  <label className={LABEL_CLS}>Статус</label>
-                  <select
-                    value={form.status}
-                    onChange={(e) => setField("status", e.target.value)}
-                    className={SELECT_CLS}
-                  >
-                    {Object.entries(STATUS_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
+                    <option value="">Без участка</option>
+                    {sections.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        №{s.number} {s.name || ""}
                       </option>
                     ))}
                   </select>
                 </div>
-                {sections.length > 0 && (
-                  <div>
-                    <label className={LABEL_CLS}>Участок</label>
-                    <select
-                      value={form.sectionId}
-                      onChange={(e) => setField("sectionId", e.target.value)}
-                      className={SELECT_CLS}
-                    >
-                      <option value="">Без участка</option>
-                      {sections.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          №{s.number} {s.name || ""}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                <div>
-                  <label className={LABEL_CLS}>Кол-во сотрудников</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={form.employeeCount}
-                    onChange={(e) => setField("employeeCount", e.target.value)}
-                    className={INPUT_CLS}
-                  />
-                </div>
-                <div>
-                  <label className={LABEL_CLS}>Операций / мес</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={form.opsPerMonth}
-                    onChange={(e) => setField("opsPerMonth", e.target.value)}
-                    className={INPUT_CLS}
-                  />
-                </div>
-                <div className="flex items-end">
-                  <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer pb-2">
-                    <input
-                      type="checkbox"
-                      checked={form.hasCashRegister}
-                      onChange={(e) => setField("hasCashRegister", e.target.checked)}
-                      className="w-4 h-4 rounded border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
-                    />
-                    Касса
-                  </label>
-                </div>
-              </div>
-
-              {/* Tax systems */}
-              <div className="mt-4">
-                <label className={LABEL_CLS}>Система налогообложения</label>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  {Object.entries(TAX_SYSTEM_LABELS).map(([key, label]) => (
-                    <label
-                      key={key}
-                      className="flex items-center gap-1.5 text-sm text-slate-700 cursor-pointer"
-                    >
-                      <input
-                        type="radio"
-                        name="taxSystem"
-                        checked={form.taxSystems.includes(key)}
-                        onChange={() => selectTaxSystem(key)}
-                        className="w-4 h-4 border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
-                      />
-                      {label}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Legal address — full width */}
-              <div className="mt-4">
-                <label className={LABEL_CLS}>Юридический адрес</label>
-                <textarea
-                  value={form.legalAddress}
-                  onChange={(e) => setField("legalAddress", e.target.value)}
-                  rows={2}
+              )}
+              <div>
+                <label className={LABEL_CLS}>Кол-во сотрудников</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={form.employeeCount}
+                  onChange={(e) => setField("employeeCount", e.target.value)}
                   className={INPUT_CLS}
                 />
               </div>
-
-              {/* Important comment — full width */}
-              <div className="mt-4">
-                <label className={LABEL_CLS}>Важный комментарий</label>
-                <textarea
-                  value={form.importantComment}
-                  onChange={(e) => setField("importantComment", e.target.value)}
-                  rows={2}
-                  placeholder="Отображается в карточке организации"
+              <div>
+                <label className={LABEL_CLS}>Операций / мес</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={form.opsPerMonth}
+                  onChange={(e) => setField("opsPerMonth", e.target.value)}
                   className={INPUT_CLS}
                 />
+              </div>
+              <div className="flex items-end">
+                <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer pb-2">
+                  <input
+                    type="checkbox"
+                    checked={form.hasCashRegister}
+                    onChange={(e) => setField("hasCashRegister", e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                  />
+                  Касса
+                </label>
               </div>
             </div>
 
-            {/* Реквизиты */}
+            <div className="mt-4">
+              <label className={LABEL_CLS}>Система налогообложения</label>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {Object.entries(TAX_SYSTEM_LABELS).map(([key, label]) => (
+                  <label
+                    key={key}
+                    className="flex items-center gap-1.5 text-sm text-slate-700 cursor-pointer"
+                  >
+                    <input
+                      type="radio"
+                      name="taxSystem"
+                      checked={form.taxSystems.includes(key)}
+                      onChange={() => selectTaxSystem(key)}
+                      className="w-4 h-4 border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <label className={LABEL_CLS}>Юридический адрес</label>
+              <textarea
+                value={form.legalAddress}
+                onChange={(e) => setField("legalAddress", e.target.value)}
+                rows={2}
+                className={INPUT_CLS}
+              />
+            </div>
+
+            <div className="mt-4">
+              <label className={LABEL_CLS}>Важный комментарий</label>
+              <textarea
+                value={form.importantComment}
+                onChange={(e) => setField("importantComment", e.target.value)}
+                rows={2}
+                placeholder="Отображается в карточке организации"
+                className={INPUT_CLS}
+              />
+            </div>
+          </div>
+
+          {/* Реквизиты + Бухгалтерия + Финансы в одной строке */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-              <h2 className="text-lg font-bold text-slate-900 mb-4">Реквизиты</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <h2 className="text-base font-bold text-slate-900 mb-4">Реквизиты</h2>
+              <div className="space-y-3">
                 <div>
-                  <label className={LABEL_CLS}>Расчётный счёт (Р/С)</label>
+                  <label className={LABEL_CLS}>Р/С</label>
                   <input
                     type="text"
                     value={form.checkingAccount}
@@ -598,11 +631,10 @@ export default function OrganizationDetailPage() {
                     value={form.bik}
                     onChange={(e) => setField("bik", e.target.value)}
                     className={INPUT_CLS}
-                    placeholder="9 цифр"
                   />
                 </div>
                 <div>
-                  <label className={LABEL_CLS}>Корр. счёт (К/С)</label>
+                  <label className={LABEL_CLS}>К/С</label>
                   <input
                     type="text"
                     value={form.correspondentAccount}
@@ -618,16 +650,14 @@ export default function OrganizationDetailPage() {
                     value={form.requisitesBank}
                     onChange={(e) => setField("requisitesBank", e.target.value)}
                     className={INPUT_CLS}
-                    placeholder="Название банка"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Бухгалтерская информация */}
             <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-              <h2 className="text-lg font-bold text-slate-900 mb-4">Бухгалтерская информация</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <h2 className="text-base font-bold text-slate-900 mb-4">Бухгалтерия</h2>
+              <div className="space-y-3">
                 <div>
                   <label className={LABEL_CLS}>ЭЦП</label>
                   <select
@@ -685,10 +715,9 @@ export default function OrganizationDetailPage() {
               </div>
             </div>
 
-            {/* Финансовая информация */}
             <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-              <h2 className="text-lg font-bold text-slate-900 mb-4">Финансовая информация</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <h2 className="text-base font-bold text-slate-900 mb-4">Финансы</h2>
+              <div className="space-y-3">
                 <div>
                   <label className={LABEL_CLS}>Ежемесячный платёж</label>
                   <input
@@ -721,164 +750,186 @@ export default function OrganizationDetailPage() {
                   />
                 </div>
               </div>
-
-              <div className="flex items-center gap-3 mt-6">
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
-                >
-                  <Save size={16} />
-                  {saving ? "Сохранение..." : "Сохранить"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    populateForm(organization);
-                    setEditing(false);
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 border-2 border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg text-sm font-medium transition-colors"
-                >
-                  <X size={16} />
-                  Отмена
-                </button>
-              </div>
             </div>
-          </form>
-        </>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
+            >
+              <Save size={16} />
+              {saving ? "Сохранение..." : "Сохранить"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                populateForm(org);
+                setEditing(false);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 border-2 border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg text-sm font-medium transition-colors"
+            >
+              <X size={16} />
+              Отмена
+            </button>
+          </div>
+        </form>
       ) : (
-        /* ================ READ-ONLY MODE ================ */
-        <>
-          {/* Основная информация */}
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mb-6">
-            <h2 className="text-lg font-bold text-slate-900 mb-4">Основная информация</h2>
-            {organization.importantComment && (
-              <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-900">
-                <span className="font-semibold">⚠ Важно:</span> {organization.importantComment}
+        /* ══════════════════ READ MODE ══════════════════ */
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+          {/* ── Left: all org data in one card ── */}
+          <div className="lg:col-span-2 bg-white rounded-2xl shadow-lg border border-slate-200 divide-y divide-slate-100">
+            {/* Основные сведения */}
+            <div className="p-5">
+              <h3 className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-3">
+                Основные сведения
+              </h3>
+              <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
+                <Field label="ИНН" value={org.inn} />
+                <Field label="ОГРН" value={org.ogrn} />
+                <Field label="КПП" value={org.kpp} />
+                <Field
+                  label="Участок"
+                  value={
+                    org.section
+                      ? `№${org.section.number}${org.section.name ? ` ${org.section.name}` : ""}`
+                      : null
+                  }
+                />
+                <Field
+                  label="Сотрудники"
+                  value={org.employeeCount != null ? org.employeeCount : null}
+                />
+                <Field
+                  label="Операций / мес"
+                  value={org.opsPerMonth != null ? org.opsPerMonth : null}
+                />
+                <Field label="Касса" value={org.hasCashRegister ? "Да" : "Нет"} />
+                <Field
+                  label="Налогообложение"
+                  value={
+                    org.taxSystems?.[0]
+                      ? TAX_SYSTEM_LABELS[org.taxSystems[0]] || org.taxSystems[0]
+                      : null
+                  }
+                />
+              </dl>
+              {org.legalAddress && (
+                <div className="mt-3">
+                  <Field label="Юр. адрес" value={org.legalAddress} />
+                </div>
+              )}
+            </div>
+
+            {/* Бухгалтерия */}
+            <div className="p-5">
+              <h3 className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-3">
+                Бухгалтерия
+              </h3>
+              <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
+                <Field label="ЭЦП" value={DIGITAL_SIGNATURE_LABELS[org.digitalSignature] || null} />
+                <Field label="Срок ЭЦП" value={formatDate(org.digitalSignatureExpiry)} />
+                <Field
+                  label="Отчётность"
+                  value={REPORTING_CHANNEL_LABELS[org.reportingChannel] || null}
+                />
+                <Field
+                  label="Тип обслуживания"
+                  value={SERVICE_TYPE_LABELS[org.serviceType] || null}
+                />
+              </dl>
+            </div>
+
+            {/* Финансы */}
+            <div className="p-5">
+              <h3 className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-3">
+                Финансы
+              </h3>
+              <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
+                <Field label="Ежемес. платёж" value={formatCurrency(org.monthlyPayment)} />
+                <Field label="Куда поступает" value={org.paymentDestination} />
+                <Field label="Задолженность" value={formatCurrency(org.debtAmount)} />
+              </dl>
+            </div>
+
+            {/* Реквизиты (only if any filled) */}
+            {hasRequisites && (
+              <div className="p-5">
+                <h3 className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-3">
+                  Реквизиты
+                </h3>
+                <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
+                  <Field label="Р/С" value={org.checkingAccount} />
+                  <Field label="БИК" value={org.bik} />
+                  <Field label="К/С" value={org.correspondentAccount} />
+                  <Field label="Банк" value={org.requisitesBank} />
+                </dl>
               </div>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-sm text-slate-600">
-              <p>
-                <span className="font-medium">ИНН:</span> {organization.inn || "—"}
-              </p>
-              <p>
-                <span className="font-medium">ОГРН:</span> {organization.ogrn || "—"}
-              </p>
-              <p>
-                <span className="font-medium">КПП:</span> {organization.kpp || "—"}
-              </p>
-              <p>
-                <span className="font-medium">Форма:</span> {organization.form || "—"}
-              </p>
-              <p>
-                <span className="font-medium">Статус:</span>{" "}
-                {STATUS_LABELS[organization.status] || organization.status}
-              </p>
-              <p>
-                <span className="font-medium">Участок:</span>{" "}
-                {organization.section
-                  ? `№${organization.section.number} ${organization.section.name || ""}`
-                  : "—"}
-              </p>
-              <p>
-                <span className="font-medium">Кол-во сотрудников:</span>{" "}
-                {organization.employeeCount ?? "—"}
-              </p>
-              <p>
-                <span className="font-medium">Операций / мес:</span>{" "}
-                {organization.opsPerMonth ?? "—"}
-              </p>
-              <p>
-                <span className="font-medium">Касса:</span>{" "}
-                {organization.hasCashRegister ? "Да" : "Нет"}
-              </p>
-              <p className="md:col-span-2 lg:col-span-3">
-                <span className="font-medium">Система налогообложения:</span>{" "}
-                {organization.taxSystems?.length > 0
-                  ? TAX_SYSTEM_LABELS[organization.taxSystems[0]] || organization.taxSystems[0]
-                  : "—"}
-              </p>
-              <p className="md:col-span-2 lg:col-span-3">
-                <span className="font-medium">Юридический адрес:</span>{" "}
-                {organization.legalAddress || "—"}
-              </p>
-            </div>
           </div>
 
-          {/* Реквизиты */}
-          {(organization.checkingAccount ||
-            organization.bik ||
-            organization.correspondentAccount ||
-            organization.requisitesBank) && (
-            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mb-6">
-              <h2 className="text-lg font-bold text-slate-900 mb-4">Реквизиты</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-sm text-slate-600">
-                <p>
-                  <span className="font-medium">Р/С:</span> {organization.checkingAccount || "—"}
-                </p>
-                <p>
-                  <span className="font-medium">БИК:</span> {organization.bik || "—"}
-                </p>
-                <p>
-                  <span className="font-medium">К/С:</span>{" "}
-                  {organization.correspondentAccount || "—"}
-                </p>
-                <p>
-                  <span className="font-medium">Банк:</span> {organization.requisitesBank || "—"}
-                </p>
+          {/* ── Right: Members + Contacts ── */}
+          <div className="flex flex-col gap-4">
+            {/* Members */}
+            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-slate-700">Участники</h3>
+                {hasRole("admin") && (
+                  <button
+                    onClick={openAddMember}
+                    className="inline-flex items-center gap-1 text-xs text-[#6567F1] hover:text-[#5557E1] font-medium"
+                  >
+                    <UserPlus size={13} /> Добавить
+                  </button>
+                )}
               </div>
-            </div>
-          )}
 
-          {/* Бухгалтерская информация */}
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mb-6">
-            <h2 className="text-lg font-bold text-slate-900 mb-4">Бухгалтерская информация</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-sm text-slate-600">
-              <p>
-                <span className="font-medium">ЭЦП:</span>{" "}
-                {DIGITAL_SIGNATURE_LABELS[organization.digitalSignature] || "—"}
-              </p>
-              <p>
-                <span className="font-medium">Срок ЭЦП:</span>{" "}
-                {formatDate(organization.digitalSignatureExpiry)}
-              </p>
-              <p>
-                <span className="font-medium">Канал отчётности:</span>{" "}
-                {REPORTING_CHANNEL_LABELS[organization.reportingChannel] || "—"}
-              </p>
-              <p>
-                <span className="font-medium">Тип обслуживания:</span>{" "}
-                {SERVICE_TYPE_LABELS[organization.serviceType] || "—"}
-              </p>
+              {org.members?.length === 0 ? (
+                <p className="text-xs text-slate-400">Нет участников</p>
+              ) : (
+                <div className="space-y-2.5">
+                  {org.members?.map((m) => (
+                    <div key={m.id} className="flex items-start justify-between group">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-900 leading-tight">
+                          {m.user.lastName} {m.user.firstName}
+                        </p>
+                        <p className="text-xs text-slate-400 truncate mt-0.5">{m.user.email}</p>
+                        <span className="inline-block mt-1 bg-[#6567F1]/10 text-[#6567F1] px-1.5 py-0.5 rounded-full text-[11px] font-medium">
+                          {ROLE_LABELS[m.role] ?? m.role}
+                        </span>
+                      </div>
+                      {hasRole("admin") && (
+                        <button
+                          onClick={() => handleRemoveMember(m.user.id)}
+                          className="ml-2 mt-0.5 shrink-0 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
 
-          {/* Финансовая информация */}
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mb-6">
-            <h2 className="text-lg font-bold text-slate-900 mb-4">Финансовая информация</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-sm text-slate-600">
-              <p>
-                <span className="font-medium">Ежемесячный платёж:</span>{" "}
-                {formatCurrency(organization.monthlyPayment)}
-              </p>
-              <p>
-                <span className="font-medium">Куда поступает платёж:</span>{" "}
-                {organization.paymentDestination || "—"}
-              </p>
-              <p>
-                <span className="font-medium">Сумма задолженности:</span>{" "}
-                {formatCurrency(organization.debtAmount)}
-              </p>
-            </div>
+            {/* Contacts */}
+            <ContactsCard
+              organizationId={id}
+              contacts={org.contacts || []}
+              canEdit={canEdit}
+              onDataChanged={fetchOrganization}
+            />
           </div>
-        </>
+        </div>
       )}
 
-      {/* Bank accounts & contacts — always visible */}
-      <div className="space-y-6 mt-6">
+      {/* ── Always visible: Bank accounts + Documents (full width) ── */}
+      <div className="space-y-4">
         <BankAccountsCard
           organizationId={id}
-          bankAccounts={organization.bankAccounts || []}
+          bankAccounts={org.bankAccounts || []}
           canEdit={canEdit}
           showLogin={canEdit && !hasRole("client")}
           canViewSecrets={hasPermission("organization_secret", "view")}
@@ -886,66 +937,14 @@ export default function OrganizationDetailPage() {
         />
         <DocumentsCard
           organizationId={id}
-          documents={organization.documents || []}
+          documents={org.documents || []}
           canCreate={hasPermission("document", "create")}
           canDelete={hasPermission("document", "delete")}
           onDataChanged={fetchOrganization}
         />
-        <ContactsCard
-          organizationId={id}
-          contacts={organization.contacts || []}
-          canEdit={canEdit}
-          onDataChanged={fetchOrganization}
-        />
       </div>
 
-      {/* Members */}
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mt-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-slate-900">Участники</h2>
-          {hasRole("admin") && (
-            <button
-              onClick={openAddMember}
-              className="inline-flex items-center gap-1 text-sm text-[#6567F1] hover:text-[#5557E1] font-medium"
-            >
-              <UserPlus size={16} /> Добавить
-            </button>
-          )}
-        </div>
-
-        {organization.members?.length === 0 ? (
-          <p className="text-sm text-slate-400">Нет участников</p>
-        ) : (
-          <div className="space-y-2">
-            {organization.members?.map((m) => (
-              <div
-                key={m.id}
-                className="flex items-center justify-between p-3 rounded-lg bg-slate-50"
-              >
-                <div>
-                  <span className="text-sm font-medium text-slate-900">
-                    {m.user.lastName} {m.user.firstName}
-                  </span>
-                  <span className="text-sm text-slate-400 ml-2">{m.user.email}</span>
-                  <span className="ml-2 bg-[#6567F1]/10 text-[#6567F1] px-2 py-0.5 rounded-full text-xs font-medium">
-                    {ROLE_LABELS[m.role] ?? m.role}
-                  </span>
-                </div>
-                {hasRole("admin") && (
-                  <button
-                    onClick={() => handleRemoveMember(m.user.id)}
-                    className="text-slate-400 hover:text-red-500 transition-colors"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Invite Client Modal */}
+      {/* ── Invite Client Modal ── */}
       {showInvite && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md mx-4 p-6">
@@ -955,10 +954,7 @@ export default function OrganizationDetailPage() {
               <div className="text-center">
                 <p className="text-sm text-slate-500 mb-4">
                   Будет сгенерирована ссылка-приглашение для регистрации клиента в организации{" "}
-                  <span className="font-semibold text-slate-900">
-                    &laquo;{organization.name}&raquo;
-                  </span>
-                  .
+                  <span className="font-semibold text-slate-900">&laquo;{org.name}&raquo;</span>.
                 </p>
                 <button
                   onClick={handleGenerateInvite}
@@ -1007,7 +1003,7 @@ export default function OrganizationDetailPage() {
         </div>
       )}
 
-      {/* Add Member Modal — admin only */}
+      {/* ── Add Member Modal ── */}
       {showAddMember && hasRole("admin") && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md mx-4 p-6">
