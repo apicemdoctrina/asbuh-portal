@@ -409,14 +409,12 @@ router.delete(
 // POST /api/organizations/:id/members — add member (admin only)
 router.post("/:id/members", authenticate, requireRole("admin"), async (req, res) => {
   try {
-    const { email, role } = req.body;
+    const { email } = req.body;
 
     if (!email) {
       res.status(400).json({ error: "email is required" });
       return;
     }
-
-    const memberRole = role || "client";
 
     const scope = getScopedWhere(req.user!.userId, req.user!.roles);
     const organization = await prisma.organization.findFirst({
@@ -427,11 +425,16 @@ router.post("/:id/members", authenticate, requireRole("admin"), async (req, res)
       return;
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: { userRoles: { include: { role: { select: { name: true } } } } },
+    });
     if (!user) {
       res.status(404).json({ error: "User not found" });
       return;
     }
+
+    const memberRole = user.userRoles[0]?.role.name ?? "client";
 
     const member = await prisma.organizationMember.create({
       data: {

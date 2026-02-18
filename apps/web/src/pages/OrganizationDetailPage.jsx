@@ -1,19 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
-import {
-  ArrowLeft,
-  Save,
-  Pencil,
-  X,
-  UserPlus,
-  Trash2,
-  Search,
-  Link2,
-  Copy,
-  Check,
-} from "lucide-react";
+import { ArrowLeft, Save, Pencil, X, UserPlus, Trash2, Link2, Copy, Check } from "lucide-react";
 import BankAccountsCard from "../components/BankAccountsCard.jsx";
 import ContactsCard from "../components/ContactsCard.jsx";
 import DocumentsCard from "../components/DocumentsCard.jsx";
@@ -47,6 +36,13 @@ const STATUS_LABELS = {
   left: "Ушёл",
   closed: "Закрылся",
   not_paying: "Не платит",
+};
+
+const ROLE_LABELS = {
+  admin: "Администратор",
+  manager: "Менеджер",
+  accountant: "Бухгалтер",
+  client: "Клиент",
 };
 
 const INPUT_CLS =
@@ -122,14 +118,10 @@ export default function OrganizationDetailPage() {
 
   // Add member state
   const [showAddMember, setShowAddMember] = useState(false);
-  const [memberSearch, setMemberSearch] = useState("");
-  const [memberResults, setMemberResults] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [memberRole, setMemberRole] = useState("client");
   const [addingMember, setAddingMember] = useState(false);
   const [memberError, setMemberError] = useState("");
-  const [searchingUsers, setSearchingUsers] = useState(false);
-  const searchTimeout = useRef(null);
 
   // Invite modal state
   const [showInvite, setShowInvite] = useState(false);
@@ -203,31 +195,17 @@ export default function OrganizationDetailPage() {
     fetchOrganization();
   }, [fetchOrganization]);
 
-  // Debounced user search
+  // Load all users when add-member modal opens
   useEffect(() => {
     if (!showAddMember) return;
-    if (memberSearch.length < 2) {
-      setMemberResults([]);
-      return;
-    }
-    clearTimeout(searchTimeout.current);
-    searchTimeout.current = setTimeout(async () => {
-      setSearchingUsers(true);
-      try {
-        const res = await api(`/api/users?search=${encodeURIComponent(memberSearch)}`);
-        if (res.ok) {
-          const data = await res.json();
-          const existingIds = new Set(organization?.members?.map((m) => m.user.id) || []);
-          setMemberResults(data.filter((u) => !existingIds.has(u.id)));
-        }
-      } catch {
-        // ignore
-      } finally {
-        setSearchingUsers(false);
-      }
-    }, 300);
-    return () => clearTimeout(searchTimeout.current);
-  }, [memberSearch, showAddMember, organization]);
+    api("/api/users")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        const existingIds = new Set(organization?.members?.map((m) => m.user.id) || []);
+        setAllUsers(data.filter((u) => !existingIds.has(u.id)));
+      })
+      .catch(() => {});
+  }, [showAddMember, organization]);
 
   function selectTaxSystem(key) {
     setField("taxSystems", [key]);
@@ -293,16 +271,14 @@ export default function OrganizationDetailPage() {
     try {
       const res = await api(`/api/organizations/${id}/members`, {
         method: "POST",
-        body: JSON.stringify({ email: selectedUser.email, role: memberRole }),
+        body: JSON.stringify({ email: selectedUser.email }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Failed to add member");
       }
-      setMemberSearch("");
       setSelectedUser(null);
-      setMemberResults([]);
-      setMemberRole("client");
+      setAllUsers([]);
       setShowAddMember(false);
       fetchOrganization();
     } catch (err) {
@@ -364,11 +340,9 @@ export default function OrganizationDetailPage() {
 
   function openAddMember() {
     setShowAddMember(true);
-    setMemberSearch("");
     setSelectedUser(null);
-    setMemberResults([]);
+    setAllUsers([]);
     setMemberError("");
-    setMemberRole("client");
   }
 
   if (loading) return <div className="text-slate-400 text-sm">Загрузка...</div>;
@@ -954,7 +928,7 @@ export default function OrganizationDetailPage() {
                   </span>
                   <span className="text-sm text-slate-400 ml-2">{m.user.email}</span>
                   <span className="ml-2 bg-[#6567F1]/10 text-[#6567F1] px-2 py-0.5 rounded-full text-xs font-medium">
-                    {m.role}
+                    {ROLE_LABELS[m.role] ?? m.role}
                   </span>
                 </div>
                 {hasRole("admin") && (
@@ -1039,91 +1013,28 @@ export default function OrganizationDetailPage() {
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md mx-4 p-6">
             <h2 className="text-lg font-bold text-slate-900 mb-4">Добавить участника</h2>
             <form onSubmit={handleAddMember} className="flex flex-col gap-4">
-              {/* User search */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Пользователь *
                 </label>
-                {selectedUser ? (
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-[#6567F1]/5 border border-[#6567F1]/20">
-                    <div>
-                      <span className="text-sm font-medium text-slate-900">
-                        {selectedUser.lastName} {selectedUser.firstName}
-                      </span>
-                      <span className="text-sm text-slate-400 ml-2">{selectedUser.email}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedUser(null);
-                        setMemberSearch("");
-                      }}
-                      className="text-slate-400 hover:text-slate-600 text-xs"
-                    >
-                      Изменить
-                    </button>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <Search
-                      size={16}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-                    <input
-                      type="text"
-                      value={memberSearch}
-                      onChange={(e) => setMemberSearch(e.target.value)}
-                      placeholder="Введите имя или email (мин. 2 символа)..."
-                      autoFocus
-                      className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
-                    />
-                    {memberSearch.length >= 2 && (
-                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto z-10">
-                        {searchingUsers ? (
-                          <div className="p-3 text-sm text-slate-400">Поиск...</div>
-                        ) : memberResults.length === 0 ? (
-                          <div className="p-3 text-sm text-slate-400">
-                            Пользователи не найдены. Создайте пользователя через API (POST
-                            /api/auth/staff).
-                          </div>
-                        ) : (
-                          memberResults.map((u) => (
-                            <button
-                              key={u.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedUser(u);
-                                setMemberSearch("");
-                                setMemberResults([]);
-                              }}
-                              className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0"
-                            >
-                              <span className="text-sm font-medium text-slate-900">
-                                {u.lastName} {u.firstName}
-                              </span>
-                              <span className="text-sm text-slate-400 ml-2">{u.email}</span>
-                              {u.roles?.length > 0 && (
-                                <span className="ml-2 text-xs text-slate-400">
-                                  ({u.roles.join(", ")})
-                                </span>
-                              )}
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
+                <select
+                  value={selectedUser?.id || ""}
+                  onChange={(e) =>
+                    setSelectedUser(allUsers.find((u) => u.id === e.target.value) || null)
+                  }
+                  autoFocus
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
+                >
+                  <option value="">Выберите пользователя...</option>
+                  {allUsers.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.lastName} {u.firstName} — {u.email}
+                    </option>
+                  ))}
+                </select>
+                {allUsers.length === 0 && (
+                  <p className="text-xs text-slate-400 mt-1">Загрузка пользователей...</p>
                 )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Роль</label>
-                <input
-                  type="text"
-                  value={memberRole}
-                  onChange={(e) => setMemberRole(e.target.value)}
-                  placeholder="client"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
-                />
               </div>
               {memberError && (
                 <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{memberError}</div>
