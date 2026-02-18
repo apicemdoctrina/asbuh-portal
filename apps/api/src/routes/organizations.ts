@@ -177,6 +177,15 @@ router.post("/", authenticate, requirePermission("organization", "create"), asyn
         res.status(404).json({ error: "Section not found" });
         return;
       }
+      if (!req.user!.roles.includes("admin")) {
+        const membership = await prisma.sectionMember.findFirst({
+          where: { sectionId: validated.sectionId, userId: req.user!.userId },
+        });
+        if (!membership) {
+          res.status(403).json({ error: "No access to this section" });
+          return;
+        }
+      }
     }
 
     const createData: Record<string, unknown> = {
@@ -257,6 +266,8 @@ router.get("/:id", authenticate, requirePermission("organization", "view"), asyn
   try {
     const scope = getScopedWhere(req.user!.userId, req.user!.roles);
 
+    const clientOnly = isClientOnly(req.user!.roles);
+
     const organization = await prisma.organization.findFirst({
       where: { id: req.params.id, ...scope },
       include: {
@@ -268,8 +279,32 @@ router.get("/:id", authenticate, requirePermission("organization", "view"), asyn
             },
           },
         },
-        bankAccounts: true,
-        contacts: true,
+        bankAccounts: {
+          select: {
+            id: true,
+            organizationId: true,
+            bankName: true,
+            accountNumber: true,
+            // skip encrypted fields entirely for clients — they're stripped anyway
+            ...(clientOnly ? {} : { login: true, password: true }),
+            comment: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+        contacts: {
+          select: {
+            id: true,
+            organizationId: true,
+            contactPerson: true,
+            phone: true,
+            email: true,
+            telegram: true,
+            comment: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
         documents: {
           select: {
             id: true,
@@ -293,11 +328,13 @@ router.get("/:id", authenticate, requirePermission("organization", "view"), asyn
       return;
     }
 
-    // Mask bank account secrets: staff sees "***", client gets fields stripped
-    maskBankAccountSecrets(
-      organization.bankAccounts as unknown as Array<Record<string, unknown>>,
-      isClientOnly(req.user!.roles),
-    );
+    // Mask bank account secrets for staff ("***"); clients never receive these fields
+    if (!clientOnly) {
+      maskBankAccountSecrets(
+        organization.bankAccounts as unknown as Array<Record<string, unknown>>,
+        false,
+      );
+    }
 
     res.json(organization);
   } catch (err) {
@@ -333,6 +370,15 @@ router.put("/:id", authenticate, requirePermission("organization", "edit"), asyn
       if (!section) {
         res.status(404).json({ error: "Section not found" });
         return;
+      }
+      if (!req.user!.roles.includes("admin")) {
+        const membership = await prisma.sectionMember.findFirst({
+          where: { sectionId: validated.sectionId, userId: req.user!.userId },
+        });
+        if (!membership) {
+          res.status(403).json({ error: "No access to this section" });
+          return;
+        }
       }
     }
 

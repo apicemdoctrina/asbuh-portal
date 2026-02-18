@@ -87,7 +87,7 @@ export default function OrganizationsPage() {
       setCreateForm("");
       setCreateSection("");
       setPage(1);
-      fetchOrganizations();
+      await fetchOrganizations();
     } catch (err) {
       setCreateError(err.message);
     } finally {
