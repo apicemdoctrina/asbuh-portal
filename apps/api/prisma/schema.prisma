@@ -139,6 +139,14 @@ enum ServiceType {
   PARTIAL
 }
 
+enum OrgForm {
+  OOO  // ООО
+  IP   // ИП
+  NKO  // НКО
+  AO   // АО
+  PAO  // ПАО
+}
+
 model Section {
   id        String   @id @default(uuid())
   number    Int      @unique
@@ -169,7 +177,7 @@ model Organization {
   id        String   @id @default(uuid())
   name      String
   inn       String?  @unique
-  form      String? // NKO, IP, OOO
+  form      OrgForm?
   status    String   @default("active") // active, new, archived
   sectionId String?  @map("section_id")
   createdAt DateTime @default(now()) @map("created_at")

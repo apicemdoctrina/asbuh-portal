@@ -26,6 +26,8 @@ const SERVICE_TYPES = [
 
 const VALID_STATUSES = ["active", "new", "liquidating", "left", "closed", "not_paying"] as const;
 
+const ORG_FORMS = ["OOO", "IP", "NKO", "AO", "PAO"] as const;
+
 const decimalField = z
   .union([z.string(), z.number()])
   .transform((v) => String(v))
@@ -49,7 +51,7 @@ const orgRequisitesFields = {
 export const createOrganizationSchema = z.object({
   name: z.string().min(1, "name is required"),
   inn: innField.nullable().optional(),
-  form: z.string().nullable().optional(),
+  form: z.enum(ORG_FORMS).nullable().optional(),
   status: z.enum(VALID_STATUSES).optional(),
   sectionId: z.string().uuid().nullable().optional(),
   taxSystems: z.array(z.enum(TAX_SYSTEMS)).optional(),
@@ -71,7 +73,7 @@ export const createOrganizationSchema = z.object({
 export const updateOrganizationSchema = z.object({
   name: z.string().min(1).optional(),
   inn: innField.nullable().optional(),
-  form: z.string().nullable().optional(),
+  form: z.enum(ORG_FORMS).nullable().optional(),
   status: z.enum(VALID_STATUSES).optional(),
   sectionId: z.string().uuid().nullable().optional(),
   taxSystems: z.array(z.enum(TAX_SYSTEMS)).optional(),

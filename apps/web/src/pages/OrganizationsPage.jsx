@@ -287,14 +287,20 @@ export default function OrganizationsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Форма (НКО, ИП, ООО)
+                  Форма собственности
                 </label>
-                <input
-                  type="text"
+                <select
                   value={createForm}
                   onChange={(e) => setCreateForm(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
-                />
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
+                >
+                  <option value="">Не указано</option>
+                  <option value="OOO">ООО</option>
+                  <option value="IP">ИП</option>
+                  <option value="NKO">НКО</option>
+                  <option value="AO">АО</option>
+                  <option value="PAO">ПАО</option>
+                </select>
               </div>
               {sections.length > 0 && (
                 <div>

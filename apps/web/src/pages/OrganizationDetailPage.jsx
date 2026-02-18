@@ -479,13 +479,19 @@ export default function OrganizationDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className={LABEL_CLS}>Форма (НКО, ИП, ООО)</label>
-                  <input
-                    type="text"
+                  <label className={LABEL_CLS}>Форма собственности</label>
+                  <select
                     value={form.form}
                     onChange={(e) => setField("form", e.target.value)}
-                    className={INPUT_CLS}
-                  />
+                    className={SELECT_CLS}
+                  >
+                    <option value="">Не указано</option>
+                    <option value="OOO">ООО</option>
+                    <option value="IP">ИП</option>
+                    <option value="NKO">НКО</option>
+                    <option value="AO">АО</option>
+                    <option value="PAO">ПАО</option>
+                  </select>
                 </div>
                 <div>
                   <label className={LABEL_CLS}>Статус</label>
