@@ -104,7 +104,7 @@ router.post("/refresh", async (req, res) => {
 
     if (!stored || stored.expiresAt < new Date()) {
       if (stored) {
-        await prisma.refreshToken.delete({ where: { id: stored.id } });
+        await prisma.refreshToken.deleteMany({ where: { id: stored.id } });
       }
       clearRefreshCookie(res);
       res.status(401).json({ error: "Invalid or expired refresh token" });
@@ -112,7 +112,7 @@ router.post("/refresh", async (req, res) => {
     }
 
     // Rotation: delete old, create new
-    await prisma.refreshToken.delete({ where: { id: stored.id } });
+    await prisma.refreshToken.deleteMany({ where: { id: stored.id } });
 
     const newRefreshToken = generateRefreshToken();
     const newJti = crypto.randomUUID();
