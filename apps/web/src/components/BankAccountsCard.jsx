@@ -84,9 +84,16 @@ export default function BankAccountsCard({
     setSubmitting(true);
     setFormError("");
     try {
+      const loginVal = login.trim();
+      const passwordVal = password.trim();
       const body = JSON.stringify({
         bankName,
-        ...(showLogin ? { login: login.trim() || null, password: password.trim() || null } : {}),
+        ...(showLogin
+          ? {
+              login: loginVal || (editingAccount ? undefined : null),
+              password: passwordVal || (editingAccount ? undefined : null),
+            }
+          : {}),
         comment: comment.trim() || null,
       });
       const url = editingAccount
