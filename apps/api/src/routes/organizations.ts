@@ -328,13 +328,11 @@ router.get("/:id", authenticate, requirePermission("organization", "view"), asyn
       return;
     }
 
-    // Mask bank account secrets for staff ("***"); clients never receive these fields
-    if (!clientOnly) {
-      maskBankAccountSecrets(
-        organization.bankAccounts as unknown as Array<Record<string, unknown>>,
-        false,
-      );
-    }
+    // Strip login/password for clients entirely; mask as "***" for staff
+    maskBankAccountSecrets(
+      organization.bankAccounts as unknown as Array<Record<string, unknown>>,
+      clientOnly,
+    );
 
     res.json(organization);
   } catch (err) {
