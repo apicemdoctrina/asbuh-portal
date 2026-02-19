@@ -300,6 +300,7 @@ export default function BankAccountsCard({
                       value={login}
                       onChange={(e) => setLogin(e.target.value)}
                       placeholder={editingAccount ? "Оставьте пустым, чтобы не менять" : ""}
+                      autoComplete="off"
                       className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
                     />
                   </div>
@@ -310,6 +311,7 @@ export default function BankAccountsCard({
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder={editingAccount ? "Оставьте пустым, чтобы не менять" : ""}
+                      autoComplete="new-password"
                       className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
                     />
                   </div>
