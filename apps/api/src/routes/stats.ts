@@ -74,34 +74,41 @@ router.get("/", authenticate, async (req, res) => {
     const { userId, roles } = req.user!;
     const orgWhere = getOrgWhere(userId, roles);
 
+    // Exclude archived statuses from dashboard counts
+    const ARCHIVED_STATUSES = ["left", "closed"];
+    const activeOrgWhere: Prisma.OrganizationWhereInput = {
+      ...orgWhere,
+      status: { notIn: ARCHIVED_STATUSES },
+    };
+
     const canViewSections = await hasPermission(userId, "section", "view");
     const canViewUsers = await hasPermission(userId, "user", "view");
     const isAdmin = roles.includes("admin");
 
     // Build parallel queries
     const queries: Promise<unknown>[] = [
-      // 0: org count
-      prisma.organization.count({ where: orgWhere }),
-      // 1: org groupBy status
+      // 0: org count (active only)
+      prisma.organization.count({ where: activeOrgWhere }),
+      // 1: org groupBy status (active only)
       prisma.organization.groupBy({
         by: ["status"],
         _count: { _all: true },
-        where: orgWhere,
+        where: activeOrgWhere,
       }),
-      // 2: documents count
-      prisma.organizationDocument.count({ where: { organization: orgWhere } }),
-      // 3: recent organizations
+      // 2: documents count (active orgs only)
+      prisma.organizationDocument.count({ where: { organization: activeOrgWhere } }),
+      // 3: recent organizations (active only)
       prisma.organization.findMany({
-        where: orgWhere,
+        where: activeOrgWhere,
         orderBy: { createdAt: "desc" },
         take: 5,
         include: {
           section: { select: { id: true, number: true, name: true } },
         },
       }),
-      // 4: completeness fields for all scoped orgs
+      // 4: completeness fields for active orgs only
       prisma.organization.findMany({
-        where: orgWhere,
+        where: activeOrgWhere,
         select: {
           inn: true,
           form: true,
@@ -132,6 +139,7 @@ router.get("/", authenticate, async (req, res) => {
     }
 
     // 5: staff count (only if admin)
+    // 6: monthly revenue aggregate (only if admin)
     if (isAdmin) {
       queries.push(
         prisma.user.count({
@@ -139,6 +147,12 @@ router.get("/", authenticate, async (req, res) => {
             isActive: true,
             userRoles: { some: { role: { name: { not: "client" } } } },
           },
+        }),
+      );
+      queries.push(
+        prisma.organization.aggregate({
+          _sum: { monthlyPayment: true },
+          where: activeOrgWhere,
         }),
       );
     }
@@ -184,7 +198,14 @@ router.get("/", authenticate, async (req, res) => {
 
     let idx = 5;
     const sectionsCount = canViewSections ? (results[idx++] as number) : null;
-    const usersCount = isAdmin ? (results[idx++] as number) : null;
+    let usersCount: number | null = null;
+    let monthlyRevenue: number | null = null;
+    if (isAdmin) {
+      usersCount = results[idx++] as number;
+      const revenueAgg = results[idx++] as { _sum: { monthlyPayment: unknown } };
+      const raw = revenueAgg._sum.monthlyPayment;
+      monthlyRevenue = raw != null ? Math.round(Number(raw)) : 0;
+    }
     const clientsCount = canViewUsers ? (results[idx] as number) : null;
 
     res.json({
@@ -196,6 +217,7 @@ router.get("/", authenticate, async (req, res) => {
       recentOrganizations,
       avgCompleteness,
       completedOrganizations,
+      monthlyRevenue,
     });
   } catch (err) {
     console.error("Stats error:", err);

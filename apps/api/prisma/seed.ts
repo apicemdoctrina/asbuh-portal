@@ -49,6 +49,8 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "user", action: "view" },
     { entity: "section", action: "view" },
     { entity: "organization", action: "view" },
+    { entity: "organization", action: "create" },
+    { entity: "organization", action: "edit" },
     { entity: "document", action: "view" },
     { entity: "audit_log", action: "view" },
     { entity: "organization_secret", action: "view" },

@@ -135,17 +135,48 @@ function buildOrgData(validated: Record<string, unknown>): Prisma.OrganizationUp
 // GET /api/organizations — list with search, filters, pagination
 router.get("/", authenticate, requirePermission("organization", "view"), async (req, res) => {
   try {
-    const { search, sectionId, status, page: pageQ, limit: limitQ } = req.query;
+    const {
+      search,
+      sectionId,
+      status,
+      archived,
+      taxSystem,
+      sortBy,
+      sortOrder,
+      page: pageQ,
+      limit: limitQ,
+    } = req.query;
     const page = Math.max(1, Number(pageQ) || 1);
     const limit = Math.min(100, Math.max(1, Number(limitQ) || 50));
     const skip = (page - 1) * limit;
 
+    const ARCHIVED_STATUSES = ["left", "closed"];
+    const SORTABLE_FIELDS = [
+      "name",
+      "monthlyPayment",
+      "debtAmount",
+      "employeeCount",
+      "form",
+      "serviceType",
+      "reportingChannel",
+      "digitalSignatureExpiry",
+    ] as const;
+    type SortField = (typeof SORTABLE_FIELDS)[number];
+
     const scope = getScopedWhere(req.user!.userId, req.user!.roles);
+
+    const statusFilter: Prisma.OrganizationWhereInput =
+      archived === "true"
+        ? { status: { in: ARCHIVED_STATUSES } }
+        : status
+          ? { status: String(status) }
+          : { status: { notIn: [...ARCHIVED_STATUSES, "archived"] } };
 
     const where: Prisma.OrganizationWhereInput = {
       ...scope,
       ...(sectionId ? { sectionId: String(sectionId) } : {}),
-      ...(status ? { status: String(status) } : {}),
+      ...statusFilter,
+      ...(taxSystem ? { taxSystems: { has: String(taxSystem) } } : {}),
       ...(search
         ? {
             OR: [
@@ -156,15 +187,27 @@ router.get("/", authenticate, requirePermission("organization", "view"), async (
         : {}),
     };
 
+    // name — обязательное поле, nulls: "last" нельзя; все остальные поля — nullable
+    const REQUIRED_SORT_FIELDS = new Set(["name"]);
+    const sortField: SortField = SORTABLE_FIELDS.includes(String(sortBy) as SortField)
+      ? (String(sortBy) as SortField)
+      : "name";
+    const sortDir = sortOrder === "desc" ? "desc" : "asc";
+    const orderBy: Prisma.OrganizationOrderByWithRelationInput = REQUIRED_SORT_FIELDS.has(sortField)
+      ? { [sortField]: sortDir }
+      : { [sortField]: { sort: sortDir, nulls: "last" } };
+
     const [organizations, total] = await Promise.all([
       prisma.organization.findMany({
         where,
-        orderBy: { name: "asc" },
+        orderBy,
         skip,
         take: limit,
         include: {
           section: { select: { id: true, number: true, name: true } },
-          _count: { select: { members: true } },
+          members: {
+            include: { user: { select: { firstName: true, lastName: true } } },
+          },
         },
       }),
       prisma.organization.count({ where }),

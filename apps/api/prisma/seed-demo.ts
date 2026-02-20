@@ -1,11 +1,20 @@
 /**
- * Демо-данные: 25 организаций с разной степенью заполненности карточек.
+ * Демо-данные: сотрудники, секции, организации, банковские счета, доступы к системам.
  * Запуск: npm run db:seed-demo -w apps/api
  *
- * Скрипт идемпотентен — при повторном запуске пропускает уже существующие
- * организации (проверка по ИНН) и секции (проверка по номеру).
+ * Скрипт идемпотентен — при повторном запуске пропускает уже существующие записи.
+ *
+ * Тестовые аккаунты после запуска:
+ *   admin@asbuh.local    / Admin123!   (admin)
+ *   manager@asbuh.local  / Demo12345!  (manager, участки 1+2)
+ *   manager2@asbuh.local / Demo12345!  (manager, участки 2+3)
+ *   buh1@asbuh.local     / Demo12345!  (accountant, участок 1)
+ *   buh2@asbuh.local     / Demo12345!  (accountant, участок 2)
+ *   buh3@asbuh.local     / Demo12345!  (accountant, участок 3)
+ *   client@asbuh.local   / Demo12345!  (client, ООО «АльфаТрейд»)
  */
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, SystemAccessType } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 if (process.env.NODE_ENV === "production") {
   console.error("❌ Демо-данные нельзя загружать в production!");
@@ -14,7 +23,7 @@ if (process.env.NODE_ENV === "production") {
 
 const prisma = new PrismaClient();
 
-// --------------- Секции ---------------
+// ─── Секции ───────────────────────────────────────────────────────────────────
 
 const SECTIONS = [
   { number: 1, name: "Северный" },
@@ -22,15 +31,72 @@ const SECTIONS = [
   { number: 3, name: "Центральный" },
 ];
 
-// --------------- Организации ---------------
+// ─── Сотрудники ───────────────────────────────────────────────────────────────
+
+const DEMO_PASSWORD_HASH = await bcrypt.hash("Demo12345!", 12);
+
+type DemoUser = {
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: "manager" | "accountant" | "client";
+  phone?: string;
+};
+
+const STAFF_USERS: DemoUser[] = [
+  {
+    email: "manager@asbuh.local",
+    firstName: "Ольга",
+    lastName: "Смирнова",
+    role: "manager",
+    phone: "+7 (495) 111-22-33",
+  },
+  {
+    email: "manager2@asbuh.local",
+    firstName: "Артём",
+    lastName: "Козлов",
+    role: "manager",
+    phone: "+7 (495) 111-22-44",
+  },
+  {
+    email: "buh1@asbuh.local",
+    firstName: "Анна",
+    lastName: "Белова",
+    role: "accountant",
+    phone: "+7 (916) 100-10-01",
+  },
+  {
+    email: "buh2@asbuh.local",
+    firstName: "Дмитрий",
+    lastName: "Фёдоров",
+    role: "accountant",
+    phone: "+7 (916) 200-20-02",
+  },
+  {
+    email: "buh3@asbuh.local",
+    firstName: "Наталья",
+    lastName: "Орлова",
+    role: "accountant",
+    phone: "+7 (916) 300-30-03",
+  },
+  {
+    email: "client@asbuh.local",
+    firstName: "Иван",
+    lastName: "Петров",
+    role: "client",
+    phone: "+7 (903) 999-88-77",
+  },
+];
+
+// ─── Организации ──────────────────────────────────────────────────────────────
 
 type OrgSeed = Parameters<typeof prisma.organization.create>[0]["data"];
 
-function orgs(sectionIds: string[]): OrgSeed[] {
+function buildOrgs(sectionIds: string[]): OrgSeed[] {
   const [s1, s2, s3] = sectionIds;
 
   return [
-    // ---- Полностью заполненные (100%) ----
+    // ── Полностью заполненные (index 0–4) ──
     {
       name: 'ООО "АльфаТрейд"',
       form: "OOO",
@@ -40,6 +106,8 @@ function orgs(sectionIds: string[]): OrgSeed[] {
       sectionId: s1,
       status: "active",
       taxSystems: ["USN6"],
+      employeeCount: 12,
+      hasCashRegister: true,
       legalAddress: "г. Москва, ул. Ленина, д. 10, оф. 201",
       digitalSignature: "US",
       digitalSignatureExpiry: new Date("2026-12-31"),
@@ -60,6 +128,7 @@ function orgs(sectionIds: string[]): OrgSeed[] {
       sectionId: s2,
       status: "active",
       taxSystems: ["PSN"],
+      employeeCount: 3,
       legalAddress: "г. Подольск, ул. Садовая, д. 5",
       digitalSignature: "CLIENT",
       digitalSignatureExpiry: new Date("2026-09-01"),
@@ -81,6 +150,8 @@ function orgs(sectionIds: string[]): OrgSeed[] {
       sectionId: s3,
       status: "active",
       taxSystems: ["OSNO"],
+      employeeCount: 45,
+      hasCashRegister: false,
       legalAddress: "г. Балашиха, пр-т Энтузиастов, д. 2",
       digitalSignature: "US",
       digitalSignatureExpiry: new Date("2027-03-15"),
@@ -102,6 +173,7 @@ function orgs(sectionIds: string[]): OrgSeed[] {
       sectionId: s1,
       status: "active",
       taxSystems: ["OSNO", "USN_NDS22"],
+      employeeCount: 120,
       legalAddress: "г. Москва, Кутузовский пр-т, д. 3, стр. 1",
       digitalSignature: "US",
       digitalSignatureExpiry: new Date("2026-06-30"),
@@ -122,6 +194,7 @@ function orgs(sectionIds: string[]): OrgSeed[] {
       sectionId: s2,
       status: "active",
       taxSystems: ["USN15"],
+      employeeCount: 7,
       legalAddress: "г. Москва, ул. Профсоюзная, д. 40, кв. 15",
       digitalSignature: "CLIENT",
       digitalSignatureExpiry: new Date("2026-11-20"),
@@ -135,7 +208,7 @@ function orgs(sectionIds: string[]): OrgSeed[] {
       requisitesBank: "ПАО Сбербанк",
     },
 
-    // ---- Хорошо заполненные (70–90%) ----
+    // ── Хорошо заполненные (index 5–11) ──
     {
       name: 'ООО "ДельтаГрупп"',
       form: "OOO",
@@ -145,6 +218,7 @@ function orgs(sectionIds: string[]): OrgSeed[] {
       sectionId: s3,
       status: "active",
       taxSystems: ["USN6"],
+      employeeCount: 30,
       legalAddress: "г. Екатеринбург, ул. Малышева, д. 51",
       digitalSignature: "US",
       reportingChannel: "KONTUR",
@@ -164,6 +238,7 @@ function orgs(sectionIds: string[]): OrgSeed[] {
       sectionId: s1,
       status: "active",
       taxSystems: ["OSNO"],
+      employeeCount: 55,
       legalAddress: "г. Москва, ул. Новослободская, д. 73",
       digitalSignature: "NONE",
       reportingChannel: "SBIS",
@@ -182,6 +257,7 @@ function orgs(sectionIds: string[]): OrgSeed[] {
       sectionId: s2,
       status: "active",
       taxSystems: ["USN6"],
+      employeeCount: 2,
       legalAddress: "г. Москва, ул. Трёхгорный вал, д. 12, кв. 3",
       digitalSignature: "CLIENT",
       reportingChannel: "KONTUR",
@@ -200,6 +276,7 @@ function orgs(sectionIds: string[]): OrgSeed[] {
       sectionId: s3,
       status: "active",
       taxSystems: ["USN15", "OSNO"],
+      employeeCount: 18,
       legalAddress: "г. Люберцы, ул. Юбилейная, д. 7",
       digitalSignature: "US",
       reportingChannel: "ASTRAL",
@@ -218,6 +295,7 @@ function orgs(sectionIds: string[]): OrgSeed[] {
       sectionId: s1,
       status: "active",
       taxSystems: ["USN6"],
+      employeeCount: 8,
       legalAddress: "г. Москва, Дмитровское шоссе, д. 9",
       reportingChannel: "KONTUR",
       serviceType: "FULL",
@@ -235,6 +313,7 @@ function orgs(sectionIds: string[]): OrgSeed[] {
       sectionId: s2,
       status: "active",
       taxSystems: ["OSNO"],
+      employeeCount: 10,
       legalAddress: "г. Москва, ул. Пречистенка, д. 17",
       digitalSignature: "US",
       reportingChannel: "SBIS",
@@ -263,7 +342,7 @@ function orgs(sectionIds: string[]): OrgSeed[] {
       requisitesBank: "ПАО «Промсвязьбанк»",
     },
 
-    // ---- Средне заполненные (40–65%) ----
+    // ── Средне заполненные (index 12–18) ──
     {
       name: 'ООО "КаппаСтрой"',
       form: "OOO",
@@ -313,6 +392,8 @@ function orgs(sectionIds: string[]): OrgSeed[] {
       legalAddress: "г. Королёв, ул. Горького, д. 21",
       serviceType: "MINIMAL",
       monthlyPayment: 7000,
+      debtAmount: 21000,
+      importantComment: "Задолженность 3 месяца, работа приостановлена до оплаты",
     },
     {
       name: "ИП Орлова Светлана Александровна",
@@ -345,9 +426,10 @@ function orgs(sectionIds: string[]): OrgSeed[] {
       status: "liquidating",
       taxSystems: ["OSNO"],
       legalAddress: "г. Москва, 1-й Неопалимовский пер., д. 4",
+      importantComment: "Идёт процедура ликвидации, отчётность подаётся в штатном режиме",
     },
 
-    // ---- Слабо заполненные (10–35%) ----
+    // ── Слабо заполненные (index 19–24) ──
     {
       name: 'ООО "ОмикронПлюс"',
       form: "OOO",
@@ -391,25 +473,137 @@ function orgs(sectionIds: string[]): OrgSeed[] {
   ];
 }
 
-// --------------- Контакты ---------------
+// ─── Контакты ─────────────────────────────────────────────────────────────────
 
-async function seedContacts(
-  orgId: string,
-  contacts: { contactPerson: string; phone: string; email?: string }[],
-) {
-  for (const c of contacts) {
-    await prisma.organizationContact.create({
-      data: { organizationId: orgId, ...c },
-    });
-  }
-}
+type ContactData = { contactPerson: string; phone: string; email?: string; telegram?: string };
 
-// --------------- Главная функция ---------------
+const CONTACTS_BY_INDEX: Record<number, ContactData[]> = {
+  0: [
+    {
+      contactPerson: "Иванов Сергей Михайлович",
+      phone: "+7 (495) 123-45-67",
+      email: "ivanov@alfatrade.ru",
+      telegram: "@s_ivanov",
+    },
+  ],
+  1: [{ contactPerson: "Петрова Наталья Сергеевна", phone: "+7 (917) 234-56-78" }],
+  2: [
+    {
+      contactPerson: "Белов Андрей Геннадьевич",
+      phone: "+7 (495) 345-67-89",
+      email: "belov@betaservice.ru",
+    },
+    {
+      contactPerson: "Ким Юлия (бухгалтер)",
+      phone: "+7 (916) 456-78-90",
+      telegram: "@yulia_kim",
+    },
+  ],
+  3: [
+    {
+      contactPerson: "Громов Виктор Павлович",
+      phone: "+7 (495) 567-89-01",
+      email: "gromov@gammainvest.ru",
+    },
+  ],
+  4: [{ contactPerson: "Сидоров Алексей Владимирович", phone: "+7 (903) 678-90-12" }],
+  5: [
+    {
+      contactPerson: "Дёмина Анна Юрьевна",
+      phone: "+7 (343) 678-90-12",
+      email: "demina@deltagroupp.ru",
+    },
+  ],
+  7: [
+    {
+      contactPerson: "Козлова Марина Дмитриевна",
+      phone: "+7 (903) 789-01-23",
+      telegram: "@kozlova_md",
+    },
+  ],
+  9: [
+    {
+      contactPerson: "Медведев Роман Сергеевич",
+      phone: "+7 (495) 222-33-44",
+      email: "medvedev@etamedia.ru",
+    },
+  ],
+  11: [{ contactPerson: "Поляков Дмитрий Александрович", phone: "+7 (342) 890-12-34" }],
+  15: [{ contactPerson: "Новиков Павел Иванович", phone: "+7 (495) 777-88-99" }],
+};
+
+// ─── Банковские счета ─────────────────────────────────────────────────────────
+
+type BankAccountData = { bankName: string; accountNumber?: string; comment?: string };
+
+const BANK_ACCOUNTS_BY_INDEX: Record<number, BankAccountData[]> = {
+  0: [
+    { bankName: "ПАО Сбербанк", accountNumber: "40702810001234567890", comment: "Основной р/с" },
+    {
+      bankName: "АО «Альфа-Банк»",
+      accountNumber: "40702810300000000090",
+      comment: "Для расчётов с поставщиками",
+    },
+  ],
+  1: [{ bankName: "АО Тинькофф Банк", accountNumber: "40802810500000000001" }],
+  2: [
+    { bankName: "Банк ВТБ (ПАО)", accountNumber: "40702810200000000002", comment: "Основной р/с" },
+    {
+      bankName: "ПАО Сбербанк",
+      accountNumber: "40702810001111111111",
+      comment: "Зарплатный проект",
+    },
+  ],
+  3: [{ bankName: "АО «Альфа-Банк»", accountNumber: "40702810300000000003" }],
+  4: [{ bankName: "ПАО Сбербанк", accountNumber: "40802810100000000005" }],
+  5: [{ bankName: "ПАО «БАНК УРАЛСИБ»", accountNumber: "40702810400000000006" }],
+  6: [{ bankName: "АО Тинькофф Банк", accountNumber: "40702810500000000007" }],
+  8: [{ bankName: "Банк ВТБ (ПАО)", accountNumber: "40702810700000000009" }],
+  10: [
+    { bankName: "ПАО Сбербанк", accountNumber: "40703810900000000011", comment: "Целевой р/с НКО" },
+  ],
+};
+
+// ─── Системные доступы ────────────────────────────────────────────────────────
+
+type SystemAccessData = { systemType: SystemAccessType; name?: string; comment?: string };
+
+const SYSTEM_ACCESSES_BY_INDEX: Record<number, SystemAccessData[]> = {
+  0: [
+    { systemType: "ONE_C", name: "1С:Бухгалтерия 3.0", comment: "Облако, 3 пользователя" },
+    { systemType: "KASSA", name: "Касса Сбербанк", comment: "Торговая точка на Ленина 10" },
+  ],
+  1: [{ systemType: "ONE_C", name: "1С:ИП", comment: "Локальная версия" }],
+  2: [
+    { systemType: "ONE_C", name: "1С:Зарплата и управление персоналом", comment: "45 сотрудников" },
+    { systemType: "KASSA", name: "Эвотор", comment: "3 кассы" },
+    { systemType: "OTHER", name: "Контур.Экстерн", comment: "Электронная отчётность" },
+  ],
+  3: [
+    { systemType: "ONE_C", name: "1С:Предприятие ERP", comment: "Серверная лицензия" },
+    { systemType: "OTHER", name: "Диадок", comment: "ЭДО с контрагентами" },
+  ],
+  4: [{ systemType: "OTHER", name: "СБИС", comment: "Отчётность и ЭДО" }],
+  5: [
+    { systemType: "ONE_C", name: "1С:Бухгалтерия 3.0" },
+    { systemType: "OTHER", name: "Контур.Фокус", comment: "Проверка контрагентов" },
+  ],
+  6: [{ systemType: "ONE_C", name: "1С:Бухгалтерия 3.0", comment: "Облако" }],
+  8: [{ systemType: "ONE_C", name: "1С:ЗУП", comment: "18 сотрудников" }],
+  9: [
+    { systemType: "ONE_C", name: "1С:Бухгалтерия 3.0" },
+    { systemType: "KASSA", name: "Атол", comment: "2 кассы" },
+  ],
+  11: [{ systemType: "OTHER", name: "СБИС", comment: "Отчётность" }],
+};
+
+// ─── Главная функция ──────────────────────────────────────────────────────────
 
 async function main() {
   console.log("🌱 Начинаем посев демо-данных...\n");
 
   // 1. Секции
+  console.log("── Секции ──");
   const sectionIds: string[] = [];
   for (const s of SECTIONS) {
     const section = await prisma.section.upsert({
@@ -418,58 +612,104 @@ async function main() {
       create: s,
     });
     sectionIds.push(section.id);
-    console.log(`Секция #${s.number} "${s.name}" — OK`);
+    console.log(`  ✓ Участок #${s.number} "${s.name}"`);
   }
 
-  // 2. Организации
-  const orgData = orgs(sectionIds);
-  let created = 0;
-  let skipped = 0;
-  const createdOrgs: { id: string; name: string }[] = [];
+  // 2. Роли (нужны для назначения сотрудникам)
+  const roles = await prisma.role.findMany({ select: { id: true, name: true } });
+  const roleMap = Object.fromEntries(roles.map((r) => [r.name, r.id]));
+
+  // 3. Сотрудники
+  console.log("\n── Сотрудники ──");
+  const staffIds: Record<string, string> = {};
+
+  for (const u of STAFF_USERS) {
+    const existing = await prisma.user.findUnique({ where: { email: u.email } });
+    if (existing) {
+      staffIds[u.email] = existing.id;
+      console.log(`  — ${u.lastName} ${u.firstName} (уже существует)`);
+      continue;
+    }
+
+    const user = await prisma.user.create({
+      data: {
+        email: u.email,
+        passwordHash: DEMO_PASSWORD_HASH,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        phone: u.phone ?? null,
+      },
+    });
+    staffIds[u.email] = user.id;
+
+    // Назначить роль
+    const roleId = roleMap[u.role];
+    if (roleId) {
+      await prisma.userRole.upsert({
+        where: { userId_roleId: { userId: user.id, roleId } },
+        update: {},
+        create: { userId: user.id, roleId },
+      });
+    }
+
+    console.log(`  + ${u.lastName} ${u.firstName} <${u.email}> [${u.role}]`);
+  }
+
+  // 4. Членство в секциях
+  console.log("\n── Членство в секциях ──");
+  const sectionMemberships: Array<{ email: string; sectionIdx: number; role: string }> = [
+    { email: "manager@asbuh.local", sectionIdx: 0, role: "manager" },
+    { email: "manager@asbuh.local", sectionIdx: 1, role: "manager" },
+    { email: "manager2@asbuh.local", sectionIdx: 1, role: "manager" },
+    { email: "manager2@asbuh.local", sectionIdx: 2, role: "manager" },
+    { email: "buh1@asbuh.local", sectionIdx: 0, role: "accountant" },
+    { email: "buh2@asbuh.local", sectionIdx: 1, role: "accountant" },
+    { email: "buh3@asbuh.local", sectionIdx: 2, role: "accountant" },
+  ];
+
+  for (const m of sectionMemberships) {
+    const userId = staffIds[m.email];
+    const sectionId = sectionIds[m.sectionIdx];
+    if (!userId || !sectionId) continue;
+
+    await prisma.sectionMember.upsert({
+      where: { sectionId_userId: { sectionId, userId } },
+      update: {},
+      create: { sectionId, userId, role: m.role },
+    });
+    console.log(`  ✓ ${m.email} → участок #${m.sectionIdx + 1}`);
+  }
+
+  // 5. Организации
+  console.log("\n── Организации ──");
+  const orgData = buildOrgs(sectionIds);
+  let orgCreated = 0;
+  let orgSkipped = 0;
+  const createdOrgs: { id: string; name: string; sectionId: string | null }[] = [];
 
   for (const data of orgData) {
-    // Проверяем по ИНН (если есть) или по имени
     const existing = data.inn
       ? await prisma.organization.findUnique({ where: { inn: data.inn as string } })
       : await prisma.organization.findFirst({ where: { name: data.name as string } });
 
     if (existing) {
-      skipped++;
+      orgSkipped++;
       createdOrgs.push(existing);
       continue;
     }
 
     const org = await prisma.organization.create({ data });
     createdOrgs.push(org);
-    created++;
+    orgCreated++;
     console.log(`  + ${org.name}`);
   }
 
-  console.log(`\nОрганизации: создано ${created}, пропущено (уже есть) ${skipped}`);
+  console.log(`  Итого: создано ${orgCreated}, пропущено ${orgSkipped}`);
 
-  // 3. Контакты для первых нескольких организаций (если ещё нет)
-  const contactsMap: Record<number, { contactPerson: string; phone: string; email?: string }[]> = {
-    0: [
-      { contactPerson: "Иванов Сергей", phone: "+7 (495) 123-45-67", email: "ivanov@alfatrade.ru" },
-    ],
-    1: [{ contactPerson: "Петрова Наталья", phone: "+7 (917) 234-56-78" }],
-    2: [
-      { contactPerson: "Белов Андрей", phone: "+7 (495) 345-67-89", email: "belov@betaservice.ru" },
-      { contactPerson: "Ким Юлия (бухгалтер)", phone: "+7 (916) 456-78-90" },
-    ],
-    3: [
-      {
-        contactPerson: "Громов Виктор",
-        phone: "+7 (495) 567-89-01",
-        email: "gromov@gammainvest.ru",
-      },
-    ],
-    5: [{ contactPerson: "Дёмина Анна", phone: "+7 (343) 678-90-12" }],
-    7: [{ contactPerson: "Козлова Марина", phone: "+7 (903) 789-01-23" }],
-    11: [{ contactPerson: "Поляков Дмитрий", phone: "+7 (342) 890-12-34" }],
-  };
-
-  for (const [idxStr, contacts] of Object.entries(contactsMap)) {
+  // 6. Контакты
+  console.log("\n── Контакты ──");
+  let contactsAdded = 0;
+  for (const [idxStr, contacts] of Object.entries(CONTACTS_BY_INDEX)) {
     const idx = Number(idxStr);
     const org = createdOrgs[idx];
     if (!org) continue;
@@ -477,13 +717,122 @@ async function main() {
     const existingCount = await prisma.organizationContact.count({
       where: { organizationId: org.id },
     });
-    if (existingCount === 0) {
-      await seedContacts(org.id, contacts);
-      console.log(`Контакты для "${org.name}" — добавлено ${contacts.length}`);
+    if (existingCount > 0) continue;
+
+    for (const c of contacts) {
+      await prisma.organizationContact.create({
+        data: { organizationId: org.id, ...c },
+      });
+      contactsAdded++;
     }
   }
+  console.log(`  Добавлено контактов: ${contactsAdded}`);
 
-  console.log("\n✅ Демо-данные успешно загружены!");
+  // 7. Банковские счета
+  console.log("\n── Банковские счета ──");
+  let bankAdded = 0;
+  for (const [idxStr, accounts] of Object.entries(BANK_ACCOUNTS_BY_INDEX)) {
+    const idx = Number(idxStr);
+    const org = createdOrgs[idx];
+    if (!org) continue;
+
+    const existingCount = await prisma.organizationBankAccount.count({
+      where: { organizationId: org.id },
+    });
+    if (existingCount > 0) continue;
+
+    for (const acc of accounts) {
+      await prisma.organizationBankAccount.create({
+        data: {
+          organizationId: org.id,
+          bankName: acc.bankName,
+          accountNumber: acc.accountNumber ?? null,
+          comment: acc.comment ?? null,
+        },
+      });
+      bankAdded++;
+    }
+  }
+  console.log(`  Добавлено счетов: ${bankAdded}`);
+
+  // 8. Доступы к системам
+  console.log("\n── Доступы к системам ──");
+  let accessAdded = 0;
+  for (const [idxStr, accesses] of Object.entries(SYSTEM_ACCESSES_BY_INDEX)) {
+    const idx = Number(idxStr);
+    const org = createdOrgs[idx];
+    if (!org) continue;
+
+    const existingCount = await prisma.organizationSystemAccess.count({
+      where: { organizationId: org.id },
+    });
+    if (existingCount > 0) continue;
+
+    for (const acc of accesses) {
+      await prisma.organizationSystemAccess.create({
+        data: {
+          organizationId: org.id,
+          systemType: acc.systemType,
+          name: acc.name ?? null,
+          comment: acc.comment ?? null,
+        },
+      });
+      accessAdded++;
+    }
+  }
+  console.log(`  Добавлено доступов: ${accessAdded}`);
+
+  // 9. Членство бухгалтеров и клиента в организациях
+  console.log("\n── Члены организаций ──");
+  let membersAdded = 0;
+
+  // Карта: sectionId → userId бухгалтера
+  const accountantBySectionId: Record<string, string> = {
+    [sectionIds[0]]: staffIds["buh1@asbuh.local"],
+    [sectionIds[1]]: staffIds["buh2@asbuh.local"],
+    [sectionIds[2]]: staffIds["buh3@asbuh.local"],
+  };
+
+  for (const org of createdOrgs) {
+    if (!org.sectionId) continue;
+    const accountantId = accountantBySectionId[org.sectionId];
+    if (!accountantId) continue;
+
+    await prisma.organizationMember.upsert({
+      where: { userId_organizationId: { userId: accountantId, organizationId: org.id } },
+      update: {},
+      create: { userId: accountantId, organizationId: org.id, role: "accountant" },
+    });
+    membersAdded++;
+  }
+
+  // Клиент → первая организация (ООО АльфаТрейд)
+  const clientId = staffIds["client@asbuh.local"];
+  const firstOrg = createdOrgs[0];
+  if (clientId && firstOrg) {
+    await prisma.organizationMember.upsert({
+      where: { userId_organizationId: { userId: clientId, organizationId: firstOrg.id } },
+      update: {},
+      create: { userId: clientId, organizationId: firstOrg.id, role: "client" },
+    });
+    membersAdded++;
+    console.log(`  ✓ client@asbuh.local → "${firstOrg.name}"`);
+  }
+
+  console.log(`  Всего добавлено/проверено: ${membersAdded}`);
+
+  console.log(`
+✅ Демо-данные успешно загружены!
+
+Тестовые аккаунты (пароль Demo12345! для всех кроме admin):
+  admin@asbuh.local    — Администратор (полный доступ)
+  manager@asbuh.local  — Менеджер (участки 1+2)
+  manager2@asbuh.local — Менеджер (участки 2+3)
+  buh1@asbuh.local     — Бухгалтер (участок 1 «Северный»)
+  buh2@asbuh.local     — Бухгалтер (участок 2 «Южный»)
+  buh3@asbuh.local     — Бухгалтер (участок 3 «Центральный»)
+  client@asbuh.local   — Клиент (ООО «АльфаТрейд»)
+`);
 }
 
 main()

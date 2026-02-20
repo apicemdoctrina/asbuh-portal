@@ -46,6 +46,7 @@ const ROLE_LABELS = {
   client: "Клиент",
 };
 const ORG_FORM_LABELS = { OOO: "ООО", IP: "ИП", NKO: "НКО", AO: "АО", PAO: "ПАО" };
+const ARCHIVED_STATUSES = ["left", "closed"];
 const STATUS_BADGE_COLORS = {
   active: "bg-green-100 text-green-700",
   new: "bg-blue-100 text-blue-700",
@@ -104,7 +105,7 @@ const INITIAL_FORM = {
   sectionId: "",
   taxSystems: [],
   employeeCount: "",
-  opsPerMonth: "",
+
   hasCashRegister: false,
   legalAddress: "",
   importantComment: "",
@@ -171,7 +172,7 @@ export default function OrganizationDetailPage() {
       sectionId: data.sectionId || "",
       taxSystems: data.taxSystems || [],
       employeeCount: data.employeeCount != null ? String(data.employeeCount) : "",
-      opsPerMonth: data.opsPerMonth != null ? String(data.opsPerMonth) : "",
+
       hasCashRegister: data.hasCashRegister || false,
       legalAddress: data.legalAddress || "",
       importantComment: data.importantComment || "",
@@ -225,8 +226,13 @@ export default function OrganizationDetailPage() {
       .catch(() => {});
   }, [showAddMember, organization]);
 
-  function selectTaxSystem(key) {
-    setField("taxSystems", [key]);
+  function toggleTaxSystem(key) {
+    setField(
+      "taxSystems",
+      form.taxSystems.includes(key)
+        ? form.taxSystems.filter((k) => k !== key)
+        : [...form.taxSystems, key],
+    );
   }
 
   async function handleSave(e) {
@@ -246,7 +252,7 @@ export default function OrganizationDetailPage() {
           sectionId: form.sectionId || null,
           taxSystems: form.taxSystems,
           employeeCount: toIntOrNull(form.employeeCount),
-          opsPerMonth: toIntOrNull(form.opsPerMonth),
+
           hasCashRegister: form.hasCashRegister,
           legalAddress: form.legalAddress || null,
           importantComment: form.importantComment || null,
@@ -480,15 +486,17 @@ export default function OrganizationDetailPage() {
                   placeholder="13 или 15 цифр"
                 />
               </div>
-              <div>
-                <label className={LABEL_CLS}>КПП</label>
-                <input
-                  type="text"
-                  value={form.kpp}
-                  onChange={(e) => setField("kpp", e.target.value)}
-                  className={INPUT_CLS}
-                />
-              </div>
+              {!ARCHIVED_STATUSES.includes(form.status) && form.form !== "IP" && (
+                <div>
+                  <label className={LABEL_CLS}>КПП</label>
+                  <input
+                    type="text"
+                    value={form.kpp}
+                    onChange={(e) => setField("kpp", e.target.value)}
+                    className={INPUT_CLS}
+                  />
+                </div>
+              )}
               <div>
                 <label className={LABEL_CLS}>Форма собственности</label>
                 <select
@@ -518,7 +526,7 @@ export default function OrganizationDetailPage() {
                   ))}
                 </select>
               </div>
-              {sections.length > 0 && (
+              {!ARCHIVED_STATUSES.includes(form.status) && sections.length > 0 && (
                 <div>
                   <label className={LABEL_CLS}>Участок</label>
                   <select
@@ -535,69 +543,66 @@ export default function OrganizationDetailPage() {
                   </select>
                 </div>
               )}
-              <div>
-                <label className={LABEL_CLS}>Кол-во сотрудников</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={form.employeeCount}
-                  onChange={(e) => setField("employeeCount", e.target.value)}
-                  className={INPUT_CLS}
-                />
-              </div>
-              <div>
-                <label className={LABEL_CLS}>Операций / мес</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={form.opsPerMonth}
-                  onChange={(e) => setField("opsPerMonth", e.target.value)}
-                  className={INPUT_CLS}
-                />
-              </div>
-              <div className="flex items-end">
-                <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer pb-2">
+              {!ARCHIVED_STATUSES.includes(form.status) && (
+                <div>
+                  <label className={LABEL_CLS}>Кол-во сотрудников</label>
                   <input
-                    type="checkbox"
-                    checked={form.hasCashRegister}
-                    onChange={(e) => setField("hasCashRegister", e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                    type="number"
+                    min="0"
+                    value={form.employeeCount}
+                    onChange={(e) => setField("employeeCount", e.target.value)}
+                    className={INPUT_CLS}
                   />
-                  Касса
-                </label>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <label className={LABEL_CLS}>Система налогообложения</label>
-              <div className="flex flex-wrap gap-2 mt-1">
-                {Object.entries(TAX_SYSTEM_LABELS).map(([key, label]) => (
-                  <label
-                    key={key}
-                    className="flex items-center gap-1.5 text-sm text-slate-700 cursor-pointer"
-                  >
+                </div>
+              )}
+              {!ARCHIVED_STATUSES.includes(form.status) && (
+                <div className="flex items-end">
+                  <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer pb-2">
                     <input
-                      type="radio"
-                      name="taxSystem"
-                      checked={form.taxSystems.includes(key)}
-                      onChange={() => selectTaxSystem(key)}
-                      className="w-4 h-4 border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                      type="checkbox"
+                      checked={form.hasCashRegister}
+                      onChange={(e) => setField("hasCashRegister", e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
                     />
-                    {label}
+                    Касса
                   </label>
-                ))}
-              </div>
+                </div>
+              )}
             </div>
 
-            <div className="mt-4">
-              <label className={LABEL_CLS}>Юридический адрес</label>
-              <textarea
-                value={form.legalAddress}
-                onChange={(e) => setField("legalAddress", e.target.value)}
-                rows={2}
-                className={INPUT_CLS}
-              />
-            </div>
+            {!ARCHIVED_STATUSES.includes(form.status) && (
+              <div className="mt-4">
+                <label className={LABEL_CLS}>Система налогообложения</label>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {Object.entries(TAX_SYSTEM_LABELS).map(([key, label]) => (
+                    <label
+                      key={key}
+                      className="flex items-center gap-1.5 text-sm text-slate-700 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={form.taxSystems.includes(key)}
+                        onChange={() => toggleTaxSystem(key)}
+                        className="w-4 h-4 rounded border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!ARCHIVED_STATUSES.includes(form.status) && (
+              <div className="mt-4">
+                <label className={LABEL_CLS}>Юридический адрес</label>
+                <textarea
+                  value={form.legalAddress}
+                  onChange={(e) => setField("legalAddress", e.target.value)}
+                  rows={2}
+                  className={INPUT_CLS}
+                />
+              </div>
+            )}
 
             <div className="mt-4">
               <label className={LABEL_CLS}>Важный комментарий</label>
@@ -611,149 +616,151 @@ export default function OrganizationDetailPage() {
             </div>
           </div>
 
-          {/* Реквизиты + Бухгалтерия + Финансы в одной строке */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-              <h2 className="text-base font-bold text-slate-900 mb-4">Реквизиты</h2>
-              <div className="space-y-3">
-                <div>
-                  <label className={LABEL_CLS}>Р/С</label>
-                  <input
-                    type="text"
-                    value={form.checkingAccount}
-                    onChange={(e) => setField("checkingAccount", e.target.value)}
-                    className={INPUT_CLS}
-                    placeholder="40702810..."
-                  />
-                </div>
-                <div>
-                  <label className={LABEL_CLS}>БИК</label>
-                  <input
-                    type="text"
-                    value={form.bik}
-                    onChange={(e) => setField("bik", e.target.value)}
-                    className={INPUT_CLS}
-                  />
-                </div>
-                <div>
-                  <label className={LABEL_CLS}>К/С</label>
-                  <input
-                    type="text"
-                    value={form.correspondentAccount}
-                    onChange={(e) => setField("correspondentAccount", e.target.value)}
-                    className={INPUT_CLS}
-                    placeholder="30101810..."
-                  />
-                </div>
-                <div>
-                  <label className={LABEL_CLS}>Банк</label>
-                  <input
-                    type="text"
-                    value={form.requisitesBank}
-                    onChange={(e) => setField("requisitesBank", e.target.value)}
-                    className={INPUT_CLS}
-                  />
+          {/* Реквизиты + Бухгалтерия + Финансы — скрыты для архивных статусов */}
+          {!ARCHIVED_STATUSES.includes(form.status) && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+                <h2 className="text-base font-bold text-slate-900 mb-4">Реквизиты</h2>
+                <div className="space-y-3">
+                  <div>
+                    <label className={LABEL_CLS}>Р/С</label>
+                    <input
+                      type="text"
+                      value={form.checkingAccount}
+                      onChange={(e) => setField("checkingAccount", e.target.value)}
+                      className={INPUT_CLS}
+                      placeholder="40702810..."
+                    />
+                  </div>
+                  <div>
+                    <label className={LABEL_CLS}>БИК</label>
+                    <input
+                      type="text"
+                      value={form.bik}
+                      onChange={(e) => setField("bik", e.target.value)}
+                      className={INPUT_CLS}
+                    />
+                  </div>
+                  <div>
+                    <label className={LABEL_CLS}>К/С</label>
+                    <input
+                      type="text"
+                      value={form.correspondentAccount}
+                      onChange={(e) => setField("correspondentAccount", e.target.value)}
+                      className={INPUT_CLS}
+                      placeholder="30101810..."
+                    />
+                  </div>
+                  <div>
+                    <label className={LABEL_CLS}>Банк</label>
+                    <input
+                      type="text"
+                      value={form.requisitesBank}
+                      onChange={(e) => setField("requisitesBank", e.target.value)}
+                      className={INPUT_CLS}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-              <h2 className="text-base font-bold text-slate-900 mb-4">Бухгалтерия</h2>
-              <div className="space-y-3">
-                <div>
-                  <label className={LABEL_CLS}>ЭЦП</label>
-                  <select
-                    value={form.digitalSignature}
-                    onChange={(e) => setField("digitalSignature", e.target.value)}
-                    className={SELECT_CLS}
-                  >
-                    <option value="">Не выбрано</option>
-                    {Object.entries(DIGITAL_SIGNATURE_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={LABEL_CLS}>Срок ЭЦП</label>
-                  <input
-                    type="date"
-                    value={form.digitalSignatureExpiry}
-                    onChange={(e) => setField("digitalSignatureExpiry", e.target.value)}
-                    className={INPUT_CLS}
-                  />
-                </div>
-                <div>
-                  <label className={LABEL_CLS}>Канал отчётности</label>
-                  <select
-                    value={form.reportingChannel}
-                    onChange={(e) => setField("reportingChannel", e.target.value)}
-                    className={SELECT_CLS}
-                  >
-                    <option value="">Не выбрано</option>
-                    {Object.entries(REPORTING_CHANNEL_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={LABEL_CLS}>Тип обслуживания</label>
-                  <select
-                    value={form.serviceType}
-                    onChange={(e) => setField("serviceType", e.target.value)}
-                    className={SELECT_CLS}
-                  >
-                    <option value="">Не выбрано</option>
-                    {Object.entries(SERVICE_TYPE_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
+              <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+                <h2 className="text-base font-bold text-slate-900 mb-4">Бухгалтерия</h2>
+                <div className="space-y-3">
+                  <div>
+                    <label className={LABEL_CLS}>ЭЦП</label>
+                    <select
+                      value={form.digitalSignature}
+                      onChange={(e) => setField("digitalSignature", e.target.value)}
+                      className={SELECT_CLS}
+                    >
+                      <option value="">Не выбрано</option>
+                      {Object.entries(DIGITAL_SIGNATURE_LABELS).map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={LABEL_CLS}>Срок ЭЦП</label>
+                    <input
+                      type="date"
+                      value={form.digitalSignatureExpiry}
+                      onChange={(e) => setField("digitalSignatureExpiry", e.target.value)}
+                      className={INPUT_CLS}
+                    />
+                  </div>
+                  <div>
+                    <label className={LABEL_CLS}>Канал отчётности</label>
+                    <select
+                      value={form.reportingChannel}
+                      onChange={(e) => setField("reportingChannel", e.target.value)}
+                      className={SELECT_CLS}
+                    >
+                      <option value="">Не выбрано</option>
+                      {Object.entries(REPORTING_CHANNEL_LABELS).map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={LABEL_CLS}>Тип обслуживания</label>
+                    <select
+                      value={form.serviceType}
+                      onChange={(e) => setField("serviceType", e.target.value)}
+                      className={SELECT_CLS}
+                    >
+                      <option value="">Не выбрано</option>
+                      {Object.entries(SERVICE_TYPE_LABELS).map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-              <h2 className="text-base font-bold text-slate-900 mb-4">Финансы</h2>
-              <div className="space-y-3">
-                <div>
-                  <label className={LABEL_CLS}>Ежемесячный платёж</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.monthlyPayment}
-                    onChange={(e) => setField("monthlyPayment", e.target.value)}
-                    className={INPUT_CLS}
-                  />
-                </div>
-                <div>
-                  <label className={LABEL_CLS}>Куда поступает платёж</label>
-                  <input
-                    type="text"
-                    value={form.paymentDestination}
-                    onChange={(e) => setField("paymentDestination", e.target.value)}
-                    className={INPUT_CLS}
-                  />
-                </div>
-                <div>
-                  <label className={LABEL_CLS}>Сумма задолженности</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.debtAmount}
-                    onChange={(e) => setField("debtAmount", e.target.value)}
-                    className={INPUT_CLS}
-                  />
+              <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+                <h2 className="text-base font-bold text-slate-900 mb-4">Финансы</h2>
+                <div className="space-y-3">
+                  <div>
+                    <label className={LABEL_CLS}>Ежемесячный платёж</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={form.monthlyPayment}
+                      onChange={(e) => setField("monthlyPayment", e.target.value)}
+                      className={INPUT_CLS}
+                    />
+                  </div>
+                  <div>
+                    <label className={LABEL_CLS}>Куда поступает платёж</label>
+                    <input
+                      type="text"
+                      value={form.paymentDestination}
+                      onChange={(e) => setField("paymentDestination", e.target.value)}
+                      className={INPUT_CLS}
+                    />
+                  </div>
+                  <div>
+                    <label className={LABEL_CLS}>Сумма задолженности</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={form.debtAmount}
+                      onChange={(e) => setField("debtAmount", e.target.value)}
+                      className={INPUT_CLS}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
           <div className="flex items-center gap-3">
             <button
@@ -777,8 +784,22 @@ export default function OrganizationDetailPage() {
             </button>
           </div>
         </form>
+      ) : /* ══════════════════ READ MODE ══════════════════ */
+      ARCHIVED_STATUSES.includes(org.status) ? (
+        <div className="mb-4 bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+          <div className="mb-4 px-4 py-2.5 bg-slate-100 border border-slate-300 rounded-xl text-sm text-slate-600 font-medium">
+            Организация в архиве — {STATUS_LABELS[org.status]}
+          </div>
+          <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
+            <Field label="ИНН" value={org.inn} />
+            <Field label="ОГРН" value={org.ogrn} />
+            <Field
+              label="Форма собственности"
+              value={ORG_FORM_LABELS[org.form] || org.form || null}
+            />
+          </dl>
+        </div>
       ) : (
-        /* ══════════════════ READ MODE ══════════════════ */
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
           {/* ── Left: all org data in one card ── */}
           <div className="lg:col-span-2 bg-white rounded-2xl shadow-lg border border-slate-200 divide-y divide-slate-100">
@@ -790,7 +811,7 @@ export default function OrganizationDetailPage() {
               <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
                 <Field label="ИНН" value={org.inn} />
                 <Field label="ОГРН" value={org.ogrn} />
-                <Field label="КПП" value={org.kpp} />
+                {org.form !== "IP" && <Field label="КПП" value={org.kpp} />}
                 <Field
                   label="Участок"
                   value={
@@ -803,16 +824,13 @@ export default function OrganizationDetailPage() {
                   label="Сотрудники"
                   value={org.employeeCount != null ? org.employeeCount : null}
                 />
-                <Field
-                  label="Операций / мес"
-                  value={org.opsPerMonth != null ? org.opsPerMonth : null}
-                />
+
                 <Field label="Касса" value={org.hasCashRegister ? "Да" : "Нет"} />
                 <Field
                   label="Налогообложение"
                   value={
-                    org.taxSystems?.[0]
-                      ? TAX_SYSTEM_LABELS[org.taxSystems[0]] || org.taxSystems[0]
+                    org.taxSystems?.length
+                      ? org.taxSystems.map((k) => TAX_SYSTEM_LABELS[k] || k).join(", ")
                       : null
                   }
                 />
@@ -873,8 +891,8 @@ export default function OrganizationDetailPage() {
 
           {/* ── Right: Completeness + Members + Contacts ── */}
           <div className="flex flex-col gap-4">
-            {/* Completeness indicator */}
-            <OrgCompletenessCard org={org} />
+            {/* Completeness indicator — hidden for clients */}
+            {!hasRole("client") && <OrgCompletenessCard org={org} />}
 
             {/* Members */}
             <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">

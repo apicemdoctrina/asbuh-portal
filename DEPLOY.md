@@ -87,6 +87,47 @@ journalctl -u asbuh-api -n 50 --no-pager
 docker compose -f docker-compose.prod.yml ps
 ```
 
+## Конфигурация nginx
+
+Nginx должен проксировать как `/api`, так и `/uploads` к API-сервису.
+Без блока `/uploads` аватарки и загруженные файлы (документы, обложки базы знаний) не будут отображаться.
+
+Пример конфига (`/etc/nginx/sites-available/app.asbuh.com`):
+
+```nginx
+server {
+    listen 80;
+    server_name app.asbuh.com;
+
+    root /opt/asbuh-portal/apps/web/dist;
+    index index.html;
+
+    location /api {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location /uploads {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+После изменения конфига:
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
 ## Переменные окружения API (`apps/api/.env`)
 
 При первой настройке сервера убедись что все переменные заданы:

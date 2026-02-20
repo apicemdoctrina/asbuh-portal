@@ -14,6 +14,7 @@ vi.mock("../lib/prisma.js", () => {
       findUnique: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      aggregate: vi.fn(),
     },
     organizationDocument: {
       count: vi.fn(),
@@ -113,6 +114,9 @@ describe("GET /api/stats", () => {
       .mockResolvedValueOnce([]); // completeness data
     (prisma.section.count as ReturnType<typeof vi.fn>).mockResolvedValue(8);
     (prisma.user.count as ReturnType<typeof vi.fn>).mockResolvedValue(15);
+    (prisma.organization.aggregate as ReturnType<typeof vi.fn>).mockResolvedValue({
+      _sum: { monthlyPayment: 500000 },
+    });
 
     const res = await request(app).get("/api/stats").set("Authorization", `Bearer ${adminToken}`);
 
@@ -122,6 +126,7 @@ describe("GET /api/stats", () => {
     expect(res.body.sections).toBe(8);
     expect(res.body.users).toBe(15);
     expect(res.body.documents).toBe(120);
+    expect(res.body.monthlyRevenue).toBe(500000);
     expect(res.body.recentOrganizations).toHaveLength(1);
     expect(res.body.recentOrganizations[0].name).toBe("Test Org");
   });

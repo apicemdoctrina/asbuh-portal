@@ -1,6 +1,15 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router";
-import { Building2, Map, Users, UserCheck, FileText, Plus, ArrowRight } from "lucide-react";
+import {
+  Building2,
+  Map,
+  Users,
+  UserCheck,
+  FileText,
+  Plus,
+  ArrowRight,
+  TrendingUp,
+} from "lucide-react";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
@@ -68,7 +77,7 @@ function SkeletonCard() {
 }
 
 export default function DashboardPage() {
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, hasRole } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -126,6 +135,7 @@ export default function DashboardPage() {
             <SkeletonCard />
             <SkeletonCard />
             <SkeletonCard />
+            <SkeletonCard />
           </>
         ) : stats ? (
           <>
@@ -163,6 +173,15 @@ export default function DashboardPage() {
                 to="/clients"
               />
             )}
+            {stats.monthlyRevenue != null && (
+              <StatCard
+                icon={TrendingUp}
+                label="Выручка в месяц"
+                value={stats.monthlyRevenue.toLocaleString("ru-RU") + " ₽"}
+                color="bg-emerald-500/10 text-emerald-600"
+                to="/organizations"
+              />
+            )}
             <StatCard
               icon={FileText}
               label="Документы"
@@ -174,39 +193,42 @@ export default function DashboardPage() {
         ) : null}
       </div>
 
-      {/* Completeness KPI */}
-      {loading ? (
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5 mb-8 animate-pulse">
-          <div className="flex justify-between mb-3">
-            <div className="h-4 w-48 bg-slate-200 rounded" />
-            <div className="h-4 w-8 bg-slate-200 rounded" />
+      {/* Completeness KPI — hidden for clients */}
+      {!hasRole("client") &&
+        (loading ? (
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5 mb-8 animate-pulse">
+            <div className="flex justify-between mb-3">
+              <div className="h-4 w-48 bg-slate-200 rounded" />
+              <div className="h-4 w-8 bg-slate-200 rounded" />
+            </div>
+            <div className="h-2.5 bg-slate-200 rounded-full mb-2" />
+            <div className="h-3 w-40 bg-slate-200 rounded" />
           </div>
-          <div className="h-2.5 bg-slate-200 rounded-full mb-2" />
-          <div className="h-3 w-40 bg-slate-200 rounded" />
-        </div>
-      ) : stats?.avgCompleteness != null ? (
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5 mb-8">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-semibold text-slate-700">
-              Заполненность карточек организаций
-            </h2>
-            <span className={`text-sm font-bold tabular-nums ${textColor(stats.avgCompleteness)}`}>
-              {stats.avgCompleteness}%
-            </span>
+        ) : stats?.avgCompleteness != null ? (
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5 mb-8">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-semibold text-slate-700">
+                Заполненность карточек организаций
+              </h2>
+              <span
+                className={`text-sm font-bold tabular-nums ${textColor(stats.avgCompleteness)}`}
+              >
+                {stats.avgCompleteness}%
+              </span>
+            </div>
+            <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden mb-2">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${barColor(stats.avgCompleteness)}`}
+                style={{ width: `${stats.avgCompleteness}%` }}
+              />
+            </div>
+            <p className="text-xs text-slate-400">
+              {stats.completedOrganizations} из {stats.organizations.total}{" "}
+              {stats.organizations.total === 1 ? "организация заполнена" : "организаций заполнены"}{" "}
+              полностью
+            </p>
           </div>
-          <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden mb-2">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${barColor(stats.avgCompleteness)}`}
-              style={{ width: `${stats.avgCompleteness}%` }}
-            />
-          </div>
-          <p className="text-xs text-slate-400">
-            {stats.completedOrganizations} из {stats.organizations.total}{" "}
-            {stats.organizations.total === 1 ? "организация заполнена" : "организаций заполнены"}{" "}
-            полностью
-          </p>
-        </div>
-      ) : null}
+        ) : null)}
 
       {/* Quick actions */}
       {(hasPermission("organization", "create") || hasPermission("section", "create")) && (
