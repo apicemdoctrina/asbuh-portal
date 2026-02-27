@@ -97,7 +97,7 @@ router.get("/dashboard", authenticate, requireRole("admin"), async (_req, res) =
       revenue: {
         total: revenueTotal,
         avgCheck,
-        orgCount: activeOrgs.length,
+        orgCount: revenueOrgs.length,
         orgsWithPayment: orgsWithPayment.length,
       },
       payroll: { total: payrollTotal, staffCount },
