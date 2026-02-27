@@ -7,14 +7,14 @@ const router = Router();
 // GET /api/management/dashboard
 router.get("/dashboard", authenticate, requireRole("admin"), async (_req, res) => {
   try {
-    // --- Revenue & Debt (from active orgs) ---
-    const activeOrgs = await prisma.organization.findMany({
+    // --- Revenue (exclude left/closed/not_paying/ceased) ---
+    const revenueOrgs = await prisma.organization.findMany({
       where: { status: { notIn: ["left", "closed", "not_paying", "ceased"] } },
-      select: { id: true, name: true, form: true, monthlyPayment: true, debtAmount: true },
+      select: { id: true, name: true, form: true, monthlyPayment: true },
     });
 
-    const revenueTotal = activeOrgs.reduce((sum, o) => sum + Number(o.monthlyPayment ?? 0), 0);
-    const orgsWithPayment = activeOrgs.filter(
+    const revenueTotal = revenueOrgs.reduce((sum, o) => sum + Number(o.monthlyPayment ?? 0), 0);
+    const orgsWithPayment = revenueOrgs.filter(
       (o) => o.monthlyPayment && Number(o.monthlyPayment) > 0,
     );
     const avgCheck =
@@ -23,8 +23,14 @@ router.get("/dashboard", authenticate, requireRole("admin"), async (_req, res) =
           orgsWithPayment.length
         : 0;
 
-    const debtTotal = activeOrgs.reduce((sum, o) => sum + Number(o.debtAmount ?? 0), 0);
-    const topDebtors = [...activeOrgs]
+    // --- Debt (all orgs, including not_paying) ---
+    const allOrgs = await prisma.organization.findMany({
+      where: { status: { notIn: ["left", "closed", "ceased"] } },
+      select: { id: true, name: true, debtAmount: true },
+    });
+
+    const debtTotal = allOrgs.reduce((sum, o) => sum + Number(o.debtAmount ?? 0), 0);
+    const topDebtors = [...allOrgs]
       .filter((o) => Number(o.debtAmount ?? 0) > 0)
       .sort((a, b) => Number(b.debtAmount ?? 0) - Number(a.debtAmount ?? 0))
       .slice(0, 5)
@@ -32,7 +38,7 @@ router.get("/dashboard", authenticate, requireRole("admin"), async (_req, res) =
 
     // byOrgForm
     const formMap: Record<string, { count: number; revenue: number }> = {};
-    for (const org of activeOrgs) {
+    for (const org of revenueOrgs) {
       const form = org.form ?? "OTHER";
       if (!formMap[form]) formMap[form] = { count: 0, revenue: 0 };
       formMap[form].count++;
