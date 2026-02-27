@@ -244,6 +244,20 @@ export default function UserProfilePage() {
                 {profile.createdAt ? new Date(profile.createdAt).toLocaleDateString("ru-RU") : "—"}
               </dd>
             </div>
+            {!isClient && (
+              <div>
+                <dt className="text-slate-500 font-medium mb-0.5">Зарплата</dt>
+                <dd className="text-slate-900">
+                  {profile.salary != null
+                    ? Number(profile.salary).toLocaleString("ru-RU", {
+                        style: "currency",
+                        currency: "RUB",
+                        maximumFractionDigits: 0,
+                      })
+                    : "—"}
+                </dd>
+              </div>
+            )}
           </dl>
 
           {/* Organizations (mainly for clients) */}
@@ -297,6 +311,7 @@ function EditUserModal({ profile, isClient, isSelf, onClose, onUpdated }) {
     email: profile.email,
     role: currentRole,
     isActive: profile.isActive,
+    salary: profile.salary != null ? String(profile.salary) : "",
   });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -325,6 +340,9 @@ function EditUserModal({ profile, isClient, isSelf, onClose, onUpdated }) {
     }
     if (!isSelf && !targetIsAdmin) {
       body.isActive = form.isActive;
+    }
+    if (!isClient) {
+      body.salary = form.salary === "" ? null : Number(form.salary);
     }
 
     setSubmitting(true);
@@ -386,6 +404,22 @@ function EditUserModal({ profile, isClient, isSelf, onClose, onUpdated }) {
               className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
             />
           </div>
+
+          {/* Salary — only for staff */}
+          {!isClient && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Зарплата (₽)</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={form.salary}
+                onChange={(e) => setField("salary", e.target.value)}
+                placeholder="Не указана"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              />
+            </div>
+          )}
 
           {/* Role picker — only for staff */}
           {!isClient && (

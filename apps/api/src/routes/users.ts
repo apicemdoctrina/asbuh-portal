@@ -396,6 +396,7 @@ router.get("/:id", authenticate, requireRole("admin"), async (req, res) => {
       avatarUrl: user.avatarPath ? `/uploads/${user.avatarPath}` : null,
       phone: user.phone,
       birthDate: user.birthDate,
+      salary: user.salary !== null ? Number(user.salary) : null,
       lastSeenAt: user.lastSeenAt,
       isActive: user.isActive,
       createdAt: user.createdAt,
@@ -419,7 +420,7 @@ const ALLOWED_ROLES = ["admin", "manager", "accountant"];
 router.put("/:id", authenticate, requireRole("admin"), async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, email, roleNames, isActive } = req.body;
+    const { firstName, lastName, email, roleNames, isActive, salary } = req.body;
 
     // Validate roleNames if provided — exactly one role
     if (roleNames !== undefined) {
@@ -466,6 +467,7 @@ router.put("/:id", authenticate, requireRole("admin"), async (req, res) => {
     if (lastName !== undefined) data.lastName = lastName;
     if (email !== undefined) data.email = email;
     if (isActive !== undefined) data.isActive = isActive;
+    if (salary !== undefined) data.salary = salary === null ? null : Number(salary);
 
     try {
       await prisma.user.update({ where: { id }, data });
@@ -504,7 +506,7 @@ router.put("/:id", authenticate, requireRole("admin"), async (req, res) => {
       userId: req.user!.userId,
       entity: "user",
       entityId: id,
-      details: { firstName, lastName, email, roleNames, isActive },
+      details: { firstName, lastName, email, roleNames, isActive, salary },
       ipAddress: req.ip,
     });
 

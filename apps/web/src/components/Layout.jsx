@@ -9,6 +9,7 @@ import {
   Phone,
   BookOpen,
   ScrollText,
+  TrendingUp,
   LogOut,
   Menu,
   X,
@@ -34,6 +35,7 @@ const navItems = [
     permission: ["knowledge_item", "view"],
   },
   { to: "/audit-log", label: "Журнал", icon: ScrollText, role: "admin" },
+  { to: "/management", label: "Управление", icon: TrendingUp, role: "admin" },
 ];
 
 export default function Layout() {
