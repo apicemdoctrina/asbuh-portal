@@ -12,8 +12,8 @@ const TAX_SYSTEMS = [
   "USN_NDS22",
 ] as const;
 
-const DIGITAL_SIGNATURE_STATUSES = ["NONE", "CLIENT", "US"] as const;
-const REPORTING_CHANNELS = ["KONTUR", "SBIS", "ASTRAL"] as const;
+const DIGITAL_SIGNATURE_STATUSES = ["NONE", "CLIENT", "US", "MCHD"] as const;
+const REPORTING_CHANNELS = ["KONTUR", "SBIS", "ASTRAL", "ONE_C"] as const;
 const SERVICE_TYPES = [
   "ZERO",
   "MINIMAL",

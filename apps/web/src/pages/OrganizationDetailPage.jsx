@@ -16,12 +16,12 @@ const TAX_SYSTEM_LABELS = {
   AUSN20: "АУСН 20%",
   PSN: "ПСН",
   OSNO: "ОСНО",
-  USN_NDS5: "УСН+НДС 5%",
-  USN_NDS7: "УСН+НДС 7%",
-  USN_NDS22: "УСН+НДС 22%",
+  USN_NDS5: "НДС 5%",
+  USN_NDS7: "НДС 7%",
+  USN_NDS22: "НДС 22%",
 };
-const DIGITAL_SIGNATURE_LABELS = { NONE: "Нет", CLIENT: "У клиента", US: "У нас" };
-const REPORTING_CHANNEL_LABELS = { KONTUR: "Контур", SBIS: "СБИС", ASTRAL: "Астрал" };
+const DIGITAL_SIGNATURE_LABELS = { NONE: "Нет", CLIENT: "У клиента", US: "У нас", MCHD: "МЧД" };
+const REPORTING_CHANNEL_LABELS = { KONTUR: "Контур", SBIS: "СБИС", ASTRAL: "Астрал", ONE_C: "1С" };
 const SERVICE_TYPE_LABELS = {
   ZERO: "Нулёвка",
   MINIMAL: "Минимальное",
