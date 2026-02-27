@@ -39,6 +39,7 @@ const STATUS_LABELS = {
   closed: "Закрылся",
   not_paying: "Не платит",
   ceased: "Прекратили сотрудничество",
+  own: "Наша организация",
 };
 const ROLE_LABELS = {
   admin: "Администратор",
@@ -55,6 +56,8 @@ const STATUS_BADGE_COLORS = {
   left: "bg-slate-100 text-slate-500",
   closed: "bg-slate-100 text-slate-500",
   not_paying: "bg-red-100 text-red-700",
+  ceased: "bg-slate-100 text-slate-500",
+  own: "bg-purple-100 text-purple-700",
 };
 
 const INPUT_CLS =

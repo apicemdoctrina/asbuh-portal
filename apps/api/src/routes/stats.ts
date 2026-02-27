@@ -75,7 +75,7 @@ router.get("/", authenticate, async (req, res) => {
     const orgWhere = getOrgWhere(userId, roles);
 
     // Exclude archived statuses from dashboard counts
-    const ARCHIVED_STATUSES = ["left", "closed", "not_paying", "ceased"];
+    const ARCHIVED_STATUSES = ["left", "closed", "not_paying", "ceased", "own"];
     const activeOrgWhere: Prisma.OrganizationWhereInput = {
       ...orgWhere,
       status: { notIn: ARCHIVED_STATUSES },

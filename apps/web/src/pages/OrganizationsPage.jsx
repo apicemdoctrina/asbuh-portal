@@ -49,6 +49,7 @@ const STATUS_LABELS = {
   closed: "Закрылся",
   not_paying: "Не платит",
   ceased: "Прекратили сотрудничество",
+  own: "Наша организация",
 };
 
 function statusBadge(status) {

@@ -32,6 +32,7 @@ const VALID_STATUSES = [
   "closed",
   "not_paying",
   "ceased",
+  "own",
 ] as const;
 
 const ORG_FORMS = ["OOO", "IP", "NKO", "AO", "PAO"] as const;
