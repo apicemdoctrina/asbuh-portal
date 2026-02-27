@@ -1,0 +1,12 @@
+-- AlterTable
+ALTER TABLE "revenue_snapshots" ADD COLUMN     "clients_active" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "clients_new" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "debt_total" DECIMAL(12,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "gross_profit" DECIMAL(12,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "income_total" DECIMAL(12,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "margin" DECIMAL(8,4) NOT NULL DEFAULT 0,
+ADD COLUMN     "one_time_expenses" DECIMAL(12,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "orgs_with_payment" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "payroll_total" DECIMAL(12,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "recurring_expenses" DECIMAL(12,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "staff_count" INTEGER NOT NULL DEFAULT 0;

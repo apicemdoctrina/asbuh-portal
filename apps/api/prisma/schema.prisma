@@ -408,13 +408,30 @@ enum ExpenseType {
 }
 
 model RevenueSnapshot {
-  id           String   @id @default(uuid())
-  year         Int
-  month        Int
-  totalRevenue Decimal  @db.Decimal(12, 2) @map("total_revenue")
-  orgCount     Int      @map("org_count")
-  avgCheck     Decimal  @db.Decimal(12, 2) @map("avg_check")
-  createdAt    DateTime @default(now()) @map("created_at")
+  id               String   @id @default(uuid())
+  year             Int
+  month            Int
+  // Revenue
+  totalRevenue     Decimal  @db.Decimal(12, 2) @map("total_revenue")
+  orgCount         Int      @map("org_count")
+  orgsWithPayment  Int      @default(0) @map("orgs_with_payment")
+  avgCheck         Decimal  @db.Decimal(12, 2) @map("avg_check")
+  // Payroll
+  payrollTotal     Decimal  @default(0) @db.Decimal(12, 2) @map("payroll_total")
+  staffCount       Int      @default(0) @map("staff_count")
+  // Expenses & Income
+  recurringExpenses Decimal @default(0) @db.Decimal(12, 2) @map("recurring_expenses")
+  oneTimeExpenses  Decimal  @default(0) @db.Decimal(12, 2) @map("one_time_expenses")
+  incomeTotal      Decimal  @default(0) @db.Decimal(12, 2) @map("income_total")
+  // Profit
+  grossProfit      Decimal  @default(0) @db.Decimal(12, 2) @map("gross_profit")
+  margin           Decimal  @default(0) @db.Decimal(8, 4)
+  // Debt & Clients
+  debtTotal        Decimal  @default(0) @db.Decimal(12, 2) @map("debt_total")
+  clientsActive    Int      @default(0) @map("clients_active")
+  clientsNew       Int      @default(0) @map("clients_new")
+
+  createdAt        DateTime @default(now()) @map("created_at")
 
   @@unique([year, month])
   @@map("revenue_snapshots")
