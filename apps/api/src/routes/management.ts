@@ -9,7 +9,7 @@ router.get("/dashboard", authenticate, requireRole("admin"), async (_req, res) =
   try {
     // --- Revenue & Debt (from active orgs) ---
     const activeOrgs = await prisma.organization.findMany({
-      where: { status: { not: "archived" } },
+      where: { status: { notIn: ["left", "closed", "not_paying"] } },
       select: { id: true, name: true, form: true, monthlyPayment: true, debtAmount: true },
     });
 
@@ -116,7 +116,7 @@ router.post("/snapshots/capture", authenticate, requireRole("admin"), async (_re
     const month = now.getMonth() + 1;
 
     const activeOrgs = await prisma.organization.findMany({
-      where: { status: { not: "archived" } },
+      where: { status: { notIn: ["left", "closed", "not_paying"] } },
       select: { monthlyPayment: true },
     });
 
