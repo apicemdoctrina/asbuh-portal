@@ -38,6 +38,7 @@ const STATUS_LABELS = {
   left: "Ушёл",
   closed: "Закрылся",
   not_paying: "Не платит",
+  ceased: "Прекратили сотрудничество",
 };
 const ROLE_LABELS = {
   admin: "Администратор",
@@ -46,7 +47,7 @@ const ROLE_LABELS = {
   client: "Клиент",
 };
 const ORG_FORM_LABELS = { OOO: "ООО", IP: "ИП", NKO: "НКО", AO: "АО", PAO: "ПАО" };
-const ARCHIVED_STATUSES = ["left", "closed"];
+const ARCHIVED_STATUSES = ["left", "closed", "ceased"];
 const STATUS_BADGE_COLORS = {
   active: "bg-green-100 text-green-700",
   new: "bg-blue-100 text-blue-700",

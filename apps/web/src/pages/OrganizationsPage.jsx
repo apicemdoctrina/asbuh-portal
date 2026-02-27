@@ -48,6 +48,7 @@ const STATUS_LABELS = {
   left: "Ушёл",
   closed: "Закрылся",
   not_paying: "Не платит",
+  ceased: "Прекратили сотрудничество",
 };
 
 function statusBadge(status) {
@@ -426,7 +427,7 @@ export default function OrganizationsPage() {
             >
               <option value="">Все статусы</option>
               {Object.entries(STATUS_LABELS)
-                .filter(([k]) => k !== "left" && k !== "closed")
+                .filter(([k]) => k !== "left" && k !== "closed" && k !== "ceased")
                 .map(([k, v]) => (
                   <option key={k} value={k}>
                     {v}

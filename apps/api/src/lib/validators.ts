@@ -24,7 +24,15 @@ const SERVICE_TYPES = [
   "PARTIAL",
 ] as const;
 
-const VALID_STATUSES = ["active", "new", "liquidating", "left", "closed", "not_paying"] as const;
+const VALID_STATUSES = [
+  "active",
+  "new",
+  "liquidating",
+  "left",
+  "closed",
+  "not_paying",
+  "ceased",
+] as const;
 
 const ORG_FORMS = ["OOO", "IP", "NKO", "AO", "PAO"] as const;
 
