@@ -2,7 +2,23 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
-import { ArrowLeft, Save, Pencil, X, UserPlus, Trash2, Link2, Copy, Check } from "lucide-react";
+import {
+  ArrowLeft,
+  Save,
+  Pencil,
+  X,
+  UserPlus,
+  Trash2,
+  Link2,
+  Copy,
+  Check,
+  Plus,
+  CalendarDays,
+  User,
+  MessageSquare,
+  ClipboardList,
+} from "lucide-react";
+import TaskCommentsModal from "../components/TaskCommentsModal.jsx";
 import BankAccountsCard from "../components/BankAccountsCard.jsx";
 import SystemAccessesCard from "../components/SystemAccessesCard.jsx";
 import ContactsCard from "../components/ContactsCard.jsx";
@@ -156,6 +172,11 @@ export default function OrganizationDetailPage() {
   const [inviteError, setInviteError] = useState("");
   const [copied, setCopied] = useState(false);
 
+  // Tasks for this org (shared between banner and OrgTasksCard)
+  const [orgTasks, setOrgTasks] = useState([]);
+  const [orgTasksLoading, setOrgTasksLoading] = useState(false);
+  const [commentTask, setCommentTask] = useState(null);
+
   useEffect(() => {
     if (hasPermission("section", "view")) {
       api("/api/sections?limit=100")
@@ -218,6 +239,23 @@ export default function OrganizationDetailPage() {
   useEffect(() => {
     fetchOrganization();
   }, [fetchOrganization]);
+
+  const fetchOrgTasks = useCallback(async () => {
+    if (!hasPermission("task", "view")) return;
+    setOrgTasksLoading(true);
+    try {
+      const res = await api(`/api/tasks?organizationId=${id}`);
+      if (res.ok) setOrgTasks(await res.json());
+    } catch {
+      // silent
+    } finally {
+      setOrgTasksLoading(false);
+    }
+  }, [id, hasPermission]);
+
+  useEffect(() => {
+    fetchOrgTasks();
+  }, [fetchOrgTasks]);
 
   useEffect(() => {
     if (!showAddMember) return;
@@ -453,6 +491,9 @@ export default function OrganizationDetailPage() {
           <span className="font-semibold">⚠ Важно:</span> {org.importantComment}
         </div>
       )}
+
+      {/* ── Open tasks banner ── */}
+      {!editing && <OrgOpenTasksBanner tasks={orgTasks} onComment={setCommentTask} />}
 
       {editing ? (
         /* ══════════════════ EDIT MODE ══════════════════ */
@@ -952,7 +993,7 @@ export default function OrganizationDetailPage() {
         </div>
       )}
 
-      {/* ── Always visible: Bank accounts + Documents (full width) ── */}
+      {/* ── Always visible: Bank accounts + Documents + Tasks (full width) ── */}
       <div className="space-y-4">
         <BankAccountsCard
           organizationId={id}
@@ -976,6 +1017,23 @@ export default function OrganizationDetailPage() {
           canDelete={hasPermission("document", "delete")}
           onDataChanged={fetchOrganization}
         />
+        {hasPermission("task", "view") && (
+          <OrgTasksCard
+            organizationId={id}
+            tasks={orgTasks}
+            loading={orgTasksLoading}
+            onTasksChanged={fetchOrgTasks}
+            onComment={setCommentTask}
+            canCreate={hasPermission("task", "create")}
+            canEditAny={hasPermission("task", "edit") && (hasRole("admin") || hasRole("manager"))}
+            canEditOwn={hasPermission("task", "edit")}
+            canDeleteAny={
+              hasPermission("task", "delete") && (hasRole("admin") || hasRole("manager"))
+            }
+            canDeleteOwn={hasPermission("task", "delete")}
+            members={org?.members || []}
+          />
+        )}
       </div>
 
       {/* ── Invite Client Modal ── */}
@@ -1083,6 +1141,483 @@ export default function OrganizationDetailPage() {
                   className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
                 >
                   {addingMember ? "Добавление..." : "Добавить"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {commentTask && <TaskCommentsModal task={commentTask} onClose={() => setCommentTask(null)} />}
+    </>
+  );
+}
+
+// ── Open tasks banner shown at the top of the org card ──
+const BANNER_PRIORITY_COLORS = {
+  LOW: "bg-slate-100 text-slate-500",
+  MEDIUM: "bg-yellow-100 text-yellow-700",
+  HIGH: "bg-orange-100 text-orange-700",
+  URGENT: "bg-red-100 text-red-700",
+};
+const BANNER_PRIORITY_LABELS = {
+  LOW: "Низкий",
+  MEDIUM: "Средний",
+  HIGH: "Высокий",
+  URGENT: "Срочно",
+};
+const BANNER_STATUS_LABELS = { OPEN: "Открыта", IN_PROGRESS: "В работе" };
+const BANNER_STATUS_COLORS = {
+  OPEN: "bg-slate-100 text-slate-600",
+  IN_PROGRESS: "bg-blue-100 text-blue-700",
+};
+
+function OrgOpenTasksBanner({ tasks, onComment }) {
+  const open = tasks.filter((t) => t.status === "OPEN" || t.status === "IN_PROGRESS");
+  if (!open.length) return null;
+
+  return (
+    <div className="mb-3 bg-[#6567F1]/5 border border-[#6567F1]/20 rounded-xl p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <ClipboardList size={15} className="text-[#6567F1] shrink-0" />
+        <span className="text-sm font-semibold text-[#6567F1]">
+          Открытые задачи — {open.length}
+        </span>
+      </div>
+      <div className="space-y-2">
+        {open.map((task) => {
+          const overdue =
+            task.dueDate &&
+            task.status !== "DONE" &&
+            task.status !== "CANCELLED" &&
+            new Date(task.dueDate) < new Date();
+          return (
+            <div key={task.id} className="flex items-center gap-2 text-sm">
+              <span
+                className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${BANNER_STATUS_COLORS[task.status]}`}
+              >
+                {BANNER_STATUS_LABELS[task.status]}
+              </span>
+              <span
+                className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${BANNER_PRIORITY_COLORS[task.priority]}`}
+              >
+                {BANNER_PRIORITY_LABELS[task.priority]}
+              </span>
+              <span className="flex-1 text-slate-800 font-medium truncate">{task.title}</span>
+              {task.dueDate && (
+                <span
+                  className={`shrink-0 flex items-center gap-1 text-xs ${overdue ? "text-red-600 font-semibold" : "text-slate-400"}`}
+                >
+                  <CalendarDays size={11} />
+                  {new Date(task.dueDate).toLocaleDateString("ru-RU")}
+                  {overdue && " ⚠"}
+                </span>
+              )}
+              <button
+                onClick={() => onComment(task)}
+                className="shrink-0 relative p-1 text-slate-400 hover:text-[#6567F1] transition-colors"
+                title="Комментарии"
+              >
+                <MessageSquare size={13} />
+                {task._count?.comments > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-[#6567F1] text-white text-[7px] font-bold rounded-full flex items-center justify-center leading-none">
+                    {task._count.comments > 9 ? "9+" : task._count.comments}
+                  </span>
+                )}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Task constants (reused from TasksPage) ──
+const TASK_STATUS_LABELS = {
+  OPEN: "Открыта",
+  IN_PROGRESS: "В работе",
+  DONE: "Выполнена",
+  CANCELLED: "Отменена",
+};
+const TASK_PRIORITY_LABELS = {
+  LOW: "Низкий",
+  MEDIUM: "Средний",
+  HIGH: "Высокий",
+  URGENT: "Срочно",
+};
+const TASK_CATEGORY_LABELS = {
+  REPORTING: "Отчётность",
+  DOCUMENTS: "Документы",
+  PAYMENT: "Оплата",
+  OTHER: "Прочее",
+};
+const TASK_STATUS_COLORS = {
+  OPEN: "bg-slate-100 text-slate-600",
+  IN_PROGRESS: "bg-blue-100 text-blue-700",
+  DONE: "bg-green-100 text-green-700",
+  CANCELLED: "bg-slate-100 text-slate-400",
+};
+const TASK_PRIORITY_COLORS = {
+  LOW: "bg-slate-100 text-slate-500",
+  MEDIUM: "bg-yellow-100 text-yellow-700",
+  HIGH: "bg-orange-100 text-orange-700",
+  URGENT: "bg-red-100 text-red-700",
+};
+
+const TASK_INPUT_CLS =
+  "w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white";
+const TASK_LABEL_CLS = "block text-sm font-medium text-slate-700 mb-1";
+const TASK_EMPTY_FORM = {
+  title: "",
+  description: "",
+  priority: "MEDIUM",
+  category: "OTHER",
+  dueDate: "",
+  assignedToId: "",
+};
+
+function isTaskOverdue(task) {
+  if (!task.dueDate || task.status === "DONE" || task.status === "CANCELLED") return false;
+  return new Date(task.dueDate) < new Date();
+}
+
+function OrgTasksCard({
+  organizationId,
+  tasks,
+  loading,
+  onTasksChanged,
+  onComment,
+  canCreate,
+  canEditAny,
+  canEditOwn,
+  canDeleteAny,
+  canDeleteOwn,
+  members,
+}) {
+  const { user } = useAuth();
+
+  function canEditTask(task) {
+    if (canEditAny) return true;
+    if (canEditOwn) return task.createdBy?.id === user?.id;
+    return false;
+  }
+
+  function canDeleteTask(task) {
+    if (canDeleteAny) return true;
+    if (canDeleteOwn) return task.createdBy?.id === user?.id;
+    return false;
+  }
+
+  const assignableUsers = (members || []).filter((m) => m.role !== "client").map((m) => m.user);
+
+  const [showModal, setShowModal] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
+  const [form, setForm] = useState(TASK_EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState(null);
+
+  function openCreate() {
+    setEditingTask(null);
+    setForm(TASK_EMPTY_FORM);
+    setFormError(null);
+    setShowModal(true);
+  }
+
+  function openEdit(task) {
+    setEditingTask(task);
+    setForm({
+      title: task.title,
+      description: task.description || "",
+      priority: task.priority,
+      category: task.category,
+      dueDate: task.dueDate ? task.dueDate.slice(0, 10) : "",
+      assignedToId: task.assignedToId || "",
+    });
+    setFormError(null);
+    setShowModal(true);
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!form.title.trim()) {
+      setFormError("Заголовок обязателен");
+      return;
+    }
+    setSaving(true);
+    setFormError(null);
+    try {
+      const body = {
+        title: form.title.trim(),
+        description: form.description || null,
+        priority: form.priority,
+        category: form.category,
+        dueDate: form.dueDate || null,
+        organizationId,
+        assignedToId: form.assignedToId || null,
+      };
+      if (editingTask) {
+        const res = await api(`/api/tasks/${editingTask.id}`, {
+          method: "PUT",
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error();
+      } else {
+        const res = await api("/api/tasks", { method: "POST", body: JSON.stringify(body) });
+        if (!res.ok) throw new Error();
+      }
+      setShowModal(false);
+      onTasksChanged();
+    } catch {
+      setFormError("Не удалось сохранить задачу");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleStatusChange(task, newStatus) {
+    try {
+      await api(`/api/tasks/${task.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ status: newStatus }),
+      });
+      onTasksChanged();
+    } catch {
+      /* silent */
+    }
+  }
+
+  async function handleDelete(task) {
+    if (!confirm(`Удалить задачу «${task.title}»?`)) return;
+    try {
+      await api(`/api/tasks/${task.id}`, { method: "DELETE" });
+      onTasksChanged();
+    } catch {
+      /* silent */
+    }
+  }
+
+  return (
+    <>
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-slate-700">Задачи</h3>
+          {canCreate && (
+            <button
+              onClick={openCreate}
+              className="inline-flex items-center gap-1 text-xs text-[#6567F1] hover:text-[#5557E1] font-medium"
+            >
+              <Plus size={13} /> Добавить
+            </button>
+          )}
+        </div>
+
+        {loading ? (
+          <p className="text-xs text-slate-400">Загрузка...</p>
+        ) : tasks.length === 0 ? (
+          <p className="text-xs text-slate-400">Нет задач</p>
+        ) : (
+          <div className="space-y-2">
+            {tasks.map((task) => {
+              const overdue = isTaskOverdue(task);
+              return (
+                <div
+                  key={task.id}
+                  className="flex items-start gap-2 py-2 border-b border-slate-100 last:border-0"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap gap-1 mb-0.5">
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${TASK_STATUS_COLORS[task.status]}`}
+                      >
+                        {TASK_STATUS_LABELS[task.status]}
+                      </span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${TASK_PRIORITY_COLORS[task.priority]}`}
+                      >
+                        {TASK_PRIORITY_LABELS[task.priority]}
+                      </span>
+                    </div>
+                    <p
+                      className={`text-sm font-medium leading-snug ${task.status === "CANCELLED" ? "line-through text-slate-400" : "text-slate-900"}`}
+                    >
+                      {task.title}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-3 mt-0.5 text-xs text-slate-400">
+                      {task.assignedTo && (
+                        <span className="flex items-center gap-1">
+                          <User size={11} />
+                          {task.assignedTo.lastName} {task.assignedTo.firstName}
+                        </span>
+                      )}
+                      {task.dueDate && (
+                        <span
+                          className={`flex items-center gap-1 ${overdue ? "text-red-500 font-medium" : ""}`}
+                        >
+                          <CalendarDays size={11} />
+                          {new Date(task.dueDate).toLocaleDateString("ru-RU")}
+                          {overdue && " — просрочено"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {canEditTask(task) && (
+                      <select
+                        value={task.status}
+                        onChange={(e) => handleStatusChange(task, e.target.value)}
+                        className="text-[10px] border border-slate-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none cursor-pointer"
+                      >
+                        {Object.entries(TASK_STATUS_LABELS).map(([k, v]) => (
+                          <option key={k} value={k}>
+                            {v}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <button
+                      onClick={() => onComment(task)}
+                      className="relative p-1 text-slate-300 hover:text-[#6567F1] transition-colors"
+                      title="Комментарии"
+                    >
+                      <MessageSquare size={13} />
+                      {task._count?.comments > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-[#6567F1] text-white text-[7px] font-bold rounded-full flex items-center justify-center leading-none">
+                          {task._count.comments > 9 ? "9+" : task._count.comments}
+                        </span>
+                      )}
+                    </button>
+                    {canEditTask(task) && (
+                      <button
+                        onClick={() => openEdit(task)}
+                        className="p-1 text-slate-300 hover:text-[#6567F1] transition-colors"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                    )}
+                    {canDeleteTask(task) && (
+                      <button
+                        onClick={() => handleDelete(task)}
+                        className="p-1 text-slate-300 hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Task modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg">
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
+              <h2 className="text-lg font-bold text-slate-900">
+                {editingTask ? "Редактировать задачу" : "Новая задача"}
+              </h2>
+              <button
+                onClick={() => setShowModal(false)}
+                className="text-slate-400 hover:text-slate-700"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div>
+                <label className={TASK_LABEL_CLS}>Заголовок *</label>
+                <input
+                  autoFocus
+                  type="text"
+                  value={form.title}
+                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                  className={TASK_INPUT_CLS}
+                />
+              </div>
+              <div>
+                <label className={TASK_LABEL_CLS}>Описание</label>
+                <textarea
+                  rows={2}
+                  value={form.description}
+                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  className={TASK_INPUT_CLS}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={TASK_LABEL_CLS}>Приоритет</label>
+                  <select
+                    value={form.priority}
+                    onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
+                    className={TASK_INPUT_CLS}
+                  >
+                    {Object.entries(TASK_PRIORITY_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={TASK_LABEL_CLS}>Категория</label>
+                  <select
+                    value={form.category}
+                    onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                    className={TASK_INPUT_CLS}
+                  >
+                    {Object.entries(TASK_CATEGORY_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className={TASK_LABEL_CLS}>Дедлайн</label>
+                <input
+                  type="date"
+                  value={form.dueDate}
+                  onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
+                  className={TASK_INPUT_CLS}
+                />
+              </div>
+              <div>
+                <label className={TASK_LABEL_CLS}>Исполнитель</label>
+                <select
+                  value={form.assignedToId}
+                  onChange={(e) => setForm((f) => ({ ...f, assignedToId: e.target.value }))}
+                  className={TASK_INPUT_CLS}
+                >
+                  <option value="">Не назначен</option>
+                  {assignableUsers.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.lastName} {u.firstName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {formError && (
+                <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{formError}</div>
+              )}
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Отмена
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
+                >
+                  <Save size={16} />
+                  {saving ? "Сохранение..." : "Сохранить"}
                 </button>
               </div>
             </form>

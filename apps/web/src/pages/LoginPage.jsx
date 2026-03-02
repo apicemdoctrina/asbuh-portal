@@ -31,7 +31,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-slate-200 p-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-slate-900">
-            AS <span className="text-[#6567F1]">|</span> BUH
+            ASBUH <span className="text-[#6567F1]">AUTOPILOT</span>
           </h1>
           <p className="text-slate-500 mt-2">Вход в портал</p>
         </div>
