@@ -17,6 +17,8 @@ import {
   User,
   MessageSquare,
   ClipboardList,
+  RefreshCw,
+  CheckSquare,
 } from "lucide-react";
 import TaskCommentsModal from "../components/TaskCommentsModal.jsx";
 import BankAccountsCard from "../components/BankAccountsCard.jsx";
@@ -1317,6 +1319,41 @@ function OrgTasksCard({
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
 
+  // Generate tasks preview modal
+  const [showGenerate, setShowGenerate] = useState(false);
+  const [preview, setPreview] = useState([]);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [generateResult, setGenerateResult] = useState(null);
+
+  async function openGenerateModal() {
+    setShowGenerate(true);
+    setGenerateResult(null);
+    setPreviewLoading(true);
+    try {
+      const res = await api(`/api/organizations/${organizationId}/generate-tasks/preview`);
+      if (res.ok) setPreview(await res.json());
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  async function handleGenerate() {
+    setGenerating(true);
+    try {
+      const res = await api(`/api/organizations/${organizationId}/generate-tasks`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        const result = await res.json();
+        setGenerateResult(result);
+        onTasksChanged();
+      }
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   function openCreate() {
     setEditingTask(null);
     setForm(TASK_EMPTY_FORM);
@@ -1403,12 +1440,21 @@ function OrgTasksCard({
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-slate-700">Задачи</h3>
           {canCreate && (
-            <button
-              onClick={openCreate}
-              className="inline-flex items-center gap-1 text-xs text-[#6567F1] hover:text-[#5557E1] font-medium"
-            >
-              <Plus size={13} /> Добавить
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={openGenerateModal}
+                className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-[#6567F1] font-medium transition-colors"
+                title="Сгенерировать стандартные задачи по параметрам организации"
+              >
+                <RefreshCw size={12} /> Сгенерировать
+              </button>
+              <button
+                onClick={openCreate}
+                className="inline-flex items-center gap-1 text-xs text-[#6567F1] hover:text-[#5557E1] font-medium"
+              >
+                <Plus size={13} /> Добавить
+              </button>
+            </div>
           )}
         </div>
 
@@ -1621,6 +1667,127 @@ function OrgTasksCard({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Generate tasks preview modal */}
+      {showGenerate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-100">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Сгенерировать задачи</h2>
+                <p className="text-xs text-slate-400 mt-0.5">На основе параметров организации</p>
+              </div>
+              <button
+                onClick={() => setShowGenerate(false)}
+                className="text-slate-400 hover:text-slate-700 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
+              {previewLoading ? (
+                <div className="space-y-2">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="h-10 bg-slate-100 rounded-lg animate-pulse" />
+                  ))}
+                </div>
+              ) : generateResult ? (
+                <div className="text-center py-6">
+                  <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <CheckSquare size={22} className="text-emerald-600" />
+                  </div>
+                  <p className="text-base font-semibold text-slate-900">Готово!</p>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Создано задач:{" "}
+                    <span className="font-medium text-emerald-600">{generateResult.generated}</span>
+                    {generateResult.skipped > 0 && (
+                      <>
+                        , пропущено (уже существуют):{" "}
+                        <span className="font-medium">{generateResult.skipped}</span>
+                      </>
+                    )}
+                  </p>
+                </div>
+              ) : preview.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-6">
+                  Нет параметров для генерации задач. Заполните карточку организации (система Н/О,
+                  тип обслуживания, ЭЦП).
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {preview.map((t, i) => (
+                    <div
+                      key={i}
+                      className={`flex items-start gap-3 p-3 rounded-xl border ${
+                        t.alreadyExists
+                          ? "bg-slate-50 border-slate-100 opacity-50"
+                          : "bg-white border-slate-200"
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className={`text-sm font-medium ${t.alreadyExists ? "line-through text-slate-400" : "text-slate-800"}`}
+                        >
+                          {t.title}
+                        </p>
+                        {t.description && (
+                          <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">
+                            {t.description}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+                        {t.recurrenceType && (
+                          <span className="text-[10px] text-[#6567F1] bg-[#6567F1]/10 px-1.5 py-0.5 rounded-full">
+                            ↺
+                          </span>
+                        )}
+                        {t.alreadyExists && (
+                          <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
+                            есть
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {!generateResult && (
+              <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+                <button
+                  onClick={() => setShowGenerate(false)}
+                  className="px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={handleGenerate}
+                  disabled={generating || previewLoading || preview.every((t) => t.alreadyExists)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-40"
+                >
+                  <RefreshCw size={14} />
+                  {generating
+                    ? "Создание..."
+                    : `Создать ${preview.filter((t) => !t.alreadyExists).length} задач`}
+                </button>
+              </div>
+            )}
+            {generateResult && (
+              <div className="px-6 py-4 border-t border-slate-100 flex justify-end">
+                <button
+                  onClick={() => setShowGenerate(false)}
+                  className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] text-white rounded-lg text-sm font-medium"
+                >
+                  Закрыть
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
