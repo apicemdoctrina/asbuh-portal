@@ -171,6 +171,31 @@ router.get("/", authenticate, async (req, res) => {
 
     const results = await Promise.all(queries);
 
+    // Task traffic-light — parallel, after main queries
+    const canViewTasks = await hasPermission(userId, "task", "view");
+    let taskStats: { red: number; yellow: number; green: number; total: number } | null = null;
+    if (canViewTasks) {
+      const now = new Date();
+      const in2days = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+
+      const taskOrgFilter: Prisma.TaskWhereInput = isAdmin
+        ? {}
+        : { OR: [{ organizationId: null }, { organization: orgWhere }] };
+
+      const notDone: Prisma.TaskWhereInput = {
+        ...taskOrgFilter,
+        status: { notIn: ["DONE", "CANCELLED"] },
+      };
+
+      const [red, yellow, total] = await Promise.all([
+        prisma.task.count({ where: { ...notDone, dueDate: { lt: now } } }),
+        prisma.task.count({ where: { ...notDone, dueDate: { gte: now, lte: in2days } } }),
+        prisma.task.count({ where: notDone }),
+      ]);
+
+      taskStats = { red, yellow, green: total - red - yellow, total };
+    }
+
     const orgTotal = results[0] as number;
     const groupByResult = results[1] as { status: string; _count: { _all: number } }[];
     const documentsCount = results[2] as number;
@@ -218,6 +243,7 @@ router.get("/", authenticate, async (req, res) => {
       avgCompleteness,
       completedOrganizations,
       monthlyRevenue,
+      tasks: taskStats,
     });
   } catch (err) {
     console.error("Stats error:", err);

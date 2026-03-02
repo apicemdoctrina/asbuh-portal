@@ -9,6 +9,7 @@ import {
   Plus,
   ArrowRight,
   TrendingUp,
+  ClipboardList,
 } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -227,6 +228,73 @@ export default function DashboardPage() {
               {stats.organizations.total === 1 ? "организация заполнена" : "организаций заполнены"}{" "}
               полностью
             </p>
+          </div>
+        ) : null)}
+
+      {/* Task traffic light — visible to staff with task access */}
+      {!hasRole("client") &&
+        hasPermission("task", "view") &&
+        (loading ? (
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5 mb-8 animate-pulse">
+            <div className="h-4 w-32 bg-slate-200 rounded mb-4" />
+            <div className="grid grid-cols-3 gap-3">
+              <div className="h-16 bg-slate-100 rounded-xl" />
+              <div className="h-16 bg-slate-100 rounded-xl" />
+              <div className="h-16 bg-slate-100 rounded-xl" />
+            </div>
+          </div>
+        ) : stats?.tasks != null ? (
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5 mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <ClipboardList size={16} className="text-slate-500" />
+                <h2 className="text-sm font-semibold text-slate-700">Задачи</h2>
+              </div>
+              <Link
+                to="/tasks"
+                className="text-xs text-[#6567F1] hover:underline inline-flex items-center gap-1"
+              >
+                Все задачи <ArrowRight size={12} />
+              </Link>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <Link
+                to="/tasks?status=OPEN&overdue=true"
+                className="flex flex-col items-center justify-center gap-1 p-3 rounded-xl bg-red-50 border border-red-100 hover:bg-red-100 transition-colors"
+              >
+                <span className="text-2xl font-bold text-red-600 tabular-nums">
+                  {stats.tasks.red}
+                </span>
+                <span className="text-xs text-red-500 font-medium text-center leading-tight">
+                  Просрочено
+                </span>
+              </Link>
+              <Link
+                to="/tasks?status=OPEN"
+                className="flex flex-col items-center justify-center gap-1 p-3 rounded-xl bg-amber-50 border border-amber-100 hover:bg-amber-100 transition-colors"
+              >
+                <span className="text-2xl font-bold text-amber-600 tabular-nums">
+                  {stats.tasks.yellow}
+                </span>
+                <span className="text-xs text-amber-500 font-medium text-center leading-tight">
+                  Срочно (≤2 дня)
+                </span>
+              </Link>
+              <Link
+                to="/tasks"
+                className="flex flex-col items-center justify-center gap-1 p-3 rounded-xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-colors"
+              >
+                <span className="text-2xl font-bold text-emerald-600 tabular-nums">
+                  {stats.tasks.green}
+                </span>
+                <span className="text-xs text-emerald-500 font-medium text-center leading-tight">
+                  В норме
+                </span>
+              </Link>
+            </div>
+            {stats.tasks.total === 0 && (
+              <p className="text-xs text-slate-400 text-center mt-3">Активных задач нет</p>
+            )}
           </div>
         ) : null)}
 
