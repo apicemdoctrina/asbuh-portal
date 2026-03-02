@@ -19,6 +19,25 @@ function isAdminOrManager(roles: string[]) {
   return roles.some((r) => ["admin", "manager"].includes(r));
 }
 
+function calcNextDue(from: Date, type: string, interval: number): Date {
+  const d = new Date(from);
+  switch (type) {
+    case "DAILY":
+      d.setDate(d.getDate() + interval);
+      break;
+    case "WEEKLY":
+      d.setDate(d.getDate() + interval * 7);
+      break;
+    case "MONTHLY":
+      d.setMonth(d.getMonth() + interval);
+      break;
+    case "YEARLY":
+      d.setFullYear(d.getFullYear() + interval);
+      break;
+  }
+  return d;
+}
+
 // GET /api/tasks
 router.get("/", authenticate, requirePermission("task", "view"), async (req, res) => {
   try {
@@ -53,8 +72,17 @@ router.get("/", authenticate, requirePermission("task", "view"), async (req, res
 // POST /api/tasks
 router.post("/", authenticate, requirePermission("task", "create"), async (req, res) => {
   try {
-    const { title, description, priority, category, dueDate, organizationId, assignedToId } =
-      req.body;
+    const {
+      title,
+      description,
+      priority,
+      category,
+      dueDate,
+      organizationId,
+      assignedToId,
+      recurrenceType,
+      recurrenceInterval,
+    } = req.body;
 
     if (!title?.trim()) {
       return res.status(400).json({ error: "title is required" });
@@ -67,6 +95,8 @@ router.post("/", authenticate, requirePermission("task", "create"), async (req, 
         priority: priority || "MEDIUM",
         category: category || "OTHER",
         dueDate: dueDate ? new Date(dueDate) : null,
+        recurrenceType: recurrenceType || null,
+        recurrenceInterval: recurrenceInterval ? Number(recurrenceInterval) : 1,
         organizationId: organizationId || null,
         assignedToId: assignedToId || null,
         createdById: req.user.userId,
@@ -102,6 +132,8 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
       dueDate,
       organizationId,
       assignedToId,
+      recurrenceType,
+      recurrenceInterval,
     } = req.body;
 
     const existing = await prisma.task.findUnique({ where: { id } });
@@ -121,12 +153,41 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
     if (dueDate !== undefined) data.dueDate = dueDate ? new Date(dueDate) : null;
     if (organizationId !== undefined) data.organizationId = organizationId || null;
     if (assignedToId !== undefined) data.assignedToId = assignedToId || null;
+    if (recurrenceType !== undefined) data.recurrenceType = recurrenceType || null;
+    if (recurrenceInterval !== undefined) data.recurrenceInterval = Number(recurrenceInterval) || 1;
 
     const task = await prisma.task.update({
       where: { id },
       data,
       include: INCLUDE,
     });
+
+    // Auto-spawn next occurrence when a recurring task is completed
+    const completingNow = existing.status !== "DONE" && data.status === "DONE";
+    const effectiveRecurrence = data.recurrenceType ?? existing.recurrenceType;
+    const effectiveDueDate = data.dueDate ?? existing.dueDate;
+
+    if (completingNow && effectiveRecurrence && effectiveDueDate) {
+      const nextDue = calcNextDue(
+        effectiveDueDate,
+        effectiveRecurrence,
+        data.recurrenceInterval ?? existing.recurrenceInterval,
+      );
+      await prisma.task.create({
+        data: {
+          title: task.title,
+          description: task.description,
+          priority: task.priority,
+          category: task.category,
+          dueDate: nextDue,
+          recurrenceType: task.recurrenceType,
+          recurrenceInterval: task.recurrenceInterval,
+          organizationId: task.organizationId,
+          assignedToId: task.assignedToId,
+          createdById: task.createdById,
+        },
+      });
+    }
 
     await logAudit({
       action: "task.update",

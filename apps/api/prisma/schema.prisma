@@ -487,19 +487,28 @@ enum TaskCategory {
   OTHER
 }
 
+enum RecurrenceType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
 model Task {
-  id             String       @id @default(uuid())
-  title          String
-  description    String?
-  status         TaskStatus   @default(OPEN)
-  priority       TaskPriority @default(MEDIUM)
-  category       TaskCategory @default(OTHER)
-  dueDate        DateTime?    @map("due_date")
-  organizationId String?      @map("organization_id")
-  assignedToId   String?      @map("assigned_to_id")
-  createdById    String       @map("created_by_id")
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
+  id                 String          @id @default(uuid())
+  title              String
+  description        String?
+  status             TaskStatus      @default(OPEN)
+  priority           TaskPriority    @default(MEDIUM)
+  category           TaskCategory    @default(OTHER)
+  dueDate            DateTime?       @map("due_date")
+  recurrenceType     RecurrenceType? @map("recurrence_type")
+  recurrenceInterval Int             @default(1) @map("recurrence_interval")
+  organizationId     String?         @map("organization_id")
+  assignedToId       String?         @map("assigned_to_id")
+  createdById        String          @map("created_by_id")
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
 
   organization    Organization?       @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   assignedTo      User?               @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)

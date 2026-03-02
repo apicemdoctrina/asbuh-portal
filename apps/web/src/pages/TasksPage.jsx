@@ -13,6 +13,7 @@ import {
   User,
   MessageSquare,
   CheckSquare,
+  RefreshCw,
 } from "lucide-react";
 import TaskCommentsModal from "../components/TaskCommentsModal.jsx";
 import TaskChecklistModal from "../components/TaskChecklistModal.jsx";
@@ -59,6 +60,20 @@ const CATEGORY_COLORS = {
   OTHER: "bg-slate-100 text-slate-600",
 };
 
+// value = "TYPE:interval", e.g. "MONTHLY:1"
+const RECURRENCE_OPTIONS = [
+  { value: "", label: "Не повторяется" },
+  { value: "DAILY:1", label: "Ежедневно" },
+  { value: "WEEKLY:1", label: "Еженедельно" },
+  { value: "MONTHLY:1", label: "Ежемесячно" },
+  { value: "MONTHLY:3", label: "Ежеквартально" },
+  { value: "YEARLY:1", label: "Ежегодно" },
+];
+
+const RECURRENCE_LABELS = Object.fromEntries(
+  RECURRENCE_OPTIONS.filter((o) => o.value).map((o) => [o.value, o.label]),
+);
+
 const STATUS_TABS = [
   { key: "", label: "Все" },
   { key: "OPEN", label: "Открытые" },
@@ -92,6 +107,7 @@ const EMPTY_FORM = {
   dueDate: "",
   organizationId: "",
   assignedToId: "",
+  recurrence: "",
 };
 
 export default function TasksPage() {
@@ -200,6 +216,7 @@ export default function TasksPage() {
       dueDate: task.dueDate ? task.dueDate.slice(0, 10) : "",
       organizationId: task.organizationId || "",
       assignedToId: task.assignedToId || "",
+      recurrence: task.recurrenceType ? `${task.recurrenceType}:${task.recurrenceInterval}` : "",
     });
     setFormError(null);
     setShowModal(true);
@@ -218,6 +235,10 @@ export default function TasksPage() {
     setSaving(true);
     setFormError(null);
     try {
+      const [recurrenceType, recurrenceInterval] = form.recurrence
+        ? form.recurrence.split(":")
+        : [null, null];
+
       const body = {
         title: form.title.trim(),
         description: form.description || null,
@@ -226,6 +247,8 @@ export default function TasksPage() {
         dueDate: form.dueDate || null,
         organizationId: form.organizationId || null,
         assignedToId: form.assignedToId || null,
+        recurrenceType: recurrenceType || null,
+        recurrenceInterval: recurrenceInterval ? Number(recurrenceInterval) : 1,
       };
 
       if (editingTask) {
@@ -424,14 +447,30 @@ export default function TasksPage() {
                   </select>
                 </div>
               </div>
-              <div>
-                <label className={LABEL_CLS}>Дедлайн</label>
-                <input
-                  type="date"
-                  value={form.dueDate}
-                  onChange={(e) => setField("dueDate", e.target.value)}
-                  className={INPUT_CLS}
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={LABEL_CLS}>Дедлайн</label>
+                  <input
+                    type="date"
+                    value={form.dueDate}
+                    onChange={(e) => setField("dueDate", e.target.value)}
+                    className={INPUT_CLS}
+                  />
+                </div>
+                <div>
+                  <label className={LABEL_CLS}>Повторение</label>
+                  <select
+                    value={form.recurrence}
+                    onChange={(e) => setField("recurrence", e.target.value)}
+                    className={SELECT_CLS}
+                  >
+                    {RECURRENCE_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div>
                 <label className={LABEL_CLS}>Организация</label>
@@ -581,6 +620,19 @@ function TaskCard({
               <CalendarDays size={12} />
               {formatDueDate(task.dueDate)}
               {overdue && " — просрочено"}
+            </span>
+          )}
+          {task.recurrenceType && (
+            <span
+              className="flex items-center gap-1 text-[#6567F1]"
+              title={
+                RECURRENCE_LABELS[`${task.recurrenceType}:${task.recurrenceInterval}`] ??
+                "Повторяется"
+              }
+            >
+              <RefreshCw size={11} />
+              {RECURRENCE_LABELS[`${task.recurrenceType}:${task.recurrenceInterval}`] ??
+                "Повторяется"}
             </span>
           )}
         </div>
