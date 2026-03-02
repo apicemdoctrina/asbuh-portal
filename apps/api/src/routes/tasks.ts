@@ -9,6 +9,7 @@ const INCLUDE = {
   organization: { select: { id: true, name: true } },
   assignedTo: { select: { id: true, firstName: true, lastName: true } },
   createdBy: { select: { id: true, firstName: true, lastName: true } },
+  checklistItems: { select: { done: true }, orderBy: { position: "asc" as const } },
   _count: { select: { comments: true } },
 };
 
@@ -216,5 +217,98 @@ router.post("/:id/comments", authenticate, requirePermission("task", "view"), as
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+// GET /api/tasks/:id/checklist
+router.get("/:id/checklist", authenticate, requirePermission("task", "view"), async (req, res) => {
+  try {
+    const task = await prisma.task.findUnique({ where: { id: req.params.id } });
+    if (!task) return res.status(404).json({ error: "Task not found" });
+
+    const items = await prisma.taskChecklistItem.findMany({
+      where: { taskId: req.params.id },
+      orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+    });
+
+    res.json(items);
+  } catch (err) {
+    console.error("GET /api/tasks/:id/checklist error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /api/tasks/:id/checklist
+router.post("/:id/checklist", authenticate, requirePermission("task", "edit"), async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text?.trim()) return res.status(400).json({ error: "text is required" });
+
+    const task = await prisma.task.findUnique({ where: { id: req.params.id } });
+    if (!task) return res.status(404).json({ error: "Task not found" });
+
+    const last = await prisma.taskChecklistItem.findFirst({
+      where: { taskId: req.params.id },
+      orderBy: { position: "desc" },
+    });
+
+    const item = await prisma.taskChecklistItem.create({
+      data: { taskId: req.params.id, text: text.trim(), position: (last?.position ?? -1) + 1 },
+    });
+
+    res.status(201).json(item);
+  } catch (err) {
+    console.error("POST /api/tasks/:id/checklist error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// PATCH /api/tasks/:id/checklist/:itemId
+router.patch(
+  "/:id/checklist/:itemId",
+  authenticate,
+  requirePermission("task", "edit"),
+  async (req, res) => {
+    try {
+      const existing = await prisma.taskChecklistItem.findFirst({
+        where: { id: req.params.itemId, taskId: req.params.id },
+      });
+      if (!existing) return res.status(404).json({ error: "Item not found" });
+
+      const data: { done?: boolean; text?: string } = {};
+      if (req.body.done !== undefined) data.done = req.body.done;
+      if (req.body.text !== undefined) data.text = req.body.text.trim();
+
+      const item = await prisma.taskChecklistItem.update({
+        where: { id: req.params.itemId },
+        data,
+      });
+
+      res.json(item);
+    } catch (err) {
+      console.error("PATCH /api/tasks/:id/checklist/:itemId error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// DELETE /api/tasks/:id/checklist/:itemId
+router.delete(
+  "/:id/checklist/:itemId",
+  authenticate,
+  requirePermission("task", "edit"),
+  async (req, res) => {
+    try {
+      const existing = await prisma.taskChecklistItem.findFirst({
+        where: { id: req.params.itemId, taskId: req.params.id },
+      });
+      if (!existing) return res.status(404).json({ error: "Item not found" });
+
+      await prisma.taskChecklistItem.delete({ where: { id: req.params.itemId } });
+      res.status(204).send();
+    } catch (err) {
+      console.error("DELETE /api/tasks/:id/checklist/:itemId error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
 
 export default router;

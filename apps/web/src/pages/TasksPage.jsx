@@ -12,8 +12,10 @@ import {
   Building2,
   User,
   MessageSquare,
+  CheckSquare,
 } from "lucide-react";
 import TaskCommentsModal from "../components/TaskCommentsModal.jsx";
+import TaskChecklistModal from "../components/TaskChecklistModal.jsx";
 
 const TASK_STATUS_LABELS = {
   OPEN: "Открыта",
@@ -112,6 +114,9 @@ export default function TasksPage() {
 
   // Comments modal
   const [commentTask, setCommentTask] = useState(null);
+
+  // Checklist modal
+  const [checklistTask, setChecklistTask] = useState(null);
 
   // For assignee select
   const [users, setUsers] = useState([]);
@@ -347,6 +352,7 @@ export default function TasksPage() {
               onDelete={handleDelete}
               onStatusChange={handleStatusChange}
               onComment={setCommentTask}
+              onChecklist={setChecklistTask}
             />
           ))}
         </div>
@@ -491,13 +497,35 @@ export default function TasksPage() {
       )}
 
       {commentTask && <TaskCommentsModal task={commentTask} onClose={() => setCommentTask(null)} />}
+      {checklistTask && (
+        <TaskChecklistModal
+          task={checklistTask}
+          onClose={() => setChecklistTask(null)}
+          onUpdate={(patch) =>
+            setTasks((prev) =>
+              prev.map((t) => (t.id === checklistTask.id ? { ...t, ...patch } : t)),
+            )
+          }
+        />
+      )}
     </>
   );
 }
 
-function TaskCard({ task, canEdit, canDelete, onEdit, onDelete, onStatusChange, onComment }) {
+function TaskCard({
+  task,
+  canEdit,
+  canDelete,
+  onEdit,
+  onDelete,
+  onStatusChange,
+  onComment,
+  onChecklist,
+}) {
   const overdue = isOverdue(task);
   const nextStatuses = getNextStatuses(task.status);
+  const checklistTotal = task.checklistItems?.length ?? 0;
+  const checklistDone = task.checklistItems?.filter((i) => i.done).length ?? 0;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col sm:flex-row sm:items-start gap-3">
@@ -574,6 +602,22 @@ function TaskCard({ task, canEdit, canDelete, onEdit, onDelete, onStatusChange, 
             ))}
           </select>
         )}
+        <button
+          onClick={() => onChecklist(task)}
+          className="relative p-1.5 text-slate-400 hover:text-[#6567F1] transition-colors"
+          title="Чек-лист"
+        >
+          <CheckSquare size={15} />
+          {checklistTotal > 0 && (
+            <span
+              className={`absolute -top-0.5 -right-0.5 w-3.5 h-3.5 text-white text-[8px] font-bold rounded-full flex items-center justify-center leading-none ${
+                checklistDone === checklistTotal ? "bg-emerald-500" : "bg-slate-400"
+              }`}
+            >
+              {checklistDone === checklistTotal ? "✓" : checklistTotal}
+            </span>
+          )}
+        </button>
         <button
           onClick={() => onComment(task)}
           className="relative p-1.5 text-slate-400 hover:text-[#6567F1] transition-colors"
