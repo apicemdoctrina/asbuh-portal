@@ -10,6 +10,7 @@ import workContactsRouter from "./routes/work-contacts.js";
 import auditLogsRouter from "./routes/audit-logs.js";
 import knowledgeRouter from "./routes/knowledge.js";
 import managementRouter from "./routes/management.js";
+import tasksRouter from "./routes/tasks.js";
 import { UPLOADS_DIR } from "./lib/upload.js";
 
 const app = express();
@@ -41,6 +42,7 @@ app.use("/api/work-contacts", workContactsRouter);
 app.use("/api/audit-logs", auditLogsRouter);
 app.use("/api/knowledge", knowledgeRouter);
 app.use("/api/management", managementRouter);
+app.use("/api/tasks", tasksRouter);
 
 // Global error handler (Express requires all 4 params for error middleware)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

@@ -10,6 +10,7 @@ import {
   BookOpen,
   ScrollText,
   TrendingUp,
+  ClipboardList,
   LogOut,
   Menu,
   X,
@@ -34,6 +35,7 @@ const navItems = [
     icon: BookOpen,
     permission: ["knowledge_item", "view"],
   },
+  { to: "/tasks", label: "Задачи", icon: ClipboardList, permission: ["task", "view"] },
   { to: "/audit-log", label: "Журнал", icon: ScrollText, role: "admin" },
   { to: "/management", label: "Управление", icon: TrendingUp, role: "admin" },
 ];
@@ -73,7 +75,7 @@ export default function Layout() {
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
           <span className="text-xl font-bold text-slate-900">
-            AS <span className="text-[#6567F1]">|</span> BUH
+            ASBUH <span className="text-[#6567F1]">AUTOPILOT</span>
           </span>
         </div>
         <div className="flex items-center gap-3">

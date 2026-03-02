@@ -15,6 +15,7 @@ import WorkContactsPage from "./pages/WorkContactsPage.jsx";
 import AuditLogPage from "./pages/AuditLogPage.jsx";
 import KnowledgePage from "./pages/KnowledgePage.jsx";
 import ManagementPage from "./pages/ManagementPage.jsx";
+import TasksPage from "./pages/TasksPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import InvitePage from "./pages/InvitePage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="knowledge" element={<KnowledgePage />} />
             <Route path="audit-log" element={<AuditLogPage />} />
             <Route path="management" element={<ManagementPage />} />
+            <Route path="tasks" element={<TasksPage />} />
             <Route path="profile" element={<ProfilePage />} />
           </Route>
           <Route path="*" element={<NotFoundPage />} />

@@ -40,6 +40,11 @@ const PERMISSIONS: Array<{ entity: string; action: string }> = [
   { entity: "knowledge_item", action: "create" },
   { entity: "knowledge_item", action: "edit" },
   { entity: "knowledge_item", action: "delete" },
+  // Tasks
+  { entity: "task", action: "view" },
+  { entity: "task", action: "create" },
+  { entity: "task", action: "edit" },
+  { entity: "task", action: "delete" },
 ];
 
 // Role → permitted (entity, action) pairs
@@ -61,6 +66,10 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "knowledge_item", action: "view" },
     { entity: "knowledge_item", action: "create" },
     { entity: "knowledge_item", action: "edit" },
+    { entity: "task", action: "view" },
+    { entity: "task", action: "create" },
+    { entity: "task", action: "edit" },
+    { entity: "task", action: "delete" },
   ],
   accountant: [
     { entity: "organization", action: "view" },
@@ -73,6 +82,10 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "work_contact", action: "create" },
     { entity: "work_contact", action: "edit" },
     { entity: "knowledge_item", action: "view" },
+    { entity: "task", action: "view" },
+    { entity: "task", action: "create" },
+    { entity: "task", action: "edit" },
+    { entity: "task", action: "delete" },
   ],
   client: [
     { entity: "organization", action: "view" },
