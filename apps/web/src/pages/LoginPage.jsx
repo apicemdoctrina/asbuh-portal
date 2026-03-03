@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useLocation } from "react-router";
+import { useNavigate, useLocation, Link } from "react-router";
 import { useAuth } from "../context/AuthContext.jsx";
 
 export default function LoginPage() {
@@ -7,6 +7,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const redirectTo = location.state?.redirect || "/";
+  const passwordReset = location.state?.passwordReset === true;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -36,6 +37,12 @@ export default function LoginPage() {
           <p className="text-slate-500 mt-2">Вход в портал</p>
         </div>
 
+        {passwordReset && (
+          <div className="mb-4 px-4 py-3 bg-emerald-50 text-emerald-700 rounded-lg text-sm text-center">
+            Пароль успешно изменён. Войдите с новым паролем.
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
@@ -53,9 +60,14 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">
-              Пароль
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="password" className="block text-sm font-medium text-slate-700">
+                Пароль
+              </label>
+              <Link to="/forgot-password" className="text-xs text-[#6567F1] hover:underline">
+                Забыли пароль?
+              </Link>
+            </div>
             <input
               id="password"
               type="password"

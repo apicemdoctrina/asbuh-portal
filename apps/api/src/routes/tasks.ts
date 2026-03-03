@@ -2,12 +2,16 @@ import { Router } from "express";
 import prisma from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
 import { authenticate, requirePermission } from "../middleware/auth.js";
+import { notifyAssigned } from "../lib/task-notifier.js";
+import { createNotification } from "../lib/notify.js";
 
 const router = Router();
 
+const ASSIGNEE_SELECT = { id: true, firstName: true, lastName: true };
+
 const INCLUDE = {
   organization: { select: { id: true, name: true } },
-  assignedTo: { select: { id: true, firstName: true, lastName: true } },
+  assignees: { include: { user: { select: ASSIGNEE_SELECT } } },
   createdBy: { select: { id: true, firstName: true, lastName: true } },
   checklistItems: { select: { done: true }, orderBy: { position: "asc" as const } },
   _count: { select: { comments: true } },
@@ -48,8 +52,8 @@ router.get("/", authenticate, requirePermission("task", "view"), async (req, res
 
     if (status) where.status = status;
     if (organizationId) where.organizationId = organizationId as string;
-    if (assignedToId) where.assignedToId = assignedToId as string;
-    if (my === "true") where.assignedToId = req.user.userId;
+    if (assignedToId) where.assignees = { some: { userId: assignedToId as string } };
+    if (my === "true") where.assignees = { some: { userId: req.user.userId } };
 
     if (overdue === "true") {
       where.dueDate = { lt: new Date() };
@@ -79,7 +83,7 @@ router.post("/", authenticate, requirePermission("task", "create"), async (req, 
       category,
       dueDate,
       organizationId,
-      assignedToId,
+      assignedToIds,
       recurrenceType,
       recurrenceInterval,
     } = req.body;
@@ -87,6 +91,8 @@ router.post("/", authenticate, requirePermission("task", "create"), async (req, 
     if (!title?.trim()) {
       return res.status(400).json({ error: "title is required" });
     }
+
+    const assigneeIds: string[] = Array.isArray(assignedToIds) ? assignedToIds : [];
 
     const task = await prisma.task.create({
       data: {
@@ -98,8 +104,10 @@ router.post("/", authenticate, requirePermission("task", "create"), async (req, 
         recurrenceType: recurrenceType || null,
         recurrenceInterval: recurrenceInterval ? Number(recurrenceInterval) : 1,
         organizationId: organizationId || null,
-        assignedToId: assignedToId || null,
         createdById: req.user.userId,
+        assignees: assigneeIds.length
+          ? { create: assigneeIds.map((uid) => ({ userId: uid })) }
+          : undefined,
       },
       include: INCLUDE,
     });
@@ -111,6 +119,30 @@ router.post("/", authenticate, requirePermission("task", "create"), async (req, 
       entityId: task.id,
       details: { title: task.title },
     });
+
+    // Notify each new assignee (fire-and-forget)
+    const orgName = task.organization ? ` · ${task.organization.name}` : "";
+    const taskLink = task.organizationId ? `/organizations/${task.organizationId}` : "/tasks";
+    for (const a of task.assignees) {
+      if (a.userId === req.user.userId) continue;
+      notifyAssigned({
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+        category: task.category,
+        dueDate: task.dueDate,
+        assignedToId: a.userId,
+        organization: task.organization,
+        assignedBy: task.createdBy,
+      }).catch(console.error);
+      createNotification(
+        a.userId,
+        "task_assigned",
+        "Вам назначена задача",
+        `${task.title}${orgName}`,
+        taskLink,
+      ).catch(console.error);
+    }
 
     res.status(201).json(task);
   } catch (err) {
@@ -131,12 +163,15 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
       category,
       dueDate,
       organizationId,
-      assignedToId,
+      assignedToIds,
       recurrenceType,
       recurrenceInterval,
     } = req.body;
 
-    const existing = await prisma.task.findUnique({ where: { id } });
+    const existing = await prisma.task.findUnique({
+      where: { id },
+      include: { assignees: { select: { userId: true } } },
+    });
     if (!existing) return res.status(404).json({ error: "Task not found" });
 
     if (!isAdminOrManager(req.user.roles) && existing.createdById !== req.user.userId) {
@@ -152,9 +187,19 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
     if (category !== undefined) data.category = category;
     if (dueDate !== undefined) data.dueDate = dueDate ? new Date(dueDate) : null;
     if (organizationId !== undefined) data.organizationId = organizationId || null;
-    if (assignedToId !== undefined) data.assignedToId = assignedToId || null;
     if (recurrenceType !== undefined) data.recurrenceType = recurrenceType || null;
     if (recurrenceInterval !== undefined) data.recurrenceInterval = Number(recurrenceInterval) || 1;
+
+    // Replace assignees if provided
+    if (assignedToIds !== undefined) {
+      const newIds: string[] = Array.isArray(assignedToIds) ? assignedToIds : [];
+      await prisma.taskAssignee.deleteMany({ where: { taskId: id } });
+      if (newIds.length > 0) {
+        await prisma.taskAssignee.createMany({
+          data: newIds.map((uid) => ({ taskId: id, userId: uid })),
+        });
+      }
+    }
 
     const task = await prisma.task.update({
       where: { id },
@@ -173,7 +218,7 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
         effectiveRecurrence,
         data.recurrenceInterval ?? existing.recurrenceInterval,
       );
-      await prisma.task.create({
+      const spawned = await prisma.task.create({
         data: {
           title: task.title,
           description: task.description,
@@ -183,10 +228,14 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
           recurrenceType: task.recurrenceType,
           recurrenceInterval: task.recurrenceInterval,
           organizationId: task.organizationId,
-          assignedToId: task.assignedToId,
           createdById: task.createdById,
         },
       });
+      if (task.assignees.length > 0) {
+        await prisma.taskAssignee.createMany({
+          data: task.assignees.map((a) => ({ taskId: spawned.id, userId: a.userId })),
+        });
+      }
     }
 
     await logAudit({
@@ -196,6 +245,33 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
       entityId: task.id,
       details: data,
     });
+
+    // Notify newly added assignees
+    if (assignedToIds !== undefined) {
+      const existingIds = new Set(existing.assignees.map((a) => a.userId));
+      const orgName = task.organization ? ` · ${task.organization.name}` : "";
+      const taskLink = task.organizationId ? `/organizations/${task.organizationId}` : "/tasks";
+      for (const a of task.assignees) {
+        if (existingIds.has(a.userId) || a.userId === req.user.userId) continue;
+        notifyAssigned({
+          title: task.title,
+          description: task.description,
+          priority: task.priority,
+          category: task.category,
+          dueDate: task.dueDate,
+          assignedToId: a.userId,
+          organization: task.organization,
+          assignedBy: task.createdBy,
+        }).catch(console.error);
+        createNotification(
+          a.userId,
+          "task_assigned",
+          "Вам назначена задача",
+          `${task.title}${orgName}`,
+          taskLink,
+        ).catch(console.error);
+      }
+    }
 
     res.json(task);
   } catch (err) {

@@ -1522,14 +1522,18 @@ router.post(
 
       const toCreate = templates.filter((t) => !existingTitles.has(t.title));
 
-      await prisma.task.createMany({
-        data: toCreate.map((t) => ({
-          ...t,
-          organizationId: req.params.id,
-          assignedToId: assignee?.userId ?? null,
-          createdById: req.user!.userId,
-        })),
-      });
+      await prisma.$transaction(
+        toCreate.map((t) =>
+          prisma.task.create({
+            data: {
+              ...t,
+              organizationId: req.params.id,
+              createdById: req.user!.userId,
+              assignees: assignee ? { create: [{ userId: assignee.userId }] } : undefined,
+            },
+          }),
+        ),
+      );
 
       await logAudit({
         action: "tasks.generate",

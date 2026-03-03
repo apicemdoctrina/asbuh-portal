@@ -1,7 +1,19 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
-import { Camera, Save, Lock, Eye, EyeOff, Phone, Calendar } from "lucide-react";
+import {
+  Camera,
+  Save,
+  Lock,
+  Eye,
+  EyeOff,
+  Phone,
+  Calendar,
+  Send,
+  CheckCircle,
+  Copy,
+  Loader2,
+} from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -31,6 +43,73 @@ export default function ProfilePage() {
   const [pwMsg, setPwMsg] = useState(null);
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
+
+  // Telegram
+  const [tgStatus, setTgStatus] = useState(null); // null=loading
+  const [tgConnecting, setTgConnecting] = useState(false);
+  const [tgCopied, setTgCopied] = useState(false);
+  const tgPollRef = useRef(null);
+
+  useEffect(() => {
+    fetchTgStatus();
+    return () => clearInterval(tgPollRef.current);
+  }, []);
+
+  async function fetchTgStatus() {
+    try {
+      const res = await api("/api/telegram/status");
+      if (res.ok) {
+        const data = await res.json();
+        setTgStatus(data);
+        if (data.pending && !data.connected) startTgPolling();
+      }
+    } catch {
+      setTgStatus({ connected: false });
+    }
+  }
+
+  function startTgPolling() {
+    clearInterval(tgPollRef.current);
+    tgPollRef.current = setInterval(async () => {
+      try {
+        const res = await api("/api/telegram/status");
+        if (res.ok) {
+          const data = await res.json();
+          setTgStatus((prev) => ({ ...prev, ...data }));
+          if (data.connected) clearInterval(tgPollRef.current);
+        }
+      } catch {
+        // ignore
+      }
+    }, 3000);
+  }
+
+  async function handleTgConnect() {
+    setTgConnecting(true);
+    try {
+      const res = await api("/api/telegram/connect", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setTgStatus({ connected: false, pending: true, code: data.code, botName: data.botName });
+        startTgPolling();
+      }
+    } finally {
+      setTgConnecting(false);
+    }
+  }
+
+  async function handleTgDisconnect() {
+    clearInterval(tgPollRef.current);
+    await api("/api/telegram/disconnect", { method: "DELETE" });
+    setTgStatus({ connected: false });
+  }
+
+  function handleTgCopy(text) {
+    navigator.clipboard.writeText(text).then(() => {
+      setTgCopied(true);
+      setTimeout(() => setTgCopied(false), 2000);
+    });
+  }
 
   const initials = `${(user?.firstName?.[0] || "").toUpperCase()}${(user?.lastName?.[0] || "").toUpperCase()}`;
   const avatarUrl = user?.avatarUrl ? `${API_BASE}${user.avatarUrl}` : null;
@@ -264,6 +343,91 @@ export default function ProfilePage() {
             </button>
           </form>
         </div>
+      </div>
+
+      {/* Telegram card */}
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+        <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+          <Send size={20} className="text-[#229ED9]" />
+          Telegram-уведомления
+        </h2>
+
+        {tgStatus === null ? (
+          <p className="text-sm text-slate-400 flex items-center gap-2">
+            <Loader2 size={14} className="animate-spin" /> Загрузка...
+          </p>
+        ) : tgStatus.connected ? (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-green-600">
+              <CheckCircle size={18} />
+              <span className="text-sm font-medium">
+                Подключён{tgStatus.username ? ` (@${tgStatus.username})` : ""}
+              </span>
+            </div>
+            <button
+              onClick={handleTgDisconnect}
+              className="text-sm text-red-500 hover:text-red-700 transition-colors"
+            >
+              Отключить
+            </button>
+          </div>
+        ) : tgStatus.pending ? (
+          <div className="space-y-3 max-w-md">
+            <p className="text-sm text-slate-600">
+              Напишите боту{" "}
+              <a
+                href={`https://t.me/${tgStatus.botName}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[#229ED9] font-medium hover:underline"
+              >
+                @{tgStatus.botName}
+              </a>{" "}
+              следующую команду:
+            </p>
+            <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+              <span className="font-mono font-bold text-slate-900 tracking-widest flex-1">
+                /start {tgStatus.code}
+              </span>
+              <button
+                onClick={() => handleTgCopy(`/start ${tgStatus.code}`)}
+                title="Скопировать"
+                className="text-slate-400 hover:text-slate-700 transition-colors"
+              >
+                {tgCopied ? (
+                  <CheckCircle size={16} className="text-green-500" />
+                ) : (
+                  <Copy size={16} />
+                )}
+              </button>
+            </div>
+            <p className="text-xs text-slate-500 flex items-center gap-1.5">
+              <Loader2 size={12} className="animate-spin" />
+              Ожидаем подключение... Код действителен 10 минут.
+            </p>
+            <button
+              onClick={handleTgConnect}
+              disabled={tgConnecting}
+              className="text-xs text-[#6567F1] hover:text-[#5557E1] font-medium transition-colors disabled:opacity-50"
+            >
+              Обновить код
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3 max-w-md">
+            <p className="text-sm text-slate-500">
+              Подключите Telegram, чтобы каждое утро получать дайджест актуальных задач.
+            </p>
+            <button
+              onClick={handleTgConnect}
+              disabled={tgConnecting}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#229ED9] hover:bg-[#1a8fc8] text-white text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              <Send size={16} />
+              {tgConnecting ? "Генерация кода..." : "Подключить Telegram"}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Change password card */}

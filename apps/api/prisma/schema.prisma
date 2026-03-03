@@ -32,8 +32,11 @@ model User {
   workContacts        WorkContact[]
   knowledgeItems      KnowledgeItem[]
   createdTasks        Task[]               @relation("TaskCreator")
-  assignedTasks       Task[]               @relation("TaskAssignee")
+  taskAssignees       TaskAssignee[]
   taskComments        TaskComment[]        @relation("TaskCommentAuthor")
+  telegramBinding      TelegramBinding?
+  notifications        Notification[]
+  passwordResetTokens  PasswordResetToken[]
 
   @@map("users")
 }
@@ -310,6 +313,7 @@ model AuditLog {
   entityId  String?  @map("entity_id")
   details   Json?
   ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
   createdAt DateTime @default(now()) @map("created_at")
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -504,20 +508,20 @@ model Task {
   dueDate            DateTime?       @map("due_date")
   recurrenceType     RecurrenceType? @map("recurrence_type")
   recurrenceInterval Int             @default(1) @map("recurrence_interval")
+  reminderSentAt     DateTime?       @map("reminder_sent_at")
+  escalatedAt        DateTime?       @map("escalated_at")
   organizationId     String?         @map("organization_id")
-  assignedToId       String?         @map("assigned_to_id")
   createdById        String          @map("created_by_id")
   createdAt          DateTime        @default(now()) @map("created_at")
   updatedAt          DateTime        @updatedAt @map("updated_at")
 
   organization    Organization?       @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  assignedTo      User?               @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
   createdBy       User                @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  assignees       TaskAssignee[]
   comments        TaskComment[]
   checklistItems  TaskChecklistItem[]
 
   @@index([organizationId])
-  @@index([assignedToId])
   @@index([dueDate])
   @@map("tasks")
 }
@@ -549,4 +553,61 @@ model TaskChecklistItem {
 
   @@index([taskId])
   @@map("task_checklist_items")
+}
+
+model TaskAssignee {
+  taskId String @map("task_id")
+  userId String @map("user_id")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+  @@map("task_assignees")
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  type      String    // "task_assigned" | "deadline_soon"
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model TelegramBinding {
+  id            String    @id @default(uuid())
+  userId        String    @unique @map("user_id")
+  chatId        String?   @unique @map("chat_id")
+  username      String?
+  code          String?   @unique
+  codeExpiresAt DateTime? @map("code_expires_at")
+  connectedAt   DateTime? @map("connected_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("telegram_bindings")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique @map("token_hash")
+  userId    String    @map("user_id")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }

@@ -3,9 +3,10 @@ import prisma from "../lib/prisma.js";
 import { comparePassword, hashPassword } from "../lib/password.js";
 import { signAccessToken, generateRefreshToken, hashToken } from "../lib/tokens.js";
 import { setRefreshCookie, clearRefreshCookie, getRefreshCookie } from "../lib/cookie.js";
-import { logAudit } from "../lib/audit.js";
+import { auditFromReq } from "../lib/audit.js";
 import { authLimiter } from "../middleware/rate-limit.js";
 import { authenticate, requireRole, requirePermission } from "../middleware/auth.js";
+import { sendPasswordResetEmail } from "../lib/mailer.js";
 import crypto from "node:crypto";
 
 const router = Router();
@@ -31,18 +32,17 @@ router.post("/login", authLimiter, async (req, res) => {
     });
 
     if (!user || !user.isActive) {
-      await logAudit({ action: "login_failed", details: { email }, ipAddress: req.ip });
+      await auditFromReq(req, { action: "login_failed", details: { email } });
       res.status(401).json({ error: "Invalid credentials" });
       return;
     }
 
     const valid = await comparePassword(password, user.passwordHash);
     if (!valid) {
-      await logAudit({
+      await auditFromReq(req, {
         action: "login_failed",
         userId: user.id,
         details: { email },
-        ipAddress: req.ip,
       });
       res.status(401).json({ error: "Invalid credentials" });
       return;
@@ -65,7 +65,7 @@ router.post("/login", authLimiter, async (req, res) => {
 
     setRefreshCookie(res, refreshToken);
 
-    await logAudit({ action: "login", userId: user.id, ipAddress: req.ip });
+    await auditFromReq(req, { action: "login", userId: user.id });
 
     res.json({
       accessToken,
@@ -146,7 +146,7 @@ router.post("/logout", authenticate, async (req, res) => {
       await prisma.refreshToken.deleteMany({ where: { tokenHash } });
     }
     clearRefreshCookie(res);
-    await logAudit({ action: "logout", userId: req.user!.userId, ipAddress: req.ip });
+    await auditFromReq(req, { action: "logout", userId: req.user!.userId });
     res.json({ message: "ok" });
   } catch (err) {
     console.error("Logout error:", err);
@@ -197,13 +197,12 @@ router.post("/staff", authenticate, requireRole("admin"), async (req, res) => {
       data: roles.map((r) => ({ userId: user.id, roleId: r.id })),
     });
 
-    await logAudit({
+    await auditFromReq(req, {
       action: "user_created",
       userId: req.user!.userId,
       entity: "user",
       entityId: user.id,
       details: { email, roleNames: validRoles },
-      ipAddress: req.ip,
     });
 
     res.status(201).json({
@@ -251,13 +250,12 @@ router.post(
         },
       });
 
-      await logAudit({
+      await auditFromReq(req, {
         action: "invite_created",
         userId: req.user!.userId,
         entity: "invite_token",
         entityId: invite.id,
         details: { organizationId },
-        ipAddress: req.ip,
       });
 
       res.status(201).json({ token: invite.token, expiresAt: invite.expiresAt });
@@ -346,13 +344,12 @@ router.post("/accept-invite", authenticate, async (req, res) => {
       }),
     ]);
 
-    await logAudit({
+    await auditFromReq(req, {
       action: "invite_accepted",
       userId: req.user!.userId,
       entity: "organization",
       entityId: invite.organizationId,
       details: { organizationName: invite.organization.name },
-      ipAddress: req.ip,
     });
 
     res.json({
@@ -437,13 +434,12 @@ router.post("/register", authLimiter, async (req, res) => {
     });
     setRefreshCookie(res, refreshToken);
 
-    await logAudit({
+    await auditFromReq(req, {
       action: "client_registered",
       userId: user.id,
       entity: "user",
       entityId: user.id,
       details: { email, organizationId: invite.organizationId },
-      ipAddress: req.ip,
     });
 
     res.status(201).json({
@@ -457,6 +453,86 @@ router.post("/register", authLimiter, async (req, res) => {
     });
   } catch (err) {
     console.error("Register error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /api/auth/forgot-password
+router.post("/forgot-password", authLimiter, async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "email required" });
+
+    const user = await prisma.user.findUnique({
+      where: { email: (email as string).toLowerCase().trim() },
+    });
+
+    // Always 200 — don't reveal whether email exists
+    if (!user || !user.isActive) return res.json({ ok: true });
+
+    // Invalidate previous unused tokens
+    await prisma.passwordResetToken.updateMany({
+      where: { userId: user.id, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = hashToken(rawToken);
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await prisma.passwordResetToken.create({
+      data: { userId: user.id, tokenHash, expiresAt },
+    });
+
+    const appUrl = process.env.APP_URL || "http://localhost:5173";
+    await sendPasswordResetEmail(user.email, `${appUrl}/reset-password?token=${rawToken}`);
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("forgot-password error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /api/auth/reset-password
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) {
+      return res.status(400).json({ error: "token and password are required" });
+    }
+    if ((password as string).length < 8) {
+      return res.status(400).json({ error: "Пароль должен быть не менее 8 символов" });
+    }
+
+    const tokenHash = hashToken(token as string);
+    const resetToken = await prisma.passwordResetToken.findUnique({ where: { tokenHash } });
+
+    if (!resetToken) return res.status(400).json({ error: "Недействительная ссылка" });
+    if (resetToken.usedAt) return res.status(400).json({ error: "Ссылка уже была использована" });
+    if (resetToken.expiresAt < new Date())
+      return res.status(400).json({ error: "Срок действия ссылки истёк" });
+
+    await prisma.passwordResetToken.update({
+      where: { id: resetToken.id },
+      data: { usedAt: new Date() },
+    });
+
+    await prisma.user.update({
+      where: { id: resetToken.userId },
+      data: { passwordHash: await hashPassword(password as string) },
+    });
+
+    await auditFromReq(req, {
+      action: "password_reset",
+      userId: resetToken.userId,
+      entity: "user",
+      entityId: resetToken.userId,
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("reset-password error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

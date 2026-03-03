@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link } from "react-router";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -19,6 +19,7 @@ import {
   ClipboardList,
   RefreshCw,
   CheckSquare,
+  Loader2,
 } from "lucide-react";
 import TaskCommentsModal from "../components/TaskCommentsModal.jsx";
 import BankAccountsCard from "../components/BankAccountsCard.jsx";
@@ -411,7 +412,12 @@ export default function OrganizationDetailPage() {
     setMemberError("");
   }
 
-  if (loading) return <div className="text-slate-400 text-sm">Загрузка...</div>;
+  if (loading)
+    return (
+      <div className="flex items-center justify-center py-24 text-slate-400">
+        <Loader2 size={28} className="animate-spin" />
+      </div>
+    );
   if (error)
     return (
       <div className="text-red-600 text-sm">
@@ -1276,7 +1282,7 @@ const TASK_EMPTY_FORM = {
   priority: "MEDIUM",
   category: "OTHER",
   dueDate: "",
-  assignedToId: "",
+  assignedToIds: [],
 };
 
 function isTaskOverdue(task) {
@@ -1356,7 +1362,10 @@ function OrgTasksCard({
 
   function openCreate() {
     setEditingTask(null);
-    setForm(TASK_EMPTY_FORM);
+    setForm({
+      ...TASK_EMPTY_FORM,
+      assignedToIds: assignableUsers.length === 1 ? [assignableUsers[0].id] : [],
+    });
     setFormError(null);
     setShowModal(true);
   }
@@ -1369,7 +1378,7 @@ function OrgTasksCard({
       priority: task.priority,
       category: task.category,
       dueDate: task.dueDate ? task.dueDate.slice(0, 10) : "",
-      assignedToId: task.assignedToId || "",
+      assignedToIds: task.assignees?.map((a) => a.userId) ?? [],
     });
     setFormError(null);
     setShowModal(true);
@@ -1391,7 +1400,7 @@ function OrgTasksCard({
         category: form.category,
         dueDate: form.dueDate || null,
         organizationId,
-        assignedToId: form.assignedToId || null,
+        assignedToIds: form.assignedToIds,
       };
       if (editingTask) {
         const res = await api(`/api/tasks/${editingTask.id}`, {
@@ -1490,10 +1499,12 @@ function OrgTasksCard({
                       {task.title}
                     </p>
                     <div className="flex flex-wrap items-center gap-3 mt-0.5 text-xs text-slate-400">
-                      {task.assignedTo && (
+                      {task.assignees?.length > 0 && (
                         <span className="flex items-center gap-1">
                           <User size={11} />
-                          {task.assignedTo.lastName} {task.assignedTo.firstName}
+                          {task.assignees
+                            .map((a) => `${a.user.lastName} ${a.user.firstName}`)
+                            .join(", ")}
                         </span>
                       )}
                       {task.dueDate && (
@@ -1567,7 +1578,7 @@ function OrgTasksCard({
               </h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="text-slate-400 hover:text-slate-700"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
               >
                 <X size={20} />
               </button>
@@ -1632,19 +1643,12 @@ function OrgTasksCard({
                 />
               </div>
               <div>
-                <label className={TASK_LABEL_CLS}>Исполнитель</label>
-                <select
-                  value={form.assignedToId}
-                  onChange={(e) => setForm((f) => ({ ...f, assignedToId: e.target.value }))}
-                  className={TASK_INPUT_CLS}
-                >
-                  <option value="">Не назначен</option>
-                  {assignableUsers.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.lastName} {u.firstName}
-                    </option>
-                  ))}
-                </select>
+                <label className={TASK_LABEL_CLS}>Исполнители</label>
+                <OrgAssigneeMultiSelect
+                  options={assignableUsers}
+                  value={form.assignedToIds}
+                  onChange={(ids) => setForm((f) => ({ ...f, assignedToIds: ids }))}
+                />
               </div>
               {formError && (
                 <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{formError}</div>
@@ -1792,5 +1796,64 @@ function OrgTasksCard({
         </div>
       )}
     </>
+  );
+}
+
+function OrgAssigneeMultiSelect({ options, value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function toggle(id) {
+    onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
+  }
+
+  const selectedLabels = options
+    .filter((u) => value.includes(u.id))
+    .map((u) => `${u.lastName} ${u.firstName}`)
+    .join(", ");
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-left bg-white focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] flex items-center justify-between"
+      >
+        <span className={selectedLabels ? "text-slate-900" : "text-slate-400"}>
+          {selectedLabels || "Не назначено"}
+        </span>
+        <span className="text-slate-400 text-xs">▾</span>
+      </button>
+      {open && (
+        <div className="absolute z-50 w-full bottom-full mb-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+          {options.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-slate-400">Нет сотрудников</div>
+          ) : (
+            options.map((u) => (
+              <label
+                key={u.id}
+                className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 cursor-pointer text-sm"
+              >
+                <input
+                  type="checkbox"
+                  checked={value.includes(u.id)}
+                  onChange={() => toggle(u.id)}
+                  className="accent-[#6567F1]"
+                />
+                {u.lastName} {u.firstName}
+              </label>
+            ))
+          )}
+        </div>
+      )}
+    </div>
   );
 }

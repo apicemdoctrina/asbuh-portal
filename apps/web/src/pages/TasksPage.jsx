@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -14,6 +14,7 @@ import {
   MessageSquare,
   CheckSquare,
   RefreshCw,
+  Loader2,
 } from "lucide-react";
 import TaskCommentsModal from "../components/TaskCommentsModal.jsx";
 import TaskChecklistModal from "../components/TaskChecklistModal.jsx";
@@ -106,7 +107,7 @@ const EMPTY_FORM = {
   category: "OTHER",
   dueDate: "",
   organizationId: "",
-  assignedToId: "",
+  assignedToIds: [],
   recurrence: "",
 };
 
@@ -136,6 +137,7 @@ export default function TasksPage() {
 
   // For assignee select
   const [users, setUsers] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
   const [orgs, setOrgs] = useState([]);
 
   const canCreate = hasPermission("task", "create");
@@ -174,20 +176,24 @@ export default function TasksPage() {
     fetchTasks();
   }, [fetchTasks]);
 
-  // Load orgs once when modal opens
+  // Load orgs + all staff once when modal opens
   useEffect(() => {
     if (!showModal) return;
     api("/api/organizations")
       .then((r) => r.json())
       .then((d) => setOrgs(d?.organizations || []))
       .catch(() => {});
+    api("/api/users?excludeRole=client")
+      .then((r) => r.json())
+      .then((d) => setAllUsers(Array.isArray(d) ? d : []))
+      .catch(() => {});
   }, [showModal]);
 
-  // Load assignable users based on selected org
+  // Load assignable users: all staff when no org, org members when org is selected
   useEffect(() => {
     if (!showModal) return;
     if (!form.organizationId) {
-      setUsers([]);
+      setUsers(allUsers);
       return;
     }
     api(`/api/organizations/${form.organizationId}`)
@@ -195,9 +201,12 @@ export default function TasksPage() {
       .then((org) => {
         const staff = (org.members || []).filter((m) => m.role !== "client").map((m) => m.user);
         setUsers(staff);
+        if (staff.length === 1) {
+          setForm((f) => ({ ...f, assignedToIds: [staff[0].id] }));
+        }
       })
       .catch(() => {});
-  }, [showModal, form.organizationId]);
+  }, [showModal, form.organizationId, allUsers]);
 
   function openCreate(prefill = {}) {
     setEditingTask(null);
@@ -215,7 +224,7 @@ export default function TasksPage() {
       category: task.category,
       dueDate: task.dueDate ? task.dueDate.slice(0, 10) : "",
       organizationId: task.organizationId || "",
-      assignedToId: task.assignedToId || "",
+      assignedToIds: task.assignees?.map((a) => a.userId) ?? [],
       recurrence: task.recurrenceType ? `${task.recurrenceType}:${task.recurrenceInterval}` : "",
     });
     setFormError(null);
@@ -246,7 +255,7 @@ export default function TasksPage() {
         category: form.category,
         dueDate: form.dueDate || null,
         organizationId: form.organizationId || null,
-        assignedToId: form.assignedToId || null,
+        assignedToIds: form.assignedToIds,
         recurrenceType: recurrenceType || null,
         recurrenceInterval: recurrenceInterval ? Number(recurrenceInterval) : 1,
       };
@@ -358,7 +367,9 @@ export default function TasksPage() {
 
       {/* Task list */}
       {loading ? (
-        <div className="text-sm text-slate-400">Загрузка...</div>
+        <div className="flex items-center justify-center py-16 text-slate-400">
+          <Loader2 size={24} className="animate-spin" />
+        </div>
       ) : error ? (
         <div className="text-sm text-red-500">{error}</div>
       ) : filtered.length === 0 ? (
@@ -391,7 +402,7 @@ export default function TasksPage() {
               </h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="text-slate-400 hover:text-slate-700"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
               >
                 <X size={20} />
               </button>
@@ -478,11 +489,11 @@ export default function TasksPage() {
                   value={form.organizationId}
                   onChange={(e) => {
                     setField("organizationId", e.target.value);
-                    setField("assignedToId", "");
+                    setField("assignedToIds", []);
                   }}
                   className={SELECT_CLS}
                 >
-                  <option value="">Не выбрана</option>
+                  <option value="">Без организации</option>
                   {orgs.map((o) => (
                     <option key={o.id} value={o.id}>
                       {o.name}
@@ -491,22 +502,12 @@ export default function TasksPage() {
                 </select>
               </div>
               <div>
-                <label className={LABEL_CLS}>Исполнитель</label>
-                <select
-                  value={form.assignedToId}
-                  onChange={(e) => setField("assignedToId", e.target.value)}
-                  className={SELECT_CLS}
-                  disabled={!form.organizationId}
-                >
-                  <option value="">
-                    {form.organizationId ? "Не назначен" : "Сначала выберите организацию"}
-                  </option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.lastName} {u.firstName}
-                    </option>
-                  ))}
-                </select>
+                <label className={LABEL_CLS}>Исполнители</label>
+                <AssigneeMultiSelect
+                  options={users}
+                  value={form.assignedToIds}
+                  onChange={(ids) => setField("assignedToIds", ids)}
+                />
               </div>
 
               {formError && (
@@ -607,10 +608,10 @@ function TaskCard({
               {task.organization.name}
             </Link>
           )}
-          {task.assignedTo && (
+          {task.assignees?.length > 0 && (
             <span className="flex items-center gap-1">
               <User size={12} />
-              {task.assignedTo.lastName} {task.assignedTo.firstName}
+              {task.assignees.map((a) => `${a.user.lastName} ${a.user.firstName}`).join(", ")}
             </span>
           )}
           {task.dueDate && (
@@ -708,4 +709,63 @@ function TaskCard({
 function getNextStatuses(current) {
   const all = ["OPEN", "IN_PROGRESS", "DONE", "CANCELLED"];
   return all.filter((s) => s !== current);
+}
+
+function AssigneeMultiSelect({ options, value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function toggle(id) {
+    onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
+  }
+
+  const selectedLabels = options
+    .filter((u) => value.includes(u.id))
+    .map((u) => `${u.lastName} ${u.firstName}`)
+    .join(", ");
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-left bg-white focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] flex items-center justify-between"
+      >
+        <span className={selectedLabels ? "text-slate-900" : "text-slate-400"}>
+          {selectedLabels || "Не назначено"}
+        </span>
+        <span className="text-slate-400 text-xs">▾</span>
+      </button>
+      {open && (
+        <div className="absolute z-50 w-full bottom-full mb-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+          {options.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-slate-400">Нет сотрудников</div>
+          ) : (
+            options.map((u) => (
+              <label
+                key={u.id}
+                className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 cursor-pointer text-sm"
+              >
+                <input
+                  type="checkbox"
+                  checked={value.includes(u.id)}
+                  onChange={() => toggle(u.id)}
+                  className="accent-[#6567F1]"
+                />
+                {u.lastName} {u.firstName}
+              </label>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
