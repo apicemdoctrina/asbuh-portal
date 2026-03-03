@@ -11,7 +11,7 @@
     "lint:fix": "eslint src/ prisma/ --fix",
     "test": "vitest",
     "test:ci": "vitest run",
-    "db:migrate": "prisma migrate dev",
+    "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:generate": "prisma generate",
     "db:reset": "prisma migrate reset",
