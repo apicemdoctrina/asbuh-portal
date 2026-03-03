@@ -89,8 +89,8 @@ docker compose -f docker-compose.prod.yml ps
 
 ## Конфигурация nginx
 
-Nginx должен проксировать как `/api`, так и `/uploads` к API-сервису.
-Без блока `/uploads` аватарки и загруженные файлы (документы, обложки базы знаний) не будут отображаться.
+Nginx должен проксировать `/api` и `/uploads` к API, а также корректно обслуживать
+SSE-стрим уведомлений (`/api/notifications/stream`) — буферизация должна быть отключена.
 
 Пример конфига (`/etc/nginx/sites-available/app.asbuh.com`):
 
@@ -101,6 +101,19 @@ server {
 
     root /opt/asbuh-portal/apps/web/dist;
     index index.html;
+
+    # SSE-стрим уведомлений — буферизацию отключить обязательно
+    location /api/notifications/stream {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Connection '';
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 86400s;
+        chunked_transfer_encoding on;
+    }
 
     location /api {
         proxy_pass http://127.0.0.1:3001;
@@ -133,9 +146,29 @@ sudo nginx -t && sudo systemctl reload nginx
 При первой настройке сервера убедись что все переменные заданы:
 
 ```
-DATABASE_URL=postgresql://...
-JWT_SECRET=...
-JWT_REFRESH_SECRET=...
+# База данных
+DATABASE_URL=postgresql://postgres:pass@localhost:5432/asbuh_portal
+
+# Auth
+JWT_SECRET=<случайная строка, openssl rand -hex 32>
+REFRESH_TOKEN_SECRET=<случайная строка, openssl rand -hex 32>
 ENCRYPTION_KEY=<64 hex символа, openssl rand -hex 32>
+
+# Сервер
+PORT=3001
 ALLOWED_ORIGINS=https://app.asbuh.com
+APP_URL=https://app.asbuh.com
+
+# SMTP (для сброса пароля; если не задан — ссылки пишутся в лог)
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=noreply@asbuh.com
+SMTP_PASS=<пароль>
+SMTP_FROM=ASBUH <noreply@asbuh.com>
+
+# Telegram бот (опционально; уведомления отключены если не задан)
+TELEGRAM_BOT_TOKEN=<токен от @BotFather>
+# Прокси для Telegram API, если Telegram заблокирован в сети сервера:
+# HTTPS_PROXY=http://user:pass@proxy-host:3128
 ```

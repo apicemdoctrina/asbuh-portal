@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
-import { Plus, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
 export default function SectionsPage() {
   const { hasPermission } = useAuth();
@@ -107,7 +107,9 @@ export default function SectionsPage() {
       {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>}
 
       {loading ? (
-        <div className="text-slate-400 text-sm">Загрузка...</div>
+        <div className="flex items-center justify-center py-16 text-slate-400">
+          <Loader2 size={24} className="animate-spin" />
+        </div>
       ) : sections.length === 0 ? (
         <div className="text-slate-400 text-sm">Участки не найдены</div>
       ) : (

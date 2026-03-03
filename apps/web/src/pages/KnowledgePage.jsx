@@ -446,7 +446,10 @@ function KnowledgeModal({ item, onClose, onSaved }) {
           <h2 className="text-lg font-bold text-slate-900">
             {isEdit ? "Редактировать" : "Новый материал"}
           </h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          >
             <X size={20} />
           </button>
         </div>
@@ -708,7 +711,10 @@ function KnowledgeDrawer({ item, onClose, onDownload }) {
               {AUDIENCE_LABELS[item.audience]}
             </span>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          >
             <X size={20} />
           </button>
         </div>

@@ -228,7 +228,10 @@ function ContactModal({ contact, onClose, onSaved }) {
           <h2 className="text-lg font-bold text-slate-900">
             {isEdit ? "Редактировать контакт" : "Новый контакт"}
           </h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          >
             <X size={20} />
           </button>
         </div>

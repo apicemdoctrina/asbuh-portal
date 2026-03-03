@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link } from "react-router";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
-import { ArrowLeft, Save, UserPlus, Trash2, Search } from "lucide-react";
+import { ArrowLeft, Save, UserPlus, Trash2, Search, Loader2 } from "lucide-react";
 
 export default function SectionDetailPage() {
   const { id } = useParams();
@@ -163,7 +163,12 @@ export default function SectionDetailPage() {
     setMemberRole("accountant");
   }
 
-  if (loading) return <div className="text-slate-400 text-sm">Загрузка...</div>;
+  if (loading)
+    return (
+      <div className="flex items-center justify-center py-24 text-slate-400">
+        <Loader2 size={28} className="animate-spin" />
+      </div>
+    );
   if (error)
     return (
       <div className="text-red-600 text-sm">

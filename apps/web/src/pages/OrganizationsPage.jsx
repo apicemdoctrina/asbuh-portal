@@ -13,6 +13,7 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  Loader2,
 } from "lucide-react";
 
 // ─── Labels ───────────────────────────────────────────────────────────────────
@@ -487,7 +488,9 @@ export default function OrganizationsPage() {
       {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>}
 
       {loading ? (
-        <div className="text-slate-400 text-sm">Загрузка...</div>
+        <div className="flex items-center justify-center py-16 text-slate-400">
+          <Loader2 size={24} className="animate-spin" />
+        </div>
       ) : organizations.length === 0 ? (
         <div className="text-slate-400 text-sm">Организации не найдены</div>
       ) : (

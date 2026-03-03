@@ -184,7 +184,10 @@ function ExpenseRow({ expense, onDelete, onUpdate }) {
         >
           <Check size={15} />
         </button>
-        <button onClick={cancel} className="p-1 text-slate-400 hover:bg-slate-100 rounded">
+        <button
+          onClick={cancel}
+          className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors"
+        >
           <XIcon size={15} />
         </button>
       </div>
@@ -390,7 +393,10 @@ function IncomeRow({ income, onDelete, onUpdate }) {
         >
           <Check size={15} />
         </button>
-        <button onClick={cancel} className="p-1 text-slate-400 hover:bg-slate-100 rounded">
+        <button
+          onClick={cancel}
+          className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors"
+        >
           <XIcon size={15} />
         </button>
       </div>

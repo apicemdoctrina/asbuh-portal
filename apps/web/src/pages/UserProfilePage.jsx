@@ -371,7 +371,10 @@ function EditUserModal({ profile, isClient, isSelf, onClose, onUpdated }) {
           <h2 className="text-lg font-bold text-slate-900">
             Редактировать {isClient ? "клиента" : "сотрудника"}
           </h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          >
             <X size={20} />
           </button>
         </div>

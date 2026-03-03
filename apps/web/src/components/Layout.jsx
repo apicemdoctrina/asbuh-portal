@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
+import NotificationBell from "./NotificationBell.jsx";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, permission: null },
@@ -69,7 +70,7 @@ export default function Layout() {
       <header className="fixed top-0 z-50 w-full h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-4">
           <button
-            className="lg:hidden text-slate-600 hover:text-slate-900"
+            className="lg:hidden p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
             onClick={() => setSidebarOpen(!sidebarOpen)}
           >
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
@@ -79,6 +80,7 @@ export default function Layout() {
           </span>
         </div>
         <div className="flex items-center gap-3">
+          <NotificationBell />
           <Link
             to="/profile"
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
