@@ -24,6 +24,9 @@ npm install
 # 4. Применить миграции БД (если были изменения схемы)
 npm run db:migrate -w apps/api
 
+# 4а. Перегенерировать Prisma Client (обязательно после миграций)
+cd apps/api && npx prisma generate && cd ../..
+
 # 5. Пересобрать фронтенд
 npm run build -w apps/web
 
@@ -45,6 +48,16 @@ npm run db:seed -w apps/api
 Затем попроси пользователей перелогиниться.
 
 ## Частые проблемы
+
+### API не стартует: `Cannot read properties of undefined (reading 'findMany')`
+
+Prisma Client не перегенерирован после миграций:
+
+```bash
+cd /opt/asbuh-portal/apps/api
+npx prisma generate
+sudo systemctl restart asbuh-api
+```
 
 ### API не стартует: `ENCRYPTION_KEY must be exactly 64 hex characters`
 
