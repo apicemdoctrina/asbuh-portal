@@ -10,6 +10,7 @@ import {
   BookOpen,
   ScrollText,
   TrendingUp,
+  ClipboardList,
   LogOut,
   Menu,
   X,
@@ -19,6 +20,7 @@ import NotificationBell from "./NotificationBell.jsx";
 
 const navItems = [
   { to: "/", label: "Главная", icon: LayoutDashboard, permission: null },
+  { to: "/tasks", label: "Задачи", icon: ClipboardList, permission: ["task", "view"] },
   { to: "/management", label: "Управление", icon: TrendingUp, role: "admin" },
   { to: "/sections", label: "Участки", icon: Map, permission: ["section", "view"] },
   { to: "/staff", label: "Сотрудники", icon: Users, role: "admin" },
