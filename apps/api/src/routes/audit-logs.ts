@@ -32,12 +32,19 @@ router.get("/", authenticate, requireRole("admin"), async (req, res) => {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
     const skip = (page - 1) * limit;
 
-    const { search, entity, userId, from, to } = req.query as Record<string, string | undefined>;
+    const { search, entity, action, userId, from, to } = req.query as Record<
+      string,
+      string | undefined
+    >;
 
     const where: Record<string, unknown> = {};
 
     if (entity) {
       where.entity = entity;
+    }
+
+    if (action) {
+      where.action = action;
     }
 
     if (userId) {
@@ -56,13 +63,14 @@ router.get("/", authenticate, requireRole("admin"), async (req, res) => {
         { action: { contains: search, mode: "insensitive" } },
         { entityId: { contains: search, mode: "insensitive" } },
         { ipAddress: { contains: search, mode: "insensitive" } },
+        { userAgent: { contains: search, mode: "insensitive" } },
       ];
     }
 
     const [data, total] = await Promise.all([
       prisma.auditLog.findMany({
         where,
-        include: { user: { select: { id: true, firstName: true, lastName: true } } },
+        include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } },
         orderBy: { createdAt: "desc" },
         skip,
         take: limit,
@@ -78,6 +86,21 @@ router.get("/", authenticate, requireRole("admin"), async (req, res) => {
     res.json({ data: sanitized, total, page, limit });
   } catch (err) {
     console.error("Audit logs error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET /api/audit-logs/actions — list of distinct actions for filter dropdown
+router.get("/actions", authenticate, requireRole("admin"), async (req, res) => {
+  try {
+    const rows = await prisma.auditLog.findMany({
+      select: { action: true },
+      distinct: ["action"],
+      orderBy: { action: "asc" },
+    });
+    res.json(rows.map((r) => r.action));
+  } catch (err) {
+    console.error("Audit actions error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
