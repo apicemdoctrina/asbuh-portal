@@ -10,7 +10,6 @@ import {
   BookOpen,
   ScrollText,
   TrendingUp,
-  ClipboardList,
   LogOut,
   Menu,
   X,
@@ -19,15 +18,16 @@ import { useState } from "react";
 import NotificationBell from "./NotificationBell.jsx";
 
 const navItems = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, permission: null },
+  { to: "/", label: "Главная", icon: LayoutDashboard, permission: null },
+  { to: "/management", label: "Управление", icon: TrendingUp, role: "admin" },
   { to: "/sections", label: "Участки", icon: Map, permission: ["section", "view"] },
+  { to: "/staff", label: "Сотрудники", icon: Users, role: "admin" },
   {
     to: "/organizations",
     label: "Организации",
     icon: Building2,
     permission: ["organization", "view"],
   },
-  { to: "/staff", label: "Сотрудники", icon: Users, role: "admin" },
   { to: "/clients", label: "Клиенты", icon: UserCheck, permission: ["user", "view"] },
   { to: "/contacts", label: "Контакты", icon: Phone, permission: ["work_contact", "view"] },
   {
@@ -36,9 +36,7 @@ const navItems = [
     icon: BookOpen,
     permission: ["knowledge_item", "view"],
   },
-  { to: "/tasks", label: "Задачи", icon: ClipboardList, permission: ["task", "view"] },
   { to: "/audit-log", label: "Журнал", icon: ScrollText, role: "admin" },
-  { to: "/management", label: "Управление", icon: TrendingUp, role: "admin" },
 ];
 
 export default function Layout() {
