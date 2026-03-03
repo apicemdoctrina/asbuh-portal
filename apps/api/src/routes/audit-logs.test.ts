@@ -164,7 +164,7 @@ describe("GET /api/audit-logs", () => {
 
     expect(res.status).toBe(200);
     const findManyCall = (prisma.auditLog.findMany as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(findManyCall.where.OR).toHaveLength(3);
+    expect(findManyCall.where.OR).toHaveLength(4);
     expect(findManyCall.where.OR[0]).toEqual({
       action: { contains: "login", mode: "insensitive" },
     });
