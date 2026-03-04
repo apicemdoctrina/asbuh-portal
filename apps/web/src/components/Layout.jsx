@@ -75,9 +75,12 @@ export default function Layout() {
           >
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <span className="text-xl font-bold text-slate-900">
-            ASBUH <span className="text-[#6567F1]">AUTOPILOT</span>
-          </span>
+          <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+            <img src="/logo.png" alt="ASBUH AUTOPILOT" className="h-8 w-auto" />
+            <span className="text-xl font-bold text-slate-900">
+              ASBUH <span className="text-[#6567F1]">AUTOPILOT</span>
+            </span>
+          </Link>
         </div>
         <div className="flex items-center gap-3">
           <NotificationBell />

@@ -31,6 +31,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-slate-200 p-8">
         <div className="text-center mb-8">
+          <img src="/logo.png" alt="ASBUH AUTOPILOT" className="h-12 w-auto mx-auto mb-3" />
           <h1 className="text-3xl font-bold text-slate-900">
             ASBUH <span className="text-[#6567F1]">AUTOPILOT</span>
           </h1>

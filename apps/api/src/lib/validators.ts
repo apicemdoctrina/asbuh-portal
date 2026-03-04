@@ -33,6 +33,7 @@ const VALID_STATUSES = [
   "not_paying",
   "ceased",
   "own",
+  "blacklisted",
 ] as const;
 
 const ORG_FORMS = ["OOO", "IP", "NKO", "AO", "PAO"] as const;

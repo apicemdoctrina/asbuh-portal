@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -22,13 +22,12 @@ export default function SectionDetailPage() {
   // Add member state
   const [showAddMember, setShowAddMember] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
-  const [memberResults, setMemberResults] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [memberRole, setMemberRole] = useState("accountant");
   const [addingMember, setAddingMember] = useState(false);
   const [memberError, setMemberError] = useState("");
-  const [searchingUsers, setSearchingUsers] = useState(false);
-  const searchTimeout = useRef(null);
+  const [loadingUsers, setLoadingUsers] = useState(false);
 
   const fetchSection = useCallback(async () => {
     setLoading(true);
@@ -54,32 +53,19 @@ export default function SectionDetailPage() {
     fetchSection();
   }, [fetchSection]);
 
-  // Debounced user search
+  // Load all users when modal opens
   useEffect(() => {
     if (!showAddMember) return;
-    if (memberSearch.length < 2) {
-      setMemberResults([]);
-      return;
-    }
-    clearTimeout(searchTimeout.current);
-    searchTimeout.current = setTimeout(async () => {
-      setSearchingUsers(true);
-      try {
-        const res = await api(`/api/users?search=${encodeURIComponent(memberSearch)}`);
-        if (res.ok) {
-          const data = await res.json();
-          // Filter out users already in section
-          const existingIds = new Set(section?.members?.map((m) => m.user.id) || []);
-          setMemberResults(data.filter((u) => !existingIds.has(u.id)));
-        }
-      } catch {
-        // ignore
-      } finally {
-        setSearchingUsers(false);
-      }
-    }, 300);
-    return () => clearTimeout(searchTimeout.current);
-  }, [memberSearch, showAddMember, section]);
+    setLoadingUsers(true);
+    const existingIds = new Set(section?.members?.map((m) => m.user.id) || []);
+    api("/api/users?limit=200")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) =>
+        setAllUsers((Array.isArray(data) ? data : []).filter((u) => !existingIds.has(u.id))),
+      )
+      .catch(() => {})
+      .finally(() => setLoadingUsers(false));
+  }, [showAddMember, section]);
 
   async function handleSave(e) {
     e.preventDefault();
@@ -127,7 +113,7 @@ export default function SectionDetailPage() {
       }
       setMemberSearch("");
       setSelectedUser(null);
-      setMemberResults([]);
+      setAllUsers([]);
       setMemberRole("accountant");
       setShowAddMember(false);
       fetchSection();
@@ -158,7 +144,7 @@ export default function SectionDetailPage() {
     setShowAddMember(true);
     setMemberSearch("");
     setSelectedUser(null);
-    setMemberResults([]);
+    setAllUsers([]);
     setMemberError("");
     setMemberRole("accountant");
   }
@@ -326,80 +312,67 @@ export default function SectionDetailPage() {
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md mx-4 p-6">
             <h2 className="text-lg font-bold text-slate-900 mb-4">Добавить участника</h2>
             <form onSubmit={handleAddMember} className="flex flex-col gap-4">
-              {/* User search */}
+              {/* User picker */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Сотрудник *</label>
-                {selectedUser ? (
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-[#6567F1]/5 border border-[#6567F1]/20">
-                    <div>
-                      <span className="text-sm font-medium text-slate-900">
-                        {selectedUser.lastName} {selectedUser.firstName}
-                      </span>
-                      <span className="text-sm text-slate-400 ml-2">{selectedUser.email}</span>
+                <div className="relative mb-1">
+                  <Search
+                    size={15}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+                  <input
+                    type="text"
+                    value={memberSearch}
+                    onChange={(e) => setMemberSearch(e.target.value)}
+                    placeholder="Фильтр по имени или email..."
+                    autoFocus
+                    className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                  />
+                </div>
+                <div className="border border-slate-200 rounded-lg overflow-hidden h-48 overflow-y-auto">
+                  {loadingUsers ? (
+                    <div className="flex items-center justify-center h-full text-slate-400">
+                      <Loader2 size={18} className="animate-spin" />
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedUser(null);
-                        setMemberSearch("");
-                      }}
-                      className="text-slate-400 hover:text-slate-600 text-xs"
-                    >
-                      Изменить
-                    </button>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <Search
-                      size={16}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-                    <input
-                      type="text"
-                      value={memberSearch}
-                      onChange={(e) => setMemberSearch(e.target.value)}
-                      placeholder="Введите имя или email (мин. 2 символа)..."
-                      autoFocus
-                      className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
-                    />
-                    {/* Search results dropdown */}
-                    {memberSearch.length >= 2 && (
-                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto z-10">
-                        {searchingUsers ? (
-                          <div className="p-3 text-sm text-slate-400">Поиск...</div>
-                        ) : memberResults.length === 0 ? (
-                          <div className="p-3 text-sm text-slate-400">
-                            Пользователи не найдены. Создайте сотрудника через API (POST
-                            /api/auth/staff).
-                          </div>
-                        ) : (
-                          memberResults.map((u) => (
-                            <button
-                              key={u.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedUser(u);
-                                setMemberSearch("");
-                                setMemberResults([]);
-                              }}
-                              className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0"
-                            >
-                              <span className="text-sm font-medium text-slate-900">
-                                {u.lastName} {u.firstName}
-                              </span>
-                              <span className="text-sm text-slate-400 ml-2">{u.email}</span>
-                              {u.roles?.length > 0 && (
-                                <span className="ml-2 text-xs text-slate-400">
-                                  ({u.roles.join(", ")})
-                                </span>
-                              )}
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
+                  ) : allUsers.length === 0 ? (
+                    <div className="flex items-center justify-center h-full text-sm text-slate-400">
+                      Все сотрудники уже добавлены
+                    </div>
+                  ) : (
+                    (() => {
+                      const q = memberSearch.toLowerCase();
+                      const filtered = allUsers.filter(
+                        (u) =>
+                          !q ||
+                          `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) ||
+                          u.email.toLowerCase().includes(q),
+                      );
+                      return filtered.length === 0 ? (
+                        <div className="flex items-center justify-center h-full text-sm text-slate-400">
+                          Не найдено
+                        </div>
+                      ) : (
+                        filtered.map((u) => (
+                          <button
+                            key={u.id}
+                            type="button"
+                            onClick={() => setSelectedUser(selectedUser?.id === u.id ? null : u)}
+                            className={`w-full text-left px-3 py-2.5 text-sm transition-colors border-b border-slate-100 last:border-0 ${
+                              selectedUser?.id === u.id
+                                ? "bg-[#6567F1]/10 text-[#6567F1] font-medium"
+                                : "hover:bg-slate-50 text-slate-700"
+                            }`}
+                          >
+                            <div className="font-medium">
+                              {u.lastName} {u.firstName}
+                            </div>
+                            <div className="text-xs text-slate-400">{u.email}</div>
+                          </button>
+                        ))
+                      );
+                    })()
+                  )}
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Роль *</label>

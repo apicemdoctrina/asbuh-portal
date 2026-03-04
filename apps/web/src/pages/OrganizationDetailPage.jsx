@@ -59,6 +59,7 @@ const STATUS_LABELS = {
   not_paying: "Не платит",
   ceased: "Прекратили сотрудничество",
   own: "Наша организация",
+  blacklisted: "Чёрный список",
 };
 const ROLE_LABELS = {
   admin: "Администратор",
@@ -77,6 +78,7 @@ const STATUS_BADGE_COLORS = {
   not_paying: "bg-red-100 text-red-700",
   ceased: "bg-slate-100 text-slate-500",
   own: "bg-purple-100 text-purple-700",
+  blacklisted: "bg-slate-900 text-white",
 };
 
 const INPUT_CLS =

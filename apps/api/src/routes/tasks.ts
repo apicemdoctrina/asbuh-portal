@@ -45,15 +45,25 @@ function calcNextDue(from: Date, type: string, interval: number): Date {
 // GET /api/tasks
 router.get("/", authenticate, requirePermission("task", "view"), async (req, res) => {
   try {
-    const { status, organizationId, assignedToId, overdue, my } = req.query;
+    const { status, organizationId, assignedToId, overdue } = req.query;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
 
     if (status) where.status = status;
-    if (organizationId) where.organizationId = organizationId as string;
+
+    if (organizationId) {
+      // Inside an org card — show all tasks for that org
+      where.organizationId = organizationId as string;
+    } else {
+      // Tasks page — show only tasks the user created or is assigned to
+      where.OR = [
+        { createdById: req.user!.userId },
+        { assignees: { some: { userId: req.user!.userId } } },
+      ];
+    }
+
     if (assignedToId) where.assignees = { some: { userId: assignedToId as string } };
-    if (my === "true") where.assignees = { some: { userId: req.user.userId } };
 
     if (overdue === "true") {
       where.dueDate = { lt: new Date() };
@@ -83,6 +93,7 @@ router.post("/", authenticate, requirePermission("task", "create"), async (req, 
       category,
       dueDate,
       organizationId,
+      organizationIds,
       assignedToIds,
       recurrenceType,
       recurrenceInterval,
@@ -94,57 +105,69 @@ router.post("/", authenticate, requirePermission("task", "create"), async (req, 
 
     const assigneeIds: string[] = Array.isArray(assignedToIds) ? assignedToIds : [];
 
-    const task = await prisma.task.create({
-      data: {
-        title: title.trim(),
-        description: description?.trim() || null,
-        priority: priority || "MEDIUM",
-        category: category || "OTHER",
-        dueDate: dueDate ? new Date(dueDate) : null,
-        recurrenceType: recurrenceType || null,
-        recurrenceInterval: recurrenceInterval ? Number(recurrenceInterval) : 1,
-        organizationId: organizationId || null,
-        createdById: req.user.userId,
-        assignees: assigneeIds.length
-          ? { create: assigneeIds.map((uid) => ({ userId: uid })) }
-          : undefined,
-      },
-      include: INCLUDE,
-    });
+    // Support multi-org creation: one task per org
+    const orgIdList: (string | null)[] =
+      Array.isArray(organizationIds) && organizationIds.length > 0
+        ? organizationIds
+        : [organizationId || null];
 
-    await logAudit({
-      action: "task.create",
-      userId: req.user.userId,
-      entity: "task",
-      entityId: task.id,
-      details: { title: task.title },
-    });
+    const createdTasks = [];
 
-    // Notify each new assignee (fire-and-forget)
-    const orgName = task.organization ? ` · ${task.organization.name}` : "";
-    const taskLink = task.organizationId ? `/organizations/${task.organizationId}` : "/tasks";
-    for (const a of task.assignees) {
-      if (a.userId === req.user.userId) continue;
-      notifyAssigned({
-        title: task.title,
-        description: task.description,
-        priority: task.priority,
-        category: task.category,
-        dueDate: task.dueDate,
-        assignedToId: a.userId,
-        organization: task.organization,
-        assignedBy: task.createdBy,
-      }).catch(console.error);
-      createNotification(
-        a.userId,
-        "task_assigned",
-        "Вам назначена задача",
-        `${task.title}${orgName}`,
-        taskLink,
-      ).catch(console.error);
+    for (const orgId of orgIdList) {
+      const task = await prisma.task.create({
+        data: {
+          title: title.trim(),
+          description: description?.trim() || null,
+          priority: priority || "MEDIUM",
+          category: category || "OTHER",
+          dueDate: dueDate ? new Date(dueDate) : null,
+          recurrenceType: recurrenceType || null,
+          recurrenceInterval: recurrenceInterval ? Number(recurrenceInterval) : 1,
+          organizationId: orgId || null,
+          createdById: req.user.userId,
+          assignees: assigneeIds.length
+            ? { create: assigneeIds.map((uid) => ({ userId: uid })) }
+            : undefined,
+        },
+        include: INCLUDE,
+      });
+
+      await logAudit({
+        action: "task.create",
+        userId: req.user.userId,
+        entity: "task",
+        entityId: task.id,
+        details: { title: task.title },
+      });
+
+      // Notify each new assignee (fire-and-forget)
+      const orgName = task.organization ? ` · ${task.organization.name}` : "";
+      const taskLink = task.organizationId ? `/organizations/${task.organizationId}` : "/tasks";
+      for (const a of task.assignees) {
+        if (a.userId === req.user.userId) continue;
+        notifyAssigned({
+          title: task.title,
+          description: task.description,
+          priority: task.priority,
+          category: task.category,
+          dueDate: task.dueDate,
+          assignedToId: a.userId,
+          organization: task.organization,
+          assignedBy: task.createdBy,
+        }).catch(console.error);
+        createNotification(
+          a.userId,
+          "task_assigned",
+          "Вам назначена задача",
+          `${task.title}${orgName}`,
+          taskLink,
+        ).catch(console.error);
+      }
+
+      createdTasks.push(task);
     }
 
-    res.status(201).json(task);
+    res.status(201).json(createdTasks.length === 1 ? createdTasks[0] : createdTasks);
   } catch (err) {
     console.error("POST /api/tasks error:", err);
     res.status(500).json({ error: "Internal server error" });

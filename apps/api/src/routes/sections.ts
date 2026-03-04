@@ -1,6 +1,7 @@
 import { Router } from "express";
 import prisma from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
+import { notifyWithTelegram } from "../lib/notify.js";
 import { authenticate, requirePermission } from "../middleware/auth.js";
 import type { Prisma } from "@prisma/client";
 
@@ -267,6 +268,18 @@ router.post(
         ipAddress: req.ip,
       });
 
+      const ROLE_LABELS: Record<string, string> = { accountant: "Бухгалтер", auditor: "Аудитор" };
+      const roleLabel = ROLE_LABELS[role] ?? role;
+      const sectionLabel = `участок №${section.number}${section.name ? ` (${section.name})` : ""}`;
+      notifyWithTelegram(
+        user.id,
+        "section_member_added",
+        "Добавлены на участок",
+        `Вы добавлены на ${sectionLabel} с ролью «${roleLabel}»`,
+        undefined,
+        `📂 <b>Вы добавлены на участок №${section.number}${section.name ? ` — ${section.name}` : ""}</b>\n\nРоль: ${roleLabel}`,
+      ).catch(console.error);
+
       res.status(201).json(member);
     } catch (err: unknown) {
       if (
@@ -298,6 +311,7 @@ router.delete(
             userId: req.params.userId,
           },
         },
+        include: { section: { select: { number: true, name: true } } },
       });
 
       if (!member) {
@@ -315,6 +329,17 @@ router.delete(
         details: { removedUserId: req.params.userId },
         ipAddress: req.ip,
       });
+
+      const sNum = member.section.number;
+      const sName = member.section.name;
+      notifyWithTelegram(
+        req.params.userId,
+        "section_member_removed",
+        "Сняты с участка",
+        `Вы сняты с участка №${sNum}${sName ? ` (${sName})` : ""}`,
+        undefined,
+        `📂 <b>Вы сняты с участка №${sNum}${sName ? ` — ${sName}` : ""}</b>`,
+      ).catch(console.error);
 
       res.json({ message: "Member removed" });
     } catch (err) {

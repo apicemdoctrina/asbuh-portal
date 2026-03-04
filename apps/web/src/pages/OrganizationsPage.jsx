@@ -13,6 +13,9 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  X,
+  UserCheck,
+  UserMinus,
   Loader2,
 } from "lucide-react";
 
@@ -51,6 +54,7 @@ const STATUS_LABELS = {
   not_paying: "Не платит",
   ceased: "Прекратили сотрудничество",
   own: "Наша организация",
+  blacklisted: "Чёрный список",
 };
 
 function statusBadge(status) {
@@ -61,6 +65,7 @@ function statusBadge(status) {
     left: "bg-slate-100 text-slate-500",
     closed: "bg-slate-100 text-slate-500",
     not_paying: "bg-red-100 text-red-700",
+    blacklisted: "bg-slate-900 text-white",
   };
   return map[status] || "bg-slate-100 text-slate-500";
 }
@@ -257,10 +262,132 @@ function ColumnPicker({ visibleCols, onChange }) {
   );
 }
 
+// ─── Bulk assign/remove modal ──────────────────────────────────────────────────
+
+function BulkModal({ mode, selectedIds, onClose, onSuccess }) {
+  const [allUsers, setAllUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const endpoint =
+      mode === "remove" ? "/api/organizations/bulk/members" : "/api/organizations/bulk/non-members";
+    const fetchUsers = api(endpoint, {
+      method: "POST",
+      body: JSON.stringify({ organizationIds: [...selectedIds] }),
+    });
+    fetchUsers
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Ошибка загрузки"))))
+      .then((d) => setAllUsers(Array.isArray(d) ? d : []))
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSubmit() {
+    if (!selectedUser) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      const endpoint =
+        mode === "assign" ? "/api/organizations/bulk/assign" : "/api/organizations/bulk/remove";
+      const res = await api(endpoint, {
+        method: "POST",
+        body: JSON.stringify({ organizationIds: [...selectedIds], userId: selectedUser.id }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Ошибка");
+      }
+      onSuccess();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const title = mode === "assign" ? "Назначить ответственного" : "Снять ответственного";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md mx-4 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-slate-900">{title}</h2>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <p className="text-sm text-slate-500 mb-1">
+          Выбрано организаций:{" "}
+          <span className="font-semibold text-slate-700">{selectedIds.size}</span>
+        </p>
+        <p className="text-xs text-slate-400 mb-3">
+          {mode === "remove"
+            ? "Показаны только ответственные, закреплённые за выбранными организациями"
+            : "Показаны только сотрудники, не закреплённые ни за одной из выбранных организаций"}
+        </p>
+
+        <div className="border border-slate-200 rounded-lg overflow-hidden mb-4 h-52 overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center h-full text-slate-400">
+              <Loader2 size={18} className="animate-spin" />
+            </div>
+          ) : allUsers.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-sm text-slate-400">
+              Пользователи не найдены
+            </div>
+          ) : (
+            allUsers.map((u) => (
+              <button
+                key={u.id}
+                onClick={() => setSelectedUser(u)}
+                className={`w-full text-left px-3 py-2.5 text-sm transition-colors border-b border-slate-100 last:border-0 ${
+                  selectedUser?.id === u.id
+                    ? "bg-[#6567F1]/10 text-[#6567F1] font-medium"
+                    : "hover:bg-slate-50 text-slate-700"
+                }`}
+              >
+                <div className="font-medium">
+                  {u.lastName} {u.firstName} {u.middleName || ""}
+                </div>
+                <div className="text-xs text-slate-400">{u.email}</div>
+              </button>
+            ))
+          )}
+        </div>
+
+        {error && <div className="mb-3 p-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>}
+
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+          >
+            Отмена
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!selectedUser || submitting}
+            className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
+          >
+            {submitting ? "Выполнение..." : title}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
 export default function OrganizationsPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, hasRole } = useAuth();
   const [organizations, setOrganizations] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -285,6 +412,10 @@ export default function OrganizationsPage() {
       /* ignore */
     }
   }
+
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkModal, setBulkModal] = useState(null); // "assign" | "remove" | null
 
   // Create modal state
   const [showCreate, setShowCreate] = useState(false);
@@ -499,6 +630,33 @@ export default function OrganizationsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/50">
+                  {hasRole("admin") && (
+                    <th className="pl-4 pr-2 py-3 w-8">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                        checked={
+                          organizations.length > 0 &&
+                          organizations.every((o) => selectedIds.has(o.id))
+                        }
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedIds((prev) => {
+                              const next = new Set(prev);
+                              organizations.forEach((o) => next.add(o.id));
+                              return next;
+                            });
+                          } else {
+                            setSelectedIds((prev) => {
+                              const next = new Set(prev);
+                              organizations.forEach((o) => next.delete(o.id));
+                              return next;
+                            });
+                          }
+                        }}
+                      />
+                    </th>
+                  )}
                   <th className="px-4 py-3 font-medium text-slate-400 whitespace-nowrap text-right w-10">
                     №
                   </th>
@@ -525,7 +683,27 @@ export default function OrganizationsPage() {
               </thead>
               <tbody>
                 {organizations.map((org, i) => (
-                  <tr key={org.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+                  <tr
+                    key={org.id}
+                    className={`border-b border-slate-50 hover:bg-slate-50/50 ${selectedIds.has(org.id) ? "bg-[#6567F1]/5" : ""}`}
+                  >
+                    {hasRole("admin") && (
+                      <td className="pl-4 pr-2 py-3">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                          checked={selectedIds.has(org.id)}
+                          onChange={(e) => {
+                            setSelectedIds((prev) => {
+                              const next = new Set(prev);
+                              if (e.target.checked) next.add(org.id);
+                              else next.delete(org.id);
+                              return next;
+                            });
+                          }}
+                        />
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-slate-400 text-sm text-right tabular-nums whitespace-nowrap">
                       {(page - 1) * limit + i + 1}
                     </td>
@@ -591,6 +769,51 @@ export default function OrganizationsPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3 bg-white rounded-2xl shadow-xl border border-slate-200">
+          <span className="text-sm font-medium text-slate-700">
+            Выбрано: <span className="text-[#6567F1] font-bold">{selectedIds.size}</span>
+          </span>
+          <div className="w-px h-5 bg-slate-200" />
+          <button
+            onClick={() => setBulkModal("assign")}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg text-sm font-medium transition-all shadow-md shadow-[#6567F1]/30"
+          >
+            <UserCheck size={15} />
+            Назначить
+          </button>
+          <button
+            onClick={() => setBulkModal("remove")}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-sm font-medium transition-colors"
+          >
+            <UserMinus size={15} />
+            Снять
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+          >
+            <X size={14} />
+            Снять выделение
+          </button>
+        </div>
+      )}
+
+      {/* Bulk modal */}
+      {bulkModal && (
+        <BulkModal
+          mode={bulkModal}
+          selectedIds={selectedIds}
+          onClose={() => setBulkModal(null)}
+          onSuccess={() => {
+            setBulkModal(null);
+            setSelectedIds(new Set());
+            fetchOrganizations();
+          }}
+        />
       )}
 
       {/* Create Modal */}

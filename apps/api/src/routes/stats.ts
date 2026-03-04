@@ -75,7 +75,7 @@ router.get("/", authenticate, async (req, res) => {
     const orgWhere = getOrgWhere(userId, roles);
 
     // Exclude archived statuses from dashboard counts
-    const ARCHIVED_STATUSES = ["left", "closed", "not_paying", "ceased", "own"];
+    const ARCHIVED_STATUSES = ["left", "closed", "not_paying", "ceased", "own", "blacklisted"];
     const activeOrgWhere: Prisma.OrganizationWhereInput = {
       ...orgWhere,
       status: { notIn: ARCHIVED_STATUSES },
@@ -178,12 +178,12 @@ router.get("/", authenticate, async (req, res) => {
       const now = new Date();
       const in2days = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
 
-      const taskOrgFilter: Prisma.TaskWhereInput = isAdmin
-        ? {}
-        : { OR: [{ organizationId: null }, { organization: orgWhere }] };
+      const myTasksFilter: Prisma.TaskWhereInput = {
+        OR: [{ createdById: userId }, { assignees: { some: { userId } } }],
+      };
 
       const notDone: Prisma.TaskWhereInput = {
-        ...taskOrgFilter,
+        ...myTasksFilter,
         status: { notIn: ["DONE", "CANCELLED"] },
       };
 

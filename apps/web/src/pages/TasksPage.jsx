@@ -11,6 +11,7 @@ import {
   CalendarDays,
   Building2,
   User,
+  UserCircle,
   MessageSquare,
   CheckSquare,
   RefreshCw,
@@ -107,6 +108,7 @@ const EMPTY_FORM = {
   category: "OTHER",
   dueDate: "",
   organizationId: "",
+  organizationIds: [],
   assignedToIds: [],
   recurrence: "",
 };
@@ -120,7 +122,6 @@ export default function TasksPage() {
   // Filters
   const [statusTab, setStatusTab] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
-  const [myTasks, setMyTasks] = useState(false);
 
   // Edit/create modal
   const [showModal, setShowModal] = useState(false);
@@ -160,7 +161,6 @@ export default function TasksPage() {
     try {
       const params = new URLSearchParams();
       if (statusTab) params.set("status", statusTab);
-      if (myTasks) params.set("my", "true");
       const res = await api(`/api/tasks?${params}`);
       if (!res.ok) throw new Error();
       const data = await res.json();
@@ -170,7 +170,7 @@ export default function TasksPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusTab, myTasks]);
+  }, [statusTab]);
 
   useEffect(() => {
     fetchTasks();
@@ -189,14 +189,19 @@ export default function TasksPage() {
       .catch(() => {});
   }, [showModal]);
 
-  // Load assignable users: all staff when no org, org members when org is selected
+  // Load assignable users: all staff when no/multiple orgs, org members when exactly one org selected
   useEffect(() => {
     if (!showModal) return;
-    if (!form.organizationId) {
+    const singleOrgId = editingTask
+      ? form.organizationId
+      : form.organizationIds.length === 1
+        ? form.organizationIds[0]
+        : "";
+    if (!singleOrgId) {
       setUsers(allUsers);
       return;
     }
-    api(`/api/organizations/${form.organizationId}`)
+    api(`/api/organizations/${singleOrgId}`)
       .then((r) => r.json())
       .then((org) => {
         const staff = (org.members || []).filter((m) => m.role !== "client").map((m) => m.user);
@@ -206,7 +211,7 @@ export default function TasksPage() {
         }
       })
       .catch(() => {});
-  }, [showModal, form.organizationId, allUsers]);
+  }, [showModal, form.organizationId, form.organizationIds, allUsers, editingTask]);
 
   function openCreate(prefill = {}) {
     setEditingTask(null);
@@ -254,7 +259,9 @@ export default function TasksPage() {
         priority: form.priority,
         category: form.category,
         dueDate: form.dueDate || null,
-        organizationId: form.organizationId || null,
+        ...(editingTask
+          ? { organizationId: form.organizationId || null }
+          : { organizationIds: form.organizationIds }),
         assignedToIds: form.assignedToIds,
         recurrenceType: recurrenceType || null,
         recurrenceInterval: recurrenceInterval ? Number(recurrenceInterval) : 1,
@@ -351,18 +358,6 @@ export default function TasksPage() {
             </option>
           ))}
         </select>
-
-        {/* My tasks toggle */}
-        <button
-          onClick={() => setMyTasks((v) => !v)}
-          className={`px-3 py-2 rounded-lg border text-xs font-medium transition-colors ${
-            myTasks
-              ? "bg-[#6567F1]/10 border-[#6567F1]/30 text-[#6567F1]"
-              : "bg-white border-slate-200 text-slate-500 hover:text-slate-900"
-          }`}
-        >
-          Мои задачи
-        </button>
       </div>
 
       {/* Task list */}
@@ -396,18 +391,18 @@ export default function TasksPage() {
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg">
-            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
-              <h2 className="text-lg font-bold text-slate-900">
+            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-slate-100">
+              <h2 className="text-base font-bold text-slate-900">
                 {editingTask ? "Редактировать задачу" : "Новая задача"}
               </h2>
               <button
                 onClick={() => setShowModal(false)}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="px-5 py-4 space-y-3">
               <div>
                 <label className={LABEL_CLS}>Заголовок *</label>
                 <input
@@ -422,13 +417,13 @@ export default function TasksPage() {
               <div>
                 <label className={LABEL_CLS}>Описание</label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   value={form.description}
                   onChange={(e) => setField("description", e.target.value)}
                   className={INPUT_CLS}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={LABEL_CLS}>Приоритет</label>
                   <select
@@ -458,7 +453,7 @@ export default function TasksPage() {
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={LABEL_CLS}>Дедлайн</label>
                   <input
@@ -484,22 +479,33 @@ export default function TasksPage() {
                 </div>
               </div>
               <div>
-                <label className={LABEL_CLS}>Организация</label>
-                <select
-                  value={form.organizationId}
-                  onChange={(e) => {
-                    setField("organizationId", e.target.value);
-                    setField("assignedToIds", []);
-                  }}
-                  className={SELECT_CLS}
-                >
-                  <option value="">Без организации</option>
-                  {orgs.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.name}
-                    </option>
-                  ))}
-                </select>
+                <label className={LABEL_CLS}>{editingTask ? "Организация" : "Организации"}</label>
+                {editingTask ? (
+                  <select
+                    value={form.organizationId}
+                    onChange={(e) => {
+                      setField("organizationId", e.target.value);
+                      setField("assignedToIds", []);
+                    }}
+                    className={SELECT_CLS}
+                  >
+                    <option value="">Без организации</option>
+                    {orgs.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <OrgMultiSelect
+                    options={orgs}
+                    value={form.organizationIds}
+                    onChange={(ids) => {
+                      setField("organizationIds", ids);
+                      setField("assignedToIds", []);
+                    }}
+                  />
+                )}
               </div>
               <div>
                 <label className={LABEL_CLS}>Исполнители</label>
@@ -514,7 +520,7 @@ export default function TasksPage() {
                 <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{formError}</div>
               )}
 
-              <div className="flex justify-end gap-3 pt-2">
+              <div className="flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
@@ -608,10 +614,16 @@ function TaskCard({
               {task.organization.name}
             </Link>
           )}
+          {task.createdBy && (
+            <span className="flex items-center gap-1">
+              <UserCircle size={12} />
+              от: {task.createdBy.lastName} {task.createdBy.firstName}
+            </span>
+          )}
           {task.assignees?.length > 0 && (
             <span className="flex items-center gap-1">
               <User size={12} />
-              {task.assignees.map((a) => `${a.user.lastName} ${a.user.firstName}`).join(", ")}
+              кому: {task.assignees.map((a) => `${a.user.lastName} ${a.user.firstName}`).join(", ")}
             </span>
           )}
           {task.dueDate && (
@@ -709,6 +721,65 @@ function TaskCard({
 function getNextStatuses(current) {
   const all = ["OPEN", "IN_PROGRESS", "DONE", "CANCELLED"];
   return all.filter((s) => s !== current);
+}
+
+function OrgMultiSelect({ options, value, onChange }) {
+  const [search, setSearch] = useState("");
+
+  function toggle(id) {
+    onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
+  }
+
+  const filtered = options.filter(
+    (o) =>
+      !search ||
+      o.name.toLowerCase().includes(search.toLowerCase()) ||
+      (o.inn && o.inn.includes(search)),
+  );
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="relative">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Поиск по названию или ИНН..."
+          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+        />
+        {value.length > 0 && (
+          <button
+            type="button"
+            onClick={() => onChange([])}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-red-500 transition-colors"
+          >
+            Снять все ({value.length})
+          </button>
+        )}
+      </div>
+      <div className="border border-slate-200 rounded-lg overflow-y-auto max-h-28">
+        {filtered.length === 0 ? (
+          <div className="px-3 py-2 text-sm text-slate-400">Не найдено</div>
+        ) : (
+          filtered.map((o) => (
+            <label
+              key={o.id}
+              className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-100 last:border-0"
+            >
+              <input
+                type="checkbox"
+                checked={value.includes(o.id)}
+                onChange={() => toggle(o.id)}
+                className="accent-[#6567F1] shrink-0"
+              />
+              <span className="text-slate-800 flex-1 min-w-0 truncate">{o.name}</span>
+              {o.inn && <span className="text-slate-400 text-xs shrink-0">{o.inn}</span>}
+            </label>
+          ))
+        )}
+      </div>
+    </div>
+  );
 }
 
 function AssigneeMultiSelect({ options, value, onChange }) {
