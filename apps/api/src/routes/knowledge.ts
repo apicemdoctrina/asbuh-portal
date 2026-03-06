@@ -170,8 +170,10 @@ router.post(
           content: type === "ARTICLE" ? (content ?? null) : null,
           url: type === "VIDEO" ? (url ?? null) : null,
           coverImagePath: coverImage ? coverImage.filename : null,
-          coverImageName: coverImage ? coverImage.originalname : null,
-          originalName: file ? file.originalname : null,
+          coverImageName: coverImage
+            ? Buffer.from(coverImage.originalname, "latin1").toString("utf8")
+            : null,
+          originalName: file ? Buffer.from(file.originalname, "latin1").toString("utf8") : null,
           storagePath: file ? file.filename : null,
           mimeType: file ? file.mimetype : null,
           fileSize: file ? file.size : null,
@@ -230,7 +232,7 @@ router.put(
 
       // If a new file is uploaded, replace the old one
       if (file) {
-        updateData.originalName = file.originalname;
+        updateData.originalName = Buffer.from(file.originalname, "latin1").toString("utf8");
         updateData.storagePath = file.filename;
         updateData.mimeType = file.mimetype;
         updateData.fileSize = file.size;
@@ -244,7 +246,7 @@ router.put(
       // If a new cover image is uploaded, replace the old one
       if (coverImage) {
         updateData.coverImagePath = coverImage.filename;
-        updateData.coverImageName = coverImage.originalname;
+        updateData.coverImageName = Buffer.from(coverImage.originalname, "latin1").toString("utf8");
         if (existing.coverImagePath) {
           const oldPath = path.join(UPLOADS_DIR, existing.coverImagePath);
           await fs.unlink(oldPath).catch(() => {});

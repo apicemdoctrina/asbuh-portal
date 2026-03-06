@@ -20,6 +20,9 @@ import {
   createContactSchema,
   updateContactSchema,
   createDocumentSchema,
+  createCustomFieldDefSchema,
+  updateCustomFieldDefSchema,
+  upsertCustomFieldValuesSchema,
 } from "../lib/validators.js";
 import { upload, UPLOADS_DIR } from "../lib/upload.js";
 
@@ -512,6 +515,63 @@ router.post("/bulk/remove", authenticate, requireRole("admin"), async (req, res)
   }
 });
 
+// GET /api/organizations/custom-field-defs — all definitions
+router.get("/custom-field-defs", authenticate, async (req, res) => {
+  try {
+    const defs = await prisma.customFieldDefinition.findMany({ orderBy: { order: "asc" } });
+    res.json(defs);
+  } catch (err) {
+    console.error("List custom field defs error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /api/organizations/custom-field-defs — create definition (admin only)
+router.post("/custom-field-defs", authenticate, requireRole("admin"), async (req, res) => {
+  try {
+    const result = createCustomFieldDefSchema.safeParse(req.body);
+    if (!result.success) {
+      res.status(400).json({ error: "Validation failed", issues: result.error.issues });
+      return;
+    }
+    const def = await prisma.customFieldDefinition.create({ data: result.data });
+    res.status(201).json(def);
+  } catch (err) {
+    console.error("Create custom field def error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// PUT /api/organizations/custom-field-defs/:defId — update definition (admin only)
+router.put("/custom-field-defs/:defId", authenticate, requireRole("admin"), async (req, res) => {
+  try {
+    const result = updateCustomFieldDefSchema.safeParse(req.body);
+    if (!result.success) {
+      res.status(400).json({ error: "Validation failed", issues: result.error.issues });
+      return;
+    }
+    const def = await prisma.customFieldDefinition.update({
+      where: { id: req.params.defId },
+      data: result.data,
+    });
+    res.json(def);
+  } catch (err) {
+    console.error("Update custom field def error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// DELETE /api/organizations/custom-field-defs/:defId — delete definition (admin only)
+router.delete("/custom-field-defs/:defId", authenticate, requireRole("admin"), async (req, res) => {
+  try {
+    await prisma.customFieldDefinition.delete({ where: { id: req.params.defId } });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Delete custom field def error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // GET /api/organizations/:id — details + section + members + bankAccounts + contacts
 router.get("/:id", authenticate, requirePermission("organization", "view"), async (req, res) => {
   try {
@@ -570,6 +630,7 @@ router.get("/:id", authenticate, requirePermission("organization", "view"), asyn
           },
         },
         documents: {
+          where: { isLatest: true },
           select: {
             id: true,
             organizationId: true,
@@ -580,9 +641,16 @@ router.get("/:id", authenticate, requirePermission("organization", "view"), asyn
             comment: true,
             uploadedById: true,
             createdAt: true,
+            version: true,
+            documentDate: true,
+            periodMonth: true,
+            periodYear: true,
             uploadedBy: { select: { firstName: true, lastName: true } },
           },
           orderBy: { createdAt: "desc" },
+        },
+        customFieldValues: {
+          include: { field: true },
         },
       },
     });
@@ -1462,6 +1530,12 @@ const documentSelect = {
   comment: true,
   uploadedById: true,
   createdAt: true,
+  version: true,
+  groupId: true,
+  isLatest: true,
+  documentDate: true,
+  periodMonth: true,
+  periodYear: true,
   uploadedBy: { select: { firstName: true, lastName: true } },
 } as const;
 
@@ -1516,16 +1590,23 @@ router.post(
         return;
       }
 
+      const originalName = Buffer.from(req.file.originalname, "latin1").toString("utf8");
+
       const doc = await prisma.organizationDocument.create({
         data: {
           organizationId: org.id,
           type: result.data.type,
-          originalName: req.file.originalname,
+          originalName,
           storagePath: req.file.filename,
           mimeType: req.file.mimetype,
           size: req.file.size,
           comment: result.data.comment ?? null,
           uploadedById: req.user!.userId,
+          version: 1,
+          isLatest: true,
+          documentDate: result.data.documentDate ? new Date(result.data.documentDate) : null,
+          periodMonth: result.data.periodMonth ?? null,
+          periodYear: result.data.periodYear ?? null,
         },
         select: documentSelect,
       });
@@ -1537,7 +1618,7 @@ router.post(
         entityId: org.id,
         details: {
           documentId: doc.id,
-          originalName: req.file.originalname,
+          originalName,
           type: result.data.type,
         },
         ipAddress: req.ip,
@@ -1568,7 +1649,7 @@ router.get(
       }
 
       const documents = await prisma.organizationDocument.findMany({
-        where: { organizationId: org.id },
+        where: { organizationId: org.id, isLatest: true },
         select: documentSelect,
         orderBy: { createdAt: "desc" },
       });
@@ -1646,6 +1727,20 @@ router.delete(
 
       await prisma.organizationDocument.delete({ where: { id: doc.id } });
 
+      // If deleted version was the latest, promote the highest remaining version
+      if (doc.isLatest) {
+        const next = await prisma.organizationDocument.findFirst({
+          where: { groupId: doc.groupId },
+          orderBy: { version: "desc" },
+        });
+        if (next) {
+          await prisma.organizationDocument.update({
+            where: { id: next.id },
+            data: { isLatest: true },
+          });
+        }
+      }
+
       await logAudit({
         action: "document_deleted",
         userId: req.user!.userId,
@@ -1658,6 +1753,161 @@ router.delete(
       res.json({ message: "Document deleted" });
     } catch (err) {
       console.error("Delete document error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// GET /api/organizations/:id/documents/:docId/versions — list all versions
+router.get(
+  "/:id/documents/:docId/versions",
+  authenticate,
+  requirePermission("document", "view"),
+  async (req, res) => {
+    try {
+      const scope = getScopedWhere(req.user!.userId, req.user!.roles);
+      const org = await prisma.organization.findFirst({
+        where: { id: req.params.id, ...scope },
+      });
+      if (!org) {
+        res.status(404).json({ error: "Organization not found" });
+        return;
+      }
+
+      const doc = await prisma.organizationDocument.findFirst({
+        where: { id: req.params.docId, organizationId: org.id },
+      });
+      if (!doc) {
+        res.status(404).json({ error: "Document not found" });
+        return;
+      }
+
+      const versions = await prisma.organizationDocument.findMany({
+        where: { groupId: doc.groupId },
+        select: documentSelect,
+        orderBy: { version: "desc" },
+      });
+
+      res.json(versions);
+    } catch (err) {
+      console.error("List document versions error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// POST /api/organizations/:id/documents/:docId/versions — upload new version
+router.post(
+  "/:id/documents/:docId/versions",
+  authenticate,
+  requirePermission("document", "create"),
+  (req, res, next) => {
+    upload.single("file")(req, res, (err) => {
+      if (err instanceof multer.MulterError) {
+        if (err.code === "LIMIT_FILE_SIZE") {
+          res.status(400).json({ error: "File too large (max 10 MB)" });
+          return;
+        }
+        if (err.code === "LIMIT_UNEXPECTED_FILE") {
+          res.status(400).json({ error: "File type not allowed" });
+          return;
+        }
+        res.status(400).json({ error: err.message });
+        return;
+      }
+      if (err) {
+        next(err);
+        return;
+      }
+      next();
+    });
+  },
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        res.status(400).json({ error: "File is required" });
+        return;
+      }
+
+      const scope = getScopedWhere(req.user!.userId, req.user!.roles);
+      const org = await prisma.organization.findFirst({
+        where: { id: req.params.id, ...scope },
+      });
+      if (!org) {
+        await fs.unlink(req.file.path).catch(() => {});
+        res.status(404).json({ error: "Organization not found" });
+        return;
+      }
+
+      const currentDoc = await prisma.organizationDocument.findFirst({
+        where: { id: req.params.docId, organizationId: org.id },
+      });
+      if (!currentDoc) {
+        await fs.unlink(req.file.path).catch(() => {});
+        res.status(404).json({ error: "Document not found" });
+        return;
+      }
+
+      // Find max version in this group
+      const maxVersionDoc = await prisma.organizationDocument.findFirst({
+        where: { groupId: currentDoc.groupId },
+        orderBy: { version: "desc" },
+      });
+      const nextVersion = (maxVersionDoc?.version ?? 0) + 1;
+
+      // Unset isLatest for all in group, then create new version
+      await prisma.organizationDocument.updateMany({
+        where: { groupId: currentDoc.groupId },
+        data: { isLatest: false },
+      });
+
+      const originalName = Buffer.from(req.file.originalname, "latin1").toString("utf8");
+
+      // Parse optional date/period fields from FormData body
+      const versionBody = createDocumentSchema
+        .pick({ documentDate: true, periodMonth: true, periodYear: true })
+        .safeParse(req.body);
+
+      const newDoc = await prisma.organizationDocument.create({
+        data: {
+          organizationId: org.id,
+          type: currentDoc.type,
+          originalName,
+          storagePath: req.file.filename,
+          mimeType: req.file.mimetype,
+          size: req.file.size,
+          comment: currentDoc.comment,
+          uploadedById: req.user!.userId,
+          groupId: currentDoc.groupId,
+          version: nextVersion,
+          isLatest: true,
+          documentDate:
+            versionBody.success && versionBody.data.documentDate
+              ? new Date(versionBody.data.documentDate)
+              : null,
+          periodMonth: versionBody.success ? (versionBody.data.periodMonth ?? null) : null,
+          periodYear: versionBody.success ? (versionBody.data.periodYear ?? null) : null,
+        },
+        select: documentSelect,
+      });
+
+      await logAudit({
+        action: "document_version_uploaded",
+        userId: req.user!.userId,
+        entity: "organization",
+        entityId: org.id,
+        details: {
+          documentId: newDoc.id,
+          groupId: currentDoc.groupId,
+          version: nextVersion,
+          originalName,
+        },
+        ipAddress: req.ip,
+      });
+
+      res.status(201).json(newDoc);
+    } catch (err) {
+      console.error("Upload document version error:", err);
       res.status(500).json({ error: "Internal server error" });
     }
   },
@@ -1765,6 +2015,47 @@ router.post(
       });
     } catch (err) {
       console.error("generate-tasks error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// PUT /api/organizations/:id/custom-fields — upsert custom field values
+router.put(
+  "/:id/custom-fields",
+  authenticate,
+  requirePermission("organization", "edit"),
+  async (req, res) => {
+    try {
+      const result = upsertCustomFieldValuesSchema.safeParse(req.body);
+      if (!result.success) {
+        res.status(400).json({ error: "Validation failed", issues: result.error.issues });
+        return;
+      }
+
+      const scope = getScopedWhere(req.user!.userId, req.user!.roles);
+      const org = await prisma.organization.findFirst({
+        where: { id: req.params.id, ...scope },
+        select: { id: true },
+      });
+      if (!org) {
+        res.status(404).json({ error: "Organization not found" });
+        return;
+      }
+
+      await Promise.all(
+        result.data.values.map(({ fieldId, value }) =>
+          prisma.customFieldValue.upsert({
+            where: { organizationId_fieldId: { organizationId: req.params.id, fieldId } },
+            create: { organizationId: req.params.id, fieldId, value },
+            update: { value },
+          }),
+        ),
+      );
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Upsert custom field values error:", err);
       res.status(500).json({ error: "Internal server error" });
     }
   },

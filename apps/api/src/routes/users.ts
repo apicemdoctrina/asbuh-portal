@@ -10,6 +10,7 @@ import { hashPassword, comparePassword } from "../lib/password.js";
 import { signAccessToken, generateRefreshToken, hashToken } from "../lib/tokens.js";
 import { setRefreshCookie } from "../lib/cookie.js";
 import { updateProfileSchema, changePasswordSchema } from "../lib/validators.js";
+import { notifyWithTelegram } from "../lib/notify.js";
 import type { Prisma } from "@prisma/client";
 
 const router = Router();
@@ -496,9 +497,17 @@ router.put("/:id", authenticate, requireRole("admin"), async (req, res) => {
       });
     }
 
-    // If deactivated, revoke refresh tokens
+    // If deactivated, revoke refresh tokens and notify
     if (isActive === false) {
       await prisma.refreshToken.deleteMany({ where: { userId: id } });
+      notifyWithTelegram(
+        id,
+        "account_deactivated",
+        "Ваш аккаунт деактивирован",
+        "Ваш аккаунт был деактивирован администратором.",
+        undefined,
+        "⛔ Ваш аккаунт был деактивирован администратором.",
+      ).catch(console.error);
     }
 
     await logAudit({
@@ -570,6 +579,15 @@ router.delete("/:id", authenticate, requireRole("admin"), async (req, res) => {
         entityId: id,
         ipAddress: req.ip,
       });
+
+      notifyWithTelegram(
+        id,
+        "account_deactivated",
+        "Ваш аккаунт деактивирован",
+        "Ваш аккаунт был деактивирован администратором.",
+        undefined,
+        "⛔ Ваш аккаунт был деактивирован администратором.",
+      ).catch(console.error);
 
       res.json({ message: "User deactivated" });
     } else {

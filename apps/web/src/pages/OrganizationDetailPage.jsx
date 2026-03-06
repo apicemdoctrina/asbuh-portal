@@ -25,6 +25,7 @@ import TaskCommentsModal from "../components/TaskCommentsModal.jsx";
 import BankAccountsCard from "../components/BankAccountsCard.jsx";
 import SystemAccessesCard from "../components/SystemAccessesCard.jsx";
 import ContactsCard from "../components/ContactsCard.jsx";
+import CustomFieldsCard from "../components/CustomFieldsCard.jsx";
 import DocumentsCard from "../components/DocumentsCard.jsx";
 import OrgCompletenessCard from "../components/OrgCompletenessCard.jsx";
 
@@ -1018,6 +1019,13 @@ export default function OrganizationDetailPage() {
           systemAccesses={org.systemAccesses || []}
           canEdit={canEdit && !hasRole("client")}
           canViewSecrets={hasPermission("organization_secret", "view")}
+          onDataChanged={fetchOrganization}
+        />
+        <CustomFieldsCard
+          organizationId={id}
+          customFieldValues={org.customFieldValues || []}
+          canEdit={canEdit}
+          isAdmin={hasRole("admin")}
           onDataChanged={fetchOrganization}
         />
         <DocumentsCard

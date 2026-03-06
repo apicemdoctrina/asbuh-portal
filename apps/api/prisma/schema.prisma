@@ -231,14 +231,15 @@ model Organization {
   paymentDestination String?                     @map("payment_destination")
   debtAmount         Decimal? @db.Decimal(12, 2) @map("debt_amount")
 
-  section        Section?             @relation(fields: [sectionId], references: [id], onDelete: SetNull)
-  members        OrganizationMember[]
-  inviteTokens   InviteToken[]
-  bankAccounts   OrganizationBankAccount[]
-  systemAccesses OrganizationSystemAccess[]
-  contacts       OrganizationContact[]
-  documents      OrganizationDocument[]
-  tasks          Task[]
+  section           Section?             @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  members           OrganizationMember[]
+  inviteTokens      InviteToken[]
+  bankAccounts      OrganizationBankAccount[]
+  systemAccesses    OrganizationSystemAccess[]
+  contacts          OrganizationContact[]
+  documents         OrganizationDocument[]
+  tasks             Task[]
+  customFieldValues CustomFieldValue[]
 
   @@index([sectionId])
   @@map("organizations")
@@ -336,10 +337,17 @@ model OrganizationDocument {
   comment        String?
   uploadedById   String       @map("uploaded_by_id")
   createdAt      DateTime     @default(now()) @map("created_at")
+  version        Int          @default(1)
+  groupId        String       @default(dbgenerated("gen_random_uuid()")) @map("group_id") @db.Uuid
+  isLatest       Boolean      @default(true) @map("is_latest")
+  documentDate   DateTime?    @map("document_date") @db.Date
+  periodMonth    Int?         @map("period_month") @db.SmallInt
+  periodYear     Int?         @map("period_year") @db.SmallInt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   uploadedBy   User         @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
 
+  @@index([groupId])
   @@map("organization_documents")
 }
 
@@ -596,6 +604,42 @@ model TelegramBinding {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("telegram_bindings")
+}
+
+enum FieldType {
+  TEXT
+  NUMBER
+  DATE
+  BOOLEAN
+}
+
+model CustomFieldDefinition {
+  id        String    @id @default(uuid())
+  name      String
+  fieldType FieldType @map("field_type")
+  required  Boolean   @default(false)
+  order     Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  values CustomFieldValue[]
+
+  @@map("custom_field_definitions")
+}
+
+model CustomFieldValue {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  fieldId        String   @map("field_id")
+  value          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  field        CustomFieldDefinition @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, fieldId])
+  @@map("custom_field_values")
 }
 
 model PasswordResetToken {
