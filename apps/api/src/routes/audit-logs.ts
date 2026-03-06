@@ -1,6 +1,7 @@
 import { Router } from "express";
 import prisma from "../lib/prisma.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
+import { parsePagination } from "../lib/route-helpers.js";
 
 const router = Router();
 
@@ -28,9 +29,7 @@ function sanitizeDetails(obj: unknown): unknown {
 // GET /api/audit-logs
 router.get("/", authenticate, requireRole("admin"), async (req, res) => {
   try {
-    const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = parsePagination(req.query.page, req.query.limit);
 
     const { search, entity, action, userId, from, to } = req.query as Record<
       string,
@@ -47,11 +46,25 @@ router.get("/", authenticate, requireRole("admin"), async (req, res) => {
       where.action = action;
     }
 
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (userId) {
+      if (!uuidRegex.test(userId)) {
+        res.status(400).json({ error: "Invalid userId format" });
+        return;
+      }
       where.userId = userId;
     }
 
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (from || to) {
+      if (from && !dateRegex.test(from)) {
+        res.status(400).json({ error: "Invalid 'from' date format. Use YYYY-MM-DD" });
+        return;
+      }
+      if (to && !dateRegex.test(to)) {
+        res.status(400).json({ error: "Invalid 'to' date format. Use YYYY-MM-DD" });
+        return;
+      }
       const createdAt: Record<string, Date> = {};
       if (from) createdAt.gte = new Date(`${from}T00:00:00.000Z`);
       if (to) createdAt.lte = new Date(`${to}T23:59:59.999Z`);

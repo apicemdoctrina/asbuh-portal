@@ -495,7 +495,7 @@ function DetailsPanel({ log }) {
       {hasDetails && (
         <div>
           <div className="text-xs font-medium text-slate-500 mb-1.5">Детали</div>
-          <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
             <table className="w-full text-xs">
               <tbody>
                 {Object.entries(details)

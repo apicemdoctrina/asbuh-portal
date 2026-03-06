@@ -3,6 +3,7 @@ import prisma from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
 import { notifyWithTelegram } from "../lib/notify.js";
 import { authenticate, requirePermission } from "../middleware/auth.js";
+import { parsePagination, isPrismaUniqueError } from "../lib/route-helpers.js";
 import type { Prisma } from "@prisma/client";
 
 const router = Router();
@@ -18,9 +19,7 @@ function getScopedWhere(userId: string, roles: string[]): Prisma.SectionWhereInp
 router.get("/", authenticate, requirePermission("section", "view"), async (req, res) => {
   try {
     const { search, page: pageQ, limit: limitQ } = req.query;
-    const page = Math.max(1, Number(pageQ) || 1);
-    const limit = Math.min(100, Math.max(1, Number(limitQ) || 50));
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = parsePagination(pageQ, limitQ);
 
     const scope = getScopedWhere(req.user!.userId, req.user!.roles);
 
@@ -80,12 +79,7 @@ router.post("/", authenticate, requirePermission("section", "create"), async (re
 
     res.status(201).json(section);
   } catch (err: unknown) {
-    if (
-      typeof err === "object" &&
-      err !== null &&
-      "code" in err &&
-      (err as { code: string }).code === "P2002"
-    ) {
+    if (isPrismaUniqueError(err)) {
       res.status(409).json({ error: "Section with this number already exists" });
       return;
     }
@@ -162,12 +156,7 @@ router.put("/:id", authenticate, requirePermission("section", "edit"), async (re
 
     res.json(section);
   } catch (err: unknown) {
-    if (
-      typeof err === "object" &&
-      err !== null &&
-      "code" in err &&
-      (err as { code: string }).code === "P2002"
-    ) {
+    if (isPrismaUniqueError(err)) {
       res.status(409).json({ error: "Section with this number already exists" });
       return;
     }

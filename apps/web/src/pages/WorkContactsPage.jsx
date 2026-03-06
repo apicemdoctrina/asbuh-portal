@@ -195,6 +195,10 @@ function ContactModal({ contact, onClose, onSaved }) {
       setError("Имя обязательно");
       return;
     }
+    if (form.phone.trim() && !/^[+\d\s()-]{6,20}$/.test(form.phone.trim())) {
+      setError("Некорректный формат телефона");
+      return;
+    }
 
     const body = {
       name: form.name.trim(),

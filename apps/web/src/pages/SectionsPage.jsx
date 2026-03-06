@@ -55,7 +55,7 @@ export default function SectionsPage() {
         method: "POST",
         body: JSON.stringify({
           number: Number(createNumber),
-          name: createName || undefined,
+          name: createName.trim() || undefined,
         }),
       });
       if (!res.ok) {

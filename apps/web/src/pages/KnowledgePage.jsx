@@ -407,6 +407,18 @@ function KnowledgeModal({ item, onClose, onSaved }) {
       setError("Название обязательно");
       return;
     }
+    if (form.type === "VIDEO" && form.url.trim() && !/^https?:\/\/.+/.test(form.url.trim())) {
+      setError("Введите корректный URL (начинается с http:// или https://)");
+      return;
+    }
+    if (form.type === "FILE" && !isEdit && !file) {
+      setError("Загрузите файл");
+      return;
+    }
+    if (file && file.size > 50 * 1024 * 1024) {
+      setError("Максимальный размер файла — 50 МБ");
+      return;
+    }
 
     setSubmitting(true);
     try {

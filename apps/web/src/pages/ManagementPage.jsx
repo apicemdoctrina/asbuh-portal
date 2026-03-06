@@ -104,7 +104,7 @@ function KpiCard({ icon: Icon, label, value, sub, positive, growth, absoluteGrow
   const color =
     positive === undefined ? "text-[#6567F1]" : positive ? "text-emerald-600" : "text-red-500";
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+    <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm text-slate-500">{label}</span>
         <div className={`p-2 rounded-lg bg-slate-50 ${color}`}>
@@ -804,7 +804,7 @@ export default function ManagementPage() {
 
       {/* Debt block */}
       {dashboard.debt.total > 0 && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
           <div className="flex items-center gap-2 mb-4">
             <AlertCircle size={18} className="text-red-500" />
             <h2 className="text-base font-semibold text-slate-900">
@@ -839,7 +839,7 @@ export default function ManagementPage() {
       {/* Charts row — current period */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Revenue dynamics (historical) */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
           <h2 className="text-base font-semibold text-slate-900 mb-4">Динамика выручки</h2>
           {histData.length === 0 ? (
             <div className="h-48 flex items-center justify-center text-slate-400 text-sm">
@@ -874,7 +874,7 @@ export default function ManagementPage() {
         </div>
 
         {/* By org form */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
           <h2 className="text-base font-semibold text-slate-900 mb-4">
             Структура по форме организации
           </h2>
@@ -928,7 +928,7 @@ export default function ManagementPage() {
           </h2>
 
           {/* Chart 1: Revenue & Profit comparison */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
             <h3 className="text-sm font-semibold text-slate-700 mb-4">Выручка и прибыль</h3>
             <ResponsiveContainer width="100%" height={220}>
               <ComposedChart data={histData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
@@ -971,7 +971,7 @@ export default function ManagementPage() {
           {/* Charts row 2: Revenue vs Payroll | Margin */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Revenue vs Payroll */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
               <h3 className="text-sm font-semibold text-slate-700 mb-4">
                 Выручка vs ФОТ vs Расходы
               </h3>
@@ -1014,7 +1014,7 @@ export default function ManagementPage() {
             </div>
 
             {/* Margin % */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
               <h3 className="text-sm font-semibold text-slate-700 mb-4">Маржинальность %</h3>
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={histData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
@@ -1049,7 +1049,7 @@ export default function ManagementPage() {
           </div>
 
           {/* Chart 3: Client count */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
             <h3 className="text-sm font-semibold text-slate-700 mb-4">Клиентская база</h3>
             <ResponsiveContainer width="100%" height={180}>
               <ComposedChart data={histData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
@@ -1093,7 +1093,7 @@ export default function ManagementPage() {
           </div>
 
           {/* History table */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
             <h3 className="text-sm font-semibold text-slate-700 mb-4">Таблица истории</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -1150,7 +1150,7 @@ export default function ManagementPage() {
       )}
 
       {/* Expenses & Incomes */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
         <h2 className="text-base font-semibold text-slate-900 mb-5">Расходы и доходы</h2>
         <div className="flex gap-8 flex-col sm:flex-row">
           <ExpensesBlock
@@ -1182,7 +1182,7 @@ export default function ManagementPage() {
 
       {/* Staff by role */}
       {dashboard.staff.byRole.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
           <h2 className="text-base font-semibold text-slate-900 mb-4">Персонал по ролям</h2>
           <table className="w-full text-sm">
             <thead>

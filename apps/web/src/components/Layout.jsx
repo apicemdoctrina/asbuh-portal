@@ -67,7 +67,7 @@ export default function Layout() {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="fixed top-0 z-50 w-full h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 lg:px-8">
+      <header className="fixed top-0 z-50 w-full h-20 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-4">
           <button
             className="lg:hidden p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
@@ -124,7 +124,7 @@ export default function Layout() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-16 left-0 z-40 h-[calc(100vh-4rem)] w-60 bg-white border-r border-slate-200 p-4 transition-transform lg:translate-x-0 ${
+        className={`fixed top-20 left-0 z-40 h-[calc(100vh-5rem)] w-60 bg-white border-r border-slate-200 p-4 transition-transform lg:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -145,7 +145,7 @@ export default function Layout() {
       </aside>
 
       {/* Main content */}
-      <main className="pt-16 lg:pl-60">
+      <main className="pt-20 lg:pl-60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Outlet />
         </div>

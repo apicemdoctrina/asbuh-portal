@@ -10,6 +10,7 @@ import { notifyWithTelegram } from "../lib/notify.js";
 import { generateTaskTemplates } from "../lib/task-generator.js";
 import { encrypt, decrypt } from "../lib/crypto.js";
 import { authenticate, requirePermission, requireRole } from "../middleware/auth.js";
+import { parsePagination, isPrismaUniqueError, sendZodError } from "../lib/route-helpers.js";
 import {
   createOrganizationSchema,
   updateOrganizationSchema,
@@ -176,9 +177,7 @@ router.get("/", authenticate, requirePermission("organization", "view"), async (
       page: pageQ,
       limit: limitQ,
     } = req.query;
-    const page = Math.max(1, Number(pageQ) || 1);
-    const limit = Math.min(100, Math.max(1, Number(limitQ) || 50));
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = parsePagination(pageQ, limitQ);
 
     const ARCHIVED_STATUSES = ["left", "closed"];
     const SORTABLE_FIELDS = [
@@ -255,7 +254,7 @@ router.post("/", authenticate, requirePermission("organization", "create"), asyn
   try {
     const result = createOrganizationSchema.safeParse(req.body);
     if (!result.success) {
-      res.status(400).json({ error: "Validation failed", issues: result.error.issues });
+      sendZodError(res, result.error);
       return;
     }
 
@@ -348,12 +347,7 @@ router.post("/", authenticate, requirePermission("organization", "create"), asyn
 
     res.status(201).json(organization);
   } catch (err: unknown) {
-    if (
-      typeof err === "object" &&
-      err !== null &&
-      "code" in err &&
-      (err as { code: string }).code === "P2002"
-    ) {
+    if (isPrismaUniqueError(err)) {
       res.status(409).json({ error: "Organization with this INN already exists" });
       return;
     }
@@ -531,7 +525,7 @@ router.post("/custom-field-defs", authenticate, requireRole("admin"), async (req
   try {
     const result = createCustomFieldDefSchema.safeParse(req.body);
     if (!result.success) {
-      res.status(400).json({ error: "Validation failed", issues: result.error.issues });
+      sendZodError(res, result.error);
       return;
     }
     const def = await prisma.customFieldDefinition.create({ data: result.data });
@@ -547,7 +541,7 @@ router.put("/custom-field-defs/:defId", authenticate, requireRole("admin"), asyn
   try {
     const result = updateCustomFieldDefSchema.safeParse(req.body);
     if (!result.success) {
-      res.status(400).json({ error: "Validation failed", issues: result.error.issues });
+      sendZodError(res, result.error);
       return;
     }
     const def = await prisma.customFieldDefinition.update({
@@ -682,7 +676,7 @@ router.put("/:id", authenticate, requirePermission("organization", "edit"), asyn
   try {
     const result = updateOrganizationSchema.safeParse(req.body);
     if (!result.success) {
-      res.status(400).json({ error: "Validation failed", issues: result.error.issues });
+      sendZodError(res, result.error);
       return;
     }
 
@@ -744,12 +738,7 @@ router.put("/:id", authenticate, requirePermission("organization", "edit"), asyn
 
     res.json(organization);
   } catch (err: unknown) {
-    if (
-      typeof err === "object" &&
-      err !== null &&
-      "code" in err &&
-      (err as { code: string }).code === "P2002"
-    ) {
+    if (isPrismaUniqueError(err)) {
       res.status(409).json({ error: "Organization with this INN already exists" });
       return;
     }
@@ -859,12 +848,7 @@ router.post("/:id/members", authenticate, requireRole("admin"), async (req, res)
 
     res.status(201).json(member);
   } catch (err: unknown) {
-    if (
-      typeof err === "object" &&
-      err !== null &&
-      "code" in err &&
-      (err as { code: string }).code === "P2002"
-    ) {
+    if (isPrismaUniqueError(err)) {
       res.status(409).json({ error: "User is already a member of this organization" });
       return;
     }

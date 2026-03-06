@@ -11,6 +11,7 @@ import { signAccessToken, generateRefreshToken, hashToken } from "../lib/tokens.
 import { setRefreshCookie } from "../lib/cookie.js";
 import { updateProfileSchema, changePasswordSchema } from "../lib/validators.js";
 import { notifyWithTelegram } from "../lib/notify.js";
+import { isPrismaUniqueError } from "../lib/route-helpers.js";
 import type { Prisma } from "@prisma/client";
 
 const router = Router();
@@ -238,12 +239,7 @@ router.put("/me", authenticate, async (req, res) => {
         birthDate: updated.birthDate,
       });
     } catch (err: unknown) {
-      if (
-        typeof err === "object" &&
-        err !== null &&
-        "code" in err &&
-        (err as { code: string }).code === "P2002"
-      ) {
+      if (isPrismaUniqueError(err)) {
         res.status(409).json({ error: "Email уже используется" });
         return;
       }
@@ -251,7 +247,8 @@ router.put("/me", authenticate, async (req, res) => {
     }
   } catch (err: unknown) {
     if (err instanceof Error && err.name === "ZodError") {
-      res.status(400).json({ error: "Некорректные данные", details: err });
+      const zodErr = err as { issues?: unknown[] };
+      res.status(400).json({ error: "Некорректные данные", details: zodErr.issues });
       return;
     }
     console.error("Update profile error:", err);
@@ -361,7 +358,8 @@ router.patch("/me/password", authenticate, async (req, res) => {
     res.json({ accessToken });
   } catch (err: unknown) {
     if (err instanceof Error && err.name === "ZodError") {
-      res.status(400).json({ error: "Некорректные данные", details: err });
+      const zodErr = err as { issues?: unknown[] };
+      res.status(400).json({ error: "Некорректные данные", details: zodErr.issues });
       return;
     }
     console.error("Change password error:", err);
@@ -473,12 +471,7 @@ router.put("/:id", authenticate, requireRole("admin"), async (req, res) => {
     try {
       await prisma.user.update({ where: { id }, data });
     } catch (err: unknown) {
-      if (
-        typeof err === "object" &&
-        err !== null &&
-        "code" in err &&
-        (err as { code: string }).code === "P2002"
-      ) {
+      if (isPrismaUniqueError(err)) {
         res.status(409).json({ error: "Email уже используется" });
         return;
       }

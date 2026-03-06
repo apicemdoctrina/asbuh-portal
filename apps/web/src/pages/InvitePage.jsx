@@ -81,6 +81,14 @@ export default function InvitePage() {
   async function handleRegister(e) {
     e.preventDefault();
     setFormError("");
+    if (!firstName.trim() || !lastName.trim()) {
+      setFormError("Имя и фамилия обязательны");
+      return;
+    }
+    if (password.length < 8) {
+      setFormError("Пароль должен быть не менее 8 символов");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/auth/register`, {

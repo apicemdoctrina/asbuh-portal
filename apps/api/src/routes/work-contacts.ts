@@ -3,6 +3,7 @@ import prisma from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
 import { authenticate, requirePermission } from "../middleware/auth.js";
 import { createWorkContactSchema, updateWorkContactSchema } from "../lib/validators.js";
+import { parsePagination, sendZodError } from "../lib/route-helpers.js";
 
 const router = Router();
 
@@ -10,9 +11,7 @@ const router = Router();
 router.get("/", authenticate, requirePermission("work_contact", "view"), async (req, res) => {
   try {
     const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
-    const page = Math.max(1, Number(req.query.page) || 1);
-    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = parsePagination(req.query.page, req.query.limit);
 
     const where = search
       ? {
@@ -46,9 +45,7 @@ router.post("/", authenticate, requirePermission("work_contact", "create"), asyn
   try {
     const parsed = createWorkContactSchema.safeParse(req.body);
     if (!parsed.success) {
-      res
-        .status(400)
-        .json({ error: "Validation failed", details: parsed.error.flatten().fieldErrors });
+      sendZodError(res, parsed.error);
       return;
     }
 
@@ -77,9 +74,7 @@ router.put("/:id", authenticate, requirePermission("work_contact", "edit"), asyn
   try {
     const parsed = updateWorkContactSchema.safeParse(req.body);
     if (!parsed.success) {
-      res
-        .status(400)
-        .json({ error: "Validation failed", details: parsed.error.flatten().fieldErrors });
+      sendZodError(res, parsed.error);
       return;
     }
 

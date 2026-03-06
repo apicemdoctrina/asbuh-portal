@@ -488,13 +488,17 @@ export default function OrganizationsPage() {
   async function handleCreate(e) {
     e.preventDefault();
     setCreateError("");
+    if (createInn && !/^\d{10,12}$/.test(createInn.trim())) {
+      setCreateError("ИНН должен содержать 10 или 12 цифр");
+      return;
+    }
     setCreating(true);
     try {
       const res = await api("/api/organizations", {
         method: "POST",
         body: JSON.stringify({
-          name: createName,
-          inn: createInn || undefined,
+          name: createName.trim(),
+          inn: createInn.trim() || undefined,
           form: createForm || undefined,
           sectionId: createSection || undefined,
         }),

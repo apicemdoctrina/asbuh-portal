@@ -7,6 +7,7 @@ import { logAudit } from "../lib/audit.js";
 import { authenticate, requirePermission } from "../middleware/auth.js";
 import { createKnowledgeItemSchema, updateKnowledgeItemSchema } from "../lib/validators.js";
 import { upload, UPLOADS_DIR } from "../lib/upload.js";
+import { parsePagination } from "../lib/route-helpers.js";
 
 const router = Router();
 
@@ -77,9 +78,7 @@ router.get("/", authenticate, requirePermission("knowledge_item", "view"), async
     const typeFilter = typeof req.query.type === "string" ? req.query.type : "";
     const audienceFilter = typeof req.query.audience === "string" ? req.query.audience : "";
     const tagFilter = typeof req.query.tag === "string" ? req.query.tag.trim() : "";
-    const page = Math.max(1, Number(req.query.page) || 1);
-    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = parsePagination(req.query.page, req.query.limit);
 
     const isClient = req.user!.roles.includes("client");
 

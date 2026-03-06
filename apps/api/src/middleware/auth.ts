@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import { verifyAccessToken } from "../lib/tokens.js";
+import { verifyAccessToken, type AccessTokenPayload } from "../lib/tokens.js";
 import prisma from "../lib/prisma.js";
 
 export interface AuthUser {

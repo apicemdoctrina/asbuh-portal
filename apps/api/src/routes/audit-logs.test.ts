@@ -132,12 +132,12 @@ describe("GET /api/audit-logs", () => {
     (prisma.auditLog.count as ReturnType<typeof vi.fn>).mockResolvedValue(1);
 
     const res = await request(app)
-      .get("/api/audit-logs?userId=user-1")
+      .get("/api/audit-logs?userId=00000000-0000-0000-0000-000000000001")
       .set("Authorization", `Bearer ${adminToken}`);
 
     expect(res.status).toBe(200);
     const findManyCall = (prisma.auditLog.findMany as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(findManyCall.where.userId).toBe("user-1");
+    expect(findManyCall.where.userId).toBe("00000000-0000-0000-0000-000000000001");
   });
 
   it("200: filters by date range (from/to)", async () => {

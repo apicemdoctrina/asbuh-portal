@@ -246,6 +246,13 @@ export default function TasksPage() {
       setFormError("Заголовок обязателен");
       return;
     }
+    if (form.dueDate && !editingTask) {
+      const today = new Date().toISOString().slice(0, 10);
+      if (form.dueDate < today) {
+        setFormError("Срок не может быть в прошлом");
+        return;
+      }
+    }
     setSaving(true);
     setFormError(null);
     try {
@@ -574,7 +581,7 @@ function TaskCard({
   const checklistDone = task.checklistItems?.filter((i) => i.done).length ?? 0;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col sm:flex-row sm:items-start gap-3">
+    <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-4 flex flex-col sm:flex-row sm:items-start gap-3">
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-2 mb-1">
           <span
