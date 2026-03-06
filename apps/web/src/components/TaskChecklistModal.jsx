@@ -190,7 +190,7 @@ export default function TaskChecklistModal({ task, onClose, onUpdate }) {
                   value={item.dueDate ? item.dueDate.slice(0, 10) : ""}
                   onChange={(e) => handleDueDateChange(item, e.target.value)}
                   onKeyDown={(e) => e.preventDefault()}
-                  className="opacity-0 group-hover:opacity-100 w-5 h-5 p-0 border-0 text-slate-400 cursor-pointer transition-all [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                  className="opacity-0 group-hover:opacity-100 w-5 h-5 p-0 border-0 text-transparent cursor-pointer transition-all [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-datetime-edit]:hidden"
                   title="Срок"
                 />
                 <button
@@ -220,7 +220,7 @@ export default function TaskChecklistModal({ task, onClose, onUpdate }) {
             value={newDueDate}
             onChange={(e) => setNewDueDate(e.target.value)}
             onKeyDown={(e) => e.preventDefault()}
-            className="shrink-0 w-9 h-9 p-1.5 border border-slate-200 rounded-lg text-slate-400 hover:border-[#6567F1] focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+            className="shrink-0 w-9 h-9 p-1.5 border border-slate-200 rounded-lg text-transparent hover:border-[#6567F1] focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-datetime-edit]:hidden"
             title={newDueDate ? `Срок: ${formatDate(newDueDate)}` : "Установить срок"}
           />
           <button
