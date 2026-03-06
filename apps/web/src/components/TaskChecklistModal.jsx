@@ -6,6 +6,7 @@ export default function TaskChecklistModal({ task, onClose, onUpdate }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newText, setNewText] = useState("");
+  const [newDueDate, setNewDueDate] = useState("");
   const [adding, setAdding] = useState(false);
   const inputRef = useRef(null);
 
@@ -45,7 +46,7 @@ export default function TaskChecklistModal({ task, onClose, onUpdate }) {
     try {
       const res = await api(`/api/tasks/${task.id}/checklist`, {
         method: "POST",
-        body: JSON.stringify({ text: newText.trim() }),
+        body: JSON.stringify({ text: newText.trim(), dueDate: newDueDate || null }),
       });
       if (res.ok) {
         const item = await res.json();
@@ -53,6 +54,7 @@ export default function TaskChecklistModal({ task, onClose, onUpdate }) {
         setItems(updated);
         onUpdate?.({ checklistItems: updated.map((i) => ({ done: i.done })) });
         setNewText("");
+        setNewDueDate("");
         inputRef.current?.focus();
       }
     } finally {
@@ -71,6 +73,29 @@ export default function TaskChecklistModal({ task, onClose, onUpdate }) {
     } catch {
       // silent
     }
+  }
+
+  async function handleDueDateChange(item, date) {
+    const optimistic = items.map((i) => (i.id === item.id ? { ...i, dueDate: date || null } : i));
+    setItems(optimistic);
+    try {
+      await api(`/api/tasks/${task.id}/checklist/${item.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ dueDate: date || null }),
+      });
+    } catch {
+      setItems(items);
+    }
+  }
+
+  function formatDate(d) {
+    if (!d) return null;
+    return new Date(d).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
+  }
+
+  function isOverdue(item) {
+    if (!item.dueDate || item.done) return false;
+    return new Date(item.dueDate) < new Date(new Date().toDateString());
   }
 
   function handleKeyDown(e) {
@@ -153,6 +178,20 @@ export default function TaskChecklistModal({ task, onClose, onUpdate }) {
                 >
                   {item.text}
                 </span>
+                {item.dueDate && !item.done && (
+                  <span
+                    className={`text-xs tabular-nums ${isOverdue(item) ? "text-red-500 font-medium" : "text-slate-400"}`}
+                  >
+                    {formatDate(item.dueDate)}
+                  </span>
+                )}
+                <input
+                  type="date"
+                  value={item.dueDate ? item.dueDate.slice(0, 10) : ""}
+                  onChange={(e) => handleDueDateChange(item, e.target.value)}
+                  className="opacity-0 group-hover:opacity-100 w-5 h-5 p-0 border-0 text-slate-400 cursor-pointer transition-all [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                  title="Срок"
+                />
                 <button
                   onClick={() => handleDelete(item)}
                   className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-500 transition-all"
@@ -174,6 +213,13 @@ export default function TaskChecklistModal({ task, onClose, onUpdate }) {
             onKeyDown={handleKeyDown}
             placeholder="Новый пункт… (Enter — добавить)"
             className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+          />
+          <input
+            type="date"
+            value={newDueDate}
+            onChange={(e) => setNewDueDate(e.target.value)}
+            className="shrink-0 w-9 h-9 p-1.5 border border-slate-200 rounded-lg text-slate-400 hover:border-[#6567F1] focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+            title={newDueDate ? `Срок: ${formatDate(newDueDate)}` : "Установить срок"}
           />
           <button
             onClick={handleAdd}

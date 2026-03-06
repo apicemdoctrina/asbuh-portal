@@ -399,7 +399,7 @@ router.get("/:id/checklist", authenticate, requirePermission("task", "view"), as
 // POST /api/tasks/:id/checklist
 router.post("/:id/checklist", authenticate, requirePermission("task", "edit"), async (req, res) => {
   try {
-    const { text } = req.body;
+    const { text, dueDate } = req.body;
     if (!text?.trim()) return res.status(400).json({ error: "text is required" });
 
     const task = await prisma.task.findUnique({ where: { id: req.params.id } });
@@ -411,7 +411,12 @@ router.post("/:id/checklist", authenticate, requirePermission("task", "edit"), a
     });
 
     const item = await prisma.taskChecklistItem.create({
-      data: { taskId: req.params.id, text: text.trim(), position: (last?.position ?? -1) + 1 },
+      data: {
+        taskId: req.params.id,
+        text: text.trim(),
+        position: (last?.position ?? -1) + 1,
+        dueDate: dueDate ? new Date(dueDate) : null,
+      },
     });
 
     res.status(201).json(item);
@@ -433,9 +438,11 @@ router.patch(
       });
       if (!existing) return res.status(404).json({ error: "Item not found" });
 
-      const data: { done?: boolean; text?: string } = {};
+      const data: { done?: boolean; text?: string; dueDate?: Date | null } = {};
       if (req.body.done !== undefined) data.done = req.body.done;
       if (req.body.text !== undefined) data.text = req.body.text.trim();
+      if (req.body.dueDate !== undefined)
+        data.dueDate = req.body.dueDate ? new Date(req.body.dueDate) : null;
 
       const item = await prisma.taskChecklistItem.update({
         where: { id: req.params.itemId },

@@ -550,12 +550,13 @@ model TaskComment {
 }
 
 model TaskChecklistItem {
-  id        String   @id @default(uuid())
-  taskId    String   @map("task_id")
+  id        String    @id @default(uuid())
+  taskId    String    @map("task_id")
   text      String
-  done      Boolean  @default(false)
-  position  Int      @default(0)
-  createdAt DateTime @default(now()) @map("created_at")
+  done      Boolean   @default(false)
+  position  Int       @default(0)
+  dueDate   DateTime? @map("due_date") @db.Date
+  createdAt DateTime  @default(now()) @map("created_at")
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
