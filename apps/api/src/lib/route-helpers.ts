@@ -5,9 +5,9 @@ import type { ZodError } from "zod";
  * Parse pagination params from query string.
  * Defaults: page=1, limit=50, max limit=100.
  */
-export function parsePagination(pageQ: unknown, limitQ: unknown) {
+export function parsePagination(pageQ: unknown, limitQ: unknown, maxLimit = 100) {
   const page = Math.max(1, Number(pageQ) || 1);
-  const limit = Math.min(100, Math.max(1, Number(limitQ) || 50));
+  const limit = Math.min(maxLimit, Math.max(1, Number(limitQ) || 50));
   return { page, limit, skip: (page - 1) * limit };
 }
 

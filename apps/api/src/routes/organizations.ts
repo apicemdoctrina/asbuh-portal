@@ -177,7 +177,7 @@ router.get("/", authenticate, requirePermission("organization", "view"), async (
       page: pageQ,
       limit: limitQ,
     } = req.query;
-    const { page, limit, skip } = parsePagination(pageQ, limitQ);
+    const { page, limit, skip } = parsePagination(pageQ, limitQ, 1000);
 
     const ARCHIVED_STATUSES = ["left", "closed"];
     const SORTABLE_FIELDS = [

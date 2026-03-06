@@ -179,7 +179,7 @@ export default function TasksPage() {
   // Load orgs + all staff once when modal opens
   useEffect(() => {
     if (!showModal) return;
-    api("/api/organizations")
+    api("/api/organizations?limit=1000")
       .then((r) => r.json())
       .then((d) => setOrgs(d?.organizations || []))
       .catch(() => {});
