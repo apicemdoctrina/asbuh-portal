@@ -45,6 +45,12 @@ const PERMISSIONS: Array<{ entity: string; action: string }> = [
   { entity: "task", action: "create" },
   { entity: "task", action: "edit" },
   { entity: "task", action: "delete" },
+  // Message templates & logs
+  { entity: "message", action: "view" },
+  { entity: "message", action: "create" },
+  { entity: "message", action: "edit" },
+  { entity: "message", action: "delete" },
+  { entity: "message", action: "send" },
 ];
 
 // Role → permitted (entity, action) pairs
@@ -70,6 +76,10 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "task", action: "create" },
     { entity: "task", action: "edit" },
     { entity: "task", action: "delete" },
+    { entity: "message", action: "view" },
+    { entity: "message", action: "create" },
+    { entity: "message", action: "edit" },
+    { entity: "message", action: "send" },
   ],
   accountant: [
     { entity: "organization", action: "view" },
@@ -86,6 +96,8 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "task", action: "create" },
     { entity: "task", action: "edit" },
     { entity: "task", action: "delete" },
+    { entity: "message", action: "view" },
+    { entity: "message", action: "send" },
   ],
   client: [
     { entity: "organization", action: "view" },

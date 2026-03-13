@@ -125,6 +125,24 @@ router.get("/", authenticate, requirePermission("knowledge_item", "view"), async
   }
 });
 
+// GET /api/knowledge/:id — single item
+router.get("/:id", authenticate, requirePermission("knowledge_item", "view"), async (req, res) => {
+  try {
+    const item = await prisma.knowledgeItem.findUnique({
+      where: { id: req.params.id },
+      select: itemSelect,
+    });
+    if (!item) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.json(item);
+  } catch (err) {
+    console.error("Knowledge get error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // POST /api/knowledge — create
 router.post(
   "/",

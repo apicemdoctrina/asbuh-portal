@@ -10,7 +10,9 @@ import {
   BookOpen,
   ScrollText,
   TrendingUp,
+  BarChart3,
   ClipboardList,
+  Mail,
   LogOut,
   Menu,
   X,
@@ -22,6 +24,7 @@ const navItems = [
   { to: "/", label: "Главная", icon: LayoutDashboard, permission: null },
   { to: "/tasks", label: "Задачи", icon: ClipboardList, permission: ["task", "view"] },
   { to: "/management", label: "Управление", icon: TrendingUp, role: "admin" },
+  { to: "/analytics", label: "Аналитика", icon: BarChart3, roles: ["admin", "manager"] },
   { to: "/sections", label: "Участки", icon: Map, permission: ["section", "view"] },
   { to: "/staff", label: "Сотрудники", icon: Users, role: "admin" },
   {
@@ -38,6 +41,12 @@ const navItems = [
     icon: BookOpen,
     permission: ["knowledge_item", "view"],
   },
+  {
+    to: "/message-templates",
+    label: "Сообщения",
+    icon: Mail,
+    permission: ["message", "view"],
+  },
   { to: "/audit-log", label: "Журнал", icon: ScrollText, role: "admin" },
 ];
 
@@ -47,6 +56,7 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const visibleNav = navItems.filter((item) => {
+    if (item.roles) return item.roles.some((r) => hasRole(r));
     if (item.role) return hasRole(item.role);
     if (item.permission) return hasPermission(item.permission[0], item.permission[1]);
     return true;

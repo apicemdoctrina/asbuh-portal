@@ -22,6 +22,9 @@ import ProfilePage from "./pages/ProfilePage.jsx";
 import InvitePage from "./pages/InvitePage.jsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
+import MessageTemplatesPage from "./pages/MessageTemplatesPage.jsx";
+import KnowledgeArticlePage from "./pages/KnowledgeArticlePage.jsx";
+import AnalyticsPage from "./pages/AnalyticsPage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
 
 export default function App() {
@@ -52,9 +55,12 @@ export default function App() {
               <Route path="users/:id" element={<UserProfilePage />} />
               <Route path="contacts" element={<WorkContactsPage />} />
               <Route path="knowledge" element={<KnowledgePage />} />
+              <Route path="knowledge/:id" element={<KnowledgeArticlePage />} />
               <Route path="audit-log" element={<AuditLogPage />} />
               <Route path="management" element={<ManagementPage />} />
+              <Route path="analytics" element={<AnalyticsPage />} />
               <Route path="tasks" element={<TasksPage />} />
+              <Route path="message-templates" element={<MessageTemplatesPage />} />
               <Route path="profile" element={<ProfilePage />} />
             </Route>
             <Route path="*" element={<NotFoundPage />} />

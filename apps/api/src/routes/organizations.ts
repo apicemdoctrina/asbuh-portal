@@ -2045,4 +2045,44 @@ router.put(
   },
 );
 
+// ── DELETE organization (admin only) ──────────────────────────────────────────
+router.delete("/:id", authenticate, requireRole("admin"), async (req, res) => {
+  try {
+    const org = await prisma.organization.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, name: true },
+    });
+    if (!org) {
+      res.status(404).json({ error: "Organization not found" });
+      return;
+    }
+
+    // Delete uploaded document files from disk
+    const docs = await prisma.organizationDocument.findMany({
+      where: { organizationId: org.id },
+      select: { storagePath: true },
+    });
+    for (const doc of docs) {
+      const fullPath = path.resolve(UPLOADS_DIR, doc.storagePath);
+      await fs.unlink(fullPath).catch(() => {});
+    }
+
+    await prisma.organization.delete({ where: { id: org.id } });
+
+    await logAudit({
+      action: "delete_organization",
+      userId: req.user!.userId,
+      entity: "organization",
+      entityId: org.id,
+      details: { name: org.name },
+      ipAddress: req.ip,
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Delete organization error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;

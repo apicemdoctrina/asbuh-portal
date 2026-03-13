@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, Link } from "react-router";
+import { useParams, Link, useNavigate } from "react-router";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
@@ -28,6 +28,8 @@ import ContactsCard from "../components/ContactsCard.jsx";
 import CustomFieldsCard from "../components/CustomFieldsCard.jsx";
 import DocumentsCard from "../components/DocumentsCard.jsx";
 import OrgCompletenessCard from "../components/OrgCompletenessCard.jsx";
+import MessageHistoryCard from "../components/MessageHistoryCard.jsx";
+import SendMessageModal from "../components/SendMessageModal.jsx";
 
 const TAX_SYSTEM_LABELS = {
   USN6: "УСН 6%",
@@ -150,8 +152,10 @@ const INITIAL_FORM = {
 
 export default function OrganizationDetailPage() {
   const { id } = useParams();
-  const { hasPermission, hasRole } = useAuth();
+  const navigate = useNavigate();
+  const { user, hasPermission, hasRole } = useAuth();
   const canEdit = hasPermission("organization", "edit");
+  const isAdmin = hasRole("admin");
 
   const [organization, setOrganization] = useState(null);
   const [sections, setSections] = useState([]);
@@ -182,6 +186,10 @@ export default function OrganizationDetailPage() {
   const [orgTasks, setOrgTasks] = useState([]);
   const [orgTasksLoading, setOrgTasksLoading] = useState(false);
   const [commentTask, setCommentTask] = useState(null);
+  const [showSendMessage, setShowSendMessage] = useState(false);
+  const [messageHistoryKey, setMessageHistoryKey] = useState(0);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (hasPermission("section", "view")) {
@@ -491,6 +499,14 @@ export default function OrganizationDetailPage() {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg text-sm font-medium shadow-md shadow-[#6567F1]/20 transition-all"
             >
               <Pencil size={14} /> Изменить
+            </button>
+          )}
+          {isAdmin && !editing && (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-sm font-medium transition-colors"
+            >
+              <Trash2 size={14} /> Удалить
             </button>
           )}
         </div>
@@ -1052,7 +1068,28 @@ export default function OrganizationDetailPage() {
             members={org?.members || []}
           />
         )}
+        {hasPermission("message", "view") && (
+          <MessageHistoryCard
+            key={messageHistoryKey}
+            orgId={id}
+            onSendClick={
+              hasPermission("message", "send") ? () => setShowSendMessage(true) : undefined
+            }
+          />
+        )}
       </div>
+
+      {/* ── Send Message Modal ── */}
+      {showSendMessage && (
+        <SendMessageModal
+          orgId={id}
+          orgName={org.name}
+          contacts={org.contacts || []}
+          senderName={user ? `${user.firstName} ${user.lastName}` : ""}
+          onClose={() => setShowSendMessage(false)}
+          onSent={() => setMessageHistoryKey((k) => k + 1)}
+        />
+      )}
 
       {/* ── Invite Client Modal ── */}
       {showInvite && (
@@ -1167,6 +1204,54 @@ export default function OrganizationDetailPage() {
       )}
 
       {commentTask && <TaskCommentsModal task={commentTask} onClose={() => setCommentTask(null)} />}
+
+      {/* ── Delete confirmation modal ── */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4">
+            <h3 className="text-lg font-bold text-slate-900 mb-2">Удалить организацию?</h3>
+            <p className="text-sm text-slate-600 mb-1">
+              Организация <span className="font-semibold">{org.name}</span> будет удалена
+              безвозвратно вместе со всеми данными: документами, банковскими счетами, контактами и
+              системными доступами.
+            </p>
+            <p className="text-sm text-red-600 font-medium mb-5">Это действие нельзя отменить.</p>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={async () => {
+                  setDeleting(true);
+                  try {
+                    const res = await api(`/api/organizations/${id}`, { method: "DELETE" });
+                    if (res.ok) {
+                      navigate("/organizations");
+                    } else {
+                      const data = await res.json().catch(() => ({}));
+                      alert(data.error || "Ошибка удаления");
+                      setShowDeleteConfirm(false);
+                    }
+                  } catch {
+                    alert("Ошибка сети");
+                    setShowDeleteConfirm(false);
+                  } finally {
+                    setDeleting(false);
+                  }
+                }}
+                disabled={deleting}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {deleting ? "Удаление..." : "Удалить"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, lazy, Suspense } from "react";
+import { useNavigate } from "react-router";
 import { useDebouncedEffect } from "../hooks/useDebouncedEffect.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
@@ -12,8 +13,6 @@ import {
   FileText,
   Video,
   File,
-  Download,
-  ExternalLink,
   ImagePlus,
 } from "lucide-react";
 
@@ -46,7 +45,7 @@ export default function KnowledgePage() {
   const [tagFilter, setTagFilter] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [drawerItem, setDrawerItem] = useState(null);
+  const navigate = useNavigate();
 
   const isClient = hasRole("client");
   const canCreate = hasPermission("knowledge_item", "create");
@@ -90,34 +89,12 @@ export default function KnowledgePage() {
       const res = await api(`/api/knowledge/${item.id}`, { method: "DELETE" });
       if (res.ok) {
         fetchItems();
-        if (drawerItem?.id === item.id) setDrawerItem(null);
       } else {
         const data = await res.json().catch(() => ({}));
         alert(data.error || "Ошибка удаления");
       }
     } catch {
       alert("Сетевая ошибка");
-    }
-  }
-
-  async function handleDownload(item) {
-    try {
-      const res = await api(`/api/knowledge/${item.id}/download`);
-      if (!res.ok) {
-        alert("Ошибка скачивания");
-        return;
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = item.originalName || "file";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch {
-      alert("Ошибка скачивания");
     }
   }
 
@@ -211,7 +188,7 @@ export default function KnowledgePage() {
               return (
                 <div
                   key={item.id}
-                  onClick={() => setDrawerItem(item)}
+                  onClick={() => navigate(`/knowledge/${item.id}`)}
                   className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all group"
                 >
                   {/* Cover image or fallback */}
@@ -328,15 +305,6 @@ export default function KnowledgePage() {
             setEditingItem(null);
           }}
           onSaved={handleSaved}
-        />
-      )}
-
-      {/* Side drawer */}
-      {drawerItem && (
-        <KnowledgeDrawer
-          item={drawerItem}
-          onClose={() => setDrawerItem(null)}
-          onDownload={handleDownload}
         />
       )}
     </div>
@@ -665,164 +633,5 @@ function KnowledgeModal({ item, onClose, onSaved }) {
         </form>
       </div>
     </div>
-  );
-}
-
-/* ==================== Side Drawer ==================== */
-
-function KnowledgeDrawer({ item, onClose, onDownload }) {
-  const Icon = TYPE_ICONS[item.type] || FileText;
-
-  // Try to embed YouTube / Rutube videos
-  function getEmbedUrl(url) {
-    if (!url) return null;
-    // YouTube
-    const ytMatch = url.match(
-      /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
-    );
-    if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`;
-    // Rutube
-    const rtMatch = url.match(/rutube\.ru\/video\/([a-f0-9]+)/);
-    if (rtMatch) return `https://rutube.ru/play/embed/${rtMatch[1]}`;
-    return null;
-  }
-
-  const embedUrl = item.type === "VIDEO" ? getEmbedUrl(item.url) : null;
-
-  return (
-    <>
-      {/* Overlay */}
-      <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose} />
-
-      {/* Drawer */}
-      <aside className="fixed top-0 right-0 z-50 h-full w-full max-w-lg bg-white shadow-2xl border-l border-slate-200 overflow-y-auto animate-slide-in">
-        {/* Cover image at top */}
-        {item.coverImagePath && (
-          <div className="h-48 overflow-hidden">
-            <img
-              src={`/uploads/${item.coverImagePath}`}
-              alt=""
-              className="w-full h-full object-cover"
-            />
-          </div>
-        )}
-
-        <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Icon size={18} className="text-[#6567F1]" />
-            <span className="text-xs font-medium text-[#6567F1] uppercase">
-              {TYPE_LABELS[item.type]}
-            </span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                item.audience === "STAFF"
-                  ? "bg-blue-50 text-blue-600"
-                  : "bg-green-50 text-green-600"
-              }`}
-            >
-              {AUDIENCE_LABELS[item.audience]}
-            </span>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-6">
-          <h2 className="text-xl font-bold text-slate-900">{item.title}</h2>
-
-          {/* Tags */}
-          {item.tags?.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {item.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full text-xs"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* VIDEO embed */}
-          {item.type === "VIDEO" && embedUrl && (
-            <div className="aspect-video rounded-lg overflow-hidden bg-slate-100">
-              <iframe src={embedUrl} className="w-full h-full" allowFullScreen title={item.title} />
-            </div>
-          )}
-
-          {/* VIDEO link (if no embed) */}
-          {item.type === "VIDEO" && item.url && !embedUrl && (
-            <a
-              href={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-[#6567F1] hover:text-[#5557E1] text-sm font-medium"
-            >
-              <ExternalLink size={16} />
-              Открыть видео
-            </a>
-          )}
-
-          {/* VIDEO link (always show as fallback) */}
-          {item.type === "VIDEO" && item.url && embedUrl && (
-            <a
-              href={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-slate-500 hover:text-[#6567F1] text-xs"
-            >
-              <ExternalLink size={14} />
-              Открыть в новой вкладке
-            </a>
-          )}
-
-          {/* FILE download */}
-          {item.type === "FILE" && item.originalName && (
-            <button
-              onClick={() => onDownload(item)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 transition-colors"
-            >
-              <Download size={16} />
-              Скачать: {item.originalName}
-            </button>
-          )}
-
-          {/* Description */}
-          {item.description && <p className="text-sm text-slate-600">{item.description}</p>}
-
-          {/* ARTICLE rich content */}
-          {item.type === "ARTICLE" && item.content && (
-            <div
-              className="tiptap-content text-slate-700"
-              dangerouslySetInnerHTML={{ __html: item.content }}
-            />
-          )}
-
-          {/* Meta */}
-          <div className="pt-4 border-t border-slate-100 text-xs text-slate-400 space-y-1">
-            <p>
-              Автор:{" "}
-              {item.createdBy ? `${item.createdBy.firstName} ${item.createdBy.lastName}` : "—"}
-            </p>
-            <p>Создано: {new Date(item.createdAt).toLocaleString("ru-RU")}</p>
-          </div>
-        </div>
-      </aside>
-
-      <style>{`
-        @keyframes slideIn {
-          from { transform: translateX(100%); }
-          to { transform: translateX(0); }
-        }
-        .animate-slide-in {
-          animation: slideIn 0.2s ease-out;
-        }
-      `}</style>
-    </>
   );
 }

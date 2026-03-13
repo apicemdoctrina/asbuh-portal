@@ -37,6 +37,8 @@ model User {
   telegramBinding      TelegramBinding?
   notifications        Notification[]
   passwordResetTokens  PasswordResetToken[]
+  messageTemplates     MessageTemplate[]    @relation("MessageTemplateCreator")
+  sentMessages         MessageLog[]         @relation("MessageLogSender")
 
   @@map("users")
 }
@@ -240,6 +242,7 @@ model Organization {
   documents         OrganizationDocument[]
   tasks             Task[]
   customFieldValues CustomFieldValue[]
+  messageLogs       MessageLog[]
 
   @@index([sectionId])
   @@map("organizations")
@@ -641,6 +644,49 @@ model CustomFieldValue {
 
   @@unique([organizationId, fieldId])
   @@map("custom_field_values")
+}
+
+enum MessageChannel {
+  EMAIL
+  TELEGRAM
+}
+
+model MessageTemplate {
+  id          String         @id @default(uuid())
+  name        String
+  subject     String?
+  body        String
+  channel     MessageChannel @default(EMAIL)
+  createdById String         @map("created_by_id")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  createdBy User         @relation("MessageTemplateCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  messages  MessageLog[]
+
+  @@map("message_templates")
+}
+
+model MessageLog {
+  id             String         @id @default(uuid())
+  organizationId String         @map("organization_id")
+  templateId     String?        @map("template_id")
+  channel        MessageChannel
+  recipient      String
+  subject        String?
+  body           String
+  sentById       String         @map("sent_by_id")
+  status         String         @default("sent")
+  errorMessage   String?        @map("error_message")
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  template     MessageTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  sentBy       User             @relation("MessageLogSender", fields: [sentById], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([createdAt])
+  @@map("message_logs")
 }
 
 model PasswordResetToken {

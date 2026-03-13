@@ -14,6 +14,15 @@ const transporter = process.env.SMTP_HOST
 
 const FROM = process.env.SMTP_FROM || "noreply@asbuh.local";
 
+export async function sendEmail(to: string, subject: string, html: string): Promise<void> {
+  if (!transporter) {
+    console.log(`[Mailer] Email to ${to}:\n  Subject: ${subject}\n  Body: ${html}`);
+    return;
+  }
+
+  await transporter.sendMail({ from: FROM, to, subject, html });
+}
+
 export async function sendPasswordResetEmail(to: string, resetUrl: string): Promise<void> {
   if (!transporter) {
     // Dev fallback: print to console when SMTP is not configured
