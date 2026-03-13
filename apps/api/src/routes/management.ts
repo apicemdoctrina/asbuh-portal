@@ -468,15 +468,28 @@ router.get("/analytics", authenticate, requireRole("admin", "manager"), async (r
         members: {
           select: {
             role: true,
+            userId: true,
             user: { select: { salary: true } },
           },
         },
       },
     });
 
+    // Count how many sections each user belongs to (for salary splitting)
+    const userSectionCount: Record<string, number> = {};
+    for (const s of sections) {
+      for (const m of s.members) {
+        userSectionCount[m.userId] = (userSectionCount[m.userId] || 0) + 1;
+      }
+    }
+
     const sectionProfitability = sections.map((s) => {
       const revenue = s.organizations.reduce((sum, o) => sum + Number(o.monthlyPayment ?? 0), 0);
-      const payroll = s.members.reduce((sum, m) => sum + Number(m.user.salary ?? 0), 0);
+      // Split salary proportionally: if user is in N sections, count 1/N here
+      const payroll = s.members.reduce(
+        (sum, m) => sum + Number(m.user.salary ?? 0) / (userSectionCount[m.userId] || 1),
+        0,
+      );
       const margin = revenue > 0 ? ((revenue - payroll) / revenue) * 100 : 0;
 
       return {
