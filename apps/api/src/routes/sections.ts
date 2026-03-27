@@ -50,7 +50,7 @@ router.get("/", authenticate, requirePermission("section", "view"), async (req, 
 
     const sectionsWithFormCounts = sections.map((s) => {
       const formCounts: Record<string, number> = {};
-      for (const org of s.organizations) {
+      for (const org of s.organizations ?? []) {
         const key = org.form ?? "OTHER";
         formCounts[key] = (formCounts[key] ?? 0) + 1;
       }

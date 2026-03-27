@@ -44,7 +44,13 @@ describe("GET /api/sections", () => {
   it("admin: returns all sections (200)", async () => {
     mockPermission(true);
     const sections = [
-      { id: "s1", number: 1, name: "Section 1", _count: { members: 2, organizations: 3 } },
+      {
+        id: "s1",
+        number: 1,
+        name: "Section 1",
+        _count: { members: 2, organizations: 3 },
+        organizations: [],
+      },
     ];
     (prisma.section.findMany as ReturnType<typeof vi.fn>).mockResolvedValue(sections);
     (prisma.section.count as ReturnType<typeof vi.fn>).mockResolvedValue(1);
