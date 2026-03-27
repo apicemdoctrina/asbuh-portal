@@ -160,7 +160,6 @@ router.post("/", authenticate, requirePermission("task", "create"), async (req, 
       const orgName = task.organization ? ` · ${task.organization.name}` : "";
       const taskLink = task.organizationId ? `/organizations/${task.organizationId}` : "/tasks";
       for (const a of task.assignees) {
-        if (a.userId === req.user.userId) continue;
         notifyAssigned({
           title: task.title,
           description: task.description,
@@ -299,7 +298,7 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
       const orgName = task.organization ? ` · ${task.organization.name}` : "";
       const taskLink = task.organizationId ? `/organizations/${task.organizationId}` : "/tasks";
       for (const a of task.assignees) {
-        if (existingIds.has(a.userId) || a.userId === req.user.userId) continue;
+        if (existingIds.has(a.userId)) continue;
         notifyAssigned({
           title: task.title,
           description: task.description,
