@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-const ROLES = ["admin", "manager", "accountant", "client"] as const;
+const ROLES = ["admin", "supervisor", "manager", "accountant", "client"] as const;
 
 const PERMISSIONS: Array<{ entity: string; action: string }> = [
   // Users
@@ -51,11 +51,44 @@ const PERMISSIONS: Array<{ entity: string; action: string }> = [
   { entity: "message", action: "edit" },
   { entity: "message", action: "delete" },
   { entity: "message", action: "send" },
+  // Tickets
+  { entity: "ticket", action: "view" },
+  { entity: "ticket", action: "create" },
+  { entity: "ticket", action: "edit" },
+  { entity: "ticket", action: "delete" },
 ];
 
 // Role → permitted (entity, action) pairs
 const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>> = {
   admin: PERMISSIONS, // all permissions
+  supervisor: [
+    { entity: "user", action: "view" },
+    { entity: "section", action: "view" },
+    { entity: "organization", action: "view" },
+    { entity: "organization", action: "create" },
+    { entity: "organization", action: "edit" },
+    { entity: "document", action: "view" },
+    { entity: "document", action: "create" },
+    // No audit_log:view
+    { entity: "organization_secret", action: "view" },
+    { entity: "work_contact", action: "view" },
+    { entity: "work_contact", action: "create" },
+    { entity: "work_contact", action: "edit" },
+    { entity: "knowledge_item", action: "view" },
+    { entity: "knowledge_item", action: "create" },
+    { entity: "knowledge_item", action: "edit" },
+    { entity: "task", action: "view" },
+    { entity: "task", action: "create" },
+    { entity: "task", action: "edit" },
+    { entity: "task", action: "delete" },
+    { entity: "message", action: "view" },
+    { entity: "message", action: "create" },
+    { entity: "message", action: "edit" },
+    { entity: "message", action: "send" },
+    { entity: "ticket", action: "view" },
+    { entity: "ticket", action: "create" },
+    { entity: "ticket", action: "edit" },
+  ],
   manager: [
     { entity: "user", action: "view" },
     { entity: "section", action: "view" },
@@ -80,6 +113,9 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "message", action: "create" },
     { entity: "message", action: "edit" },
     { entity: "message", action: "send" },
+    { entity: "ticket", action: "view" },
+    { entity: "ticket", action: "create" },
+    { entity: "ticket", action: "edit" },
   ],
   accountant: [
     { entity: "organization", action: "view" },
@@ -98,12 +134,17 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "task", action: "delete" },
     { entity: "message", action: "view" },
     { entity: "message", action: "send" },
+    { entity: "ticket", action: "view" },
+    { entity: "ticket", action: "create" },
+    { entity: "ticket", action: "edit" },
   ],
   client: [
     { entity: "organization", action: "view" },
     { entity: "document", action: "view" },
     { entity: "document", action: "create" },
     { entity: "knowledge_item", action: "view" },
+    { entity: "ticket", action: "view" },
+    { entity: "ticket", action: "create" },
   ],
 };
 
@@ -169,6 +210,27 @@ async function main() {
   });
 
   console.log(`Admin user seeded: ${adminEmail} (dev-only default password)`);
+
+  // Seed test supervisor user (dev only)
+  const supervisorPasswordHash = await bcrypt.hash("Supervisor123!", 12);
+  const supervisor = await prisma.user.upsert({
+    where: { email: "supervisor@asbuh.local" },
+    update: {},
+    create: {
+      email: "supervisor@asbuh.local",
+      passwordHash: supervisorPasswordHash,
+      firstName: "Тест",
+      lastName: "Руководитель",
+    },
+  });
+
+  await prisma.userRole.upsert({
+    where: { userId_roleId: { userId: supervisor.id, roleId: roleRecords.supervisor.id } },
+    update: {},
+    create: { userId: supervisor.id, roleId: roleRecords.supervisor.id },
+  });
+
+  console.log("Test supervisor seeded: supervisor@asbuh.local / Supervisor123!");
 }
 
 main()

@@ -16,6 +16,9 @@ import {
   CheckSquare,
   RefreshCw,
   Loader2,
+  ArrowUpDown,
+  List,
+  Columns3,
 } from "lucide-react";
 import TaskCommentsModal from "../components/TaskCommentsModal.jsx";
 import TaskChecklistModal from "../components/TaskChecklistModal.jsx";
@@ -82,6 +85,7 @@ const STATUS_TABS = [
   { key: "IN_PROGRESS", label: "В работе" },
   { key: "DONE", label: "Выполненные" },
   { key: "CANCELLED", label: "Отменённые" },
+  { key: "ARCHIVED", label: "Архив" },
 ];
 
 function formatDueDate(dueDate) {
@@ -119,9 +123,19 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // View mode
+  const [viewMode, setViewMode] = useState("kanban");
+
   // Filters
   const [statusTab, setStatusTab] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [assigneeFilter, setAssigneeFilter] = useState("");
+  const [dateSort, setDateSort] = useState("desc");
+
+  // Drag state for kanban
+  const [dragTaskId, setDragTaskId] = useState(null);
+  const [dragOverCol, setDragOverCol] = useState(null);
+  const [staffUsers, setStaffUsers] = useState([]);
 
   // Edit/create modal
   const [showModal, setShowModal] = useState(false);
@@ -145,13 +159,14 @@ export default function TasksPage() {
 
   function canEditTask(task) {
     if (!hasPermission("task", "edit")) return false;
-    if (hasRole("admin") || hasRole("manager")) return true;
-    return task.createdBy?.id === user?.id;
+    if (hasRole("admin") || hasRole("supervisor") || hasRole("manager")) return true;
+    if (task.createdBy?.id === user?.id) return true;
+    return task.assignees?.some((a) => a.user?.id === user?.id);
   }
 
   function canDeleteTask(task) {
     if (!hasPermission("task", "delete")) return false;
-    if (hasRole("admin") || hasRole("manager")) return true;
+    if (hasRole("admin") || hasRole("supervisor") || hasRole("manager")) return true;
     return task.createdBy?.id === user?.id;
   }
 
@@ -160,7 +175,11 @@ export default function TasksPage() {
     setError(null);
     try {
       const params = new URLSearchParams();
-      if (statusTab) params.set("status", statusTab);
+      if (statusTab === "ARCHIVED") {
+        params.set("archived", "true");
+      } else if (viewMode === "list" && statusTab) {
+        params.set("status", statusTab);
+      }
       const res = await api(`/api/tasks?${params}`);
       if (!res.ok) throw new Error();
       const data = await res.json();
@@ -170,11 +189,21 @@ export default function TasksPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusTab]);
+  }, [statusTab, viewMode]);
 
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
+
+  // Load staff for assignee filter on mount
+  useEffect(() => {
+    api("/api/users?excludeRole=client")
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d)) setStaffUsers(d);
+      })
+      .catch(() => {});
+  }, []);
 
   // Load orgs + all staff once when modal opens
   useEffect(() => {
@@ -197,6 +226,14 @@ export default function TasksPage() {
       : form.organizationIds.length === 1
         ? form.organizationIds[0]
         : "";
+    const canAssignOthers = hasRole("admin") || hasRole("supervisor") || hasRole("manager");
+
+    if (!canAssignOthers) {
+      // Accountants can only assign to themselves
+      setUsers(user ? [{ id: user.id, firstName: user.firstName, lastName: user.lastName }] : []);
+      return;
+    }
+
     if (!singleOrgId) {
       setUsers(allUsers);
       return;
@@ -315,42 +352,113 @@ export default function TasksPage() {
     }
   }
 
-  // Client-side category filter (already filtered on server for status/my, but category not sent to server for simplicity)
-  const filtered = categoryFilter ? tasks.filter((t) => t.category === categoryFilter) : tasks;
+  // Build assignee list from loaded tasks (works for all roles without user:view)
+  const assigneesFromTasks = (() => {
+    const map = new Map();
+    tasks.forEach((t) =>
+      t.assignees?.forEach((a) => {
+        if (!map.has(a.user.id)) map.set(a.user.id, a.user);
+      }),
+    );
+    // Merge with staffUsers (admins/managers get full list from API)
+    staffUsers.forEach((u) => {
+      if (!map.has(u.id)) map.set(u.id, u);
+    });
+    return [...map.values()].sort((a, b) => a.lastName.localeCompare(b.lastName));
+  })();
+
+  // Client-side filters + sort
+  const filtered = tasks
+    .filter((t) => !categoryFilter || t.category === categoryFilter)
+    .filter((t) => !assigneeFilter || t.assignees?.some((a) => a.user?.id === assigneeFilter))
+    .sort((a, b) => {
+      const da = new Date(a.dueDate || a.createdAt).getTime();
+      const db = new Date(b.dueDate || b.createdAt).getTime();
+      return dateSort === "asc" ? da - db : db - da;
+    });
+
+  const isArchiveMode = statusTab === "ARCHIVED";
+  const effectiveViewMode = isArchiveMode ? "list" : viewMode;
+
+  function handleDrop(newStatus) {
+    if (!dragTaskId || !newStatus) return;
+    const task = tasks.find((t) => t.id === dragTaskId);
+    if (task && task.status !== newStatus) {
+      handleStatusChange(task, newStatus);
+    }
+    setDragTaskId(null);
+    setDragOverCol(null);
+  }
 
   return (
     <>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-5">
         <h1 className="text-2xl font-bold text-slate-900">Задачи</h1>
-        {canCreate && (
-          <button
-            onClick={() => openCreate()}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all"
-          >
-            <Plus size={16} />
-            Создать задачу
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {/* View toggle */}
+          {!isArchiveMode && (
+            <div className="flex gap-0.5 bg-slate-100 rounded-lg p-0.5">
+              <button
+                onClick={() => setViewMode("list")}
+                className={`p-1.5 rounded-md transition-colors ${viewMode === "list" ? "bg-white shadow text-[#6567F1]" : "text-slate-400 hover:text-slate-600"}`}
+                title="Список"
+              >
+                <List size={15} />
+              </button>
+              <button
+                onClick={() => setViewMode("kanban")}
+                className={`p-1.5 rounded-md transition-colors ${viewMode === "kanban" ? "bg-white shadow text-[#6567F1]" : "text-slate-400 hover:text-slate-600"}`}
+                title="Канбан"
+              >
+                <Columns3 size={15} />
+              </button>
+            </div>
+          )}
+          {canCreate && (
+            <button
+              onClick={() => openCreate()}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all"
+            >
+              <Plus size={16} />
+              Создать задачу
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 mb-5">
-        {/* Status tabs */}
-        <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1">
-          {STATUS_TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setStatusTab(t.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                statusTab === t.key
-                  ? "bg-[#6567F1] text-white"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        {/* Status tabs — hidden in kanban (columns are the statuses) */}
+        {effectiveViewMode === "list" && (
+          <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1">
+            {STATUS_TABS.filter(
+              (t) => t.key !== "ARCHIVED" || hasRole("admin") || hasRole("supervisor"),
+            ).map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setStatusTab(t.key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  statusTab === t.key
+                    ? "bg-[#6567F1] text-white"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {effectiveViewMode === "kanban" && (hasRole("admin") || hasRole("supervisor")) && (
+          <button
+            onClick={() => {
+              setViewMode("list");
+              setStatusTab("ARCHIVED");
+            }}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200 bg-white text-slate-500 hover:text-slate-900 transition-colors"
+          >
+            Архив
+          </button>
+        )}
 
         {/* Category filter */}
         <select
@@ -365,25 +473,117 @@ export default function TasksPage() {
             </option>
           ))}
         </select>
+
+        {/* Assignee filter — only for managers and above */}
+        {(hasRole("admin") || hasRole("supervisor") || hasRole("manager")) &&
+          assigneesFromTasks.length > 0 && (
+            <select
+              value={assigneeFilter}
+              onChange={(e) => setAssigneeFilter(e.target.value)}
+              className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30"
+            >
+              <option value="">Все ответственные</option>
+              {assigneesFromTasks.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.lastName} {u.firstName}
+                </option>
+              ))}
+            </select>
+          )}
+
+        {/* Date sort */}
+        <button
+          onClick={() => setDateSort((s) => (s === "desc" ? "asc" : "desc"))}
+          className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 transition-colors"
+        >
+          <ArrowUpDown size={14} />
+          {dateSort === "desc" ? "Сначала новые" : "Сначала старые"}
+        </button>
       </div>
 
-      {/* Task list */}
+      {/* Content */}
       {loading ? (
         <div className="flex items-center justify-center py-16 text-slate-400">
           <Loader2 size={24} className="animate-spin" />
         </div>
       ) : error ? (
         <div className="text-sm text-red-500">{error}</div>
-      ) : filtered.length === 0 ? (
+      ) : effectiveViewMode === "kanban" ? (
+        /* ── Kanban board ── */
+        <div
+          className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4"
+          style={{ minHeight: "calc(100vh - 220px)" }}
+        >
+          {KANBAN_COLS.map((col) => {
+            const colTasks = filtered.filter((t) => t.status === col.key);
+            const isOver = dragOverCol === col.key;
+            return (
+              <div
+                key={col.key}
+                className={`flex flex-col rounded-2xl border-2 transition-colors shrink-0 w-72 ${isOver ? col.overCls : col.cls}`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOverCol(col.key);
+                }}
+                onDragLeave={() => setDragOverCol(null)}
+                onDrop={() => handleDrop(col.key)}
+              >
+                {/* Column header */}
+                <div
+                  className={`flex items-center justify-between px-4 py-3 rounded-t-xl ${col.headerCls}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${col.dot}`} />
+                    <span className="text-sm font-semibold text-slate-700">{col.label}</span>
+                  </div>
+                  <span className="text-xs font-bold text-slate-400 bg-white/60 rounded-full px-2 py-0.5">
+                    {colTasks.length}
+                  </span>
+                </div>
+
+                {/* Cards */}
+                <div className="flex-1 flex flex-col gap-2 p-3 overflow-y-auto">
+                  {colTasks.length === 0 && (
+                    <div
+                      className={`flex-1 flex items-center justify-center text-xs text-slate-400 rounded-xl border-2 border-dashed ${isOver ? "border-[#6567F1]/40 bg-[#6567F1]/5" : "border-slate-200"} min-h-[80px] transition-colors`}
+                    >
+                      {isOver ? "Перетащите сюда" : "Нет задач"}
+                    </div>
+                  )}
+                  {colTasks.map((task) => (
+                    <KanbanCard
+                      key={task.id}
+                      task={task}
+                      canEdit={canEditTask(task)}
+                      canDelete={canDeleteTask(task)}
+                      onEdit={openEdit}
+                      onDelete={handleDelete}
+                      onComment={setCommentTask}
+                      onChecklist={setChecklistTask}
+                      onDragStart={() => setDragTaskId(task.id)}
+                      onDragEnd={() => {
+                        setDragTaskId(null);
+                        setDragOverCol(null);
+                      }}
+                      isDragging={dragTaskId === task.id}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : /* ── List view ── */
+      filtered.length === 0 ? (
         <div className="text-sm text-slate-400">Нет задач</div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-1.5">
           {filtered.map((task) => (
             <TaskCard
               key={task.id}
               task={task}
-              canEdit={canEditTask(task)}
-              canDelete={canDeleteTask(task)}
+              canEdit={statusTab !== "ARCHIVED" && canEditTask(task)}
+              canDelete={statusTab !== "ARCHIVED" && canDeleteTask(task)}
               onEdit={openEdit}
               onDelete={handleDelete}
               onStatusChange={handleStatusChange}
@@ -565,6 +765,226 @@ export default function TasksPage() {
   );
 }
 
+const KANBAN_COLS = [
+  {
+    key: "OPEN",
+    label: "Открытые",
+    cls: "border-slate-200 bg-slate-50/60",
+    overCls: "border-[#6567F1]/40 bg-[#6567F1]/5",
+    headerCls: "bg-slate-100/80",
+    dot: "bg-slate-400",
+  },
+  {
+    key: "IN_PROGRESS",
+    label: "В работе",
+    cls: "border-blue-200 bg-blue-50/40",
+    overCls: "border-blue-400/60 bg-blue-50",
+    headerCls: "bg-blue-100/60",
+    dot: "bg-blue-400",
+  },
+  {
+    key: "DONE",
+    label: "Выполнено",
+    cls: "border-emerald-200 bg-emerald-50/40",
+    overCls: "border-emerald-400/60 bg-emerald-50",
+    headerCls: "bg-emerald-100/60",
+    dot: "bg-emerald-400",
+  },
+  {
+    key: "CANCELLED",
+    label: "Отменено",
+    cls: "border-slate-200 bg-slate-50/30",
+    overCls: "border-slate-400/40 bg-slate-100/40",
+    headerCls: "bg-slate-100/50",
+    dot: "bg-slate-300",
+  },
+];
+
+function KanbanCard({
+  task,
+  canEdit,
+  canDelete,
+  onEdit,
+  onDelete,
+  onComment,
+  onChecklist,
+  onDragStart,
+  onDragEnd,
+  isDragging,
+}) {
+  const overdue = isOverdue(task);
+  const checklistTotal = task.checklistItems?.length ?? 0;
+  const checklistDone = task.checklistItems?.filter((i) => i.done).length ?? 0;
+  const cancelled = task.status === "CANCELLED";
+
+  return (
+    <div
+      draggable={canEdit}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      className={`group bg-white rounded-xl border p-3 transition-all select-none ${
+        isDragging ? "opacity-40 rotate-1 scale-95" : "hover:shadow-md"
+      } ${overdue ? "border-red-200" : "border-slate-200"} ${canEdit ? "cursor-grab active:cursor-grabbing" : ""}`}
+    >
+      {/* Priority + category + recurrence */}
+      <div className="flex items-center gap-1.5 mb-2">
+        <span className="text-[10px] text-slate-400 font-medium shrink-0">Приоритет:</span>
+        <span
+          className={`text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide ${PRIORITY_COLORS[task.priority]}`}
+        >
+          {TASK_PRIORITY_LABELS[task.priority]}
+        </span>
+        <span
+          className={`text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide ${CATEGORY_COLORS[task.category]}`}
+        >
+          {TASK_CATEGORY_LABELS[task.category]}
+        </span>
+        {task.recurrenceType && (
+          <RefreshCw
+            size={10}
+            className="text-[#6567F1] ml-auto shrink-0"
+            title={RECURRENCE_LABELS[`${task.recurrenceType}:${task.recurrenceInterval}`]}
+          />
+        )}
+      </div>
+
+      {/* Title */}
+      <p
+        className={`text-sm font-medium leading-snug mb-1.5 ${cancelled ? "line-through text-slate-400" : "text-slate-800"}`}
+      >
+        {task.title}
+      </p>
+
+      {/* Description */}
+      {task.description && (
+        <p className="text-[11px] text-slate-400 leading-snug line-clamp-2 mb-1.5">
+          {task.description}
+        </p>
+      )}
+
+      {/* Org */}
+      {task.organization && (
+        <Link
+          to={`/organizations/${task.organization.id}`}
+          className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-[#6567F1] transition-colors mb-1.5 truncate"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Building2 size={10} />
+          <span className="truncate">{task.organization.name}</span>
+        </Link>
+      )}
+
+      {/* Who assigned + when */}
+      {task.createdBy && (
+        <div className="flex items-center gap-1 text-[11px] text-slate-400 mb-2">
+          <UserCircle size={10} />
+          <span>
+            {task.createdBy.lastName} {task.createdBy.firstName}
+          </span>
+          {task.createdAt && (
+            <span className="text-slate-300">
+              ·{" "}
+              {new Date(task.createdAt).toLocaleDateString("ru-RU", {
+                day: "2-digit",
+                month: "2-digit",
+              })}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Footer: due date + assignees + actions */}
+      <div className="flex items-center gap-2 mt-1">
+        {task.dueDate && (
+          <span
+            className={`flex items-center gap-1 text-[11px] shrink-0 ${overdue ? "text-red-500 font-semibold" : "text-slate-400"}`}
+          >
+            <CalendarDays size={10} />
+            {formatDueDate(task.dueDate)}
+            {overdue && " ⚠"}
+          </span>
+        )}
+
+        {task.assignees?.length > 0 && (
+          <div
+            className="flex items-center gap-0.5 ml-auto"
+            title={task.assignees.map((a) => `${a.user.lastName} ${a.user.firstName}`).join(", ")}
+          >
+            {task.assignees.slice(0, 3).map((a) => (
+              <div
+                key={a.user.id}
+                className="w-5 h-5 rounded-full bg-[#6567F1]/10 border border-[#6567F1]/20 flex items-center justify-center text-[9px] font-bold text-[#6567F1]"
+              >
+                {a.user.firstName?.[0]}
+                {a.user.lastName?.[0]}
+              </div>
+            ))}
+            {task.assignees.length > 3 && (
+              <div className="w-5 h-5 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[9px] font-bold text-slate-400">
+                +{task.assignees.length - 3}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center gap-0.5 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={() => onChecklist(task)}
+            className="relative p-1 text-slate-300 hover:text-[#6567F1] transition-colors"
+            title="Чек-лист"
+          >
+            <CheckSquare size={13} />
+            {checklistTotal > 0 && (
+              <span
+                className={`absolute -top-0.5 -right-0.5 w-3 h-3 text-white text-[7px] font-bold rounded-full flex items-center justify-center ${checklistDone === checklistTotal ? "bg-emerald-500" : "bg-slate-400"}`}
+              >
+                {checklistDone === checklistTotal ? "✓" : checklistTotal}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => onComment(task)}
+            className="relative p-1 text-slate-300 hover:text-[#6567F1] transition-colors"
+            title="Комментарии"
+          >
+            <MessageSquare size={13} />
+            {task._count?.comments > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-[#6567F1] text-white text-[7px] font-bold rounded-full flex items-center justify-center">
+                {task._count.comments > 9 ? "9+" : task._count.comments}
+              </span>
+            )}
+          </button>
+          {canEdit && (
+            <button
+              onClick={() => onEdit(task)}
+              className="p-1 text-slate-300 hover:text-[#6567F1] transition-colors"
+              title="Редактировать"
+            >
+              <Pencil size={13} />
+            </button>
+          )}
+          {canDelete && (
+            <button
+              onClick={() => onDelete(task)}
+              className="p-1 text-slate-300 hover:text-red-500 transition-colors"
+              title="Удалить"
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const PRIORITY_BAR = {
+  LOW: "bg-slate-300",
+  MEDIUM: "bg-yellow-400",
+  HIGH: "bg-orange-400",
+  URGENT: "bg-red-500",
+};
+
 function TaskCard({
   task,
   canEdit,
@@ -579,92 +999,81 @@ function TaskCard({
   const nextStatuses = getNextStatuses(task.status);
   const checklistTotal = task.checklistItems?.length ?? 0;
   const checklistDone = task.checklistItems?.filter((i) => i.done).length ?? 0;
+  const cancelled = task.status === "CANCELLED";
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-4 flex flex-col sm:flex-row sm:items-start gap-3">
-      <div className="flex-1 min-w-0">
-        <div className="flex flex-wrap items-center gap-2 mb-1">
-          <span
-            className={`text-xs px-2 py-0.5 rounded-full font-medium ${CATEGORY_COLORS[task.category]}`}
-          >
-            {TASK_CATEGORY_LABELS[task.category]}
-          </span>
-          <span
-            className={`text-xs px-2 py-0.5 rounded-full font-medium ${PRIORITY_COLORS[task.priority]}`}
-          >
-            {TASK_PRIORITY_LABELS[task.priority]}
-          </span>
-          <span
-            className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[task.status]}`}
-          >
-            {TASK_STATUS_LABELS[task.status]}
-          </span>
-        </div>
+    <div
+      className={`group flex items-center gap-3 bg-white border rounded-xl px-3 py-2.5 transition-shadow hover:shadow-md ${overdue ? "border-red-200 bg-red-50/30" : "border-slate-200"}`}
+    >
+      {/* Priority bar */}
+      <div
+        className={`w-1 h-8 rounded-full shrink-0 ${PRIORITY_BAR[task.priority]}`}
+        title={TASK_PRIORITY_LABELS[task.priority]}
+      />
 
+      {/* Category badge */}
+      <span
+        className={`hidden sm:inline-flex shrink-0 text-[10px] px-1.5 py-0.5 rounded font-semibold tracking-wide uppercase ${CATEGORY_COLORS[task.category]}`}
+      >
+        {TASK_CATEGORY_LABELS[task.category]}
+      </span>
+
+      {/* Title + meta */}
+      <div className="flex-1 min-w-0">
         <p
-          className={`text-sm font-semibold text-slate-900 leading-snug ${task.status === "CANCELLED" ? "line-through text-slate-400" : ""}`}
+          className={`text-sm font-medium leading-tight truncate ${cancelled ? "line-through text-slate-400" : "text-slate-800"}`}
         >
           {task.title}
         </p>
-
-        {task.description && (
-          <p className="text-xs text-slate-500 mt-1 line-clamp-2">{task.description}</p>
-        )}
-
-        <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-slate-400">
+        <div className="flex items-center gap-2.5 mt-0.5 text-[11px] text-slate-400 flex-wrap">
           {task.organization && (
             <Link
               to={`/organizations/${task.organization.id}`}
-              className="flex items-center gap-1 hover:text-[#6567F1] transition-colors"
+              className="flex items-center gap-0.5 hover:text-[#6567F1] transition-colors truncate max-w-[160px]"
             >
-              <Building2 size={12} />
-              {task.organization.name}
+              <Building2 size={10} />
+              <span className="truncate">{task.organization.name}</span>
             </Link>
           )}
-          {task.createdBy && (
-            <span className="flex items-center gap-1">
-              <UserCircle size={12} />
-              от: {task.createdBy.lastName} {task.createdBy.firstName}
-            </span>
-          )}
           {task.assignees?.length > 0 && (
-            <span className="flex items-center gap-1">
-              <User size={12} />
-              кому: {task.assignees.map((a) => `${a.user.lastName} ${a.user.firstName}`).join(", ")}
+            <span
+              className="flex items-center gap-0.5 truncate max-w-[140px]"
+              title={task.assignees.map((a) => `${a.user.lastName} ${a.user.firstName}`).join(", ")}
+            >
+              <User size={10} />
+              <span className="truncate">
+                {task.assignees.map((a) => a.user.firstName).join(", ")}
+              </span>
             </span>
           )}
           {task.dueDate && (
             <span
-              className={`flex items-center gap-1 ${overdue ? "text-red-500 font-medium" : ""}`}
+              className={`flex items-center gap-0.5 shrink-0 ${overdue ? "text-red-500 font-semibold" : ""}`}
             >
-              <CalendarDays size={12} />
+              <CalendarDays size={10} />
               {formatDueDate(task.dueDate)}
-              {overdue && " — просрочено"}
+              {overdue && " ⚠"}
             </span>
           )}
           {task.recurrenceType && (
             <span
-              className="flex items-center gap-1 text-[#6567F1]"
-              title={
-                RECURRENCE_LABELS[`${task.recurrenceType}:${task.recurrenceInterval}`] ??
-                "Повторяется"
-              }
+              className="flex items-center gap-0.5 text-[#6567F1] shrink-0"
+              title={RECURRENCE_LABELS[`${task.recurrenceType}:${task.recurrenceInterval}`]}
             >
-              <RefreshCw size={11} />
-              {RECURRENCE_LABELS[`${task.recurrenceType}:${task.recurrenceInterval}`] ??
-                "Повторяется"}
+              <RefreshCw size={10} />
+              {RECURRENCE_LABELS[`${task.recurrenceType}:${task.recurrenceInterval}`]}
             </span>
           )}
         </div>
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2 shrink-0">
-        {canEdit && nextStatuses.length > 0 && (
+      <div className="flex items-center gap-1 shrink-0">
+        {canEdit && nextStatuses.length > 0 ? (
           <select
             value={task.status}
             onChange={(e) => onStatusChange(task, e.target.value)}
-            className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 cursor-pointer"
+            className={`text-[11px] border rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 cursor-pointer font-medium ${STATUS_COLORS[task.status]}`}
           >
             <option value={task.status}>{TASK_STATUS_LABELS[task.status]}</option>
             {nextStatuses.map((s) => (
@@ -673,51 +1082,58 @@ function TaskCard({
               </option>
             ))}
           </select>
+        ) : (
+          <span
+            className={`text-[11px] px-2 py-1 rounded-lg font-medium ${STATUS_COLORS[task.status]}`}
+          >
+            {TASK_STATUS_LABELS[task.status]}
+          </span>
         )}
+
         <button
           onClick={() => onChecklist(task)}
-          className="relative p-1.5 text-slate-400 hover:text-[#6567F1] transition-colors"
+          className="relative p-1.5 text-slate-300 hover:text-[#6567F1] transition-colors"
           title="Чек-лист"
         >
-          <CheckSquare size={15} />
+          <CheckSquare size={14} />
           {checklistTotal > 0 && (
             <span
-              className={`absolute -top-0.5 -right-0.5 w-3.5 h-3.5 text-white text-[8px] font-bold rounded-full flex items-center justify-center leading-none ${
-                checklistDone === checklistTotal ? "bg-emerald-500" : "bg-slate-400"
-              }`}
+              className={`absolute -top-0.5 -right-0.5 w-3.5 h-3.5 text-white text-[8px] font-bold rounded-full flex items-center justify-center leading-none ${checklistDone === checklistTotal ? "bg-emerald-500" : "bg-slate-400"}`}
             >
               {checklistDone === checklistTotal ? "✓" : checklistTotal}
             </span>
           )}
         </button>
+
         <button
           onClick={() => onComment(task)}
-          className="relative p-1.5 text-slate-400 hover:text-[#6567F1] transition-colors"
+          className="relative p-1.5 text-slate-300 hover:text-[#6567F1] transition-colors"
           title="Комментарии"
         >
-          <MessageSquare size={15} />
+          <MessageSquare size={14} />
           {task._count?.comments > 0 && (
             <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-[#6567F1] text-white text-[8px] font-bold rounded-full flex items-center justify-center leading-none">
               {task._count.comments > 9 ? "9+" : task._count.comments}
             </span>
           )}
         </button>
+
         {canEdit && (
           <button
             onClick={() => onEdit(task)}
-            className="p-1.5 text-slate-400 hover:text-[#6567F1] transition-colors"
+            className="p-1.5 text-slate-300 hover:text-[#6567F1] transition-colors opacity-0 group-hover:opacity-100"
             title="Редактировать"
           >
-            <Pencil size={15} />
+            <Pencil size={14} />
           </button>
         )}
         {canDelete && (
           <button
             onClick={() => onDelete(task)}
-            className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
+            className="p-1.5 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
             title="Удалить"
           >
-            <Trash2 size={15} />
+            <Trash2 size={14} />
           </button>
         )}
       </div>

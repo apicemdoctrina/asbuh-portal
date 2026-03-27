@@ -109,6 +109,9 @@ router.get("/", authenticate, async (req, res) => {
           isActive: true,
           lastSeenAt: true,
           userRoles: { include: { role: { select: { name: true } } } },
+          sectionMembers: {
+            select: { section: { select: { id: true, number: true, name: true } } },
+          },
         },
       });
 
@@ -121,6 +124,7 @@ router.get("/", authenticate, async (req, res) => {
           isActive: u.isActive,
           lastSeenAt: u.lastSeenAt,
           roles: u.userRoles.map((ur) => ur.role.name),
+          sections: u.sectionMembers.map((sm) => sm.section),
         })),
       );
     }
@@ -409,6 +413,44 @@ router.get("/:id", authenticate, requireRole("admin"), async (req, res) => {
     });
   } catch (err) {
     console.error("Get user error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// PATCH /api/users/:id/password — admin sets password for any user
+router.patch("/:id/password", authenticate, requireRole("admin"), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword || typeof newPassword !== "string" || newPassword.length < 8) {
+      res.status(400).json({ error: "Пароль должен быть не менее 8 символов" });
+      return;
+    }
+
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+    await prisma.user.update({ where: { id }, data: { passwordHash } });
+
+    // Invalidate all existing refresh tokens for this user
+    await prisma.refreshToken.deleteMany({ where: { userId: id } });
+
+    await logAudit({
+      action: "admin_password_reset",
+      userId: req.user!.userId,
+      entity: "user",
+      entityId: id,
+      details: { targetEmail: target.email },
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Admin set password error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

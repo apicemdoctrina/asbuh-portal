@@ -3,9 +3,22 @@ import { useDebouncedEffect } from "../hooks/useDebouncedEffect.js";
 import { Link } from "react-router";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
-import { Search, Plus, X, Loader2, Pencil, Trash2 } from "lucide-react";
+import {
+  Search,
+  Plus,
+  X,
+  Loader2,
+  Pencil,
+  Trash2,
+  KeyRound,
+  Map,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  ListTodo,
+} from "lucide-react";
 
-const ONLINE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
 
 function isOnline(lastSeenAt) {
   if (!lastSeenAt) return false;
@@ -25,18 +38,45 @@ function formatLastSeen(lastSeenAt) {
   return new Date(lastSeenAt).toLocaleDateString("ru-RU");
 }
 
-const ASSIGNABLE_ROLES = ["admin", "manager", "accountant"];
+const ASSIGNABLE_ROLES = ["admin", "supervisor", "manager", "accountant"];
 
 const ROLE_LABELS = {
   admin: "Админ",
+  supervisor: "Руководитель",
   manager: "Менеджер",
   accountant: "Бухгалтер",
   client: "Клиент",
 };
 
+const ROLE_AVATAR_COLORS = {
+  admin: "bg-[#6567F1] text-white",
+  supervisor: "bg-purple-500 text-white",
+  manager: "bg-sky-500 text-white",
+  accountant: "bg-emerald-500 text-white",
+};
+
+const ROLE_BADGE_COLORS = {
+  admin: "bg-[#6567F1]/10 text-[#6567F1]",
+  supervisor: "bg-purple-100 text-purple-700",
+  manager: "bg-sky-100 text-sky-700",
+  accountant: "bg-emerald-100 text-emerald-700",
+};
+
+function getInitials(firstName, lastName) {
+  return `${(lastName?.[0] ?? "").toUpperCase()}${(firstName?.[0] ?? "").toUpperCase()}`;
+}
+
+function getPrimaryRole(roles) {
+  for (const r of ["admin", "supervisor", "manager", "accountant"]) {
+    if (roles.includes(r)) return r;
+  }
+  return null;
+}
+
 export default function StaffPage() {
   const { user, hasRole } = useAuth();
   const [users, setUsers] = useState([]);
+  const [workloadMap, setWorkloadMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -49,9 +89,16 @@ export default function StaffPage() {
     try {
       const qs = new URLSearchParams({ excludeRole: "client" });
       if (search) qs.set("search", search);
-      const res = await api(`/api/users?${qs}`);
-      if (res.ok) {
-        setUsers(await res.json());
+      const [usersRes, analyticsRes] = await Promise.all([
+        api(`/api/users?${qs}`),
+        api("/api/management/analytics"),
+      ]);
+      if (usersRes.ok) setUsers(await usersRes.json());
+      if (analyticsRes.ok) {
+        const analytics = await analyticsRes.json();
+        const map = {};
+        for (const w of analytics.workload ?? []) map[w.userId] = w;
+        setWorkloadMap(map);
       }
     } catch {
       // ignore
@@ -94,6 +141,7 @@ export default function StaffPage() {
 
   return (
     <div>
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Сотрудники</h1>
         {isAdmin && (
@@ -108,45 +156,68 @@ export default function StaffPage() {
       </div>
 
       {/* Search */}
-      <div className="relative mb-6">
-        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+      <div className="relative mb-5">
+        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
         <input
           type="text"
-          placeholder="Поиск по имени или email..."
+          placeholder="Поиск по имени..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/20 focus:border-[#6567F1] bg-white"
         />
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center py-12 text-slate-400">
-            <Loader2 size={24} className="animate-spin" />
-          </div>
-        ) : users.length === 0 ? (
-          <div className="text-center py-12 text-slate-400 text-sm">
-            {search ? "Ничего не найдено" : "Нет сотрудников"}
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-100 text-left text-slate-500">
-                <th className="px-6 py-3 font-medium">Имя</th>
-                <th className="px-6 py-3 font-medium">Email</th>
-                <th className="px-6 py-3 font-medium">Роли</th>
-                <th className="px-6 py-3 font-medium">Статус</th>
-                {isAdmin && <th className="px-6 py-3 font-medium">Действия</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr
-                  key={u.id}
-                  className={`border-b border-slate-50 hover:bg-slate-50/50 ${!u.isActive ? "opacity-50" : ""}`}
+      {/* KPI legend */}
+      {!loading && users.length > 0 && (
+        <div className="flex items-center gap-4 mb-3 px-1 text-xs text-slate-400">
+          <span className="flex items-center gap-1">
+            <ListTodo size={11} /> Активные
+          </span>
+          <span className="flex items-center gap-1">
+            <AlertCircle size={11} /> Просрочено
+          </span>
+          <span className="flex items-center gap-1">
+            <CheckCircle2 size={11} /> Выполнено (30д)
+          </span>
+          <span className="flex items-center gap-1">
+            <Clock size={11} /> Ср. время
+          </span>
+        </div>
+      )}
+
+      {/* Cards */}
+      {loading ? (
+        <div className="flex items-center justify-center py-16 text-slate-400">
+          <Loader2 size={24} className="animate-spin" />
+        </div>
+      ) : users.length === 0 ? (
+        <div className="text-center py-16 text-slate-400 text-sm">
+          {search ? "Ничего не найдено" : "Нет сотрудников"}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {users.map((u) => {
+            const w = workloadMap[u.id];
+            const primaryRole = getPrimaryRole(u.roles);
+            const avatarColor = ROLE_AVATAR_COLORS[primaryRole] ?? "bg-slate-400 text-white";
+
+            const online = isOnline(u.lastSeenAt);
+
+            return (
+              <div
+                key={u.id}
+                className={`group bg-white border border-slate-200 rounded-2xl px-5 py-4 flex items-center gap-4 hover:border-[#6567F1]/25 hover:shadow-md transition-all duration-200 ${!u.isActive ? "opacity-55" : ""}`}
+              >
+                {/* Avatar */}
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ${avatarColor}`}
                 >
-                  <td className="px-6 py-3 font-medium text-slate-900">
+                  {getInitials(u.firstName, u.lastName)}
+                </div>
+
+                {/* Identity */}
+                <div className="w-44 shrink-0 min-w-0">
+                  <div className="font-semibold text-slate-900 text-sm leading-tight truncate">
                     {isAdmin ? (
                       <Link
                         to={`/users/${u.id}`}
@@ -155,70 +226,154 @@ export default function StaffPage() {
                         {u.lastName} {u.firstName}
                       </Link>
                     ) : (
-                      <>
-                        {u.lastName} {u.firstName}
-                      </>
+                      `${u.lastName} ${u.firstName}`
                     )}
-                  </td>
-                  <td className="px-6 py-3 text-slate-600">{u.email}</td>
-                  <td className="px-6 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {u.roles.map((r) => (
+                  </div>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {u.roles
+                      .filter((r) => r !== "client")
+                      .map((r) => (
                         <span
                           key={r}
-                          className="bg-[#6567F1]/10 text-[#6567F1] px-2 py-0.5 rounded-full text-xs font-medium"
+                          className={`px-1.5 py-0.5 rounded-md text-xs font-medium ${ROLE_BADGE_COLORS[r] ?? "bg-slate-100 text-slate-600"}`}
                         >
                           {ROLE_LABELS[r] || r}
                         </span>
                       ))}
-                    </div>
-                  </td>
-                  <td className="px-6 py-3">
-                    {u.isActive ? (
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`inline-block w-2 h-2 rounded-full ${isOnline(u.lastSeenAt) ? "bg-green-500" : "bg-slate-300"}`}
-                        />
-                        <span
-                          className={`text-xs font-medium ${isOnline(u.lastSeenAt) ? "text-green-600" : "text-slate-500"}`}
-                        >
-                          {formatLastSeen(u.lastSeenAt)}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full text-xs font-medium">
+                    {!u.isActive && (
+                      <span className="px-1.5 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-400">
                         Неактивен
                       </span>
                     )}
-                  </td>
-                  {isAdmin && (
-                    <td className="px-6 py-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setEditingUser(u)}
-                          className="p-1.5 text-slate-400 hover:text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg transition-colors"
-                          title="Редактировать"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        {canDelete(u) && (
-                          <button
-                            onClick={() => handleDelete(u)}
-                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                            title={u.isActive ? "Деактивировать" : "Удалить навсегда"}
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
-                      </div>
-                    </td>
+                  </div>
+                </div>
+
+                {/* Sections */}
+                <div className="flex-1 min-w-0 flex flex-wrap gap-1.5">
+                  {u.sections && u.sections.length > 0 ? (
+                    u.sections.map((s) => (
+                      <span
+                        key={s.id}
+                        className="flex items-center gap-1 bg-slate-50 border border-slate-200 text-slate-500 px-2 py-0.5 rounded-lg text-xs font-medium whitespace-nowrap"
+                      >
+                        <Map size={12} className="shrink-0" />№{s.number}
+                        {s.name ? ` — ${s.name}` : ""}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-slate-300 text-xs">—</span>
                   )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+                </div>
+
+                {/* KPI stats */}
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Active tasks */}
+                  <div className="flex flex-col items-center w-10">
+                    {w != null ? (
+                      <span
+                        className={`text-sm font-bold leading-none ${
+                          w.openTasks > 10
+                            ? "text-red-600"
+                            : w.openTasks > 5
+                              ? "text-amber-500"
+                              : "text-emerald-600"
+                        }`}
+                      >
+                        {w.openTasks}
+                      </span>
+                    ) : (
+                      <span className="text-slate-300 text-sm font-bold">—</span>
+                    )}
+                    <ListTodo size={13} className="text-slate-300 mt-0.5" />
+                  </div>
+
+                  <div className="w-px h-6 bg-slate-100" />
+
+                  {/* Overdue */}
+                  <div className="flex flex-col items-center w-10">
+                    {w != null ? (
+                      <span
+                        className={`text-sm font-bold leading-none ${w.overdueTasks > 0 ? "text-red-600" : "text-slate-300"}`}
+                      >
+                        {w.overdueTasks}
+                      </span>
+                    ) : (
+                      <span className="text-slate-300 text-sm font-bold">—</span>
+                    )}
+                    <AlertCircle size={13} className="text-slate-300 mt-0.5" />
+                  </div>
+
+                  <div className="w-px h-6 bg-slate-100" />
+
+                  {/* Done 30d */}
+                  <div className="flex flex-col items-center w-10">
+                    {w != null ? (
+                      <span className="text-sm font-bold leading-none text-slate-600">
+                        {w.doneLast30d}
+                      </span>
+                    ) : (
+                      <span className="text-slate-300 text-sm font-bold">—</span>
+                    )}
+                    <CheckCircle2 size={13} className="text-slate-300 mt-0.5" />
+                  </div>
+
+                  <div className="w-px h-6 bg-slate-100" />
+
+                  {/* Avg time */}
+                  <div className="flex flex-col items-center w-12">
+                    {w?.avgCompletionDays != null ? (
+                      <span className="text-sm font-bold leading-none text-slate-600">
+                        {w.avgCompletionDays}д
+                      </span>
+                    ) : (
+                      <span className="text-slate-300 text-sm font-bold">—</span>
+                    )}
+                    <Clock size={13} className="text-slate-300 mt-0.5" />
+                  </div>
+                </div>
+
+                {/* Online status */}
+                <div className="w-28 shrink-0 flex items-center gap-1.5">
+                  {u.isActive ? (
+                    <>
+                      <span
+                        className={`w-2 h-2 rounded-full shrink-0 ${online ? "bg-emerald-500" : "bg-slate-300"}`}
+                      />
+                      <span
+                        className={`text-xs font-medium truncate ${online ? "text-emerald-600" : "text-slate-400"}`}
+                      >
+                        {formatLastSeen(u.lastSeenAt)}
+                      </span>
+                    </>
+                  ) : null}
+                </div>
+
+                {/* Actions */}
+                {isAdmin && (
+                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                    <button
+                      onClick={() => setEditingUser(u)}
+                      className="p-1.5 text-slate-400 hover:text-[#6567F1] hover:bg-[#6567F1]/8 rounded-lg transition-colors"
+                      title="Редактировать"
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    {canDelete(u) && (
+                      <button
+                        onClick={() => handleDelete(u)}
+                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title={u.isActive ? "Деактивировать" : "Удалить навсегда"}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {showCreateModal && (
         <CreateStaffModal onClose={() => setShowCreateModal(false)} onCreated={handleCreated} />
@@ -401,8 +556,42 @@ function EditStaffModal({ user: target, currentUserId, onClose, onUpdated }) {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const [showPasswordBlock, setShowPasswordBlock] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
+
   function setField(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  async function handleSetPassword() {
+    setPasswordError("");
+    setPasswordSuccess(false);
+    if (newPassword.length < 8) {
+      setPasswordError("Пароль должен быть не менее 8 символов");
+      return;
+    }
+    setPasswordSubmitting(true);
+    try {
+      const res = await api(`/api/users/${target.id}/password`, {
+        method: "PATCH",
+        body: JSON.stringify({ newPassword }),
+      });
+      if (res.ok) {
+        setPasswordSuccess(true);
+        setNewPassword("");
+        setShowPasswordBlock(false);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setPasswordError(data.error || "Ошибка");
+      }
+    } catch {
+      setPasswordError("Сетевая ошибка");
+    } finally {
+      setPasswordSubmitting(false);
+    }
   }
 
   async function handleSubmit(e) {
@@ -420,7 +609,6 @@ function EditStaffModal({ user: target, currentUserId, onClose, onUpdated }) {
       email: form.email,
     };
 
-    // Only send roles/isActive if not targeting an admin
     if (!rolesDisabled) {
       body.roleNames = [form.role];
       body.isActive = form.isActive;
@@ -525,6 +713,63 @@ function EditStaffModal({ user: target, currentUserId, onClose, onUpdated }) {
           {error && (
             <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>
           )}
+
+          {/* Password reset block */}
+          <div className="border-t border-slate-100 pt-4">
+            {!showPasswordBlock ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPasswordBlock(true);
+                  setPasswordSuccess(false);
+                }}
+                className="flex items-center gap-2 text-sm text-slate-500 hover:text-[#6567F1] transition-colors"
+              >
+                <KeyRound size={14} />
+                Сменить пароль
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-slate-700">Новый пароль</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Минимум 8 символов"
+                    className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSetPassword}
+                    disabled={passwordSubmitting}
+                    className="px-3 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white shadow-lg shadow-[#6567F1]/30 transition-all disabled:opacity-50"
+                  >
+                    {passwordSubmitting ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      "Сохранить"
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPasswordBlock(false);
+                      setNewPassword("");
+                      setPasswordError("");
+                    }}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                {passwordError && <div className="text-sm text-red-600">{passwordError}</div>}
+              </div>
+            )}
+            {passwordSuccess && (
+              <div className="text-sm text-green-600 mt-1">Пароль успешно изменён</div>
+            )}
+          </div>
 
           <div className="flex justify-end gap-3 pt-2">
             <button

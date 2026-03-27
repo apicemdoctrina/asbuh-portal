@@ -10,8 +10,7 @@ const router = Router();
 
 /** Build a Prisma `where` filter that enforces data-scoping rules. */
 function getScopedWhere(userId: string, roles: string[]): Prisma.SectionWhereInput {
-  if (roles.includes("admin")) return {};
-  // manager / accountant — only sections where user is a member
+  if (roles.includes("admin") || roles.includes("supervisor")) return {};
   return { members: { some: { userId } } };
 }
 
@@ -43,12 +42,24 @@ router.get("/", authenticate, requirePermission("section", "view"), async (req, 
         take: limit,
         include: {
           _count: { select: { members: true, organizations: true } },
+          organizations: { select: { form: true }, where: { status: { not: "archived" } } },
         },
       }),
       prisma.section.count({ where }),
     ]);
 
-    res.json({ sections, total, page, limit });
+    const sectionsWithFormCounts = sections.map((s) => {
+      const formCounts: Record<string, number> = {};
+      for (const org of s.organizations) {
+        const key = org.form ?? "OTHER";
+        formCounts[key] = (formCounts[key] ?? 0) + 1;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { organizations: _, ...rest } = s;
+      return { ...rest, formCounts };
+    });
+
+    res.json({ sections: sectionsWithFormCounts, total, page, limit });
   } catch (err) {
     console.error("List sections error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -248,6 +259,23 @@ router.post(
         },
       });
 
+      // Auto-add to all organizations in this section
+      const sectionOrgs = await prisma.organization.findMany({
+        where: { sectionId: section.id },
+        select: { id: true },
+      });
+      if (sectionOrgs.length > 0) {
+        await prisma.$transaction(
+          sectionOrgs.map((org) =>
+            prisma.organizationMember.upsert({
+              where: { userId_organizationId: { userId: user.id, organizationId: org.id } },
+              create: { userId: user.id, organizationId: org.id, role: "responsible" },
+              update: {},
+            }),
+          ),
+        );
+      }
+
       await logAudit({
         action: "section_member_added",
         userId: req.user!.userId,
@@ -309,6 +337,14 @@ router.delete(
       }
 
       await prisma.sectionMember.delete({ where: { id: member.id } });
+
+      // Remove from all organizations in this section
+      await prisma.organizationMember.deleteMany({
+        where: {
+          userId: req.params.userId,
+          organization: { sectionId: req.params.id },
+        },
+      });
 
       await logAudit({
         action: "section_member_removed",

@@ -66,6 +66,7 @@ const STATUS_LABELS = {
 };
 const ROLE_LABELS = {
   admin: "Администратор",
+  supervisor: "Руководитель",
   manager: "Менеджер",
   accountant: "Бухгалтер",
   client: "Клиент",
@@ -155,7 +156,7 @@ export default function OrganizationDetailPage() {
   const navigate = useNavigate();
   const { user, hasPermission, hasRole } = useAuth();
   const canEdit = hasPermission("organization", "edit");
-  const isAdmin = hasRole("admin");
+  const isAdmin = hasRole("admin") || hasRole("supervisor");
 
   const [organization, setOrganization] = useState(null);
   const [sections, setSections] = useState([]);
@@ -1059,10 +1060,14 @@ export default function OrganizationDetailPage() {
             onTasksChanged={fetchOrgTasks}
             onComment={setCommentTask}
             canCreate={hasPermission("task", "create")}
-            canEditAny={hasPermission("task", "edit") && (hasRole("admin") || hasRole("manager"))}
+            canEditAny={
+              hasPermission("task", "edit") &&
+              (hasRole("admin") || hasRole("supervisor") || hasRole("manager"))
+            }
             canEditOwn={hasPermission("task", "edit")}
             canDeleteAny={
-              hasPermission("task", "delete") && (hasRole("admin") || hasRole("manager"))
+              hasPermission("task", "delete") &&
+              (hasRole("admin") || hasRole("supervisor") || hasRole("manager"))
             }
             canDeleteOwn={hasPermission("task", "delete")}
             members={org?.members || []}
@@ -1077,6 +1082,7 @@ export default function OrganizationDetailPage() {
             }
           />
         )}
+        {/* <OrgTicketsCard organizationId={id} /> — hidden until ticket system is released */}
       </div>
 
       {/* ── Send Message Modal ── */}
@@ -1274,6 +1280,93 @@ const BANNER_STATUS_COLORS = {
   OPEN: "bg-slate-100 text-slate-600",
   IN_PROGRESS: "bg-blue-100 text-blue-700",
 };
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function OrgTicketsCard({ organizationId }) {
+  const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { hasPermission } = useAuth();
+
+  useEffect(() => {
+    api(`/api/tickets?organizationId=${organizationId}&limit=10`)
+      .then((r) => r.json())
+      .then((data) => setTickets(data.tickets || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [organizationId]);
+
+  const statusLabel = {
+    NEW: "Новый",
+    IN_PROGRESS: "В работе",
+    WAITING_CLIENT: "Ожидает клиента",
+    CLOSED: "Закрыт",
+    ESCALATED: "Эскалация",
+    ON_HOLD: "На паузе",
+    REOPENED: "Переоткрыт",
+  };
+  const statusColor = {
+    NEW: "bg-blue-100 text-blue-700",
+    IN_PROGRESS: "bg-yellow-100 text-yellow-700",
+    WAITING_CLIENT: "bg-orange-100 text-orange-700",
+    CLOSED: "bg-green-100 text-green-700",
+    ESCALATED: "bg-red-100 text-red-700",
+    ON_HOLD: "bg-slate-100 text-slate-600",
+    REOPENED: "bg-purple-100 text-purple-700",
+  };
+
+  return (
+    <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-bold text-slate-900">Тикеты</h3>
+        <div className="flex items-center gap-2">
+          {tickets.length > 0 && (
+            <Link
+              to={`/tickets?organizationId=${organizationId}`}
+              className="text-sm text-[#6567F1] hover:underline"
+            >
+              Все тикеты
+            </Link>
+          )}
+          {hasPermission("ticket", "create") && (
+            <Link
+              to={`/tickets?create=true&orgId=${organizationId}`}
+              className="text-sm text-[#6567F1] hover:underline"
+            >
+              + Создать
+            </Link>
+          )}
+        </div>
+      </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-4 text-slate-400">
+          <Loader2 size={20} className="animate-spin" />
+        </div>
+      ) : tickets.length === 0 ? (
+        <p className="text-sm text-slate-400">Нет тикетов</p>
+      ) : (
+        <div className="space-y-2">
+          {tickets.map((t) => (
+            <Link
+              key={t.id}
+              to={`/tickets/${t.id}`}
+              className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xs text-slate-400 font-mono">#{t.number}</span>
+                <span className="text-sm text-slate-900 truncate">{t.subject}</span>
+              </div>
+              <span
+                className={`text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${statusColor[t.status] || "bg-slate-100 text-slate-600"}`}
+              >
+                {statusLabel[t.status] || t.status}
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function OrgOpenTasksBanner({ tasks, onComment }) {
   const open = tasks.filter((t) => t.status === "OPEN" || t.status === "IN_PROGRESS");

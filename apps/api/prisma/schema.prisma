@@ -39,6 +39,9 @@ model User {
   passwordResetTokens  PasswordResetToken[]
   messageTemplates     MessageTemplate[]    @relation("MessageTemplateCreator")
   sentMessages         MessageLog[]         @relation("MessageLogSender")
+  createdTickets       Ticket[]             @relation("TicketCreator")
+  assignedTickets      Ticket[]             @relation("TicketAssignee")
+  ticketMessages       TicketMessage[]      @relation("TicketMessageAuthor")
 
   @@map("users")
 }
@@ -243,6 +246,7 @@ model Organization {
   tasks             Task[]
   customFieldValues CustomFieldValue[]
   messageLogs       MessageLog[]
+  tickets           Ticket[]
 
   @@index([sectionId])
   @@map("organizations")
@@ -521,6 +525,7 @@ model Task {
   recurrenceInterval Int             @default(1) @map("recurrence_interval")
   reminderSentAt     DateTime?       @map("reminder_sent_at")
   escalatedAt        DateTime?       @map("escalated_at")
+  archivedAt         DateTime?       @map("archived_at")
   organizationId     String?         @map("organization_id")
   createdById        String          @map("created_by_id")
   createdAt          DateTime        @default(now()) @map("created_at")
@@ -701,4 +706,95 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+// ==================== Ticket System ====================
+
+enum TicketType {
+  QUESTION
+  DOCUMENT_REQUEST
+  PROBLEM
+  DOCUMENT_UPLOAD
+}
+
+enum TicketStatus {
+  NEW
+  IN_PROGRESS
+  WAITING_CLIENT
+  ON_HOLD
+  ESCALATED
+  CLOSED
+  REOPENED
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model Ticket {
+  id             String         @id @default(uuid())
+  number         Int            @unique @default(autoincrement())
+  subject        String
+  type           TicketType     @default(QUESTION)
+  status         TicketStatus   @default(NEW)
+  priority       TicketPriority @default(NORMAL)
+
+  organizationId String         @map("organization_id")
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdById    String         @map("created_by_id")
+  createdBy      User           @relation("TicketCreator", fields: [createdById], references: [id])
+
+  assignedToId   String?        @map("assigned_to_id")
+  assignedTo     User?          @relation("TicketAssignee", fields: [assignedToId], references: [id])
+
+  closedAt       DateTime?      @map("closed_at")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  messages       TicketMessage[]
+
+  @@index([organizationId, status])
+  @@index([assignedToId])
+  @@index([status])
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id         String    @id @default(uuid())
+  body       String
+  isInternal Boolean   @default(false) @map("is_internal")
+  deletedAt  DateTime? @map("deleted_at")
+
+  ticketId   String    @map("ticket_id")
+  ticket     Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  authorId   String    @map("author_id")
+  author     User      @relation("TicketMessageAuthor", fields: [authorId], references: [id])
+
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  attachments TicketAttachment[]
+
+  @@index([ticketId])
+  @@map("ticket_messages")
+}
+
+model TicketAttachment {
+  id        String   @id @default(uuid())
+  fileName  String   @map("file_name")
+  fileKey   String   @map("file_key")
+  fileSize  Int      @map("file_size")
+  mimeType  String   @map("mime_type")
+
+  messageId String   @map("message_id")
+  message   TicketMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("ticket_attachments")
 }

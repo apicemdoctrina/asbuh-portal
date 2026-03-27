@@ -18,6 +18,12 @@ import {
   Minus,
   RefreshCw,
   UserPlus,
+  Map,
+  ChevronDown,
+  ChevronUp,
+  UserMinus,
+  Loader2,
+  Search,
 } from "lucide-react";
 import {
   BarChart,
@@ -62,6 +68,13 @@ const fmtShort = (n) => {
 };
 
 const ROLE_LABELS = { admin: "Администратор", manager: "Менеджер", accountant: "Бухгалтер" };
+
+function MarginBadge({ margin }) {
+  if (margin >= 40) return <span className="text-emerald-600 font-semibold">{margin}%</span>;
+  if (margin >= 20) return <span className="text-amber-600 font-semibold">{margin}%</span>;
+  if (margin > 0) return <span className="text-red-500 font-semibold">{margin}%</span>;
+  return <span className="text-red-600 font-bold">{margin}%</span>;
+}
 
 function calcGrowth(current, prev) {
   if (prev == null || prev === 0) return null;
@@ -536,6 +549,446 @@ function IncomeBlock({ incomes, onAdd, onDelete, onUpdate }) {
   );
 }
 
+// ─── SectionsBlock ────────────────────────────────────────────────────────────
+
+const SECTION_ROLE_LABELS = {
+  accountant: "Бухгалтер",
+  auditor: "Аудитор",
+  manager: "Менеджер",
+  admin: "Администратор",
+  supervisor: "Руководитель",
+};
+
+function SectionsBlock({ sections, onRefresh }) {
+  const [expandedId, setExpandedId] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  // inline edit state
+  const [editingId, setEditingId] = useState(null);
+  const [editNumber, setEditNumber] = useState("");
+  const [editName, setEditName] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+
+  // add member state
+  const [addSearch, setAddSearch] = useState("");
+
+  const [addSaving, setAddSaving] = useState(false);
+  const [addError, setAddError] = useState("");
+  const [allUsers, setAllUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+
+  // create section state
+  const [creating, setCreating] = useState(false);
+  const [newNumber, setNewNumber] = useState("");
+  const [newName, setNewName] = useState("");
+  const [createSaving, setCreateSaving] = useState(false);
+  const [createError, setCreateError] = useState("");
+
+  async function loadDetail(id) {
+    setDetailLoading(true);
+    const res = await api(`/api/sections/${id}`);
+    if (res.ok) {
+      const data = await res.json();
+      setDetail(data);
+      // Load users excluding already members
+      setLoadingUsers(true);
+      const existingIds = new Set(data.members?.map((m) => m.user.id) ?? []);
+      api("/api/users?limit=200&excludeRole=client")
+        .then((r) => (r.ok ? r.json() : []))
+        .then((users) =>
+          setAllUsers((Array.isArray(users) ? users : []).filter((u) => !existingIds.has(u.id))),
+        )
+        .catch(() => {})
+        .finally(() => setLoadingUsers(false));
+    }
+    setDetailLoading(false);
+  }
+
+  function toggleExpand(id) {
+    if (expandedId === id) {
+      setExpandedId(null);
+      setDetail(null);
+      setAllUsers([]);
+    } else {
+      setExpandedId(id);
+      setDetail(null);
+      setAllUsers([]);
+      setAddSearch("");
+      setSelectedUser(null);
+      setAddError("");
+      loadDetail(id);
+    }
+  }
+
+  function startEdit(s) {
+    setEditingId(s.id);
+    setEditNumber(String(s.number));
+    setEditName(s.name ?? "");
+  }
+
+  async function saveEdit(id) {
+    setEditSaving(true);
+    try {
+      const res = await api(`/api/sections/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ number: parseInt(editNumber), name: editName || null }),
+      });
+      if (res.ok) {
+        setEditingId(null);
+        onRefresh();
+        if (expandedId === id) loadDetail(id);
+      }
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  async function handleAddMember() {
+    if (!selectedUser) return;
+    setAddSaving(true);
+    setAddError("");
+    try {
+      const res = await api(`/api/sections/${expandedId}/members`, {
+        method: "POST",
+        body: JSON.stringify({ email: selectedUser.email, role: "accountant" }),
+      });
+      if (res.ok) {
+        setSelectedUser(null);
+        setAddSearch("");
+        onRefresh();
+        loadDetail(expandedId);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setAddError(data.error || "Ошибка");
+      }
+    } finally {
+      setAddSaving(false);
+    }
+  }
+
+  async function handleRemoveMember(userId) {
+    const res = await api(`/api/sections/${expandedId}/members/${userId}`, { method: "DELETE" });
+    if (res.ok) {
+      onRefresh();
+      loadDetail(expandedId);
+    }
+  }
+
+  async function handleCreate() {
+    if (!newNumber) return;
+    setCreateSaving(true);
+    setCreateError("");
+    try {
+      const res = await api("/api/sections", {
+        method: "POST",
+        body: JSON.stringify({ number: parseInt(newNumber), name: newName || null }),
+      });
+      if (res.ok) {
+        setCreating(false);
+        setNewNumber("");
+        setNewName("");
+        onRefresh();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setCreateError(data.error || "Ошибка");
+      }
+    } finally {
+      setCreateSaving(false);
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+      <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Map size={16} className="text-slate-400" />
+          <h2 className="text-base font-semibold text-slate-900">Участки</h2>
+          <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+            {sections.length}
+          </span>
+        </div>
+        <button
+          onClick={() => setCreating((v) => !v)}
+          className="flex items-center gap-1.5 text-sm text-[#6567F1] hover:bg-[#6567F1]/5 px-3 py-1.5 rounded-lg transition-colors"
+        >
+          <Plus size={14} />
+          Добавить
+        </button>
+      </div>
+
+      {/* Create form */}
+      {creating && (
+        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-end gap-3">
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Номер *</label>
+            <input
+              type="number"
+              value={newNumber}
+              onChange={(e) => setNewNumber(e.target.value)}
+              className="w-20 px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/20 focus:border-[#6567F1]"
+              placeholder="1"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Название</label>
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="w-48 px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/20 focus:border-[#6567F1]"
+              placeholder="Необязательно"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCreate}
+              disabled={createSaving || !newNumber}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6567F1] text-white text-sm rounded-lg hover:bg-[#5557E1] disabled:opacity-50 transition-colors"
+            >
+              {createSaving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+              Создать
+            </button>
+            <button
+              onClick={() => {
+                setCreating(false);
+                setCreateError("");
+              }}
+              className="px-3 py-1.5 text-sm text-slate-500 hover:text-slate-700 transition-colors"
+            >
+              Отмена
+            </button>
+          </div>
+          {createError && <p className="w-full text-xs text-red-600">{createError}</p>}
+        </div>
+      )}
+
+      {sections.length === 0 ? (
+        <div className="px-6 py-8 text-center text-slate-400 text-sm">Нет участков</div>
+      ) : (
+        <div className="divide-y divide-slate-50">
+          {sections.map((s) => {
+            const isExpanded = expandedId === s.id;
+            const isEditing = editingId === s.id;
+
+            return (
+              <div key={s.id}>
+                {/* Section row */}
+                <div className="px-6 py-3.5 flex items-center gap-3 hover:bg-slate-50/50 transition-colors">
+                  {isEditing ? (
+                    <div className="flex items-center gap-2 flex-1 flex-wrap">
+                      <input
+                        type="number"
+                        value={editNumber}
+                        onChange={(e) => setEditNumber(e.target.value)}
+                        className="w-16 px-2 py-1 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#6567F1]"
+                        autoFocus
+                      />
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="w-48 px-2 py-1 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#6567F1]"
+                        placeholder="Название"
+                      />
+                      <button
+                        onClick={() => saveEdit(s.id)}
+                        disabled={editSaving}
+                        className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                      >
+                        {editSaving ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Check size={14} />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setEditingId(null)}
+                        className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                      >
+                        <XIcon size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-3 flex-1 min-w-0 flex-wrap">
+                        <span className="text-sm font-semibold text-slate-800">
+                          №{s.number}
+                          {s.name ? ` — ${s.name}` : ""}
+                        </span>
+                        <span className="flex items-center gap-1 text-xs text-slate-500">
+                          <Users size={11} />
+                          {s._count.members} чел.
+                        </span>
+                        <span className="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                          {s._count.organizations} орг.
+                          {s.formCounts?.IP > 0 && (
+                            <span className="text-sky-600 font-medium">{s.formCounts.IP} ИП</span>
+                          )}
+                          {s.formCounts?.OOO > 0 && (
+                            <span className="text-[#6567F1] font-medium">
+                              {s.formCounts.OOO} ООО
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => startEdit(s)}
+                        className="p-1.5 text-slate-300 hover:text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg transition-colors"
+                        title="Редактировать"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      <button
+                        onClick={() => toggleExpand(s.id)}
+                        className="flex items-center gap-1 text-xs text-slate-400 hover:text-[#6567F1] px-2 py-1.5 rounded-lg hover:bg-[#6567F1]/5 transition-colors"
+                      >
+                        {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        {isExpanded ? "Свернуть" : "Состав"}
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Expanded members panel */}
+                {isExpanded && (
+                  <div className="px-6 pb-4 bg-slate-50/40 border-t border-slate-100">
+                    {detailLoading ? (
+                      <div className="flex items-center justify-center py-4 text-slate-400">
+                        <Loader2 size={16} className="animate-spin" />
+                      </div>
+                    ) : (
+                      <>
+                        {/* Members list */}
+                        <div className="pt-3 space-y-1.5 mb-3">
+                          {detail?.members?.length === 0 && (
+                            <p className="text-xs text-slate-400 py-1">Нет сотрудников</p>
+                          )}
+                          {detail?.members?.map((m) => (
+                            <div
+                              key={m.id}
+                              className="flex items-center justify-between gap-2 group"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-6 h-6 rounded-lg bg-[#6567F1]/10 flex items-center justify-center shrink-0">
+                                  <span className="text-[10px] font-bold text-[#6567F1]">
+                                    {(m.user.lastName?.[0] ?? "").toUpperCase()}
+                                    {(m.user.firstName?.[0] ?? "").toUpperCase()}
+                                  </span>
+                                </div>
+                                <span className="text-sm text-slate-700 truncate">
+                                  {m.user.lastName} {m.user.firstName}
+                                </span>
+                                <span className="text-xs text-slate-400 shrink-0">
+                                  {SECTION_ROLE_LABELS[m.role] ?? m.role}
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => handleRemoveMember(m.user.id)}
+                                className="flex items-center gap-1 px-2 py-1 text-xs text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                title="Удалить с участка"
+                              >
+                                <UserMinus size={14} />
+                                <span>Удалить</span>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Add member form */}
+                        <div className="pt-3 border-t border-slate-200 space-y-2">
+                          <div className="relative">
+                            <Search
+                              size={13}
+                              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                            />
+                            <input
+                              type="text"
+                              value={addSearch}
+                              onChange={(e) => setAddSearch(e.target.value)}
+                              placeholder="Поиск по имени..."
+                              className="w-full pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/20 focus:border-[#6567F1] bg-white"
+                            />
+                          </div>
+                          <div className="border border-slate-200 rounded-lg overflow-hidden h-36 overflow-y-auto bg-white">
+                            {loadingUsers ? (
+                              <div className="flex items-center justify-center h-full text-slate-400">
+                                <Loader2 size={16} className="animate-spin" />
+                              </div>
+                            ) : allUsers.length === 0 ? (
+                              <div className="flex items-center justify-center h-full text-xs text-slate-400">
+                                Все сотрудники уже добавлены
+                              </div>
+                            ) : (
+                              (() => {
+                                const q = addSearch.toLowerCase();
+                                const filtered = allUsers.filter(
+                                  (u) =>
+                                    !q ||
+                                    `${u.lastName} ${u.firstName}`.toLowerCase().includes(q) ||
+                                    u.email.toLowerCase().includes(q),
+                                );
+                                return filtered.length === 0 ? (
+                                  <div className="flex items-center justify-center h-full text-xs text-slate-400">
+                                    Не найдено
+                                  </div>
+                                ) : (
+                                  filtered.map((u) => (
+                                    <button
+                                      key={u.id}
+                                      type="button"
+                                      onClick={() =>
+                                        setSelectedUser(selectedUser?.id === u.id ? null : u)
+                                      }
+                                      className={`w-full text-left px-3 py-2 text-sm transition-colors border-b border-slate-50 last:border-0 ${
+                                        selectedUser?.id === u.id
+                                          ? "bg-[#6567F1]/10 text-[#6567F1] font-medium"
+                                          : "hover:bg-slate-50 text-slate-700"
+                                      }`}
+                                    >
+                                      <span className="font-medium">
+                                        {u.lastName} {u.firstName}
+                                      </span>
+                                      <span className="block text-xs text-slate-400">
+                                        {u.email}
+                                      </span>
+                                    </button>
+                                  ))
+                                );
+                              })()
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={handleAddMember}
+                              disabled={addSaving || !selectedUser}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6567F1] text-white text-sm rounded-lg hover:bg-[#5557E1] disabled:opacity-50 transition-colors"
+                            >
+                              {addSaving ? (
+                                <Loader2 size={13} className="animate-spin" />
+                              ) : (
+                                <UserPlus size={13} />
+                              )}
+                              Добавить
+                            </button>
+                          </div>
+                          {addError && <p className="text-xs text-red-600">{addError}</p>}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── ManagementPage ───────────────────────────────────────────────────────────
 
 export default function ManagementPage() {
@@ -546,12 +999,14 @@ export default function ManagementPage() {
   const [snapshots, setSnapshots] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [incomes, setIncomes] = useState([]);
+  const [sectionProfitability, setSectionProfitability] = useState([]);
+  const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [capturing, setCapturing] = useState(false);
 
   useEffect(() => {
-    if (!hasRole("admin")) {
+    if (!hasRole("admin") && !hasRole("supervisor")) {
       navigate("/");
       return;
     }
@@ -562,23 +1017,29 @@ export default function ManagementPage() {
     setLoading(true);
     setError(null);
     try {
-      const [dashRes, snapsRes, expsRes, incsRes] = await Promise.all([
+      const [dashRes, snapsRes, expsRes, incsRes, analyticsRes, sectionsRes] = await Promise.all([
         api("/api/management/dashboard"),
         api("/api/management/snapshots"),
         api("/api/management/expenses"),
         api("/api/management/incomes"),
+        api("/api/management/analytics"),
+        api("/api/sections?limit=100"),
       ]);
       if (!dashRes.ok) throw new Error("Ошибка загрузки данных");
-      const [dash, snaps, exps, incs] = await Promise.all([
+      const [dash, snaps, exps, incs, analytics, sectionsData] = await Promise.all([
         dashRes.json(),
         snapsRes.ok ? snapsRes.json() : Promise.resolve([]),
         expsRes.ok ? expsRes.json() : Promise.resolve([]),
         incsRes.ok ? incsRes.json() : Promise.resolve([]),
+        analyticsRes.ok ? analyticsRes.json() : Promise.resolve(null),
+        sectionsRes.ok ? sectionsRes.json() : Promise.resolve({ sections: [] }),
       ]);
       setDashboard(dash);
       setSnapshots(snaps);
       setExpenses(exps);
       setIncomes(incs);
+      setSectionProfitability(analytics?.sectionProfitability ?? []);
+      setSections(sectionsData.sections ?? []);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -738,6 +1199,9 @@ export default function ManagementPage() {
           {capturing ? "Обновление..." : "Обновить снимок"}
         </button>
       </div>
+
+      {/* Sections */}
+      <SectionsBlock sections={sections} onRefresh={loadAll} />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -1145,6 +1609,151 @@ export default function ManagementPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Section profitability */}
+      {sectionProfitability.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2">
+            <Map size={16} className="text-slate-400" />
+            <h2 className="text-base font-semibold text-slate-900">Маржинальность участков</h2>
+            <span className="text-xs text-slate-400 ml-1">
+              Выручка vs ФОТ (активные организации)
+            </span>
+          </div>
+          {/* Visual bars */}
+          <div className="px-6 py-4 space-y-3 border-b border-slate-100">
+            {sectionProfitability.map((s) => {
+              const maxRev = Math.max(...sectionProfitability.map((x) => x.revenue), 1);
+              const revPct = (s.revenue / maxRev) * 100;
+              const payPct = (s.payroll / maxRev) * 100;
+              return (
+                <div key={s.sectionId}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium text-slate-700">
+                      №{s.number}
+                      {s.name ? ` — ${s.name}` : ""}
+                    </span>
+                    <MarginBadge margin={s.margin} />
+                  </div>
+                  <div className="flex-1 space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2.5 bg-[#6567F1]/20 rounded-full overflow-hidden flex-1">
+                        <div
+                          className="h-full bg-[#6567F1] rounded-full"
+                          style={{ width: `${revPct}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-slate-500 w-24 text-right tabular-nums">
+                        {fmt(s.revenue)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="h-2.5 bg-red-100 rounded-full overflow-hidden flex-1">
+                        <div
+                          className="h-full bg-red-400 rounded-full"
+                          style={{ width: `${payPct}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-slate-500 w-24 text-right tabular-nums">
+                        {fmt(s.payroll)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            <div className="flex items-center gap-4 pt-2 text-xs text-slate-400">
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-2 rounded bg-[#6567F1]" /> Выручка
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-2 rounded bg-red-400" /> ФОТ
+              </span>
+            </div>
+          </div>
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50/50">
+                  <th className="text-left px-4 py-3 font-medium text-slate-500">Участок</th>
+                  <th className="text-center px-4 py-3 font-medium text-slate-500">Орг-ций</th>
+                  <th className="text-right px-4 py-3 font-medium text-slate-500">Выручка</th>
+                  <th className="text-right px-4 py-3 font-medium text-slate-500 hidden sm:table-cell">
+                    ФОТ
+                  </th>
+                  <th className="text-right px-4 py-3 font-medium text-slate-500 hidden md:table-cell">
+                    Прибыль
+                  </th>
+                  <th className="text-center px-4 py-3 font-medium text-slate-500">Маржа</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sectionProfitability.map((s) => (
+                  <tr key={s.sectionId} className="border-b border-slate-50 hover:bg-slate-50/50">
+                    <td className="px-4 py-3 font-medium text-slate-900">
+                      №{s.number}
+                      {s.name ? ` — ${s.name}` : ""}
+                    </td>
+                    <td className="px-4 py-3 text-center text-slate-600">{s.orgCount}</td>
+                    <td className="px-4 py-3 text-right text-slate-900 font-medium tabular-nums">
+                      {fmt(s.revenue)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-slate-600 tabular-nums hidden sm:table-cell">
+                      {fmt(s.payroll)}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums hidden md:table-cell">
+                      <span className={s.profit >= 0 ? "text-emerald-600" : "text-red-600"}>
+                        {s.profit >= 0 ? "+" : ""}
+                        {fmt(s.profit)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <MarginBadge margin={s.margin} />
+                    </td>
+                  </tr>
+                ))}
+                <tr className="bg-slate-50 font-semibold">
+                  <td className="px-4 py-3 text-slate-700">Итого</td>
+                  <td className="px-4 py-3 text-center text-slate-700">
+                    {sectionProfitability.reduce((s, x) => s + x.orgCount, 0)}
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-900 tabular-nums">
+                    {fmt(sectionProfitability.reduce((s, x) => s + x.revenue, 0))}
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-700 tabular-nums hidden sm:table-cell">
+                    {fmt(sectionProfitability.reduce((s, x) => s + x.payroll, 0))}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums hidden md:table-cell">
+                    {(() => {
+                      const total =
+                        sectionProfitability.reduce((s, x) => s + x.revenue, 0) -
+                        sectionProfitability.reduce((s, x) => s + x.payroll, 0);
+                      return (
+                        <span className={total >= 0 ? "text-emerald-600" : "text-red-600"}>
+                          {total >= 0 ? "+" : ""}
+                          {fmt(total)}
+                        </span>
+                      );
+                    })()}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {(() => {
+                      const totalRev = sectionProfitability.reduce((s, x) => s + x.revenue, 0);
+                      const totalPay = sectionProfitability.reduce((s, x) => s + x.payroll, 0);
+                      const m =
+                        totalRev > 0
+                          ? Math.round(((totalRev - totalPay) / totalRev) * 1000) / 10
+                          : 0;
+                      return <MarginBadge margin={m} />;
+                    })()}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       )}

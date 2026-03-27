@@ -6,6 +6,7 @@ import {
   startDeadlineReminder,
   startEscalationNotifier,
 } from "./lib/task-notifier.js";
+import { startTaskArchiver } from "./lib/task-archiver.js";
 
 const PORT = process.env.PORT || 3001;
 
@@ -51,3 +52,4 @@ startLongPolling(async (msg) => {
 startDailyNotifier();
 startDeadlineReminder();
 startEscalationNotifier();
+startTaskArchiver();

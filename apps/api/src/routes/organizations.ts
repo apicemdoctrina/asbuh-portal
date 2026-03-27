@@ -39,7 +39,7 @@ const router = Router();
 
 /** Build a Prisma `where` filter that enforces data-scoping rules. */
 function getScopedWhere(userId: string, roles: string[]): Prisma.OrganizationWhereInput {
-  if (roles.includes("admin")) return {};
+  if (roles.includes("admin") || roles.includes("supervisor")) return {};
   if (roles.includes("manager") || roles.includes("accountant")) {
     return {
       section: { members: { some: { userId } } },
@@ -268,7 +268,7 @@ router.post("/", authenticate, requirePermission("organization", "create"), asyn
         res.status(404).json({ error: "Section not found" });
         return;
       }
-      if (!req.user!.roles.includes("admin")) {
+      if (!req.user!.roles.some((r) => ["admin", "supervisor"].includes(r))) {
         const membership = await prisma.sectionMember.findFirst({
           where: { sectionId: validated.sectionId, userId: req.user!.userId },
         });
@@ -699,7 +699,7 @@ router.put("/:id", authenticate, requirePermission("organization", "edit"), asyn
         res.status(404).json({ error: "Section not found" });
         return;
       }
-      if (!req.user!.roles.includes("admin")) {
+      if (!req.user!.roles.some((r) => ["admin", "supervisor"].includes(r))) {
         const membership = await prisma.sectionMember.findFirst({
           where: { sectionId: validated.sectionId, userId: req.user!.userId },
         });

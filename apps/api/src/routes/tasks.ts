@@ -20,7 +20,7 @@ const INCLUDE = {
 const COMMENT_AUTHOR_SELECT = { id: true, firstName: true, lastName: true };
 
 function isAdminOrManager(roles: string[]) {
-  return roles.some((r) => ["admin", "manager"].includes(r));
+  return roles.some((r) => ["admin", "supervisor", "manager"].includes(r));
 }
 
 function calcNextDue(from: Date, type: string, interval: number): Date {
@@ -45,18 +45,26 @@ function calcNextDue(from: Date, type: string, interval: number): Date {
 // GET /api/tasks
 router.get("/", authenticate, requirePermission("task", "view"), async (req, res) => {
   try {
-    const { status, organizationId, assignedToId, overdue } = req.query;
+    const { status, organizationId, assignedToId, overdue, archived } = req.query;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
+
+    // Archive scope: archived=true → only archived (admin/supervisor only); default → exclude archived
+    const canViewArchive = req.user!.roles.some((r) => ["admin", "supervisor"].includes(r));
+    if (archived === "true" && canViewArchive) {
+      where.archivedAt = { not: null };
+    } else {
+      where.archivedAt = null;
+    }
 
     if (status) where.status = status;
 
     if (organizationId) {
       // Inside an org card — show all tasks for that org
       where.organizationId = organizationId as string;
-    } else {
-      // Tasks page — show only tasks the user created or is assigned to
+    } else if (!req.user!.roles.some((r) => ["admin", "supervisor"].includes(r))) {
+      // Tasks page — show only tasks the user created or is assigned to (not for admin)
       where.OR = [
         { createdById: req.user!.userId },
         { assignees: { some: { userId: req.user!.userId } } },
@@ -103,7 +111,15 @@ router.post("/", authenticate, requirePermission("task", "create"), async (req, 
       return res.status(400).json({ error: "title is required" });
     }
 
-    const assigneeIds: string[] = Array.isArray(assignedToIds) ? assignedToIds : [];
+    const canAssignOthers = isAdminOrManager(req.user!.roles);
+    let assigneeIds: string[] = Array.isArray(assignedToIds) ? assignedToIds : [];
+    if (!canAssignOthers) {
+      // Non-managers can only assign to themselves
+      assigneeIds = assigneeIds.filter((id) => id === req.user!.userId);
+      if (assigneeIds.length === 0 && assignedToIds?.length > 0) {
+        return res.status(403).json({ error: "Можно назначать задачи только себе" });
+      }
+    }
 
     // Support multi-org creation: one task per org
     const orgIdList: (string | null)[] =
@@ -197,7 +213,12 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
     });
     if (!existing) return res.status(404).json({ error: "Task not found" });
 
-    if (!isAdminOrManager(req.user.roles) && existing.createdById !== req.user.userId) {
+    const isAssignee = existing.assignees.some((a) => a.userId === req.user.userId);
+    if (
+      !isAdminOrManager(req.user.roles) &&
+      existing.createdById !== req.user.userId &&
+      !isAssignee
+    ) {
       return res.status(403).json({ error: "Forbidden" });
     }
 
@@ -215,7 +236,10 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
 
     // Replace assignees if provided
     if (assignedToIds !== undefined) {
-      const newIds: string[] = Array.isArray(assignedToIds) ? assignedToIds : [];
+      let newIds: string[] = Array.isArray(assignedToIds) ? assignedToIds : [];
+      if (!isAdminOrManager(req.user!.roles)) {
+        newIds = newIds.filter((id) => id === req.user!.userId);
+      }
       await prisma.taskAssignee.deleteMany({ where: { taskId: id } });
       if (newIds.length > 0) {
         await prisma.taskAssignee.createMany({

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
-import { Search, Loader2, Pencil, Trash2, X } from "lucide-react";
+import { Search, Loader2, Pencil, Trash2, X, KeyRound } from "lucide-react";
 
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -218,8 +218,42 @@ function EditClientModal({ client, onClose, onUpdated }) {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const [showPasswordBlock, setShowPasswordBlock] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
+
   function setField(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  async function handleSetPassword() {
+    setPasswordError("");
+    setPasswordSuccess(false);
+    if (newPassword.length < 8) {
+      setPasswordError("Пароль должен быть не менее 8 символов");
+      return;
+    }
+    setPasswordSubmitting(true);
+    try {
+      const res = await api(`/api/users/${client.id}/password`, {
+        method: "PATCH",
+        body: JSON.stringify({ newPassword }),
+      });
+      if (res.ok) {
+        setPasswordSuccess(true);
+        setNewPassword("");
+        setShowPasswordBlock(false);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setPasswordError(data.error || "Ошибка");
+      }
+    } catch {
+      setPasswordError("Сетевая ошибка");
+    } finally {
+      setPasswordSubmitting(false);
+    }
   }
 
   async function handleSubmit(e) {
@@ -311,6 +345,63 @@ function EditClientModal({ client, onClose, onUpdated }) {
           {error && (
             <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>
           )}
+
+          {/* Password reset block */}
+          <div className="border-t border-slate-100 pt-4">
+            {!showPasswordBlock ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPasswordBlock(true);
+                  setPasswordSuccess(false);
+                }}
+                className="flex items-center gap-2 text-sm text-slate-500 hover:text-[#6567F1] transition-colors"
+              >
+                <KeyRound size={14} />
+                Сменить пароль
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-slate-700">Новый пароль</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Минимум 8 символов"
+                    className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSetPassword}
+                    disabled={passwordSubmitting}
+                    className="px-3 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white shadow-lg shadow-[#6567F1]/30 transition-all disabled:opacity-50"
+                  >
+                    {passwordSubmitting ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      "Сохранить"
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPasswordBlock(false);
+                      setNewPassword("");
+                      setPasswordError("");
+                    }}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                {passwordError && <div className="text-sm text-red-600">{passwordError}</div>}
+              </div>
+            )}
+            {passwordSuccess && (
+              <div className="text-sm text-green-600 mt-1">Пароль успешно изменён</div>
+            )}
+          </div>
 
           <div className="flex justify-end gap-3 pt-2">
             <button

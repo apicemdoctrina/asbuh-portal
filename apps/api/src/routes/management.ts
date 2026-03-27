@@ -38,7 +38,7 @@ async function computeCurrentMetrics() {
       where: {
         isActive: true,
         userRoles: {
-          some: { role: { name: { in: ["admin", "manager", "accountant"] } } },
+          some: { role: { name: { in: ["admin", "supervisor", "manager", "accountant"] } } },
         },
       },
       select: {
@@ -158,7 +158,7 @@ async function saveSnapshot(metrics: Awaited<ReturnType<typeof computeCurrentMet
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 // GET /api/management/dashboard
-router.get("/dashboard", authenticate, requireRole("admin"), async (_req, res) => {
+router.get("/dashboard", authenticate, requireRole("admin", "supervisor"), async (_req, res) => {
   try {
     const metrics = await computeCurrentMetrics();
     res.json(metrics);
@@ -171,19 +171,24 @@ router.get("/dashboard", authenticate, requireRole("admin"), async (_req, res) =
 });
 
 // POST /api/management/snapshots/capture — manual refresh
-router.post("/snapshots/capture", authenticate, requireRole("admin"), async (_req, res) => {
-  try {
-    const metrics = await computeCurrentMetrics();
-    const snapshot = await saveSnapshot(metrics);
-    res.json(snapshot);
-  } catch (err) {
-    console.error("Snapshot capture error:", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+router.post(
+  "/snapshots/capture",
+  authenticate,
+  requireRole("admin", "supervisor"),
+  async (_req, res) => {
+    try {
+      const metrics = await computeCurrentMetrics();
+      const snapshot = await saveSnapshot(metrics);
+      res.json(snapshot);
+    } catch (err) {
+      console.error("Snapshot capture error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
 
 // GET /api/management/snapshots — last 24 months chronological
-router.get("/snapshots", authenticate, requireRole("admin"), async (_req, res) => {
+router.get("/snapshots", authenticate, requireRole("admin", "supervisor"), async (_req, res) => {
   try {
     const snapshots = await prisma.revenueSnapshot.findMany({
       orderBy: [{ year: "desc" }, { month: "desc" }],
@@ -199,7 +204,7 @@ router.get("/snapshots", authenticate, requireRole("admin"), async (_req, res) =
 // ─── Expenses CRUD ────────────────────────────────────────────────────────────
 
 // GET /api/management/expenses
-router.get("/expenses", authenticate, requireRole("admin"), async (_req, res) => {
+router.get("/expenses", authenticate, requireRole("admin", "supervisor"), async (_req, res) => {
   try {
     const expenses = await prisma.expense.findMany({
       orderBy: [{ type: "asc" }, { createdAt: "asc" }],
@@ -212,7 +217,7 @@ router.get("/expenses", authenticate, requireRole("admin"), async (_req, res) =>
 });
 
 // POST /api/management/expenses
-router.post("/expenses", authenticate, requireRole("admin"), async (req, res) => {
+router.post("/expenses", authenticate, requireRole("admin", "supervisor"), async (req, res) => {
   try {
     const { name, amount, type, date, description } = req.body;
     if (!name || amount == null || !type) {
@@ -240,7 +245,7 @@ router.post("/expenses", authenticate, requireRole("admin"), async (req, res) =>
 });
 
 // PUT /api/management/expenses/:id
-router.put("/expenses/:id", authenticate, requireRole("admin"), async (req, res) => {
+router.put("/expenses/:id", authenticate, requireRole("admin", "supervisor"), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, amount, type, date, description } = req.body;
@@ -274,21 +279,26 @@ router.put("/expenses/:id", authenticate, requireRole("admin"), async (req, res)
 });
 
 // DELETE /api/management/expenses/:id
-router.delete("/expenses/:id", authenticate, requireRole("admin"), async (req, res) => {
-  try {
-    const { id } = req.params;
-    await prisma.expense.delete({ where: { id } });
-    res.status(204).send();
-  } catch (err) {
-    console.error("Delete expense error:", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+router.delete(
+  "/expenses/:id",
+  authenticate,
+  requireRole("admin", "supervisor"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      await prisma.expense.delete({ where: { id } });
+      res.status(204).send();
+    } catch (err) {
+      console.error("Delete expense error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
 
 // ─── Income CRUD ──────────────────────────────────────────────────────────────
 
 // GET /api/management/incomes
-router.get("/incomes", authenticate, requireRole("admin"), async (_req, res) => {
+router.get("/incomes", authenticate, requireRole("admin", "supervisor"), async (_req, res) => {
   try {
     const incomes = await prisma.income.findMany({
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
@@ -301,7 +311,7 @@ router.get("/incomes", authenticate, requireRole("admin"), async (_req, res) => 
 });
 
 // POST /api/management/incomes
-router.post("/incomes", authenticate, requireRole("admin"), async (req, res) => {
+router.post("/incomes", authenticate, requireRole("admin", "supervisor"), async (req, res) => {
   try {
     const { name, amount, date, description } = req.body;
     if (!name || amount == null) {
@@ -324,7 +334,7 @@ router.post("/incomes", authenticate, requireRole("admin"), async (req, res) => 
 });
 
 // PUT /api/management/incomes/:id
-router.put("/incomes/:id", authenticate, requireRole("admin"), async (req, res) => {
+router.put("/incomes/:id", authenticate, requireRole("admin", "supervisor"), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, amount, date, description } = req.body;
@@ -353,252 +363,264 @@ router.put("/incomes/:id", authenticate, requireRole("admin"), async (req, res) 
 });
 
 // DELETE /api/management/incomes/:id
-router.delete("/incomes/:id", authenticate, requireRole("admin"), async (req, res) => {
-  try {
-    const { id } = req.params;
-    await prisma.income.delete({ where: { id } });
-    res.status(204).send();
-  } catch (err) {
-    console.error("Delete income error:", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+router.delete(
+  "/incomes/:id",
+  authenticate,
+  requireRole("admin", "supervisor"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      await prisma.income.delete({ where: { id } });
+      res.status(204).send();
+    } catch (err) {
+      console.error("Delete income error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
 
 // ─── Analytics ───────────────────────────────────────────────────────────────
 
 // GET /api/management/analytics — workload, section profitability, bottlenecks
-router.get("/analytics", authenticate, requireRole("admin", "manager"), async (req, res) => {
-  try {
-    const now = new Date();
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+router.get(
+  "/analytics",
+  authenticate,
+  requireRole("admin", "supervisor", "manager"),
+  async (req, res) => {
+    try {
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    // ── 1. Staff workload ──────────────────────────────────────────────────
-    const staffUsers = await prisma.user.findMany({
-      where: {
-        isActive: true,
-        userRoles: {
-          some: { role: { name: { in: ["admin", "manager", "accountant"] } } },
+      // ── 1. Staff workload ──────────────────────────────────────────────────
+      const staffUsers = await prisma.user.findMany({
+        where: {
+          isActive: true,
+          userRoles: {
+            some: { role: { name: { in: ["admin", "supervisor", "manager", "accountant"] } } },
+          },
         },
-      },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        userRoles: { include: { role: { select: { name: true } } } },
-        sectionMembers: {
-          select: {
-            section: {
-              select: {
-                _count: {
-                  select: {
-                    organizations: {
-                      where: { status: { notIn: ["left", "closed", "ceased", "own"] } },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          userRoles: { include: { role: { select: { name: true } } } },
+          sectionMembers: {
+            select: {
+              section: {
+                select: {
+                  _count: {
+                    select: {
+                      organizations: {
+                        where: { status: { notIn: ["left", "closed", "ceased", "own"] } },
+                      },
                     },
                   },
                 },
               },
             },
           },
-        },
-        taskAssignees: {
-          select: {
-            task: {
-              select: {
-                id: true,
-                status: true,
-                dueDate: true,
-                updatedAt: true,
-                createdAt: true,
-                category: true,
+          taskAssignees: {
+            select: {
+              task: {
+                select: {
+                  id: true,
+                  status: true,
+                  dueDate: true,
+                  updatedAt: true,
+                  createdAt: true,
+                  category: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      });
 
-    const workload = staffUsers.map((u) => {
-      const tasks = u.taskAssignees.map((a) => a.task);
-      const open = tasks.filter((t) => t.status !== "DONE" && t.status !== "CANCELLED");
-      const overdue = open.filter((t) => t.dueDate && new Date(t.dueDate) < now);
-      const doneLast30 = tasks.filter(
-        (t) => t.status === "DONE" && new Date(t.updatedAt) >= thirtyDaysAgo,
-      );
+      const workload = staffUsers.map((u) => {
+        const tasks = u.taskAssignees.map((a) => a.task);
+        const open = tasks.filter((t) => t.status !== "DONE" && t.status !== "CANCELLED");
+        const overdue = open.filter((t) => t.dueDate && new Date(t.dueDate) < now);
+        const doneLast30 = tasks.filter(
+          (t) => t.status === "DONE" && new Date(t.updatedAt) >= thirtyDaysAgo,
+        );
 
-      // Average completion time (days) for done tasks
-      let avgCompletionDays: number | null = null;
-      if (doneLast30.length > 0) {
-        const totalDays = doneLast30.reduce((sum, t) => {
-          const created = new Date(t.createdAt).getTime();
-          const finished = new Date(t.updatedAt).getTime();
-          return sum + (finished - created) / (1000 * 60 * 60 * 24);
+        // Average completion time (days) for done tasks
+        let avgCompletionDays: number | null = null;
+        if (doneLast30.length > 0) {
+          const totalDays = doneLast30.reduce((sum, t) => {
+            const created = new Date(t.createdAt).getTime();
+            const finished = new Date(t.updatedAt).getTime();
+            return sum + (finished - created) / (1000 * 60 * 60 * 24);
+          }, 0);
+          avgCompletionDays = Math.round((totalDays / doneLast30.length) * 10) / 10;
+        }
+
+        const roles = u.userRoles.map((ur) => ur.role.name).filter((r) => r !== "client");
+
+        const orgCount = u.sectionMembers.reduce(
+          (sum, sm) => sum + sm.section._count.organizations,
+          0,
+        );
+
+        return {
+          userId: u.id,
+          name: `${u.lastName} ${u.firstName}`,
+          roles,
+          orgCount,
+          openTasks: open.length,
+          overdueTasks: overdue.length,
+          doneLast30d: doneLast30.length,
+          avgCompletionDays,
+        };
+      });
+
+      // ── 2. Section profitability ───────────────────────────────────────────
+      const sections = await prisma.section.findMany({
+        select: {
+          id: true,
+          number: true,
+          name: true,
+          organizations: {
+            where: { status: { notIn: ["left", "closed", "ceased", "own"] } },
+            select: { monthlyPayment: true },
+          },
+          members: {
+            select: {
+              role: true,
+              userId: true,
+              user: { select: { salary: true } },
+            },
+          },
+        },
+      });
+
+      // Count how many sections each user belongs to (for salary splitting)
+      const userSectionCount: Record<string, number> = {};
+      for (const s of sections) {
+        for (const m of s.members) {
+          userSectionCount[m.userId] = (userSectionCount[m.userId] || 0) + 1;
+        }
+      }
+
+      const sectionProfitability = sections.map((s) => {
+        const revenue = s.organizations.reduce((sum, o) => sum + Number(o.monthlyPayment ?? 0), 0);
+        // Split salary proportionally: if user is in N sections, count 1/N here
+        const payroll = s.members.reduce(
+          (sum, m) => sum + Number(m.user.salary ?? 0) / (userSectionCount[m.userId] || 1),
+          0,
+        );
+        const margin = revenue > 0 ? ((revenue - payroll) / revenue) * 100 : 0;
+
+        return {
+          sectionId: s.id,
+          number: s.number,
+          name: s.name,
+          orgCount: s.organizations.length,
+          revenue: Math.round(revenue),
+          payroll: Math.round(payroll),
+          profit: Math.round(revenue - payroll),
+          margin: Math.round(margin * 10) / 10,
+        };
+      });
+
+      // ── 3. Bottlenecks ────────────────────────────────────────────────────
+      // All tasks that are overdue (not done, past due date)
+      const overdueTasks = await prisma.task.findMany({
+        where: {
+          status: { notIn: ["DONE", "CANCELLED"] },
+          dueDate: { lt: now },
+        },
+        select: {
+          id: true,
+          category: true,
+          organizationId: true,
+          organization: {
+            select: {
+              sectionId: true,
+              section: { select: { number: true, name: true } },
+            },
+          },
+        },
+      });
+
+      // By category
+      const byCategoryMap: Record<string, number> = {};
+      for (const t of overdueTasks) {
+        byCategoryMap[t.category] = (byCategoryMap[t.category] || 0) + 1;
+      }
+      const byCategory = Object.entries(byCategoryMap)
+        .map(([category, count]) => ({ category, count }))
+        .sort((a, b) => b.count - a.count);
+
+      // By section
+      const bySectionMap: Record<string, { number: number; name: string | null; count: number }> =
+        {};
+      for (const t of overdueTasks) {
+        const sec = t.organization?.section;
+        if (!sec) continue;
+        const sid = t.organization!.sectionId!;
+        if (!bySectionMap[sid])
+          bySectionMap[sid] = { number: sec.number, name: sec.name, count: 0 };
+        bySectionMap[sid].count++;
+      }
+      const bySection = Object.entries(bySectionMap)
+        .map(([sectionId, d]) => ({ sectionId, ...d }))
+        .sort((a, b) => b.count - a.count);
+
+      // Done tasks in last 90 days — average completion time
+      const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      const recentDone = await prisma.task.findMany({
+        where: {
+          status: "DONE",
+          updatedAt: { gte: ninetyDaysAgo },
+        },
+        select: { createdAt: true, updatedAt: true, category: true },
+      });
+
+      let avgCompletionOverall: number | null = null;
+      if (recentDone.length > 0) {
+        const totalDays = recentDone.reduce((sum, t) => {
+          return sum + (t.updatedAt.getTime() - t.createdAt.getTime()) / (1000 * 60 * 60 * 24);
         }, 0);
-        avgCompletionDays = Math.round((totalDays / doneLast30.length) * 10) / 10;
+        avgCompletionOverall = Math.round((totalDays / recentDone.length) * 10) / 10;
       }
 
-      const roles = u.userRoles.map((ur) => ur.role.name).filter((r) => r !== "client");
-
-      const orgCount = u.sectionMembers.reduce(
-        (sum, sm) => sum + sm.section._count.organizations,
-        0,
-      );
-
-      return {
-        userId: u.id,
-        name: `${u.lastName} ${u.firstName}`,
-        roles,
-        orgCount,
-        openTasks: open.length,
-        overdueTasks: overdue.length,
-        doneLast30d: doneLast30.length,
-        avgCompletionDays,
-      };
-    });
-
-    // ── 2. Section profitability ───────────────────────────────────────────
-    const sections = await prisma.section.findMany({
-      select: {
-        id: true,
-        number: true,
-        name: true,
-        organizations: {
-          where: { status: { notIn: ["left", "closed", "ceased", "own"] } },
-          select: { monthlyPayment: true },
-        },
-        members: {
-          select: {
-            role: true,
-            userId: true,
-            user: { select: { salary: true } },
-          },
-        },
-      },
-    });
-
-    // Count how many sections each user belongs to (for salary splitting)
-    const userSectionCount: Record<string, number> = {};
-    for (const s of sections) {
-      for (const m of s.members) {
-        userSectionCount[m.userId] = (userSectionCount[m.userId] || 0) + 1;
+      // Avg completion by category
+      const catTimeMap: Record<string, { totalDays: number; count: number }> = {};
+      for (const t of recentDone) {
+        const days = (t.updatedAt.getTime() - t.createdAt.getTime()) / (1000 * 60 * 60 * 24);
+        if (!catTimeMap[t.category]) catTimeMap[t.category] = { totalDays: 0, count: 0 };
+        catTimeMap[t.category].totalDays += days;
+        catTimeMap[t.category].count++;
       }
-    }
+      const avgByCategory = Object.entries(catTimeMap)
+        .map(([category, d]) => ({
+          category,
+          avgDays: Math.round((d.totalDays / d.count) * 10) / 10,
+          count: d.count,
+        }))
+        .sort((a, b) => b.avgDays - a.avgDays);
 
-    const sectionProfitability = sections.map((s) => {
-      const revenue = s.organizations.reduce((sum, o) => sum + Number(o.monthlyPayment ?? 0), 0);
-      // Split salary proportionally: if user is in N sections, count 1/N here
-      const payroll = s.members.reduce(
-        (sum, m) => sum + Number(m.user.salary ?? 0) / (userSectionCount[m.userId] || 1),
-        0,
-      );
-      const margin = revenue > 0 ? ((revenue - payroll) / revenue) * 100 : 0;
+      const isAdmin = req.user!.roles.includes("admin");
 
-      return {
-        sectionId: s.id,
-        number: s.number,
-        name: s.name,
-        orgCount: s.organizations.length,
-        revenue: Math.round(revenue),
-        payroll: Math.round(payroll),
-        profit: Math.round(revenue - payroll),
-        margin: Math.round(margin * 10) / 10,
-      };
-    });
-
-    // ── 3. Bottlenecks ────────────────────────────────────────────────────
-    // All tasks that are overdue (not done, past due date)
-    const overdueTasks = await prisma.task.findMany({
-      where: {
-        status: { notIn: ["DONE", "CANCELLED"] },
-        dueDate: { lt: now },
-      },
-      select: {
-        id: true,
-        category: true,
-        organizationId: true,
-        organization: {
-          select: {
-            sectionId: true,
-            section: { select: { number: true, name: true } },
-          },
+      res.json({
+        workload: workload.sort((a, b) => b.openTasks - a.openTasks),
+        ...(isAdmin && {
+          sectionProfitability: sectionProfitability.sort((a, b) => b.revenue - a.revenue),
+        }),
+        bottlenecks: {
+          totalOverdue: overdueTasks.length,
+          byCategory,
+          bySection,
+          avgCompletionDays: avgCompletionOverall,
+          avgByCategory,
         },
-      },
-    });
-
-    // By category
-    const byCategoryMap: Record<string, number> = {};
-    for (const t of overdueTasks) {
-      byCategoryMap[t.category] = (byCategoryMap[t.category] || 0) + 1;
+      });
+    } catch (err) {
+      console.error("Analytics error:", err);
+      res.status(500).json({ error: "Internal server error" });
     }
-    const byCategory = Object.entries(byCategoryMap)
-      .map(([category, count]) => ({ category, count }))
-      .sort((a, b) => b.count - a.count);
-
-    // By section
-    const bySectionMap: Record<string, { number: number; name: string | null; count: number }> = {};
-    for (const t of overdueTasks) {
-      const sec = t.organization?.section;
-      if (!sec) continue;
-      const sid = t.organization!.sectionId!;
-      if (!bySectionMap[sid]) bySectionMap[sid] = { number: sec.number, name: sec.name, count: 0 };
-      bySectionMap[sid].count++;
-    }
-    const bySection = Object.entries(bySectionMap)
-      .map(([sectionId, d]) => ({ sectionId, ...d }))
-      .sort((a, b) => b.count - a.count);
-
-    // Done tasks in last 90 days — average completion time
-    const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-    const recentDone = await prisma.task.findMany({
-      where: {
-        status: "DONE",
-        updatedAt: { gte: ninetyDaysAgo },
-      },
-      select: { createdAt: true, updatedAt: true, category: true },
-    });
-
-    let avgCompletionOverall: number | null = null;
-    if (recentDone.length > 0) {
-      const totalDays = recentDone.reduce((sum, t) => {
-        return sum + (t.updatedAt.getTime() - t.createdAt.getTime()) / (1000 * 60 * 60 * 24);
-      }, 0);
-      avgCompletionOverall = Math.round((totalDays / recentDone.length) * 10) / 10;
-    }
-
-    // Avg completion by category
-    const catTimeMap: Record<string, { totalDays: number; count: number }> = {};
-    for (const t of recentDone) {
-      const days = (t.updatedAt.getTime() - t.createdAt.getTime()) / (1000 * 60 * 60 * 24);
-      if (!catTimeMap[t.category]) catTimeMap[t.category] = { totalDays: 0, count: 0 };
-      catTimeMap[t.category].totalDays += days;
-      catTimeMap[t.category].count++;
-    }
-    const avgByCategory = Object.entries(catTimeMap)
-      .map(([category, d]) => ({
-        category,
-        avgDays: Math.round((d.totalDays / d.count) * 10) / 10,
-        count: d.count,
-      }))
-      .sort((a, b) => b.avgDays - a.avgDays);
-
-    const isAdmin = req.user!.roles.includes("admin");
-
-    res.json({
-      workload: workload.sort((a, b) => b.openTasks - a.openTasks),
-      ...(isAdmin && {
-        sectionProfitability: sectionProfitability.sort((a, b) => b.revenue - a.revenue),
-      }),
-      bottlenecks: {
-        totalOverdue: overdueTasks.length,
-        byCategory,
-        bySection,
-        avgCompletionDays: avgCompletionOverall,
-        avgByCategory,
-      },
-    });
-  } catch (err) {
-    console.error("Analytics error:", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+  },
+);
 
 export default router;
