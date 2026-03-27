@@ -1,17 +1,34 @@
 /**
  * Thin Telegram Bot API wrapper.
  * Uses built-in fetch (Node 18+). No external dependencies.
+ *
+ * Proxy support:
+ *   TG_PROXY_URL    — Cloudflare Worker URL (e.g. https://tg.example.workers.dev)
+ *   TG_PROXY_SECRET — shared secret sent in X-Proxy-Secret header
+ *
+ * Legacy HTTPS_PROXY (undici) is still supported as fallback.
  */
 
 import { ProxyAgent, setGlobalDispatcher } from "undici";
 
-if (process.env.HTTPS_PROXY) {
+if (process.env.HTTPS_PROXY && !process.env.TG_PROXY_URL) {
   setGlobalDispatcher(new ProxyAgent(process.env.HTTPS_PROXY));
-  console.log(`[Telegram] Using proxy: ${process.env.HTTPS_PROXY}`);
+  console.log(`[Telegram] Using HTTPS proxy: ${process.env.HTTPS_PROXY}`);
 }
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const API_BASE = BOT_TOKEN ? `https://api.telegram.org/bot${BOT_TOKEN}` : "";
+const TG_PROXY_URL = process.env.TG_PROXY_URL?.replace(/\/$/, "");
+const TG_PROXY_SECRET = process.env.TG_PROXY_SECRET;
+
+const API_BASE = BOT_TOKEN
+  ? TG_PROXY_URL
+    ? `${TG_PROXY_URL}/bot${BOT_TOKEN}`
+    : `https://api.telegram.org/bot${BOT_TOKEN}`
+  : "";
+
+if (BOT_TOKEN && TG_PROXY_URL) {
+  console.log(`[Telegram] Using Cloudflare Worker proxy: ${TG_PROXY_URL}`);
+}
 
 export type TgMessage = {
   message_id: number;
@@ -24,9 +41,13 @@ export type TgMessage = {
 async function tgFetch(method: string, body?: object): Promise<any> {
   if (!BOT_TOKEN) return null;
   try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (TG_PROXY_URL && TG_PROXY_SECRET) {
+      headers["X-Proxy-Secret"] = TG_PROXY_SECRET;
+    }
     const res = await fetch(`${API_BASE}/${method}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: body ? JSON.stringify(body) : undefined,
     });
     return res.json();
