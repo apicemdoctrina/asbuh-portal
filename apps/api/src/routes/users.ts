@@ -455,7 +455,7 @@ router.patch("/:id/password", authenticate, requireRole("admin"), async (req, re
   }
 });
 
-const ALLOWED_ROLES = ["admin", "manager", "accountant"];
+const ALLOWED_ROLES = ["admin", "manager", "accountant", "supervisor"];
 
 // PUT /api/users/:id — edit user (admin only)
 router.put("/:id", authenticate, requireRole("admin"), async (req, res) => {
