@@ -17,6 +17,15 @@ import {
   UserCheck,
   UserMinus,
   Loader2,
+  Layers,
+  ChevronDown,
+  ChevronRight as ChevronRightIcon,
+  Pencil,
+  Trash2,
+  Settings2,
+  Building2,
+  LinkIcon,
+  Unlink,
 } from "lucide-react";
 
 // ─── Labels ───────────────────────────────────────────────────────────────────
@@ -384,6 +393,589 @@ function BulkModal({ mode, selectedIds, onClose, onSuccess }) {
   );
 }
 
+// ─── Org assign modal ──────────────────────────────────────────────────────────
+
+function OrgAssignModal({ group, onClose, onChanged }) {
+  const [allOrgs, setAllOrgs] = useState([]);
+  const [loadingOrgs, setLoadingOrgs] = useState(true);
+  const [search, setSearch] = useState("");
+  const [working, setWorking] = useState(false); // id орги, над которой идёт запрос
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setLoadingOrgs(true);
+    api("/api/organizations?limit=500")
+      .then((r) => (r.ok ? r.json() : { organizations: [] }))
+      .then((d) => setAllOrgs(d.organizations || []))
+      .catch(() => {})
+      .finally(() => setLoadingOrgs(false));
+  }, []);
+
+  const inGroup = allOrgs.filter((o) => o.clientGroup?.id === group.id);
+  const q = search.toLowerCase();
+  const available = allOrgs.filter(
+    (o) =>
+      o.clientGroup?.id !== group.id &&
+      (o.name.toLowerCase().includes(q) || (o.inn || "").includes(q)),
+  );
+
+  async function assign(orgId) {
+    setWorking(orgId);
+    setError("");
+    try {
+      const res = await api(`/api/organizations/${orgId}`, {
+        method: "PUT",
+        body: JSON.stringify({ clientGroupId: group.id }),
+      });
+      if (!res.ok) throw new Error("Ошибка");
+      setAllOrgs((prev) =>
+        prev.map((o) =>
+          o.id === orgId ? { ...o, clientGroup: { id: group.id, name: group.name } } : o,
+        ),
+      );
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function unassign(orgId) {
+    setWorking(orgId);
+    setError("");
+    try {
+      const res = await api(`/api/organizations/${orgId}`, {
+        method: "PUT",
+        body: JSON.stringify({ clientGroupId: null }),
+      });
+      if (!res.ok) throw new Error("Ошибка");
+      setAllOrgs((prev) => prev.map((o) => (o.id === orgId ? { ...o, clientGroup: null } : o)));
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg mx-4 flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+          <div>
+            <h2 className="text-base font-bold text-slate-900">{group.name}</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Управление организациями группы</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+          {error && <div className="p-2 bg-red-50 text-red-700 rounded-lg text-xs">{error}</div>}
+
+          {/* В группе */}
+          <div>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
+              В группе ({inGroup.length})
+            </p>
+            {inGroup.length === 0 ? (
+              <p className="text-sm text-slate-400">Организаций нет</p>
+            ) : (
+              <div className="space-y-1">
+                {inGroup.map((org) => (
+                  <div
+                    key={org.id}
+                    className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-[#6567F1]/5 border border-[#6567F1]/10"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-slate-900 truncate">{org.name}</div>
+                      {org.inn && <div className="text-xs text-slate-400">{org.inn}</div>}
+                    </div>
+                    <button
+                      disabled={working === org.id}
+                      onClick={() => unassign(org.id)}
+                      className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40"
+                      title="Открепить"
+                    >
+                      {working === org.id ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Unlink size={14} />
+                      )}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Добавить */}
+          <div>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
+              Добавить организацию
+            </p>
+            <div className="relative mb-2">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Поиск по названию или ИНН..."
+                className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              />
+            </div>
+            {loadingOrgs ? (
+              <div className="flex justify-center py-6 text-slate-400">
+                <Loader2 size={20} className="animate-spin" />
+              </div>
+            ) : available.length === 0 ? (
+              <p className="text-sm text-slate-400">
+                {search ? "Ничего не найдено" : "Все организации уже в группах"}
+              </p>
+            ) : (
+              <div className="space-y-1 max-h-52 overflow-y-auto">
+                {available.map((org) => (
+                  <div
+                    key={org.id}
+                    className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-slate-100 hover:border-slate-200 hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-slate-900 truncate">{org.name}</div>
+                      <div className="text-xs text-slate-400">
+                        {org.inn || ""}
+                        {org.clientGroup && (
+                          <span className="ml-2 text-amber-600">← {org.clientGroup.name}</span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      disabled={working === org.id}
+                      onClick={() => assign(org.id)}
+                      className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-[#6567F1] hover:bg-[#6567F1]/10 transition-colors disabled:opacity-40"
+                      title="Добавить в группу"
+                    >
+                      {working === org.id ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <LinkIcon size={14} />
+                      )}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Manage groups modal ───────────────────────────────────────────────────────
+
+function ManageGroupsModal({ groups, onClose, onChanged }) {
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [assigningGroup, setAssigningGroup] = useState(null);
+
+  const [newName, setNewName] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleCreate(e) {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    setSaving(true);
+    setError("");
+    try {
+      const res = await api("/api/client-groups", {
+        method: "POST",
+        body: JSON.stringify({ name: newName.trim(), description: newDesc.trim() || null }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || "Ошибка");
+      }
+      setNewName("");
+      setNewDesc("");
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function startEdit(g) {
+    setEditingId(g.id);
+    setEditName(g.name);
+    setEditDesc(g.description || "");
+    setError("");
+  }
+
+  async function handleSaveEdit(id) {
+    if (!editName.trim()) return;
+    setSaving(true);
+    setError("");
+    try {
+      const res = await api(`/api/client-groups/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ name: editName.trim(), description: editDesc.trim() || null }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || "Ошибка");
+      }
+      setEditingId(null);
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(g) {
+    const orgCount = g._count?.organizations ?? 0;
+    const msg =
+      orgCount > 0
+        ? `Удалить группу «${g.name}»? ${orgCount} организаций будут откреплены.`
+        : `Удалить группу «${g.name}»?`;
+    if (!confirm(msg)) return;
+    setSaving(true);
+    setError("");
+    try {
+      const res = await api(`/api/client-groups/${g.id}`, { method: "DELETE" });
+      if (!res.ok && res.status !== 204) throw new Error("Ошибка удаления");
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg mx-4 flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+          <h2 className="text-lg font-bold text-slate-900">Группы клиентов</h2>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* List */}
+        <div className="overflow-y-auto flex-1 px-6 py-4 space-y-2">
+          {groups.length === 0 && (
+            <p className="text-sm text-slate-400 text-center py-4">Групп пока нет</p>
+          )}
+          {groups.map((g) =>
+            editingId === g.id ? (
+              <div key={g.id} className="border border-[#6567F1]/30 rounded-xl p-3 bg-[#6567F1]/5">
+                <input
+                  autoFocus
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Название"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                />
+                <input
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  placeholder="Описание (необязательно)"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleSaveEdit(g.id)}
+                    disabled={saving || !editName.trim()}
+                    className="px-3 py-1.5 bg-gradient-to-r from-[#6567F1] to-[#5557E1] text-white rounded-lg text-xs font-medium disabled:opacity-50"
+                  >
+                    Сохранить
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="px-3 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg text-xs font-medium"
+                  >
+                    Отмена
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div
+                key={g.id}
+                className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50 transition-colors"
+              >
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-slate-900 truncate">{g.name}</div>
+                  {g.description && (
+                    <div className="text-xs text-slate-400 truncate">{g.description}</div>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => setAssigningGroup(g)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-[#6567F1] hover:bg-[#6567F1]/10 border border-slate-200 hover:border-[#6567F1]/30 transition-colors"
+                    title="Управление организациями"
+                  >
+                    <Building2 size={13} />
+                    {g._count?.organizations != null ? g._count.organizations : ""}
+                  </button>
+                  <button
+                    onClick={() => startEdit(g)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#6567F1] hover:bg-[#6567F1]/10 transition-colors"
+                    title="Переименовать"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(g)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                    title="Удалить"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            ),
+          )}
+        </div>
+
+        {/* Create form */}
+        <div className="border-t border-slate-100 px-6 py-4 shrink-0">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
+            Новая группа
+          </p>
+          {error && (
+            <div className="mb-3 p-2 bg-red-50 text-red-700 rounded-lg text-xs">{error}</div>
+          )}
+          <form onSubmit={handleCreate} className="flex flex-col gap-2">
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Название *"
+              required
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+            />
+            <input
+              value={newDesc}
+              onChange={(e) => setNewDesc(e.target.value)}
+              placeholder="Описание (необязательно)"
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+            />
+            <button
+              type="submit"
+              disabled={saving || !newName.trim()}
+              className="self-end px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-md shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
+            >
+              {saving ? "Сохранение..." : "Создать группу"}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {assigningGroup && (
+        <OrgAssignModal
+          group={assigningGroup}
+          onClose={() => setAssigningGroup(null)}
+          onChanged={onChanged}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Grouped view ──────────────────────────────────────────────────────────────
+
+function GroupedView({
+  organizations,
+  clientGroups,
+  visibleCols,
+  expandedGroups,
+  setExpandedGroups,
+  page,
+  limit,
+  total,
+  totalPages,
+  setPage,
+}) {
+  // Build map: groupId → orgs; null key = без группы
+  const grouped = new Map();
+  grouped.set(null, []);
+  for (const g of clientGroups) grouped.set(g.id, []);
+  for (const org of organizations) {
+    const key = org.clientGroup?.id ?? null;
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(org);
+  }
+
+  function toggle(key) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  const groupList = clientGroups.filter((g) => (grouped.get(g.id) || []).length > 0);
+  const ungrouped = grouped.get(null) || [];
+
+  return (
+    <>
+      <div className="space-y-3">
+        {groupList.map((g) => {
+          const orgs = grouped.get(g.id) || [];
+          const open = expandedGroups.has(g.id);
+          return (
+            <div
+              key={g.id}
+              className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden"
+            >
+              <button
+                onClick={() => toggle(g.id)}
+                className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-50/50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <Layers size={16} className="text-[#6567F1] shrink-0" />
+                  <span className="font-semibold text-slate-900 text-sm">{g.name}</span>
+                  {g.description && (
+                    <span className="text-xs text-slate-400 hidden sm:block">{g.description}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                    {orgs.length} орг.
+                  </span>
+                  {open ? (
+                    <ChevronDown size={16} className="text-slate-400" />
+                  ) : (
+                    <ChevronRightIcon size={16} className="text-slate-400" />
+                  )}
+                </div>
+              </button>
+              {open && (
+                <div className="border-t border-slate-100 overflow-x-auto">
+                  <OrgTable orgs={orgs} visibleCols={visibleCols} />
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {ungrouped.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+            <button
+              onClick={() => toggle("__ungrouped__")}
+              className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-50/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Layers size={16} className="text-slate-400 shrink-0" />
+                <span className="font-semibold text-slate-500 text-sm">Без группы</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                  {ungrouped.length} орг.
+                </span>
+                {expandedGroups.has("__ungrouped__") ? (
+                  <ChevronDown size={16} className="text-slate-400" />
+                ) : (
+                  <ChevronRightIcon size={16} className="text-slate-400" />
+                )}
+              </div>
+            </button>
+            {expandedGroups.has("__ungrouped__") && (
+              <div className="border-t border-slate-100 overflow-x-auto">
+                <OrgTable orgs={ungrouped} visibleCols={visibleCols} />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <span className="text-sm text-slate-500">
+            Показано {(page - 1) * limit + 1}–{Math.min(page * limit, total)} из {total}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              disabled={page <= 1}
+              onClick={() => setPage(page - 1)}
+              className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="text-sm text-slate-600">
+              {page} / {totalPages}
+            </span>
+            <button
+              disabled={page >= totalPages}
+              onClick={() => setPage(page + 1)}
+              className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function OrgTable({ orgs, visibleCols }) {
+  return (
+    <table className="w-full text-sm">
+      <tbody>
+        {orgs.map((org) => (
+          <tr key={org.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50">
+            <td className="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">
+              <Link to={`/organizations/${org.id}`} className="text-[#6567F1] hover:underline">
+                {org.name}
+              </Link>
+            </td>
+            {COLUMN_DEFS.filter((c) => visibleCols.includes(c.key)).map((col) => (
+              <td key={col.key} className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                {col.key === "status" ? (
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusBadge(org.status)}`}
+                  >
+                    {STATUS_LABELS[org.status] || org.status}
+                  </span>
+                ) : col.key === "debtAmount" && org.debtAmount > 0 ? (
+                  <span className="text-red-600 font-medium">{fmtMoney(org.debtAmount)}</span>
+                ) : (
+                  (() => {
+                    const val = renderCell(col.key, org);
+                    if (val?.__expiry) return <span className={val.cls}>{val.label}</span>;
+                    return val;
+                  })()
+                )}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
 export default function OrganizationsPage() {
@@ -404,6 +996,12 @@ export default function OrganizationsPage() {
   const [sortBy, setSortBy] = useState("");
   const [sortOrder, setSortOrder] = useState("asc");
 
+  const [clientGroups, setClientGroups] = useState([]);
+  const [clientGroupFilter, setClientGroupFilter] = useState("");
+  const [groupByClient, setGroupByClient] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState(new Set());
+  const [showManageGroups, setShowManageGroups] = useState(false);
+
   function handleColsChange(next) {
     setVisibleCols(next);
     try {
@@ -423,6 +1021,7 @@ export default function OrganizationsPage() {
   const [createInn, setCreateInn] = useState("");
   const [createForm, setCreateForm] = useState("");
   const [createSection, setCreateSection] = useState("");
+  const [createClientGroup, setCreateClientGroup] = useState("");
   const [createError, setCreateError] = useState("");
   const [creating, setCreating] = useState(false);
 
@@ -436,6 +1035,18 @@ export default function OrganizationsPage() {
         .catch(() => {});
     }
   }, [hasPermission]);
+
+  const fetchClientGroups = useCallback(() => {
+    if (!hasPermission("organization", "view")) return;
+    api("/api/client-groups")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setClientGroups(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, [hasPermission]);
+
+  useEffect(() => {
+    fetchClientGroups();
+  }, [fetchClientGroups]);
 
   function handleSort(field) {
     if (sortBy === field) {
@@ -468,6 +1079,7 @@ export default function OrganizationsPage() {
       } else {
         if (statusFilter) params.set("status", statusFilter);
         if (sectionId) params.set("sectionId", sectionId);
+        if (clientGroupFilter) params.set("clientGroupId", clientGroupFilter);
       }
       const res = await api(`/api/organizations?${params}`);
       if (!res.ok) throw new Error("Failed to load organizations");
@@ -479,7 +1091,17 @@ export default function OrganizationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, taxSystem, sortBy, sortOrder, statusFilter, sectionId, archiveMode]);
+  }, [
+    page,
+    search,
+    taxSystem,
+    sortBy,
+    sortOrder,
+    statusFilter,
+    sectionId,
+    archiveMode,
+    clientGroupFilter,
+  ]);
 
   useDebouncedEffect(fetchOrganizations, [fetchOrganizations]);
 
@@ -501,6 +1123,7 @@ export default function OrganizationsPage() {
           inn: createInn.trim() || undefined,
           form: createForm || undefined,
           sectionId: createSection || undefined,
+          clientGroupId: createClientGroup || undefined,
         }),
       });
       if (!res.ok) {
@@ -512,6 +1135,7 @@ export default function OrganizationsPage() {
       setCreateInn("");
       setCreateForm("");
       setCreateSection("");
+      setCreateClientGroup("");
       setPage(1);
       await fetchOrganizations();
     } catch (err) {
@@ -615,7 +1239,48 @@ export default function OrganizationsPage() {
           <option value="__archive__">Архив</option>
         </select>
 
-        <div className="sm:ml-auto">
+        {!archiveMode && clientGroups.length > 0 && (
+          <select
+            value={clientGroupFilter}
+            onChange={(e) => {
+              setClientGroupFilter(e.target.value);
+              setPage(1);
+            }}
+            className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
+          >
+            <option value="">Все клиенты</option>
+            {clientGroups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        )}
+        {!archiveMode && hasPermission("organization", "create") && (
+          <button
+            onClick={() => setShowManageGroups(true)}
+            className="inline-flex items-center gap-2 px-3 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg text-sm font-medium transition-colors"
+            title="Управление группами клиентов"
+          >
+            <Settings2 size={15} />
+            Группы
+          </button>
+        )}
+
+        <div className="sm:ml-auto flex items-center gap-2">
+          {!archiveMode && clientGroups.length > 0 && (
+            <button
+              onClick={() => setGroupByClient((v) => !v)}
+              className={`inline-flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium transition-colors ${
+                groupByClient
+                  ? "border-[#6567F1] text-[#6567F1] bg-[#6567F1]/5"
+                  : "border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <Layers size={15} />
+              По клиентам
+            </button>
+          )}
           <ColumnPicker visibleCols={visibleCols} onChange={handleColsChange} />
         </div>
       </div>
@@ -628,6 +1293,19 @@ export default function OrganizationsPage() {
         </div>
       ) : organizations.length === 0 ? (
         <div className="text-slate-400 text-sm">Организации не найдены</div>
+      ) : groupByClient ? (
+        <GroupedView
+          organizations={organizations}
+          clientGroups={clientGroups}
+          visibleCols={visibleCols}
+          expandedGroups={expandedGroups}
+          setExpandedGroups={setExpandedGroups}
+          page={page}
+          limit={limit}
+          total={total}
+          totalPages={Math.ceil(total / limit)}
+          setPage={setPage}
+        />
       ) : (
         <>
           <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden overflow-x-auto">
@@ -820,6 +1498,18 @@ export default function OrganizationsPage() {
         />
       )}
 
+      {/* Manage groups modal */}
+      {showManageGroups && (
+        <ManageGroupsModal
+          groups={clientGroups}
+          onClose={() => setShowManageGroups(false)}
+          onChanged={() => {
+            fetchClientGroups();
+            fetchOrganizations();
+          }}
+        />
+      )}
+
       {/* Create Modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
@@ -874,6 +1564,25 @@ export default function OrganizationsPage() {
                     {sections.map((s) => (
                       <option key={s.id} value={s.id}>
                         №{s.number} {s.name || ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {clientGroups.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Группа клиента
+                  </label>
+                  <select
+                    value={createClientGroup}
+                    onChange={(e) => setCreateClientGroup(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
+                  >
+                    <option value="">Без группы</option>
+                    {clientGroups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
                       </option>
                     ))}
                   </select>

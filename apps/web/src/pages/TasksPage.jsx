@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Link } from "react-router";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -19,6 +19,7 @@ import {
   ArrowUpDown,
   List,
   Columns3,
+  ChevronRight,
 } from "lucide-react";
 import TaskCommentsModal from "../components/TaskCommentsModal.jsx";
 import TaskChecklistModal from "../components/TaskChecklistModal.jsx";
@@ -134,6 +135,7 @@ export default function TasksPage() {
 
   // Drag state for kanban
   const [dragTaskId, setDragTaskId] = useState(null);
+  const [dragGroupId, setDragGroupId] = useState(null);
   const [dragOverCol, setDragOverCol] = useState(null);
   const [staffUsers, setStaffUsers] = useState([]);
 
@@ -342,6 +344,21 @@ export default function TasksPage() {
     }
   }
 
+  async function handleGroupStatusChange(groupId, newStatus) {
+    const groupTasks = tasks.filter((t) => t.groupId === groupId && t.status !== newStatus);
+    if (groupTasks.length === 0) return;
+    try {
+      await Promise.all(
+        groupTasks.map((t) =>
+          api(`/api/tasks/${t.id}`, { method: "PUT", body: JSON.stringify({ status: newStatus }) }),
+        ),
+      );
+      fetchTasks();
+    } catch {
+      // silent
+    }
+  }
+
   async function handleDelete(task) {
     if (!confirm(`Удалить задачу «${task.title}»?`)) return;
     try {
@@ -377,16 +394,57 @@ export default function TasksPage() {
       return dateSort === "asc" ? da - db : db - da;
     });
 
+  // Group tasks by groupId for list view
+  const displayItems = useMemo(() => {
+    const groupMap = new Map();
+    const items = [];
+    for (const task of filtered) {
+      if (!task.groupId) {
+        items.push({ type: "single", task });
+      } else {
+        if (!groupMap.has(task.groupId)) {
+          const group = { type: "group", groupId: task.groupId, tasks: [] };
+          groupMap.set(task.groupId, group);
+          items.push(group);
+        }
+        groupMap.get(task.groupId).tasks.push(task);
+      }
+    }
+    return items;
+  }, [filtered]);
+
+  // Group tasks for kanban: each group → one card in aggStatus column
+  const kanbanItems = useMemo(() => {
+    const groupMap = new Map();
+    const items = [];
+    for (const task of filtered) {
+      if (!task.groupId) {
+        items.push({ type: "single", task });
+      } else {
+        if (!groupMap.has(task.groupId)) {
+          const group = { type: "group", groupId: task.groupId, tasks: [] };
+          groupMap.set(task.groupId, group);
+          items.push(group);
+        }
+        groupMap.get(task.groupId).tasks.push(task);
+      }
+    }
+    return items;
+  }, [filtered]);
+
   const isArchiveMode = statusTab === "ARCHIVED";
   const effectiveViewMode = isArchiveMode ? "list" : viewMode;
 
   function handleDrop(newStatus) {
-    if (!dragTaskId || !newStatus) return;
-    const task = tasks.find((t) => t.id === dragTaskId);
-    if (task && task.status !== newStatus) {
-      handleStatusChange(task, newStatus);
+    if (!newStatus) return;
+    if (dragGroupId) {
+      handleGroupStatusChange(dragGroupId, newStatus);
+    } else if (dragTaskId) {
+      const task = tasks.find((t) => t.id === dragTaskId);
+      if (task && task.status !== newStatus) handleStatusChange(task, newStatus);
     }
     setDragTaskId(null);
+    setDragGroupId(null);
     setDragOverCol(null);
   }
 
@@ -515,7 +573,11 @@ export default function TasksPage() {
           style={{ minHeight: "calc(100vh - 220px)" }}
         >
           {KANBAN_COLS.map((col) => {
-            const colTasks = filtered.filter((t) => t.status === col.key);
+            const colItems = kanbanItems.filter((item) =>
+              item.type === "single"
+                ? item.task.status === col.key
+                : aggStatus(item.tasks) === col.key,
+            );
             const isOver = dragOverCol === col.key;
             return (
               <div
@@ -537,60 +599,93 @@ export default function TasksPage() {
                     <span className="text-sm font-semibold text-slate-700">{col.label}</span>
                   </div>
                   <span className="text-xs font-bold text-slate-400 bg-white/60 rounded-full px-2 py-0.5">
-                    {colTasks.length}
+                    {colItems.length}
                   </span>
                 </div>
 
                 {/* Cards */}
                 <div className="flex-1 flex flex-col gap-2 p-3 overflow-y-auto">
-                  {colTasks.length === 0 && (
+                  {colItems.length === 0 && (
                     <div
                       className={`flex-1 flex items-center justify-center text-xs text-slate-400 rounded-xl border-2 border-dashed ${isOver ? "border-[#6567F1]/40 bg-[#6567F1]/5" : "border-slate-200"} min-h-[80px] transition-colors`}
                     >
                       {isOver ? "Перетащите сюда" : "Нет задач"}
                     </div>
                   )}
-                  {colTasks.map((task) => (
-                    <KanbanCard
-                      key={task.id}
-                      task={task}
-                      canEdit={canEditTask(task)}
-                      canDelete={canDeleteTask(task)}
-                      onEdit={openEdit}
-                      onDelete={handleDelete}
-                      onComment={setCommentTask}
-                      onChecklist={setChecklistTask}
-                      onDragStart={() => setDragTaskId(task.id)}
-                      onDragEnd={() => {
-                        setDragTaskId(null);
-                        setDragOverCol(null);
-                      }}
-                      isDragging={dragTaskId === task.id}
-                    />
-                  ))}
+                  {colItems.map((item) =>
+                    item.type === "single" ? (
+                      <KanbanCard
+                        key={item.task.id}
+                        task={item.task}
+                        canEdit={canEditTask(item.task)}
+                        canDelete={canDeleteTask(item.task)}
+                        onEdit={openEdit}
+                        onDelete={handleDelete}
+                        onComment={setCommentTask}
+                        onChecklist={setChecklistTask}
+                        onDragStart={() => setDragTaskId(item.task.id)}
+                        onDragEnd={() => {
+                          setDragTaskId(null);
+                          setDragOverCol(null);
+                        }}
+                        isDragging={dragTaskId === item.task.id}
+                      />
+                    ) : (
+                      <KanbanGroupCard
+                        key={item.groupId}
+                        tasks={item.tasks}
+                        canEdit={item.tasks.some(canEditTask)}
+                        canEditTask={canEditTask}
+                        onEdit={openEdit}
+                        onDelete={handleDelete}
+                        onStatusChange={handleStatusChange}
+                        onComment={setCommentTask}
+                        onDragStart={() => setDragGroupId(item.groupId)}
+                        onDragEnd={() => {
+                          setDragGroupId(null);
+                          setDragOverCol(null);
+                        }}
+                        isDragging={dragGroupId === item.groupId}
+                      />
+                    ),
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
       ) : /* ── List view ── */
-      filtered.length === 0 ? (
+      displayItems.length === 0 ? (
         <div className="text-sm text-slate-400">Нет задач</div>
       ) : (
         <div className="space-y-1.5">
-          {filtered.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              canEdit={statusTab !== "ARCHIVED" && canEditTask(task)}
-              canDelete={statusTab !== "ARCHIVED" && canDeleteTask(task)}
-              onEdit={openEdit}
-              onDelete={handleDelete}
-              onStatusChange={handleStatusChange}
-              onComment={setCommentTask}
-              onChecklist={setChecklistTask}
-            />
-          ))}
+          {displayItems.map((item) =>
+            item.type === "single" ? (
+              <TaskCard
+                key={item.task.id}
+                task={item.task}
+                canEdit={statusTab !== "ARCHIVED" && canEditTask(item.task)}
+                canDelete={statusTab !== "ARCHIVED" && canDeleteTask(item.task)}
+                onEdit={openEdit}
+                onDelete={handleDelete}
+                onStatusChange={handleStatusChange}
+                onComment={setCommentTask}
+                onChecklist={setChecklistTask}
+              />
+            ) : (
+              <GroupedTaskRow
+                key={item.groupId}
+                tasks={item.tasks}
+                canEdit={(task) => statusTab !== "ARCHIVED" && canEditTask(task)}
+                canDelete={(task) => statusTab !== "ARCHIVED" && canDeleteTask(task)}
+                onEdit={openEdit}
+                onDelete={handleDelete}
+                onStatusChange={handleStatusChange}
+                onComment={setCommentTask}
+                onChecklist={setChecklistTask}
+              />
+            ),
+          )}
         </div>
       )}
 
@@ -762,6 +857,197 @@ export default function TasksPage() {
         />
       )}
     </>
+  );
+}
+
+function aggStatus(tasks) {
+  if (tasks.every((t) => t.status === "DONE")) return "DONE";
+  if (tasks.every((t) => t.status === "CANCELLED")) return "CANCELLED";
+  if (tasks.every((t) => t.status === "DONE" || t.status === "CANCELLED")) return "DONE";
+  if (tasks.some((t) => t.status === "IN_PROGRESS")) return "IN_PROGRESS";
+  return "OPEN";
+}
+
+function GroupedTaskRow({
+  tasks,
+  canEdit,
+  canDelete,
+  onEdit,
+  onDelete,
+  onStatusChange,
+  onComment,
+  onChecklist,
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const first = tasks[0];
+  const overdue = tasks.some(isOverdue);
+  const doneCount = tasks.filter((t) => t.status === "DONE").length;
+  const status = aggStatus(tasks);
+
+  return (
+    <div
+      className={`rounded-xl border overflow-hidden transition-shadow ${expanded ? "shadow-md" : "hover:shadow-md"} ${overdue ? "border-red-200" : "border-slate-200"}`}
+    >
+      {/* Group header row */}
+      <div
+        className={`group flex items-center gap-3 bg-white px-3 py-2.5 cursor-pointer select-none ${overdue ? "bg-red-50/30" : ""}`}
+        onClick={() => setExpanded((e) => !e)}
+      >
+        <ChevronRight
+          size={14}
+          className={`text-slate-400 shrink-0 transition-transform duration-150 ${expanded ? "rotate-90" : ""}`}
+        />
+        <div className={`w-1 h-8 rounded-full shrink-0 ${PRIORITY_BAR[first.priority]}`} />
+        <span
+          className={`hidden sm:inline-flex shrink-0 text-[10px] px-1.5 py-0.5 rounded font-semibold tracking-wide uppercase ${CATEGORY_COLORS[first.category]}`}
+        >
+          {TASK_CATEGORY_LABELS[first.category]}
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium leading-tight truncate text-slate-800">{first.title}</p>
+          <div className="flex items-center gap-2.5 mt-0.5 text-[11px] flex-wrap">
+            <span className="flex items-center gap-0.5 font-medium text-[#6567F1]">
+              <Building2 size={10} />
+              {tasks.length} орг. · {doneCount}/{tasks.length} выполнено
+            </span>
+            {first.dueDate && (
+              <span
+                className={`flex items-center gap-0.5 ${overdue ? "text-red-500 font-semibold" : "text-slate-400"}`}
+              >
+                <CalendarDays size={10} />
+                {formatDueDate(first.dueDate)}
+                {overdue && " ⚠"}
+              </span>
+            )}
+            {first.assignees?.length > 0 && (
+              <span
+                className="flex items-center gap-0.5 text-slate-400 truncate max-w-[140px]"
+                title={first.assignees
+                  .map((a) => `${a.user.lastName} ${a.user.firstName}`)
+                  .join(", ")}
+              >
+                <User size={10} />
+                <span className="truncate">
+                  {first.assignees.map((a) => a.user.firstName).join(", ")}
+                </span>
+              </span>
+            )}
+          </div>
+        </div>
+        <span
+          className={`text-[11px] px-2 py-1 rounded-lg font-medium shrink-0 ${STATUS_COLORS[status]}`}
+        >
+          {TASK_STATUS_LABELS[status]}
+        </span>
+      </div>
+
+      {/* Sub-rows — one per org */}
+      {expanded && (
+        <div className="border-t border-slate-100 divide-y divide-slate-100 bg-slate-50/40">
+          {tasks.map((task) => {
+            const taskOverdue = isOverdue(task);
+            const ce = canEdit(task);
+            const cd = canDelete(task);
+            const nextSt = getNextStatuses(task.status);
+            return (
+              <div
+                key={task.id}
+                className={`flex items-center gap-2 pl-10 pr-3 py-2 ${taskOverdue ? "bg-red-50/30" : ""}`}
+              >
+                <Building2 size={12} className="text-slate-400 shrink-0" />
+                <Link
+                  to={`/organizations/${task.organization?.id}`}
+                  className="text-sm text-slate-600 hover:text-[#6567F1] transition-colors truncate flex-1 min-w-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {task.organization?.name ?? "—"}
+                </Link>
+                {taskOverdue && (
+                  <span className="text-[10px] text-red-500 font-semibold shrink-0">
+                    ⚠ просрочено
+                  </span>
+                )}
+                <div className="flex items-center gap-0.5 shrink-0">
+                  {ce && nextSt.length > 0 ? (
+                    <select
+                      value={task.status}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        onStatusChange(task, e.target.value);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className={`text-[11px] border rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 cursor-pointer font-medium ${STATUS_COLORS[task.status]}`}
+                    >
+                      <option value={task.status}>{TASK_STATUS_LABELS[task.status]}</option>
+                      {nextSt.map((s) => (
+                        <option key={s} value={s}>
+                          {TASK_STATUS_LABELS[s]}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span
+                      className={`text-[11px] px-2 py-1 rounded-lg font-medium ${STATUS_COLORS[task.status]}`}
+                    >
+                      {TASK_STATUS_LABELS[task.status]}
+                    </span>
+                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onChecklist(task);
+                    }}
+                    className="p-1.5 text-slate-300 hover:text-[#6567F1] transition-colors"
+                    title="Чек-лист"
+                  >
+                    <CheckSquare size={13} />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onComment(task);
+                    }}
+                    className={`relative p-1.5 transition-colors hover:text-[#6567F1] ${task._count?.comments > 0 ? "text-[#6567F1]" : "text-slate-300"}`}
+                    title={`Комментарии${task._count?.comments > 0 ? ` (${task._count.comments})` : ""}`}
+                  >
+                    <MessageSquare size={13} />
+                    {task._count?.comments > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-[#6567F1] text-white text-[7px] font-bold rounded-full flex items-center justify-center">
+                        {task._count.comments > 9 ? "9+" : task._count.comments}
+                      </span>
+                    )}
+                  </button>
+                  {ce && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEdit(task);
+                      }}
+                      className="p-1.5 text-slate-300 hover:text-[#6567F1] transition-colors"
+                      title="Редактировать"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                  )}
+                  {cd && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(task);
+                      }}
+                      className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"
+                      title="Удалить"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -944,8 +1230,8 @@ function KanbanCard({
           </button>
           <button
             onClick={() => onComment(task)}
-            className="relative p-1 text-slate-300 hover:text-[#6567F1] transition-colors"
-            title="Комментарии"
+            className={`relative p-1 transition-colors hover:text-[#6567F1] ${task._count?.comments > 0 ? "text-[#6567F1]" : "text-slate-300"}`}
+            title={`Комментарии${task._count?.comments > 0 ? ` (${task._count.comments})` : ""}`}
           >
             <MessageSquare size={13} />
             {task._count?.comments > 0 && (
@@ -974,6 +1260,184 @@ function KanbanCard({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function KanbanGroupCard({
+  tasks,
+  canEdit,
+  canEditTask,
+  onEdit,
+  onDelete,
+  onStatusChange,
+  onComment,
+  onDragStart,
+  onDragEnd,
+  isDragging,
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const first = tasks[0];
+  const overdue = tasks.some(isOverdue);
+  const doneCount = tasks.filter((t) => t.status === "DONE").length;
+
+  return (
+    <div
+      draggable={canEdit}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      className={`group bg-white rounded-xl border transition-all select-none ${
+        isDragging ? "opacity-40 rotate-1 scale-95" : "hover:shadow-md"
+      } ${overdue ? "border-red-200" : "border-slate-200"} ${canEdit ? "cursor-grab active:cursor-grabbing" : ""}`}
+    >
+      {/* Card header */}
+      <div className="p-3">
+        {/* Priority + category */}
+        <div className="flex items-center gap-1.5 mb-2">
+          <span className="text-[10px] text-slate-400 font-medium shrink-0">Приоритет:</span>
+          <span
+            className={`text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide ${PRIORITY_COLORS[first.priority]}`}
+          >
+            {TASK_PRIORITY_LABELS[first.priority]}
+          </span>
+          <span
+            className={`text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide ${CATEGORY_COLORS[first.category]}`}
+          >
+            {TASK_CATEGORY_LABELS[first.category]}
+          </span>
+          {first.recurrenceType && (
+            <RefreshCw size={10} className="text-[#6567F1] ml-auto shrink-0" />
+          )}
+        </div>
+
+        {/* Title */}
+        <p className="text-sm font-medium leading-snug mb-1.5 text-slate-800">{first.title}</p>
+
+        {/* Group badge + progress */}
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-[#6567F1]/10 text-[#6567F1] font-semibold">
+            <Building2 size={9} />
+            {tasks.length} орг.
+          </span>
+          <span className="text-[10px] text-slate-400">
+            {doneCount}/{tasks.length} выполнено
+          </span>
+          {/* Progress bar */}
+          <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-emerald-400 rounded-full transition-all"
+              style={{ width: `${(doneCount / tasks.length) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Due date */}
+        {first.dueDate && (
+          <div
+            className={`flex items-center gap-1 text-[11px] mb-2 ${overdue ? "text-red-500 font-semibold" : "text-slate-400"}`}
+          >
+            <CalendarDays size={10} />
+            {formatDueDate(first.dueDate)}
+            {overdue && " ⚠"}
+          </div>
+        )}
+
+        {/* Footer actions */}
+        <div className="flex items-center justify-between mt-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded((x) => !x);
+            }}
+            className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-[#6567F1] transition-colors"
+          >
+            <ChevronRight
+              size={12}
+              className={`transition-transform duration-150 ${expanded ? "rotate-90" : ""}`}
+            />
+            {expanded ? "Скрыть" : "Показать орг."}
+          </button>
+          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            {canEdit && (
+              <button
+                onClick={() => onEdit(first)}
+                className="p-1 text-slate-300 hover:text-[#6567F1] transition-colors"
+                title="Редактировать"
+              >
+                <Pencil size={13} />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Expanded org list */}
+      {expanded && (
+        <div className="border-t border-slate-100 divide-y divide-slate-100">
+          {tasks.map((task) => {
+            const taskOverdue = isOverdue(task);
+            return (
+              <div
+                key={task.id}
+                className={`flex items-center gap-2 px-3 py-1.5 ${taskOverdue ? "bg-red-50/30" : ""}`}
+              >
+                <Building2 size={10} className="text-slate-400 shrink-0" />
+                <span className="text-[11px] text-slate-600 truncate flex-1 min-w-0">
+                  {task.organization?.name ?? "—"}
+                </span>
+                {canEditTask(task) ? (
+                  <select
+                    value={task.status}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      onStatusChange(task, e.target.value);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className={`text-[10px] border rounded px-1.5 py-0.5 bg-white focus:outline-none cursor-pointer font-medium shrink-0 ${STATUS_COLORS[task.status]}`}
+                  >
+                    {["OPEN", "IN_PROGRESS", "DONE", "CANCELLED"].map((s) => (
+                      <option key={s} value={s}>
+                        {TASK_STATUS_LABELS[s]}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${STATUS_COLORS[task.status]}`}
+                  >
+                    {TASK_STATUS_LABELS[task.status]}
+                  </span>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onComment(task);
+                  }}
+                  className={`relative p-1 transition-colors hover:text-[#6567F1] shrink-0 ${task._count?.comments > 0 ? "text-[#6567F1]" : "text-slate-300"}`}
+                  title={`Комментарии${task._count?.comments > 0 ? ` (${task._count.comments})` : ""}`}
+                >
+                  <MessageSquare size={11} />
+                  {task._count?.comments > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#6567F1] text-white text-[6px] font-bold rounded-full flex items-center justify-center">
+                      {task._count.comments}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(task);
+                  }}
+                  className="p-1 text-slate-300 hover:text-red-500 transition-colors shrink-0"
+                  title="Удалить"
+                >
+                  <Trash2 size={11} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -1107,8 +1571,8 @@ function TaskCard({
 
         <button
           onClick={() => onComment(task)}
-          className="relative p-1.5 text-slate-300 hover:text-[#6567F1] transition-colors"
-          title="Комментарии"
+          className={`relative p-1.5 transition-colors hover:text-[#6567F1] ${task._count?.comments > 0 ? "text-[#6567F1]" : "text-slate-300"}`}
+          title={`Комментарии${task._count?.comments > 0 ? ` (${task._count.comments})` : ""}`}
         >
           <MessageSquare size={14} />
           {task._count?.comments > 0 && (

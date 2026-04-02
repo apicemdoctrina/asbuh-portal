@@ -58,12 +58,23 @@ const orgRequisitesFields = {
   requisitesBank: z.string().nullable().optional(),
 };
 
+export const createClientGroupSchema = z.object({
+  name: z.string().min(1, "name is required"),
+  description: z.string().nullable().optional(),
+});
+
+export const updateClientGroupSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().nullable().optional(),
+});
+
 export const createOrganizationSchema = z.object({
   name: z.string().min(1, "name is required"),
   inn: innField.nullable().optional(),
   form: z.enum(ORG_FORMS).nullable().optional(),
   status: z.enum(VALID_STATUSES).optional(),
   sectionId: z.string().uuid().nullable().optional(),
+  clientGroupId: z.string().uuid().nullable().optional(),
   taxSystems: z.array(z.enum(TAX_SYSTEMS)).optional(),
   employeeCount: z.number().int().min(0).nullable().optional(),
   opsPerMonth: z.number().int().min(0).nullable().optional(),
@@ -86,6 +97,7 @@ export const updateOrganizationSchema = z.object({
   form: z.enum(ORG_FORMS).nullable().optional(),
   status: z.enum(VALID_STATUSES).optional(),
   sectionId: z.string().uuid().nullable().optional(),
+  clientGroupId: z.string().uuid().nullable().optional(),
   taxSystems: z.array(z.enum(TAX_SYSTEMS)).optional(),
   employeeCount: z.number().int().min(0).nullable().optional(),
   opsPerMonth: z.number().int().min(0).nullable().optional(),

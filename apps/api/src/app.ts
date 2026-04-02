@@ -15,6 +15,8 @@ import telegramRouter from "./routes/telegram.js";
 import notificationsRouter from "./routes/notifications.js";
 import messagesRouter from "./routes/messages.js";
 import ticketsRouter from "./routes/tickets.js";
+import clientGroupsRouter from "./routes/client-groups.js";
+import announcementsRouter from "./routes/announcements.js";
 import { UPLOADS_DIR } from "./lib/upload.js";
 
 const app = express();
@@ -51,6 +53,8 @@ app.use("/api/telegram", telegramRouter);
 app.use("/api/notifications", notificationsRouter);
 app.use("/api/messages", messagesRouter);
 app.use("/api/tickets", ticketsRouter);
+app.use("/api/client-groups", clientGroupsRouter);
+app.use("/api/announcements", announcementsRouter);
 
 // Global error handler (Express requires all 4 params for error middleware)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

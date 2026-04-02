@@ -532,6 +532,26 @@ const CONTACTS_BY_INDEX: Record<number, ContactData[]> = {
   15: [{ contactPerson: "Новиков Павел Иванович", phone: "+7 (495) 777-88-99" }],
 };
 
+// ─── Группы клиентов ──────────────────────────────────────────────────────────
+
+const CLIENT_GROUPS = [
+  {
+    name: "Петров И.А. (группа)",
+    description: "Бизнес Ивана Петрова: торговля и перевозки",
+    orgIndices: [0, 4, 15], // ООО АльфаТрейд, ИП Сидоров, ИП Новиков
+  },
+  {
+    name: "Холдинг БетаГамма",
+    description: "Производственный холдинг: сервис, инвестиции, логистика",
+    orgIndices: [2, 3, 5], // ООО БетаСервис, АО ГаммаИнвест, ООО ДельтаГрупп
+  },
+  {
+    name: "Козлова М.Д. и партнёры",
+    description: "ИП и сервисные компании",
+    orgIndices: [7, 9, 17], // ИП Козлова, ООО ЭтаМедиа, ООО НюМаркет
+  },
+];
+
 // ─── Банковские счета ─────────────────────────────────────────────────────────
 
 type BankAccountData = { bankName: string; accountNumber?: string; comment?: string };
@@ -705,6 +725,28 @@ async function main() {
   }
 
   console.log(`  Итого: создано ${orgCreated}, пропущено ${orgSkipped}`);
+
+  // 5.1 Группы клиентов
+  console.log("\n── Группы клиентов ──");
+  for (const g of CLIENT_GROUPS) {
+    const existing = await prisma.clientGroup.findFirst({ where: { name: g.name } });
+    const group = existing
+      ? existing
+      : await prisma.clientGroup.create({ data: { name: g.name, description: g.description } });
+
+    if (!existing) console.log(`  + Группа "${g.name}"`);
+    else console.log(`  — Группа "${g.name}" (уже существует)`);
+
+    // Привязываем организации к группе
+    for (const idx of g.orgIndices) {
+      const org = createdOrgs[idx];
+      if (!org) continue;
+      await prisma.organization.update({
+        where: { id: org.id },
+        data: { clientGroupId: group.id },
+      });
+    }
+  }
 
   // 6. Контакты
   console.log("\n── Контакты ──");

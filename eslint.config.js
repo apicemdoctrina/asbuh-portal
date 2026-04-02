@@ -30,6 +30,12 @@ export default [
     },
   },
   {
+    files: ["scripts/**/*.{js,ts}"],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+  },
+  {
     ignores: ["**/dist/", "**/build/", "**/node_modules/", "**/coverage/"],
   },
 ];

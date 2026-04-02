@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomUUID } from "crypto";
 import prisma from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
 import { authenticate, requirePermission } from "../middleware/auth.js";
@@ -127,6 +128,9 @@ router.post("/", authenticate, requirePermission("task", "create"), async (req, 
         ? organizationIds
         : [organizationId || null];
 
+    // Tasks created for multiple orgs at once share a groupId
+    const groupId = orgIdList.length > 1 ? randomUUID() : undefined;
+
     const createdTasks = [];
 
     for (const orgId of orgIdList) {
@@ -139,6 +143,7 @@ router.post("/", authenticate, requirePermission("task", "create"), async (req, 
           dueDate: dueDate ? new Date(dueDate) : null,
           recurrenceType: recurrenceType || null,
           recurrenceInterval: recurrenceInterval ? Number(recurrenceInterval) : 1,
+          groupId: groupId ?? null,
           organizationId: orgId || null,
           createdById: req.user.userId,
           assignees: assigneeIds.length

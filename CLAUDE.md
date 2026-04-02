@@ -43,10 +43,10 @@ Pre-commit hook (husky + lint-staged) runs eslint --fix + prettier on staged fil
 ### Backend (`apps/api/`)
 
 - **Entry**: `src/index.ts` → `src/app.ts` (Express app with all route mounts)
-- **Routes**: `src/routes/*.ts` — each file exports a Router, mounted at `/api/<name>` in app.ts
+- **Routes**: `src/routes/*.ts` — each file exports a Router, mounted at `/api/<name>` in app.ts. Current routes: auth, users, sections, organizations, stats, work-contacts, audit-logs, knowledge, management, tasks, telegram, notifications, messages, tickets, client-groups
 - **Auth middleware**: `src/middleware/auth.ts` — `authenticate` (JWT Bearer), `requireRole(...names)`, `requirePermission(entity, action)` (checks DB via Prisma)
 - **Prisma ORM**: schema at `prisma/schema.prisma`, singleton client at `src/lib/prisma.ts`
-- **Libs** (`src/lib/`): `audit.ts` (audit logging), `tokens.ts` (JWT sign/verify), `password.ts` (bcrypt), `crypto.ts` (AES-256-GCM for bank secrets), `notify.ts` (in-app notifications + SSE push), `telegram.ts` (bot API), `mailer.ts` (SMTP), `task-notifier.ts` (cron-like reminders/escalation), `sse-manager.ts` (SSE connections), `validators.ts` (Zod schemas), `route-helpers.ts`
+- **Libs** (`src/lib/`): `audit.ts` (audit logging), `tokens.ts` (JWT sign/verify), `password.ts` (bcrypt), `crypto.ts` (AES-256-GCM for bank secrets), `notify.ts` (in-app notifications + SSE push), `telegram.ts` (bot API), `mailer.ts` (SMTP), `task-notifier.ts` (cron-like reminders/escalation), `sse-manager.ts` (SSE connections), `validators.ts` (Zod schemas), `route-helpers.ts`, `upload.ts` (multer file uploads, serves `/uploads` static dir)
 
 ### Frontend (`apps/web/`)
 
@@ -90,3 +90,13 @@ Permission-based: `requirePermission(entity, action)` checks `RolePermission →
 - Frontend: React 18 + Tailwind. `useState`/`useEffect` for data fetching via `api()`. Permission checks via `useAuth()`.
 - UI style rules in DESIGN_SYSTEM.md. Primary color: `#6567F1`. Icons: `lucide-react`.
 - Не добавляй новые зависимости без причины и объяснения.
+
+## New models since initial setup
+
+Schema additions not yet reflected everywhere in the codebase:
+
+- **ClientGroup** — группировка организаций (`/api/client-groups`). `Organization.clientGroupId` FK.
+- **Ticket / TicketMessage / TicketAttachment** — тикет-система (`/api/tickets`). Статусы: `NEW | IN_PROGRESS | WAITING_CLIENT | ON_HOLD | ESCALATED | CLOSED | REOPENED`. Типы: `QUESTION | DOCUMENT_REQUEST | PROBLEM | DOCUMENT_UPLOAD`.
+- **MessageTemplate / MessageLog** — шаблоны сообщений и история отправок (`/api/messages`). Каналы: `EMAIL | TELEGRAM`.
+- **CustomFieldDefinition / CustomFieldValue** — кастомные поля организаций (типы: `TEXT | NUMBER | DATE | BOOLEAN`).
+- **RevenueSnapshot / Expense / Income** — финансовые снапшоты и расходы/доходы (управленческий учёт).

@@ -42,6 +42,8 @@ model User {
   createdTickets       Ticket[]             @relation("TicketCreator")
   assignedTickets      Ticket[]             @relation("TicketAssignee")
   ticketMessages       TicketMessage[]      @relation("TicketMessageAuthor")
+  createdAnnouncements Announcement[]       @relation("AnnouncementAuthor")
+  announcementReads    AnnouncementRead[]
 
   @@map("users")
 }
@@ -195,15 +197,28 @@ model SectionMember {
   @@map("section_members")
 }
 
+model ClientGroup {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  organizations Organization[]
+
+  @@map("client_groups")
+}
+
 model Organization {
-  id        String   @id @default(uuid())
-  name      String
-  inn       String?  @unique
-  form      OrgForm?
-  status    String   @default("active") // active, new, archived
-  sectionId String?  @map("section_id")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id            String   @id @default(uuid())
+  name          String
+  inn           String?  @unique
+  form          OrgForm?
+  status        String   @default("active") // active, new, archived
+  sectionId     String?  @map("section_id")
+  clientGroupId String?  @map("client_group_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   // --- Общая ---
   taxSystems      TaxSystem[]                    @map("tax_systems")
@@ -237,6 +252,7 @@ model Organization {
   debtAmount         Decimal? @db.Decimal(12, 2) @map("debt_amount")
 
   section           Section?             @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  clientGroup       ClientGroup?         @relation(fields: [clientGroupId], references: [id], onDelete: SetNull)
   members           OrganizationMember[]
   inviteTokens      InviteToken[]
   bankAccounts      OrganizationBankAccount[]
@@ -249,6 +265,7 @@ model Organization {
   tickets           Ticket[]
 
   @@index([sectionId])
+  @@index([clientGroupId])
   @@map("organizations")
 }
 
@@ -526,6 +543,7 @@ model Task {
   reminderSentAt     DateTime?       @map("reminder_sent_at")
   escalatedAt        DateTime?       @map("escalated_at")
   archivedAt         DateTime?       @map("archived_at")
+  groupId            String?         @map("group_id")
   organizationId     String?         @map("organization_id")
   createdById        String          @map("created_by_id")
   createdAt          DateTime        @default(now()) @map("created_at")
@@ -539,6 +557,7 @@ model Task {
 
   @@index([organizationId])
   @@index([dueDate])
+  @@index([groupId])
   @@map("tasks")
 }
 
@@ -797,4 +816,36 @@ model TicketAttachment {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("ticket_attachments")
+}
+
+enum AnnouncementType {
+  FEATURE
+  FIX
+  CHANGE
+  REMOVAL
+}
+
+model Announcement {
+  id          String           @id @default(uuid())
+  title       String
+  body        String
+  type        AnnouncementType @default(FEATURE)
+  publishedAt DateTime         @default(now()) @map("published_at")
+  authorId    String           @map("author_id")
+  author      User             @relation("AnnouncementAuthor", fields: [authorId], references: [id])
+  reads       AnnouncementRead[]
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  @@map("announcements")
+}
+
+model AnnouncementRead {
+  announcementId String       @map("announcement_id")
+  userId         String       @map("user_id")
+  readAt         DateTime     @default(now()) @map("read_at")
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([announcementId, userId])
+  @@map("announcement_reads")
 }

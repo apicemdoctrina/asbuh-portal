@@ -132,6 +132,7 @@ const INITIAL_FORM = {
   form: "",
   status: "active",
   sectionId: "",
+  clientGroupId: "",
   taxSystems: [],
   employeeCount: "",
 
@@ -155,11 +156,11 @@ export default function OrganizationDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, hasPermission, hasRole } = useAuth();
-  const canEdit = hasPermission("organization", "edit");
   const isAdmin = hasRole("admin") || hasRole("supervisor");
 
   const [organization, setOrganization] = useState(null);
   const [sections, setSections] = useState([]);
+  const [clientGroups, setClientGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -192,11 +193,22 @@ export default function OrganizationDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const canEdit = hasPermission("organization", "edit") && organization?._editable !== false;
+
   useEffect(() => {
     if (hasPermission("section", "view")) {
       api("/api/sections?limit=100")
         .then((res) => (res.ok ? res.json() : { sections: [] }))
         .then((data) => setSections(data.sections || []))
+        .catch(() => {});
+    }
+  }, [hasPermission]);
+
+  useEffect(() => {
+    if (hasPermission("organization", "view")) {
+      api("/api/client-groups")
+        .then((res) => (res.ok ? res.json() : []))
+        .then((data) => setClientGroups(Array.isArray(data) ? data : []))
         .catch(() => {});
     }
   }, [hasPermission]);
@@ -210,6 +222,7 @@ export default function OrganizationDetailPage() {
       form: data.form || "",
       status: data.status || "active",
       sectionId: data.sectionId || "",
+      clientGroupId: data.clientGroupId || "",
       taxSystems: data.taxSystems || [],
       employeeCount: data.employeeCount != null ? String(data.employeeCount) : "",
 
@@ -307,6 +320,7 @@ export default function OrganizationDetailPage() {
           form: form.form || null,
           status: form.status,
           sectionId: form.sectionId || null,
+          clientGroupId: form.clientGroupId || null,
           taxSystems: form.taxSystems,
           employeeCount: toIntOrNull(form.employeeCount),
 
@@ -616,6 +630,23 @@ export default function OrganizationDetailPage() {
                   </select>
                 </div>
               )}
+              {!ARCHIVED_STATUSES.includes(form.status) && clientGroups.length > 0 && (
+                <div>
+                  <label className={LABEL_CLS}>Группа клиента</label>
+                  <select
+                    value={form.clientGroupId}
+                    onChange={(e) => setField("clientGroupId", e.target.value)}
+                    className={SELECT_CLS}
+                  >
+                    <option value="">Без группы</option>
+                    {clientGroups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {!ARCHIVED_STATUSES.includes(form.status) && (
                 <div>
                   <label className={LABEL_CLS}>Кол-во сотрудников</label>
@@ -893,6 +924,7 @@ export default function OrganizationDetailPage() {
                       : null
                   }
                 />
+                <Field label="Группа клиента" value={org.clientGroup?.name ?? null} />
                 <Field
                   label="Сотрудники"
                   value={org.employeeCount != null ? org.employeeCount : null}
@@ -1048,8 +1080,8 @@ export default function OrganizationDetailPage() {
         <DocumentsCard
           organizationId={id}
           documents={org.documents || []}
-          canCreate={hasPermission("document", "create")}
-          canDelete={hasPermission("document", "delete")}
+          canCreate={hasPermission("document", "create") && canEdit}
+          canDelete={hasPermission("document", "delete") && canEdit}
           onDataChanged={fetchOrganization}
         />
         {hasPermission("task", "view") && (
@@ -1234,7 +1266,9 @@ export default function OrganizationDetailPage() {
                 onClick={async () => {
                   setDeleting(true);
                   try {
-                    const res = await api(`/api/organizations/${id}`, { method: "DELETE" });
+                    const res = await api(`/api/organizations/${id}/permanent`, {
+                      method: "DELETE",
+                    });
                     if (res.ok) {
                       navigate("/organizations");
                     } else {

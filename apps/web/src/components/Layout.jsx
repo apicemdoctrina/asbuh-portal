@@ -16,9 +16,13 @@ import {
   LogOut,
   Menu,
   X,
+  Megaphone,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import NotificationBell from "./NotificationBell.jsx";
+import AnnouncementsPanel from "./AnnouncementsPanel.jsx";
+import AnnouncementsWelcomeModal from "./AnnouncementsWelcomeModal.jsx";
+import { api } from "../lib/api.js";
 
 const navItems = [
   { to: "/", label: "Главная", icon: LayoutDashboard, permission: null },
@@ -149,6 +153,32 @@ export default function Layout() {
   const { user, logout, hasPermission, hasRole } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [announcementsOpen, setAnnouncementsOpen] = useState(false);
+  const [unreadAnnouncements, setUnreadAnnouncements] = useState(0);
+  const [welcomeItems, setWelcomeItems] = useState(null); // null = not checked yet
+
+  // On mount: fetch unread announcements; show welcome modal once per session
+  const checkAnnouncements = useCallback(async () => {
+    try {
+      const res = await api("/api/announcements");
+      const data = await res.json();
+      const unread = Array.isArray(data) ? data.filter((a) => !a.isRead) : [];
+      setUnreadAnnouncements(unread.length);
+
+      const shownKey = "announcements_welcome_shown";
+      const alreadyShown = sessionStorage.getItem(shownKey);
+      if (unread.length > 0 && !alreadyShown) {
+        sessionStorage.setItem(shownKey, "1");
+        setWelcomeItems(unread);
+      }
+    } catch {
+      // silent — not critical
+    }
+  }, []);
+
+  useEffect(() => {
+    checkAnnouncements();
+  }, [checkAnnouncements]);
 
   const visibleNav = navItems.filter((item) => {
     if (item.group) {
@@ -188,6 +218,19 @@ export default function Layout() {
           </Link>
         </div>
         <div className="flex items-center gap-3">
+          {/* Announcements bell */}
+          <button
+            onClick={() => setAnnouncementsOpen(true)}
+            className="relative p-1.5 rounded-lg text-slate-500 hover:text-[#6567F1] hover:bg-[#6567F1]/5 transition-colors"
+            title="Обновления сервиса"
+          >
+            <Megaphone size={20} />
+            {unreadAnnouncements > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#6567F1] text-white text-[10px] font-bold flex items-center justify-center">
+                {unreadAnnouncements > 9 ? "9+" : unreadAnnouncements}
+              </span>
+            )}
+          </button>
           <NotificationBell />
           <Link
             to="/profile"
@@ -275,6 +318,25 @@ export default function Layout() {
           <Outlet />
         </div>
       </main>
+
+      {/* Announcements slide-over panel */}
+      {announcementsOpen && (
+        <AnnouncementsPanel
+          onClose={() => setAnnouncementsOpen(false)}
+          onUnreadChange={setUnreadAnnouncements}
+        />
+      )}
+
+      {/* Welcome modal — shown once per session when there are unread announcements */}
+      {welcomeItems && welcomeItems.length > 0 && (
+        <AnnouncementsWelcomeModal
+          items={welcomeItems}
+          onClose={() => {
+            setWelcomeItems(null);
+            setUnreadAnnouncements(0);
+          }}
+        />
+      )}
     </div>
   );
 }

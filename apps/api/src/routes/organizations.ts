@@ -37,12 +37,36 @@ const secretsLimiter = rateLimit({
 
 const router = Router();
 
-/** Build a Prisma `where` filter that enforces data-scoping rules. */
+/** Strict scope — own sections only. Used for write operations (PUT/DELETE). */
 function getScopedWhere(userId: string, roles: string[]): Prisma.OrganizationWhereInput {
   if (roles.includes("admin") || roles.includes("supervisor")) return {};
   if (roles.includes("manager") || roles.includes("accountant")) {
     return {
       section: { members: { some: { userId } } },
+    };
+  }
+  return { members: { some: { userId } } };
+}
+
+/**
+ * View scope — own sections PLUS orgs in any client group that contains
+ * at least one org from the user's sections.  Used for GET list/detail.
+ */
+function getViewScopeWhere(userId: string, roles: string[]): Prisma.OrganizationWhereInput {
+  if (roles.includes("admin") || roles.includes("supervisor")) return {};
+  if (roles.includes("manager") || roles.includes("accountant")) {
+    return {
+      OR: [
+        { section: { members: { some: { userId } } } },
+        {
+          clientGroupId: { not: null },
+          clientGroup: {
+            organizations: {
+              some: { section: { members: { some: { userId } } } },
+            },
+          },
+        },
+      ],
     };
   }
   return { members: { some: { userId } } };
@@ -160,6 +184,13 @@ function buildOrgData(validated: Record<string, unknown>): Prisma.OrganizationUp
       : { disconnect: true };
   }
 
+  // clientGroupId → relation connect/disconnect
+  if (validated.clientGroupId !== undefined) {
+    data.clientGroup = validated.clientGroupId
+      ? { connect: { id: validated.clientGroupId as string } }
+      : { disconnect: true };
+  }
+
   return data;
 }
 
@@ -169,6 +200,7 @@ router.get("/", authenticate, requirePermission("organization", "view"), async (
     const {
       search,
       sectionId,
+      clientGroupId,
       status,
       archived,
       taxSystem,
@@ -192,7 +224,7 @@ router.get("/", authenticate, requirePermission("organization", "view"), async (
     ] as const;
     type SortField = (typeof SORTABLE_FIELDS)[number];
 
-    const scope = getScopedWhere(req.user!.userId, req.user!.roles);
+    const scope = getViewScopeWhere(req.user!.userId, req.user!.roles);
 
     const statusFilter: Prisma.OrganizationWhereInput =
       archived === "true"
@@ -204,6 +236,7 @@ router.get("/", authenticate, requirePermission("organization", "view"), async (
     const where: Prisma.OrganizationWhereInput = {
       ...scope,
       ...(sectionId ? { sectionId: String(sectionId) } : {}),
+      ...(clientGroupId ? { clientGroupId: String(clientGroupId) } : {}),
       ...statusFilter,
       ...(taxSystem ? { taxSystems: { has: String(taxSystem) } } : {}),
       ...(search
@@ -234,6 +267,7 @@ router.get("/", authenticate, requirePermission("organization", "view"), async (
         take: limit,
         include: {
           section: { select: { id: true, number: true, name: true } },
+          clientGroup: { select: { id: true, name: true } },
           members: {
             include: { user: { select: { firstName: true, lastName: true } } },
           },
@@ -569,14 +603,16 @@ router.delete("/custom-field-defs/:defId", authenticate, requireRole("admin"), a
 // GET /api/organizations/:id — details + section + members + bankAccounts + contacts
 router.get("/:id", authenticate, requirePermission("organization", "view"), async (req, res) => {
   try {
-    const scope = getScopedWhere(req.user!.userId, req.user!.roles);
+    const viewScope = getViewScopeWhere(req.user!.userId, req.user!.roles);
+    const editScope = getScopedWhere(req.user!.userId, req.user!.roles);
 
     const clientOnly = isClientOnly(req.user!.roles);
 
     const organization = await prisma.organization.findFirst({
-      where: { id: req.params.id, ...scope },
+      where: { id: req.params.id, ...viewScope },
       include: {
         section: { select: { id: true, number: true, name: true } },
+        clientGroup: { select: { id: true, name: true, description: true } },
         members: {
           include: {
             user: {
@@ -664,7 +700,17 @@ router.get("/:id", authenticate, requirePermission("organization", "view"), asyn
       clientOnly,
     );
 
-    res.json(organization);
+    // _editable: true when the user can write to this org (strict scope check)
+    const editScopeKeys = Object.keys(editScope);
+    const editable =
+      editScopeKeys.length === 0
+        ? true
+        : !!(await prisma.organization.findFirst({
+            where: { id: organization.id, ...editScope },
+            select: { id: true },
+          }));
+
+    res.json({ ...organization, _editable: editable });
   } catch (err) {
     console.error("Get organization error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -2045,8 +2091,8 @@ router.put(
   },
 );
 
-// ── DELETE organization (admin only) ──────────────────────────────────────────
-router.delete("/:id", authenticate, requireRole("admin"), async (req, res) => {
+// ── PERMANENT DELETE organization (admin only) ────────────────────────────────
+router.delete("/:id/permanent", authenticate, requireRole("admin"), async (req, res) => {
   try {
     const org = await prisma.organization.findUnique({
       where: { id: req.params.id },
