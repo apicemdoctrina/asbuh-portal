@@ -101,9 +101,9 @@ describe("GET /api/organizations", () => {
     expect(res.status).toBe(200);
 
     const call = (prisma.organization.findMany as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(call.where).toHaveProperty("section");
-    expect(call.where.section).toEqual({
-      members: { some: { userId: "manager-id" } },
+    expect(call.where).toHaveProperty("OR");
+    expect(call.where.OR[0]).toEqual({
+      section: { members: { some: { userId: "manager-id" } } },
     });
   });
 
@@ -119,9 +119,9 @@ describe("GET /api/organizations", () => {
     expect(res.status).toBe(200);
 
     const call = (prisma.organization.findMany as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(call.where).toHaveProperty("section");
-    expect(call.where.section).toEqual({
-      members: { some: { userId: "acc-id" } },
+    expect(call.where).toHaveProperty("OR");
+    expect(call.where.OR[0]).toEqual({
+      section: { members: { some: { userId: "acc-id" } } },
     });
   });
 
