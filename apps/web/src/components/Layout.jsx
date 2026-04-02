@@ -17,6 +17,7 @@ import {
   Menu,
   X,
   Megaphone,
+  Ticket,
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import NotificationBell from "./NotificationBell.jsx";
@@ -27,6 +28,7 @@ import { api } from "../lib/api.js";
 const navItems = [
   { to: "/", label: "Главная", icon: LayoutDashboard, permission: null },
   { to: "/tasks", label: "Задачи", icon: ClipboardList, permission: ["task", "view"] },
+  { to: "/tickets", label: "Тикеты", icon: Ticket, permission: ["ticket", "view"] },
   { to: "/management", label: "Управление", icon: TrendingUp, roles: ["admin", "supervisor"] },
   { to: "/staff", label: "Сотрудники", icon: Users, role: "admin" },
   {

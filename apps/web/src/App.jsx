@@ -23,6 +23,8 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import MessageTemplatesPage from "./pages/MessageTemplatesPage.jsx";
 import KnowledgeArticlePage from "./pages/KnowledgeArticlePage.jsx";
+import TicketsPage from "./pages/TicketsPage.jsx";
+import TicketDetailPage from "./pages/TicketDetailPage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
 
 export default function App() {
@@ -56,6 +58,8 @@ export default function App() {
               <Route path="audit-log" element={<AuditLogPage />} />
               <Route path="management" element={<ManagementPage />} />
               <Route path="tasks" element={<TasksPage />} />
+              <Route path="tickets" element={<TicketsPage />} />
+              <Route path="tickets/:id" element={<TicketDetailPage />} />
               <Route path="message-templates" element={<MessageTemplatesPage />} />
               <Route path="profile" element={<ProfilePage />} />
             </Route>
