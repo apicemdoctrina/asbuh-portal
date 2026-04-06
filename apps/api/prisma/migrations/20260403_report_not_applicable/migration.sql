@@ -1,0 +1,1 @@
+ALTER TYPE "ReportEntryStatus" ADD VALUE 'NOT_APPLICABLE';

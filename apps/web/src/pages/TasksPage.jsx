@@ -1102,24 +1102,35 @@ function KanbanCard({
   const checklistTotal = task.checklistItems?.length ?? 0;
   const checklistDone = task.checklistItems?.filter((i) => i.done).length ?? 0;
   const cancelled = task.status === "CANCELLED";
+  const isReport = !!task.reportType;
 
   return (
     <div
       draggable={canEdit}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      className={`group bg-white rounded-xl border p-3 transition-all select-none ${
+      className={`group rounded-xl border p-3 transition-all select-none ${
         isDragging ? "opacity-40 rotate-1 scale-95" : "hover:shadow-md"
-      } ${overdue ? "border-red-200" : "border-slate-200"} ${canEdit ? "cursor-grab active:cursor-grabbing" : ""}`}
+      } ${
+        isReport
+          ? "bg-gradient-to-br from-purple-50 to-white border-purple-200/60 ring-1 ring-purple-100/50"
+          : overdue
+            ? "bg-white border-red-200"
+            : "bg-white border-slate-200"
+      } ${canEdit ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
       {/* Priority + category + recurrence */}
       <div className="flex items-center gap-1.5 mb-2">
-        <span className="text-[10px] text-slate-400 font-medium shrink-0">Приоритет:</span>
-        <span
-          className={`text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide ${PRIORITY_COLORS[task.priority]}`}
-        >
-          {TASK_PRIORITY_LABELS[task.priority]}
-        </span>
+        {!isReport && (
+          <span className="text-[10px] text-slate-400 font-medium shrink-0">Приоритет:</span>
+        )}
+        {!isReport && (
+          <span
+            className={`text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide ${PRIORITY_COLORS[task.priority]}`}
+          >
+            {TASK_PRIORITY_LABELS[task.priority]}
+          </span>
+        )}
         <span
           className={`text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide ${CATEGORY_COLORS[task.category]}`}
         >
@@ -1136,20 +1147,41 @@ function KanbanCard({
 
       {/* Title */}
       <p
-        className={`text-sm font-medium leading-snug mb-1.5 ${cancelled ? "line-through text-slate-400" : "text-slate-800"}`}
+        className={`text-sm font-medium leading-snug mb-1.5 ${cancelled ? "line-through text-slate-400" : isReport ? "text-purple-900" : "text-slate-800"}`}
       >
         {task.title}
       </p>
 
+      {/* Report progress bar */}
+      {isReport && checklistTotal > 0 && (
+        <div className="mb-2">
+          <div className="flex items-center justify-between text-[11px] mb-1">
+            <span className="font-medium text-purple-600 flex items-center gap-1">
+              <Building2 size={10} />
+              {checklistDone}/{checklistTotal} орг.
+            </span>
+            <span className="text-purple-400">
+              {Math.round((checklistDone / checklistTotal) * 100)}%
+            </span>
+          </div>
+          <div className="h-1.5 bg-purple-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-purple-500 rounded-full transition-all duration-300"
+              style={{ width: `${(checklistDone / checklistTotal) * 100}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Description */}
-      {task.description && (
+      {!isReport && task.description && (
         <p className="text-[11px] text-slate-400 leading-snug line-clamp-2 mb-1.5">
           {task.description}
         </p>
       )}
 
       {/* Org */}
-      {task.organization && (
+      {!isReport && task.organization && (
         <Link
           to={`/organizations/${task.organization.id}`}
           className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-[#6567F1] transition-colors mb-1.5 truncate"
@@ -1214,20 +1246,31 @@ function KanbanCard({
         )}
 
         <div className="flex items-center gap-0.5 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            onClick={() => onChecklist(task)}
-            className="relative p-1 text-slate-300 hover:text-[#6567F1] transition-colors"
-            title="Чек-лист"
-          >
-            <CheckSquare size={13} />
-            {checklistTotal > 0 && (
-              <span
-                className={`absolute -top-0.5 -right-0.5 w-3 h-3 text-white text-[7px] font-bold rounded-full flex items-center justify-center ${checklistDone === checklistTotal ? "bg-emerald-500" : "bg-slate-400"}`}
-              >
-                {checklistDone === checklistTotal ? "✓" : checklistTotal}
-              </span>
-            )}
-          </button>
+          {isReport && checklistTotal > 0 ? (
+            <button
+              onClick={() => onChecklist(task)}
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 text-[10px] font-semibold hover:bg-purple-200 transition-colors !opacity-100"
+              title="Организации"
+            >
+              <CheckSquare size={11} />
+              {checklistDone}/{checklistTotal}
+            </button>
+          ) : (
+            <button
+              onClick={() => onChecklist(task)}
+              className="relative p-1 text-slate-300 hover:text-[#6567F1] transition-colors"
+              title="Чек-лист"
+            >
+              <CheckSquare size={13} />
+              {checklistTotal > 0 && (
+                <span
+                  className={`absolute -top-0.5 -right-0.5 w-3 h-3 text-white text-[7px] font-bold rounded-full flex items-center justify-center ${checklistDone === checklistTotal ? "bg-emerald-500" : "bg-slate-400"}`}
+                >
+                  {checklistDone === checklistTotal ? "✓" : checklistTotal}
+                </span>
+              )}
+            </button>
+          )}
           <button
             onClick={() => onComment(task)}
             className={`relative p-1 transition-colors hover:text-[#6567F1] ${task._count?.comments > 0 ? "text-[#6567F1]" : "text-slate-300"}`}
@@ -1464,15 +1507,22 @@ function TaskCard({
   const checklistTotal = task.checklistItems?.length ?? 0;
   const checklistDone = task.checklistItems?.filter((i) => i.done).length ?? 0;
   const cancelled = task.status === "CANCELLED";
+  const isReport = !!task.reportType;
 
   return (
     <div
-      className={`group flex items-center gap-3 bg-white border rounded-xl px-3 py-2.5 transition-shadow hover:shadow-md ${overdue ? "border-red-200 bg-red-50/30" : "border-slate-200"}`}
+      className={`group flex items-center gap-3 border rounded-xl px-3 py-2.5 transition-shadow hover:shadow-md ${
+        isReport
+          ? "bg-gradient-to-r from-purple-50/80 to-white border-purple-200/60 ring-1 ring-purple-100/50"
+          : overdue
+            ? "bg-white border-red-200 bg-red-50/30"
+            : "bg-white border-slate-200"
+      }`}
     >
       {/* Priority bar */}
       <div
-        className={`w-1 h-8 rounded-full shrink-0 ${PRIORITY_BAR[task.priority]}`}
-        title={TASK_PRIORITY_LABELS[task.priority]}
+        className={`w-1 h-8 rounded-full shrink-0 ${isReport ? "bg-purple-400" : PRIORITY_BAR[task.priority]}`}
+        title={isReport ? "Отчётность" : TASK_PRIORITY_LABELS[task.priority]}
       />
 
       {/* Category badge */}
@@ -1485,12 +1535,18 @@ function TaskCard({
       {/* Title + meta */}
       <div className="flex-1 min-w-0">
         <p
-          className={`text-sm font-medium leading-tight truncate ${cancelled ? "line-through text-slate-400" : "text-slate-800"}`}
+          className={`text-sm font-medium leading-tight truncate ${cancelled ? "line-through text-slate-400" : isReport ? "text-purple-900" : "text-slate-800"}`}
         >
           {task.title}
         </p>
         <div className="flex items-center gap-2.5 mt-0.5 text-[11px] text-slate-400 flex-wrap">
-          {task.organization && (
+          {isReport && checklistTotal > 0 && (
+            <span className="flex items-center gap-0.5 font-medium text-purple-600">
+              <Building2 size={10} />
+              {checklistDone}/{checklistTotal} орг.
+            </span>
+          )}
+          {!isReport && task.organization && (
             <Link
               to={`/organizations/${task.organization.id}`}
               className="flex items-center gap-0.5 hover:text-[#6567F1] transition-colors truncate max-w-[160px]"
@@ -1554,20 +1610,31 @@ function TaskCard({
           </span>
         )}
 
-        <button
-          onClick={() => onChecklist(task)}
-          className="relative p-1.5 text-slate-300 hover:text-[#6567F1] transition-colors"
-          title="Чек-лист"
-        >
-          <CheckSquare size={14} />
-          {checklistTotal > 0 && (
-            <span
-              className={`absolute -top-0.5 -right-0.5 w-3.5 h-3.5 text-white text-[8px] font-bold rounded-full flex items-center justify-center leading-none ${checklistDone === checklistTotal ? "bg-emerald-500" : "bg-slate-400"}`}
-            >
-              {checklistDone === checklistTotal ? "✓" : checklistTotal}
-            </span>
-          )}
-        </button>
+        {isReport && checklistTotal > 0 ? (
+          <button
+            onClick={() => onChecklist(task)}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-100 text-purple-700 text-[11px] font-semibold hover:bg-purple-200 transition-colors"
+            title="Организации"
+          >
+            <CheckSquare size={12} />
+            {checklistDone}/{checklistTotal}
+          </button>
+        ) : (
+          <button
+            onClick={() => onChecklist(task)}
+            className="relative p-1.5 text-slate-300 hover:text-[#6567F1] transition-colors"
+            title="Чек-лист"
+          >
+            <CheckSquare size={14} />
+            {checklistTotal > 0 && (
+              <span
+                className={`absolute -top-0.5 -right-0.5 w-3.5 h-3.5 text-white text-[8px] font-bold rounded-full flex items-center justify-center leading-none ${checklistDone === checklistTotal ? "bg-emerald-500" : "bg-slate-400"}`}
+              >
+                {checklistDone === checklistTotal ? "✓" : checklistTotal}
+              </span>
+            )}
+          </button>
+        )}
 
         <button
           onClick={() => onComment(task)}

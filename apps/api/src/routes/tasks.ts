@@ -5,6 +5,7 @@ import { logAudit } from "../lib/audit.js";
 import { authenticate, requirePermission } from "../middleware/auth.js";
 import { notifyAssigned } from "../lib/task-notifier.js";
 import { createNotification } from "../lib/notify.js";
+import { syncTaskToEntries, syncChecklistToEntry } from "../lib/report-task-generator.js";
 
 const router = Router();
 
@@ -12,6 +13,7 @@ const ASSIGNEE_SELECT = { id: true, firstName: true, lastName: true };
 
 const INCLUDE = {
   organization: { select: { id: true, name: true } },
+  reportType: { select: { id: true, name: true, code: true } },
   assignees: { include: { user: { select: ASSIGNEE_SELECT } } },
   createdBy: { select: { id: true, firstName: true, lastName: true } },
   checklistItems: { select: { done: true }, orderBy: { position: "asc" as const } },
@@ -289,6 +291,11 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
       }
     }
 
+    // Sync report entries when task status changes
+    if (data.status) {
+      syncTaskToEntries(task.id).catch(console.error);
+    }
+
     await logAudit({
       action: "task.update",
       userId: req.user.userId,
@@ -476,6 +483,11 @@ router.patch(
         where: { id: req.params.itemId },
         data,
       });
+
+      // Sync report entry if this checklist item is linked
+      if (data.done !== undefined) {
+        syncChecklistToEntry(item.id).catch(console.error);
+      }
 
       res.json(item);
     } catch (err) {

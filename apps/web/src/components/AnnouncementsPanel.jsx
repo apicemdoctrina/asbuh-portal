@@ -10,6 +10,11 @@ const TYPE_META = {
   REMOVAL: { label: "Удалено", color: "bg-red-100 text-red-700" },
 };
 
+const AUDIENCE_META = {
+  STAFF: { label: "Сотрудники", color: "bg-violet-100 text-violet-700" },
+  CLIENT: { label: "Клиенты", color: "bg-sky-100 text-sky-700" },
+};
+
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString("ru-RU", {
     day: "numeric",
@@ -25,7 +30,7 @@ export default function AnnouncementsPanel({ onClose, onUnreadChange }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: "", body: "", type: "FEATURE" });
+  const [form, setForm] = useState({ title: "", body: "", type: "FEATURE", audience: "STAFF" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -74,7 +79,7 @@ export default function AnnouncementsPanel({ onClose, onUnreadChange }) {
       });
       const created = await res.json();
       setItems((prev) => [created, ...prev]);
-      setForm({ title: "", body: "", type: "FEATURE" });
+      setForm({ title: "", body: "", type: "FEATURE", audience: "STAFF" });
       setShowForm(false);
     } catch {
       setError("Не удалось создать анонс");
@@ -149,6 +154,14 @@ export default function AnnouncementsPanel({ onClose, onUnreadChange }) {
                     </option>
                   ))}
                 </select>
+                <select
+                  value={form.audience}
+                  onChange={(e) => setForm((f) => ({ ...f, audience: e.target.value }))}
+                  className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-700 focus:outline-none focus:border-[#6567F1]"
+                >
+                  <option value="STAFF">Сотрудники</option>
+                  <option value="CLIENT">Клиенты</option>
+                </select>
                 <input
                   value={form.title}
                   onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
@@ -212,6 +225,13 @@ export default function AnnouncementsPanel({ onClose, onUnreadChange }) {
                           >
                             {meta.label}
                           </span>
+                          {isAdmin && item.audience && AUDIENCE_META[item.audience] && (
+                            <span
+                              className={`text-xs font-medium px-2 py-0.5 rounded-full ${AUDIENCE_META[item.audience].color}`}
+                            >
+                              {AUDIENCE_META[item.audience].label}
+                            </span>
+                          )}
                           {!item.isRead && (
                             <span className="w-2 h-2 rounded-full bg-[#6567F1] flex-shrink-0" />
                           )}

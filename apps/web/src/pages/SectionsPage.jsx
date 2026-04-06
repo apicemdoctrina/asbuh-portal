@@ -3,6 +3,8 @@ import { Link } from "react-router";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { Plus, Search, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import SectionIcon from "../components/SectionIcon.jsx";
+import AnimalPicker from "../components/AnimalPicker.jsx";
 
 export default function SectionsPage() {
   const { hasPermission } = useAuth();
@@ -17,6 +19,7 @@ export default function SectionsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [createNumber, setCreateNumber] = useState("");
   const [createName, setCreateName] = useState("");
+  const [createAnimal, setCreateAnimal] = useState("");
   const [createError, setCreateError] = useState("");
   const [creating, setCreating] = useState(false);
 
@@ -56,6 +59,7 @@ export default function SectionsPage() {
         body: JSON.stringify({
           number: Number(createNumber),
           name: createName.trim() || undefined,
+          animal: createAnimal || undefined,
         }),
       });
       if (!res.ok) {
@@ -65,6 +69,7 @@ export default function SectionsPage() {
       setShowCreate(false);
       setCreateNumber("");
       setCreateName("");
+      setCreateAnimal("");
       setPage(1);
       fetchSections();
     } catch (err) {
@@ -129,7 +134,11 @@ export default function SectionsPage() {
                   <tr key={s.id} className="border-b border-slate-50 hover:bg-slate-50/50">
                     <td className="px-4 py-3 font-medium text-slate-900">{s.number}</td>
                     <td className="px-4 py-3 text-slate-600">
-                      <Link to={`/sections/${s.id}`} className="text-[#6567F1] hover:underline">
+                      <Link
+                        to={`/sections/${s.id}`}
+                        className="inline-flex items-center gap-2 text-[#6567F1] hover:underline"
+                      >
+                        <SectionIcon section={s} size={15} className="text-[#6567F1]" />
                         {s.name || "—"}
                       </Link>
                     </td>
@@ -198,6 +207,14 @@ export default function SectionsPage() {
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Иконка</label>
+                <AnimalPicker
+                  value={createAnimal}
+                  onChange={setCreateAnimal}
+                  usedAnimals={sections.filter((s) => s.animal).map((s) => s.animal)}
+                />
+              </div>
               {createError && (
                 <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{createError}</div>
               )}
@@ -207,6 +224,7 @@ export default function SectionsPage() {
                   onClick={() => {
                     setShowCreate(false);
                     setCreateError("");
+                    setCreateAnimal("");
                   }}
                   className="px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
                 >

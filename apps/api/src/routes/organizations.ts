@@ -266,7 +266,7 @@ router.get("/", authenticate, requirePermission("organization", "view"), async (
         skip,
         take: limit,
         include: {
-          section: { select: { id: true, number: true, name: true } },
+          section: { select: { id: true, number: true, name: true, animal: true } },
           clientGroup: { select: { id: true, name: true } },
           members: {
             include: { user: { select: { firstName: true, lastName: true } } },
@@ -611,7 +611,7 @@ router.get("/:id", authenticate, requirePermission("organization", "view"), asyn
     const organization = await prisma.organization.findFirst({
       where: { id: req.params.id, ...viewScope },
       include: {
-        section: { select: { id: true, number: true, name: true } },
+        section: { select: { id: true, number: true, name: true, animal: true } },
         clientGroup: { select: { id: true, name: true, description: true } },
         members: {
           include: {

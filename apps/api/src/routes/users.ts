@@ -110,7 +110,7 @@ router.get("/", authenticate, async (req, res) => {
           lastSeenAt: true,
           userRoles: { include: { role: { select: { name: true } } } },
           sectionMembers: {
-            select: { section: { select: { id: true, number: true, name: true } } },
+            select: { section: { select: { id: true, number: true, name: true, animal: true } } },
           },
         },
       });

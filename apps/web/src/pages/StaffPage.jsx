@@ -11,12 +11,12 @@ import {
   Pencil,
   Trash2,
   KeyRound,
-  Map,
   Clock,
   CheckCircle2,
   AlertCircle,
   ListTodo,
 } from "lucide-react";
+import SectionIcon from "../components/SectionIcon.jsx";
 
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
 
@@ -255,9 +255,9 @@ export default function StaffPage() {
                       <span
                         key={s.id}
                         className="flex items-center gap-1 bg-slate-50 border border-slate-200 text-slate-500 px-2 py-0.5 rounded-lg text-xs font-medium whitespace-nowrap"
+                        title={s.name ? `${s.name} (№${s.number})` : `Участок №${s.number}`}
                       >
-                        <Map size={12} className="shrink-0" />№{s.number}
-                        {s.name ? ` — ${s.name}` : ""}
+                        <SectionIcon section={s} size={12} className="shrink-0" />№{s.number}
                       </span>
                     ))
                   ) : (

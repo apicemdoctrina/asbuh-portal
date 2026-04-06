@@ -3,6 +3,8 @@ import { useParams, Link } from "react-router";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { ArrowLeft, Save, UserPlus, Trash2, Search, Loader2 } from "lucide-react";
+import SectionIcon from "../components/SectionIcon.jsx";
+import AnimalPicker from "../components/AnimalPicker.jsx";
 
 export default function SectionDetailPage() {
   const { id } = useParams();
@@ -16,6 +18,7 @@ export default function SectionDetailPage() {
   // Edit state
   const [editNumber, setEditNumber] = useState("");
   const [editName, setEditName] = useState("");
+  const [editAnimal, setEditAnimal] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
 
@@ -42,6 +45,7 @@ export default function SectionDetailPage() {
       setSection(data);
       setEditNumber(String(data.number));
       setEditName(data.name || "");
+      setEditAnimal(data.animal || "");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -77,6 +81,7 @@ export default function SectionDetailPage() {
         body: JSON.stringify({
           number: Number(editNumber),
           name: editName || null,
+          animal: editAnimal || null,
         }),
       });
       if (!res.ok) {
@@ -176,7 +181,13 @@ export default function SectionDetailPage() {
       </Link>
 
       <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 mb-4">Участок №{section.number}</h1>
+        <h1 className="text-2xl font-bold text-slate-900 mb-4 flex items-center gap-3">
+          <SectionIcon section={section} size={22} className="text-[#6567F1]" />
+          Участок №{section.number}
+          {section.name && (
+            <span className="text-slate-400 font-normal text-lg">— {section.name}</span>
+          )}
+        </h1>
 
         {canEdit ? (
           <form onSubmit={handleSave} className="flex flex-col gap-4 max-w-md">
@@ -198,6 +209,10 @@ export default function SectionDetailPage() {
                 onChange={(e) => setEditName(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Иконка</label>
+              <AnimalPicker value={editAnimal} onChange={setEditAnimal} />
             </div>
             <div className="flex items-center gap-3">
               <button

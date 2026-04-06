@@ -27,6 +27,7 @@ import {
   LinkIcon,
   Unlink,
 } from "lucide-react";
+import SectionIcon from "../components/SectionIcon.jsx";
 
 // ─── Labels ───────────────────────────────────────────────────────────────────
 
@@ -147,7 +148,7 @@ function renderCell(colKey, org) {
     case "form":
       return ORG_FORM_LABELS[org.form] || "—";
     case "section":
-      return org.section ? `№${org.section.number}` : "—";
+      return org.section ? <SectionIcon section={org.section} showNumber size={14} /> : "—";
     case "taxSystems":
       return org.taxSystems?.length
         ? org.taxSystems.map((k) => TAX_SYSTEM_LABELS[k] || k).join(", ")

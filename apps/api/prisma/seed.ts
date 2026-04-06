@@ -56,6 +56,11 @@ const PERMISSIONS: Array<{ entity: string; action: string }> = [
   { entity: "ticket", action: "create" },
   { entity: "ticket", action: "edit" },
   { entity: "ticket", action: "delete" },
+  // Reporting tracker
+  { entity: "reporting", action: "view" },
+  { entity: "reporting", action: "create" },
+  { entity: "reporting", action: "edit" },
+  { entity: "reporting", action: "delete" },
 ];
 
 // Role → permitted (entity, action) pairs
@@ -88,6 +93,10 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "ticket", action: "view" },
     { entity: "ticket", action: "create" },
     { entity: "ticket", action: "edit" },
+    { entity: "reporting", action: "view" },
+    { entity: "reporting", action: "create" },
+    { entity: "reporting", action: "edit" },
+    { entity: "reporting", action: "delete" },
   ],
   manager: [
     { entity: "user", action: "view" },
@@ -116,6 +125,9 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "ticket", action: "view" },
     { entity: "ticket", action: "create" },
     { entity: "ticket", action: "edit" },
+    { entity: "reporting", action: "view" },
+    { entity: "reporting", action: "create" },
+    { entity: "reporting", action: "edit" },
   ],
   accountant: [
     { entity: "organization", action: "view" },
@@ -137,6 +149,9 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "ticket", action: "view" },
     { entity: "ticket", action: "create" },
     { entity: "ticket", action: "edit" },
+    { entity: "reporting", action: "view" },
+    { entity: "reporting", action: "create" },
+    { entity: "reporting", action: "edit" },
   ],
   client: [
     { entity: "organization", action: "view" },
@@ -231,6 +246,121 @@ async function main() {
   });
 
   console.log("Test supervisor seeded: supervisor@asbuh.local / Supervisor123!");
+
+  // Seed default report types
+  const reportTypes = [
+    {
+      code: "NDS",
+      name: "НДС",
+      frequency: "QUARTERLY" as const,
+      order: 1,
+      deadlineDay: 25,
+      deadlineMonthOffset: 1,
+    },
+    {
+      code: "USN",
+      name: "УСН (декларация)",
+      frequency: "YEARLY" as const,
+      order: 2,
+      deadlineDay: 25,
+      deadlineMonthOffset: 3,
+    },
+    {
+      code: "USN_ADVANCE",
+      name: "УСН (авансы)",
+      frequency: "QUARTERLY" as const,
+      order: 3,
+      deadlineDay: 28,
+      deadlineMonthOffset: 1,
+    },
+    {
+      code: "6NDFL",
+      name: "6-НДФЛ",
+      frequency: "QUARTERLY" as const,
+      order: 4,
+      deadlineDay: 25,
+      deadlineMonthOffset: 1,
+    },
+    {
+      code: "RSV",
+      name: "РСВ",
+      frequency: "QUARTERLY" as const,
+      order: 5,
+      deadlineDay: 25,
+      deadlineMonthOffset: 1,
+    },
+    {
+      code: "PERS_SVED",
+      name: "Персонифицированные сведения",
+      frequency: "MONTHLY" as const,
+      order: 6,
+      deadlineDay: 25,
+      deadlineMonthOffset: 1,
+    },
+    {
+      code: "SZV_TD",
+      name: "ЕФС-1 (СЗВ-ТД)",
+      frequency: "MONTHLY" as const,
+      order: 7,
+      deadlineDay: 25,
+      deadlineMonthOffset: 1,
+    },
+    {
+      code: "BUH_OTCH",
+      name: "Бухгалтерская отчётность",
+      frequency: "YEARLY" as const,
+      order: 8,
+      deadlineDay: 31,
+      deadlineMonthOffset: 3,
+    },
+    {
+      code: "NALOG_IMUSH",
+      name: "Налог на имущество",
+      frequency: "YEARLY" as const,
+      order: 9,
+      deadlineDay: 25,
+      deadlineMonthOffset: 3,
+    },
+    {
+      code: "ZEMEL_NALOG",
+      name: "Земельный налог",
+      frequency: "YEARLY" as const,
+      order: 10,
+      deadlineDay: 28,
+      deadlineMonthOffset: 2,
+    },
+    {
+      code: "TRANSPORT",
+      name: "Транспортный налог",
+      frequency: "YEARLY" as const,
+      order: 11,
+      deadlineDay: 28,
+      deadlineMonthOffset: 2,
+    },
+    {
+      code: "NALOG_PRIBYL",
+      name: "Налог на прибыль",
+      frequency: "QUARTERLY" as const,
+      order: 12,
+      deadlineDay: 28,
+      deadlineMonthOffset: 1,
+    },
+  ];
+
+  for (const rt of reportTypes) {
+    await prisma.reportType.upsert({
+      where: { code: rt.code },
+      update: {
+        name: rt.name,
+        frequency: rt.frequency,
+        order: rt.order,
+        deadlineDay: rt.deadlineDay,
+        deadlineMonthOffset: rt.deadlineMonthOffset,
+      },
+      create: rt,
+    });
+  }
+  console.log(`Report types seeded: ${reportTypes.length}`);
 }
 
 main()

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
+import SectionIcon from "../components/SectionIcon.jsx";
 
 const STATUS_LABELS = {
   active: "Активный",
@@ -359,7 +360,7 @@ export default function DashboardPage() {
                     {org.inn || "\u2014"}
                   </td>
                   <td className="px-4 py-3 text-slate-600 hidden md:table-cell">
-                    {org.section ? `\u2116${org.section.number}` : "\u2014"}
+                    {org.section ? <SectionIcon section={org.section} showNumber size={14} /> : "—"}
                   </td>
                   <td className="px-4 py-3">
                     <span

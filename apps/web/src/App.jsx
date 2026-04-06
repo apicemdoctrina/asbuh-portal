@@ -25,6 +25,7 @@ import MessageTemplatesPage from "./pages/MessageTemplatesPage.jsx";
 import KnowledgeArticlePage from "./pages/KnowledgeArticlePage.jsx";
 import TicketsPage from "./pages/TicketsPage.jsx";
 import TicketDetailPage from "./pages/TicketDetailPage.jsx";
+import ReportingPage from "./pages/ReportingPage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
 
 export default function App() {
@@ -60,6 +61,7 @@ export default function App() {
               <Route path="tasks" element={<TasksPage />} />
               <Route path="tickets" element={<TicketsPage />} />
               <Route path="tickets/:id" element={<TicketDetailPage />} />
+              <Route path="reporting" element={<ReportingPage />} />
               <Route path="message-templates" element={<MessageTemplatesPage />} />
               <Route path="profile" element={<ProfilePage />} />
             </Route>

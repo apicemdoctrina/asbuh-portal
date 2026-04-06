@@ -69,14 +69,14 @@ router.get("/", authenticate, requirePermission("section", "view"), async (req, 
 // POST /api/sections — create
 router.post("/", authenticate, requirePermission("section", "create"), async (req, res) => {
   try {
-    const { number, name } = req.body;
+    const { number, name, animal } = req.body;
     if (number == null || typeof number !== "number") {
       res.status(400).json({ error: "number is required and must be a number" });
       return;
     }
 
     const section = await prisma.section.create({
-      data: { number, name: name || null },
+      data: { number, name: name || null, animal: animal || null },
     });
 
     await logAudit({
@@ -137,8 +137,6 @@ router.get("/:id", authenticate, requirePermission("section", "view"), async (re
 // PUT /api/sections/:id — update
 router.put("/:id", authenticate, requirePermission("section", "edit"), async (req, res) => {
   try {
-    const { number, name } = req.body;
-
     const existing = await prisma.section.findUnique({
       where: { id: req.params.id },
     });
@@ -147,9 +145,11 @@ router.put("/:id", authenticate, requirePermission("section", "edit"), async (re
       return;
     }
 
-    const data: { number?: number; name?: string | null } = {};
+    const { number, name, animal } = req.body;
+    const data: { number?: number; name?: string | null; animal?: string | null } = {};
     if (number !== undefined) data.number = number;
     if (name !== undefined) data.name = name || null;
+    if (animal !== undefined) data.animal = animal || null;
 
     const section = await prisma.section.update({
       where: { id: req.params.id },

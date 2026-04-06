@@ -103,7 +103,7 @@ router.get("/", authenticate, async (req, res) => {
         orderBy: { createdAt: "desc" },
         take: 5,
         include: {
-          section: { select: { id: true, number: true, name: true } },
+          section: { select: { id: true, number: true, name: true, animal: true } },
         },
       }),
       // 4: completeness fields for active orgs only

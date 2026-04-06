@@ -5,11 +5,20 @@ import { sendMessage } from "../lib/telegram.js";
 
 const router = Router();
 
+function audienceFilter(roles: string[]) {
+  const isClient =
+    roles.includes("client") &&
+    !roles.some((r) => ["admin", "manager", "accountant", "supervisor"].includes(r));
+  return isClient ? { audience: "CLIENT" as const } : {};
+}
+
 // GET /api/announcements — all announcements with read status for current user
 router.get("/", authenticate, async (req, res) => {
   try {
     const userId = req.user!.userId;
+    const where = audienceFilter(req.user!.roles);
     const announcements = await prisma.announcement.findMany({
+      where,
       orderBy: { publishedAt: "desc" },
       include: {
         author: { select: { firstName: true, lastName: true } },
@@ -22,6 +31,7 @@ router.get("/", authenticate, async (req, res) => {
       title: a.title,
       body: a.body,
       type: a.type,
+      audience: a.audience,
       publishedAt: a.publishedAt,
       author: `${a.author.firstName} ${a.author.lastName}`,
       isRead: a.reads.length > 0,
@@ -38,8 +48,11 @@ router.get("/", authenticate, async (req, res) => {
 router.get("/unread-count", authenticate, async (req, res) => {
   try {
     const userId = req.user!.userId;
-    const total = await prisma.announcement.count();
-    const read = await prisma.announcementRead.count({ where: { userId } });
+    const where = audienceFilter(req.user!.roles);
+    const total = await prisma.announcement.count({ where });
+    const read = await prisma.announcementRead.count({
+      where: { userId, announcement: where },
+    });
     res.json({ count: Math.max(0, total - read) });
   } catch (err) {
     console.error("GET /announcements/unread-count error:", err);
@@ -50,10 +63,11 @@ router.get("/unread-count", authenticate, async (req, res) => {
 // POST /api/announcements — create (admin only)
 router.post("/", authenticate, requireRole("admin"), async (req, res) => {
   try {
-    const { title, body, type } = req.body as {
+    const { title, body, type, audience } = req.body as {
       title: string;
       body: string;
       type?: string;
+      audience?: string;
     };
 
     if (!title?.trim() || !body?.trim()) {
@@ -63,12 +77,14 @@ router.post("/", authenticate, requireRole("admin"), async (req, res) => {
 
     const validTypes = ["FEATURE", "FIX", "CHANGE", "REMOVAL"];
     const announcementType = validTypes.includes(type ?? "") ? type! : "FEATURE";
+    const announcementAudience = audience === "CLIENT" ? "CLIENT" : "STAFF";
 
     const announcement = await prisma.announcement.create({
       data: {
         title: title.trim(),
         body: body.trim(),
         type: announcementType as "FEATURE" | "FIX" | "CHANGE" | "REMOVAL",
+        audience: announcementAudience as "STAFF" | "CLIENT",
         authorId: req.user!.userId,
       },
       include: {
@@ -84,6 +100,7 @@ router.post("/", authenticate, requireRole("admin"), async (req, res) => {
       title: announcement.title,
       body: announcement.body,
       type: announcement.type,
+      audience: announcement.audience,
       publishedAt: announcement.publishedAt,
       author: `${announcement.author.firstName} ${announcement.author.lastName}`,
       isRead: false,
@@ -98,7 +115,8 @@ router.post("/", authenticate, requireRole("admin"), async (req, res) => {
 router.post("/read-all", authenticate, async (req, res) => {
   try {
     const userId = req.user!.userId;
-    const all = await prisma.announcement.findMany({ select: { id: true } });
+    const where = audienceFilter(req.user!.roles);
+    const all = await prisma.announcement.findMany({ where, select: { id: true } });
 
     await prisma.$transaction(
       all.map((a) =>

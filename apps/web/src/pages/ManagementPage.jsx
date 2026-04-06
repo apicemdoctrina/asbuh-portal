@@ -25,6 +25,8 @@ import {
   Loader2,
   Search,
 } from "lucide-react";
+import SectionIcon from "../components/SectionIcon.jsx";
+import AnimalPicker from "../components/AnimalPicker.jsx";
 import {
   BarChart,
   Bar,
@@ -568,6 +570,7 @@ function SectionsBlock({ sections, onRefresh }) {
   const [editingId, setEditingId] = useState(null);
   const [editNumber, setEditNumber] = useState("");
   const [editName, setEditName] = useState("");
+  const [editAnimal, setEditAnimal] = useState("");
   const [editSaving, setEditSaving] = useState(false);
 
   // add member state
@@ -583,6 +586,7 @@ function SectionsBlock({ sections, onRefresh }) {
   const [creating, setCreating] = useState(false);
   const [newNumber, setNewNumber] = useState("");
   const [newName, setNewName] = useState("");
+  const [newAnimal, setNewAnimal] = useState("");
   const [createSaving, setCreateSaving] = useState(false);
   const [createError, setCreateError] = useState("");
 
@@ -626,6 +630,7 @@ function SectionsBlock({ sections, onRefresh }) {
     setEditingId(s.id);
     setEditNumber(String(s.number));
     setEditName(s.name ?? "");
+    setEditAnimal(s.animal ?? "");
   }
 
   async function saveEdit(id) {
@@ -633,7 +638,11 @@ function SectionsBlock({ sections, onRefresh }) {
     try {
       const res = await api(`/api/sections/${id}`, {
         method: "PUT",
-        body: JSON.stringify({ number: parseInt(editNumber), name: editName || null }),
+        body: JSON.stringify({
+          number: parseInt(editNumber),
+          name: editName || null,
+          animal: editAnimal || null,
+        }),
       });
       if (res.ok) {
         setEditingId(null);
@@ -683,12 +692,17 @@ function SectionsBlock({ sections, onRefresh }) {
     try {
       const res = await api("/api/sections", {
         method: "POST",
-        body: JSON.stringify({ number: parseInt(newNumber), name: newName || null }),
+        body: JSON.stringify({
+          number: parseInt(newNumber),
+          name: newName || null,
+          animal: newAnimal || null,
+        }),
       });
       if (res.ok) {
         setCreating(false);
         setNewNumber("");
         setNewName("");
+        setNewAnimal("");
         onRefresh();
       } else {
         const data = await res.json().catch(() => ({}));
@@ -742,6 +756,14 @@ function SectionsBlock({ sections, onRefresh }) {
               placeholder="Необязательно"
             />
           </div>
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Иконка</label>
+            <AnimalPicker
+              value={newAnimal}
+              onChange={setNewAnimal}
+              usedAnimals={sections.filter((s) => s.animal).map((s) => s.animal)}
+            />
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={handleCreate}
@@ -793,6 +815,13 @@ function SectionsBlock({ sections, onRefresh }) {
                         className="w-48 px-2 py-1 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#6567F1]"
                         placeholder="Название"
                       />
+                      <AnimalPicker
+                        value={editAnimal}
+                        onChange={setEditAnimal}
+                        usedAnimals={sections
+                          .filter((x) => x.animal && x.id !== s.id)
+                          .map((x) => x.animal)}
+                      />
                       <button
                         onClick={() => saveEdit(s.id)}
                         disabled={editSaving}
@@ -814,8 +843,9 @@ function SectionsBlock({ sections, onRefresh }) {
                   ) : (
                     <>
                       <div className="flex items-center gap-3 flex-1 min-w-0 flex-wrap">
-                        <span className="text-sm font-semibold text-slate-800">
-                          №{s.number}
+                        <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                          <SectionIcon section={s} size={15} className="text-[#6567F1] shrink-0" />№
+                          {s.number}
                           {s.name ? ` — ${s.name}` : ""}
                         </span>
                         <span className="flex items-center gap-1 text-xs text-slate-500">
