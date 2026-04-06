@@ -1341,8 +1341,13 @@ export default function ManagementPage() {
               const item = dashboard.byPaymentDest.find((d) => d.destination === key);
               const revenue = item?.revenue ?? 0;
               const count = item?.count ?? 0;
+              const isClickable = key === "BANK_TOCHKA";
               return (
-                <div key={key} className={`${bg} rounded-xl p-4`}>
+                <div
+                  key={key}
+                  className={`${bg} rounded-xl p-4 ${isClickable ? "cursor-pointer hover:ring-2 hover:ring-emerald-300 transition-all" : ""}`}
+                  onClick={isClickable ? () => navigate("/payments") : undefined}
+                >
                   <div className="flex items-center gap-2 mb-2">
                     <Icon size={16} className={color} />
                     <span className="text-sm font-medium text-slate-700">{label}</span>
