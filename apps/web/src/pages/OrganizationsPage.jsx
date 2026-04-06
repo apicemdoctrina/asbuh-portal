@@ -88,20 +88,44 @@ function fmtMoney(val) {
 // ─── Column definitions ────────────────────────────────────────────────────────
 
 const COLUMN_DEFS = [
-  { key: "inn", label: "ИНН" },
-  { key: "form", label: "Форма" },
-  { key: "section", label: "Участок" },
-  { key: "status", label: "Статус" },
-  { key: "taxSystems", label: "Система Н/О" },
-  { key: "employeeCount", label: "Сотрудников" },
-  { key: "serviceType", label: "Тип обслуживания" },
-  { key: "monthlyPayment", label: "Ежемес. платёж" },
-  { key: "debtAmount", label: "Задолженность" },
-  { key: "paymentDestination", label: "Куда поступает платёж" },
-  { key: "reportingChannel", label: "Отчётность" },
-  { key: "digitalSignature", label: "ЭЦП" },
-  { key: "digitalSignatureExpiry", label: "Срок ЭЦП" },
-  { key: "hasCashRegister", label: "Касса" },
+  { key: "inn", label: "ИНН", editable: true, editType: "text" },
+  { key: "form", label: "Форма", editable: true, editType: "select", options: ORG_FORM_LABELS },
+  { key: "section", label: "Участок", editable: true, editType: "section" },
+  { key: "status", label: "Статус", editable: true, editType: "select", options: STATUS_LABELS },
+  {
+    key: "taxSystems",
+    label: "Система Н/О",
+    editable: true,
+    editType: "multiselect",
+    options: TAX_SYSTEM_LABELS,
+  },
+  { key: "employeeCount", label: "Сотрудников", editable: true, editType: "number" },
+  {
+    key: "serviceType",
+    label: "Тип обслуживания",
+    editable: true,
+    editType: "select",
+    options: SERVICE_TYPE_LABELS,
+  },
+  { key: "monthlyPayment", label: "Ежемес. платёж", editable: true, editType: "number" },
+  { key: "debtAmount", label: "Задолженность", editable: true, editType: "number" },
+  { key: "paymentDestination", label: "Куда поступает платёж", editable: true, editType: "text" },
+  {
+    key: "reportingChannel",
+    label: "Отчётность",
+    editable: true,
+    editType: "select",
+    options: REPORTING_CHANNEL_LABELS,
+  },
+  {
+    key: "digitalSignature",
+    label: "ЭЦП",
+    editable: true,
+    editType: "select",
+    options: DIGITAL_SIGNATURE_LABELS,
+  },
+  { key: "digitalSignatureExpiry", label: "Срок ЭЦП", editable: true, editType: "date" },
+  { key: "hasCashRegister", label: "Касса", editable: true, editType: "boolean" },
   { key: "members", label: "Ответственные" },
 ];
 
@@ -194,6 +218,190 @@ function renderCell(colKey, org) {
 }
 
 // ─── Column picker dropdown ────────────────────────────────────────────────────
+
+// ─── Inline editor ────────────────────────────────────────────────────────────
+
+function InlineEditor({ col, org, sections, onSave, onCancel }) {
+  const fieldKey = col.key === "section" ? "sectionId" : col.key;
+
+  const getRawValue = () => {
+    if (col.editType === "section") return org.section?.id || "";
+    if (col.editType === "date") {
+      if (!org[col.key]) return "";
+      return new Date(org[col.key]).toISOString().slice(0, 10);
+    }
+    if (col.editType === "number") return org[col.key] ?? "";
+    if (col.editType === "boolean") return !!org[col.key];
+    if (col.editType === "multiselect") return org[col.key] || [];
+    return org[col.key] ?? "";
+  };
+
+  const [value, setValue] = useState(getRawValue);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (inputRef.current) inputRef.current.focus();
+  }, []);
+
+  const save = () => {
+    let payload;
+    if (col.editType === "number") {
+      payload = value === "" ? null : Number(value);
+    } else if (col.editType === "boolean") {
+      payload = value;
+    } else if (col.editType === "date") {
+      payload = value || null;
+    } else if (col.editType === "section") {
+      payload = value || null;
+    } else if (col.editType === "select") {
+      payload = value || null;
+    } else if (col.editType === "multiselect") {
+      payload = value;
+    } else {
+      payload = value || null;
+    }
+    onSave(fieldKey, payload);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      save();
+    }
+    if (e.key === "Escape") onCancel();
+  };
+
+  const cls =
+    "w-full px-2 py-1 border border-[#6567F1] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 bg-white";
+
+  if (col.editType === "boolean") {
+    return (
+      <select
+        ref={inputRef}
+        value={value ? "true" : "false"}
+        onChange={(e) => {
+          const next = e.target.value === "true";
+          setValue(next);
+        }}
+        onKeyDown={handleKeyDown}
+        onBlur={save}
+        className={cls}
+      >
+        <option value="true">Да</option>
+        <option value="false">Нет</option>
+      </select>
+    );
+  }
+
+  if (col.editType === "select") {
+    return (
+      <select
+        ref={inputRef}
+        value={value || ""}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={save}
+        className={cls}
+      >
+        <option value="">—</option>
+        {Object.entries(col.options).map(([k, v]) => (
+          <option key={k} value={k}>
+            {v}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  if (col.editType === "section") {
+    return (
+      <select
+        ref={inputRef}
+        value={value || ""}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={save}
+        className={cls}
+      >
+        <option value="">—</option>
+        {sections.map((s) => (
+          <option key={s.id} value={s.id}>
+            №{s.number} {s.name || ""}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  if (col.editType === "multiselect") {
+    return (
+      <div className="flex flex-wrap gap-1">
+        {Object.entries(col.options).map(([k, v]) => (
+          <label
+            key={k}
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs cursor-pointer border ${
+              value.includes(k)
+                ? "bg-[#6567F1]/10 border-[#6567F1]/30 text-[#6567F1]"
+                : "bg-white border-slate-200 text-slate-500"
+            }`}
+          >
+            <input
+              type="checkbox"
+              className="sr-only"
+              checked={value.includes(k)}
+              onChange={(e) => {
+                if (e.target.checked) setValue([...value, k]);
+                else setValue(value.filter((x) => x !== k));
+              }}
+              onKeyDown={handleKeyDown}
+            />
+            {v}
+          </label>
+        ))}
+        <button
+          onClick={save}
+          className="px-2 py-0.5 rounded text-xs bg-[#6567F1] text-white hover:bg-[#5557E1]"
+        >
+          ✓
+        </button>
+        <button
+          onClick={onCancel}
+          className="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-600 hover:bg-slate-200"
+        >
+          ✕
+        </button>
+      </div>
+    );
+  }
+
+  if (col.editType === "date") {
+    return (
+      <input
+        ref={inputRef}
+        type="date"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={save}
+        className={cls}
+      />
+    );
+  }
+
+  // text / number
+  return (
+    <input
+      ref={inputRef}
+      type={col.editType === "number" ? "number" : "text"}
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onKeyDown={handleKeyDown}
+      onBlur={save}
+      className={cls}
+      step={col.editType === "number" ? "any" : undefined}
+    />
+  );
+}
 
 function ColumnPicker({ visibleCols, onChange }) {
   const [open, setOpen] = useState(false);
@@ -1018,6 +1226,42 @@ export default function OrganizationsPage() {
     }
   }
 
+  // Inline editing state: { orgId, colKey } or null
+  const [editingCell, setEditingCell] = useState(null);
+
+  const handleInlineSave = useCallback(
+    async (orgId, fieldKey, value) => {
+      try {
+        const res = await api(`/api/organizations/${orgId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ [fieldKey]: value }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          alert(err.error || "Ошибка сохранения");
+          return;
+        }
+        // Update local state
+        setOrganizations((prev) =>
+          prev.map((o) => {
+            if (o.id !== orgId) return o;
+            if (fieldKey === "sectionId") {
+              const sec = sections.find((s) => s.id === value);
+              return { ...o, section: sec || null, sectionId: value };
+            }
+            return { ...o, [fieldKey]: value };
+          }),
+        );
+      } catch {
+        alert("Ошибка сохранения");
+      } finally {
+        setEditingCell(null);
+      }
+    },
+    [sections],
+  );
+
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkModal, setBulkModal] = useState(null); // "assign" | "remove" | null
@@ -1431,27 +1675,51 @@ export default function OrganizationsPage() {
                         {org.name}
                       </Link>
                     </td>
-                    {COLUMN_DEFS.filter((c) => visibleCols.includes(c.key)).map((col) => (
-                      <td key={col.key} className="px-4 py-3 text-slate-600 whitespace-nowrap">
-                        {col.key === "status" ? (
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusBadge(org.status)}`}
-                          >
-                            {STATUS_LABELS[org.status] || org.status}
-                          </span>
-                        ) : col.key === "debtAmount" && org.debtAmount > 0 ? (
-                          <span className="text-red-600 font-medium">
-                            {fmtMoney(org.debtAmount)}
-                          </span>
-                        ) : (
-                          (() => {
-                            const val = renderCell(col.key, org);
-                            if (val?.__expiry) return <span className={val.cls}>{val.label}</span>;
-                            return val;
-                          })()
-                        )}
-                      </td>
-                    ))}
+                    {COLUMN_DEFS.filter((c) => visibleCols.includes(c.key)).map((col) => {
+                      const isEditing =
+                        editingCell?.orgId === org.id && editingCell?.colKey === col.key;
+                      const canEdit = col.editable && hasPermission("organization", "edit");
+                      return (
+                        <td
+                          key={col.key}
+                          className={`px-4 py-3 text-slate-600 whitespace-nowrap ${canEdit && !isEditing ? "cursor-pointer hover:bg-[#6567F1]/5 transition-colors" : ""}`}
+                          onDoubleClick={
+                            canEdit && !isEditing
+                              ? () => setEditingCell({ orgId: org.id, colKey: col.key })
+                              : undefined
+                          }
+                        >
+                          {isEditing ? (
+                            <InlineEditor
+                              col={col}
+                              org={org}
+                              sections={sections}
+                              onSave={(fieldKey, value) =>
+                                handleInlineSave(org.id, fieldKey, value)
+                              }
+                              onCancel={() => setEditingCell(null)}
+                            />
+                          ) : col.key === "status" ? (
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusBadge(org.status)}`}
+                            >
+                              {STATUS_LABELS[org.status] || org.status}
+                            </span>
+                          ) : col.key === "debtAmount" && org.debtAmount > 0 ? (
+                            <span className="text-red-600 font-medium">
+                              {fmtMoney(org.debtAmount)}
+                            </span>
+                          ) : (
+                            (() => {
+                              const val = renderCell(col.key, org);
+                              if (val?.__expiry)
+                                return <span className={val.cls}>{val.label}</span>;
+                              return val;
+                            })()
+                          )}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>
