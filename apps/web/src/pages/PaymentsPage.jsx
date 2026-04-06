@@ -623,21 +623,74 @@ export default function PaymentsPage() {
   const { hasRole } = useAuth();
   const [tab, setTab] = useState("reconciliation");
   const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
   const [accounts, setAccounts] = useState([]);
+  const [showSetup, setShowSetup] = useState(false);
+  const [tochkaAccounts, setTochkaAccounts] = useState(null);
+  const [loadingTochka, setLoadingTochka] = useState(false);
+
+  const fetchAccounts = useCallback(async () => {
+    try {
+      const res = await api("/api/payments/accounts");
+      if (res.ok) {
+        const data = await res.json();
+        setAccounts(data);
+      }
+    } catch {
+      /* */
+    }
+  }, []);
 
   useEffect(() => {
-    api("/api/payments/accounts")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((d) => setAccounts(d))
-      .catch(() => {});
-  }, []);
+    fetchAccounts();
+  }, [fetchAccounts]);
+
+  async function handleFetchTochkaAccounts() {
+    setLoadingTochka(true);
+    try {
+      const res = await api("/api/payments/tochka-accounts");
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || "Ошибка получения счетов из Точки");
+        return;
+      }
+      setTochkaAccounts(await res.json());
+    } catch {
+      alert("Ошибка подключения к API Точки");
+    } finally {
+      setLoadingTochka(false);
+    }
+  }
+
+  async function handleAddAccount(tochkaAcc) {
+    try {
+      const res = await api("/api/payments/accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bankName: "Точка",
+          accountNumber: tochkaAcc.accountId,
+        }),
+      });
+      if (!res.ok) {
+        alert("Ошибка добавления счёта");
+        return;
+      }
+      setShowSetup(false);
+      setTochkaAccounts(null);
+      fetchAccounts();
+    } catch {
+      alert("Ошибка");
+    }
+  }
 
   async function handleSync() {
     if (accounts.length === 0) {
-      alert("Нет подключённых банковских счетов");
+      setShowSetup(true);
       return;
     }
     setSyncing(true);
+    setSyncResult(null);
     try {
       const res = await api("/api/payments/sync", {
         method: "POST",
@@ -649,9 +702,7 @@ export default function PaymentsPage() {
         alert(data.error || "Ошибка синхронизации");
         return;
       }
-      alert(
-        `Импортировано: ${data.imported}, пропущено: ${data.skipped}, сопоставлено: ${data.matched}`,
-      );
+      setSyncResult(data);
     } catch {
       alert("Ошибка синхронизации");
     } finally {
@@ -672,18 +723,113 @@ export default function PaymentsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-slate-900">Поступления</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Поступления</h1>
+          {accounts.length > 0 && (
+            <p className="text-sm text-slate-500 mt-1">
+              Счёт: {accounts[0].accountNumber}
+              {accounts[0].lastSyncAt && (
+                <span className="ml-2">
+                  · Последняя синхронизация:{" "}
+                  {new Date(accounts[0].lastSyncAt).toLocaleString("ru-RU")}
+                </span>
+              )}
+            </p>
+          )}
+        </div>
         <div className="flex items-center gap-2">
+          {accounts.length === 0 && (
+            <button
+              onClick={() => setShowSetup(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] rounded-lg text-sm font-medium hover:bg-[#6567F1]/5"
+            >
+              Подключить счёт
+            </button>
+          )}
           <button
             onClick={handleSync}
             disabled={syncing}
             className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] text-white rounded-lg text-sm font-medium shadow-lg shadow-[#6567F1]/30 hover:from-[#5557E1] hover:to-[#4547D1] disabled:opacity-50"
           >
             <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
-            Синхронизировать
+            {syncing ? "Загрузка из банка..." : "Синхронизировать"}
           </button>
         </div>
       </div>
+
+      {/* Sync result banner */}
+      {syncResult && (
+        <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 flex items-center justify-between">
+          <span className="text-sm text-green-700">
+            Импортировано: <b>{syncResult.imported}</b>, пропущено: <b>{syncResult.skipped}</b>,
+            сопоставлено: <b>{syncResult.matched}</b>
+          </span>
+          <button
+            onClick={() => setSyncResult(null)}
+            className="p-1 text-green-400 hover:text-green-600"
+          >
+            <XIcon size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* Setup modal */}
+      {showSetup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-slate-900">Подключение счёта Точка</h2>
+              <button
+                onClick={() => {
+                  setShowSetup(false);
+                  setTochkaAccounts(null);
+                }}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                <XIcon size={18} />
+              </button>
+            </div>
+
+            {!tochkaAccounts ? (
+              <div className="space-y-4">
+                <p className="text-sm text-slate-600">
+                  Нажмите кнопку чтобы загрузить список счетов из API Точки.
+                </p>
+                <button
+                  onClick={handleFetchTochkaAccounts}
+                  disabled={loadingTochka}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#6567F1] to-[#5557E1] text-white rounded-lg text-sm font-medium shadow-lg shadow-[#6567F1]/30 hover:from-[#5557E1] hover:to-[#4547D1] disabled:opacity-50"
+                >
+                  {loadingTochka ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <RefreshCw size={16} />
+                  )}
+                  {loadingTochka ? "Загрузка..." : "Получить счета из Точки"}
+                </button>
+              </div>
+            ) : tochkaAccounts.length === 0 ? (
+              <p className="text-sm text-slate-500">Счетов не найдено. Проверьте JWT-токен.</p>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-slate-600 mb-3">Выберите счёт для подключения:</p>
+                {tochkaAccounts.map((acc) => (
+                  <button
+                    key={acc.accountId}
+                    onClick={() => handleAddAccount(acc)}
+                    className="w-full text-left p-3 border border-slate-200 rounded-lg hover:border-[#6567F1] hover:bg-[#6567F1]/5 transition-colors"
+                  >
+                    <div className="font-medium text-sm text-slate-900">{acc.name}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      {acc.accountId} · {acc.currency} · {acc.status}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 bg-slate-100 rounded-lg p-1 w-fit">

@@ -6,23 +6,88 @@ import { logAudit } from "../lib/audit.js";
 
 const router = Router();
 
-// ─── Tochka Bank API helpers ─────────────────────────────────────────────────
+// ─── Tochka Bank Open Banking API helpers ────────────────────────────────────
 
-const TOCHKA_API_BASE = "https://enter.tochka.com/api/v2";
+const TOCHKA_API_BASE = "https://enter.tochka.com/uapi/open-banking/v1.0";
+const TOCHKA_TOKEN = process.env.TOCHKA_JWT_TOKEN || "";
 
-async function tochkaFetch(
-  path: string,
-  accessToken: string,
-  opts?: RequestInit,
-): Promise<Response> {
+async function tochkaFetch(path: string, opts?: RequestInit): Promise<Response> {
   return fetch(`${TOCHKA_API_BASE}${path}`, {
     ...opts,
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${TOCHKA_TOKEN}`,
       "Content-Type": "application/json",
       ...opts?.headers,
     },
   });
+}
+
+/** Create a statement request and poll until ready. Returns transactions array. */
+async function fetchTochkaTransactions(
+  accountId: string,
+  startDate: string,
+  endDate: string,
+): Promise<TochkaTransaction[]> {
+  // 1. Create statement
+  const createRes = await tochkaFetch("/statements", {
+    method: "POST",
+    body: JSON.stringify({
+      Data: {
+        Statement: {
+          accountId,
+          startDateTime: startDate,
+          endDateTime: endDate,
+        },
+      },
+    }),
+  });
+
+  if (!createRes.ok) {
+    const err = await createRes.text();
+    throw new Error(`Tochka create statement error ${createRes.status}: ${err}`);
+  }
+
+  const createData = await createRes.json();
+  const statementId = createData?.Data?.Statement?.statementId;
+  if (!statementId) throw new Error("No statementId in response");
+
+  // 2. Poll until Ready (max 60 seconds)
+  const encodedAccId = encodeURIComponent(accountId);
+  const pollPath = `/accounts/${encodedAccId}/statements/${statementId}`;
+
+  for (let attempt = 0; attempt < 20; attempt++) {
+    await new Promise((r) => setTimeout(r, 3000));
+
+    const pollRes = await tochkaFetch(pollPath);
+    if (!pollRes.ok) continue;
+
+    const pollData = await pollRes.json();
+    const stmts = pollData?.Data?.Statement;
+    if (!Array.isArray(stmts) || stmts.length === 0) continue;
+
+    const stmt = stmts[0];
+    if (stmt.status === "Error") throw new Error("Statement generation failed");
+    if (stmt.status === "Ready" || stmt.status === "Complete") {
+      return (stmt.Transaction || []) as TochkaTransaction[];
+    }
+  }
+
+  throw new Error("Statement polling timed out");
+}
+
+interface TochkaTransaction {
+  transactionId: string;
+  paymentId?: string;
+  creditDebitIndicator: "Credit" | "Debit";
+  status: string;
+  documentNumber?: string;
+  documentProcessDate: string;
+  description?: string;
+  Amount: { amount: number; currency: string };
+  DebtorParty?: { inn?: string; name?: string; kpp?: string };
+  DebtorAccount?: { identification?: string };
+  CreditorParty?: { inn?: string; name?: string; kpp?: string };
+  CreditorAccount?: { identification?: string };
 }
 
 // ─── Bank account management ─────────────────────────────────────────────────
@@ -51,18 +116,13 @@ router.get("/accounts", authenticate, requireRole("admin", "supervisor"), async 
 // POST /api/payments/accounts — add bank account
 router.post("/accounts", authenticate, requireRole("admin"), async (req, res) => {
   try {
-    const { bankName, accountNumber, accessToken, refreshToken } = req.body;
+    const { bankName, accountNumber } = req.body;
     if (!bankName || !accountNumber) {
       res.status(400).json({ error: "bankName and accountNumber are required" });
       return;
     }
     const account = await prisma.bankAccount.create({
-      data: {
-        bankName,
-        accountNumber,
-        accessToken: accessToken || null,
-        refreshToken: refreshToken || null,
-      },
+      data: { bankName, accountNumber },
     });
     await logAudit({
       action: "bank_account_added",
@@ -79,14 +139,14 @@ router.post("/accounts", authenticate, requireRole("admin"), async (req, res) =>
   }
 });
 
-// PUT /api/payments/accounts/:id — update tokens
+// PUT /api/payments/accounts/:id — update account
 router.put("/accounts/:id", authenticate, requireRole("admin"), async (req, res) => {
   try {
-    const { accessToken, refreshToken, isActive } = req.body;
+    const { isActive, bankName, accountNumber } = req.body;
     const data: Prisma.BankAccountUpdateInput = {};
-    if (accessToken !== undefined) data.accessToken = accessToken;
-    if (refreshToken !== undefined) data.refreshToken = refreshToken;
     if (isActive !== undefined) data.isActive = isActive;
+    if (bankName !== undefined) data.bankName = bankName;
+    if (accountNumber !== undefined) data.accountNumber = accountNumber;
 
     const account = await prisma.bankAccount.update({
       where: { id: req.params.id },
@@ -99,48 +159,73 @@ router.put("/accounts/:id", authenticate, requireRole("admin"), async (req, res)
   }
 });
 
+// GET /api/payments/tochka-accounts — fetch accounts directly from Tochka API
+router.get("/tochka-accounts", authenticate, requireRole("admin"), async (_req, res) => {
+  try {
+    if (!TOCHKA_TOKEN) {
+      res.status(400).json({ error: "TOCHKA_JWT_TOKEN not configured" });
+      return;
+    }
+    const apiRes = await tochkaFetch("/accounts");
+    if (!apiRes.ok) {
+      const err = await apiRes.text();
+      res.status(502).json({ error: "Tochka API error", details: err });
+      return;
+    }
+    const data = await apiRes.json();
+    const accounts = data?.Data?.Account || [];
+    res.json(
+      accounts.map(
+        (a: {
+          accountId: string;
+          status: string;
+          currency: string;
+          accountDetails?: { name?: string }[];
+        }) => ({
+          accountId: a.accountId,
+          status: a.status,
+          currency: a.currency,
+          name: a.accountDetails?.[0]?.name || "Счёт в Точке",
+        }),
+      ),
+    );
+  } catch (err) {
+    console.error("Tochka accounts error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // ─── Sync transactions from bank ─────────────────────────────────────────────
 
 // POST /api/payments/sync — fetch new transactions from Tochka
 router.post("/sync", authenticate, requireRole("admin", "supervisor"), async (req, res) => {
   try {
+    if (!TOCHKA_TOKEN) {
+      res.status(400).json({ error: "TOCHKA_JWT_TOKEN not configured" });
+      return;
+    }
+
     const { accountId, dateFrom, dateTo } = req.body;
     const account = await prisma.bankAccount.findUnique({ where: { id: accountId } });
-    if (!account || !account.accessToken) {
-      res.status(400).json({ error: "Bank account not found or no access token" });
+    if (!account) {
+      res.status(400).json({ error: "Bank account not found" });
       return;
     }
 
     const from = dateFrom || new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
     const to = dateTo || new Date().toISOString().slice(0, 10);
 
-    // Fetch statement from Tochka API
-    const stmtRes = await tochkaFetch(
-      `/statement?accountCode=${account.accountNumber}&from=${from}&till=${to}`,
-      account.accessToken,
-    );
+    // Fetch transactions from Tochka via statement API
+    const allTx = await fetchTochkaTransactions(account.accountNumber, from, to);
 
-    if (!stmtRes.ok) {
-      const errBody = await stmtRes.text();
-      console.error("Tochka API error:", stmtRes.status, errBody);
-      res.status(502).json({ error: "Bank API error", details: errBody });
-      return;
-    }
-
-    const stmtData = await stmtRes.json();
-    const operations = stmtData.payments || stmtData.operations || [];
-
-    // Filter only incoming payments (credit)
-    const incoming = operations.filter(
-      (op: { operationType?: string; amount?: number }) =>
-        op.operationType === "credit" || (op.amount && Number(op.amount) > 0),
-    );
+    // Filter only incoming payments (Credit)
+    const incoming = allTx.filter((tx) => tx.creditDebitIndicator === "Credit");
 
     let imported = 0;
     let skipped = 0;
 
-    for (const op of incoming) {
-      const externalId = String(op.id || op.operationId || op.documentNumber);
+    for (const tx of incoming) {
+      const externalId = tx.transactionId;
 
       // Skip if already imported
       const exists = await prisma.bankTransaction.findUnique({
@@ -155,12 +240,12 @@ router.post("/sync", authenticate, requireRole("admin", "supervisor"), async (re
         data: {
           bankAccountId: account.id,
           externalId,
-          date: new Date(op.date || op.operationDate),
-          amount: Number(op.amount || op.paymentAmount || 0),
-          payerName: op.payerName || op.counterpartyName || null,
-          payerInn: op.payerInn || op.counterpartyInn || null,
-          payerAccount: op.payerAccount || op.counterpartyAccountNumber || null,
-          purpose: op.purpose || op.paymentPurpose || null,
+          date: new Date(tx.documentProcessDate),
+          amount: Number(tx.Amount?.amount ?? 0),
+          payerName: tx.DebtorParty?.name || null,
+          payerInn: tx.DebtorParty?.inn || null,
+          payerAccount: tx.DebtorAccount?.identification || null,
+          purpose: tx.description || null,
           matchStatus: "UNMATCHED",
         },
       });
@@ -181,14 +266,23 @@ router.post("/sync", authenticate, requireRole("admin", "supervisor"), async (re
       userId: req.user!.userId,
       entity: "bank_account",
       entityId: account.id,
-      details: { from, to, imported, skipped, matched },
+      details: {
+        from,
+        to,
+        imported,
+        skipped,
+        matched,
+        totalFromBank: allTx.length,
+        incoming: incoming.length,
+      },
       ipAddress: req.ip,
     });
 
     res.json({ imported, skipped, matched });
   } catch (err) {
     console.error("Sync error:", err);
-    res.status(500).json({ error: "Internal server error" });
+    const message = err instanceof Error ? err.message : "Internal server error";
+    res.status(500).json({ error: message });
   }
 });
 
