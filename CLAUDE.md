@@ -43,7 +43,7 @@ Pre-commit hook (husky + lint-staged) runs eslint --fix + prettier on staged fil
 ### Backend (`apps/api/`)
 
 - **Entry**: `src/index.ts` → `src/app.ts` (Express app with all route mounts)
-- **Routes**: `src/routes/*.ts` — each file exports a Router, mounted at `/api/<name>` in app.ts. Current routes: auth, users, sections, organizations, stats, work-contacts, audit-logs, knowledge, management, tasks, telegram, notifications, messages, tickets, client-groups
+- **Routes**: `src/routes/*.ts` — each file exports a Router, mounted at `/api/<name>` in app.ts. Current routes: auth, users, sections, organizations, stats, work-contacts, audit-logs, knowledge, management, tasks, telegram, notifications, messages, tickets, client-groups, announcements, reporting, payments
 - **Auth middleware**: `src/middleware/auth.ts` — `authenticate` (JWT Bearer), `requireRole(...names)`, `requirePermission(entity, action)` (checks DB via Prisma)
 - **Prisma ORM**: schema at `prisma/schema.prisma`, singleton client at `src/lib/prisma.ts`
 - **Libs** (`src/lib/`): `audit.ts` (audit logging), `tokens.ts` (JWT sign/verify), `password.ts` (bcrypt), `crypto.ts` (AES-256-GCM for bank secrets), `notify.ts` (in-app notifications + SSE push), `telegram.ts` (bot API), `mailer.ts` (SMTP), `task-notifier.ts` (cron-like reminders/escalation), `sse-manager.ts` (SSE connections), `validators.ts` (Zod schemas), `route-helpers.ts`, `upload.ts` (multer file uploads, serves `/uploads` static dir)
@@ -71,7 +71,7 @@ JWT access token (short-lived) + refresh token (httpOnly cookie). Access token p
 
 ### RBAC
 
-Permission-based: `requirePermission(entity, action)` checks `RolePermission → Permission` via Prisma. Seeded roles: admin (all), manager, accountant, client. Frontend checks: `hasPermission("entity", "action")`.
+Permission-based: `requirePermission(entity, action)` checks `RolePermission → Permission` via Prisma. Seeded roles: admin (all), supervisor, manager, accountant, client. Frontend checks: `hasPermission("entity", "action")`. Role-gated pages use `requireRole("admin", "supervisor")`.
 
 ## Workflow
 
@@ -100,3 +100,6 @@ Schema additions not yet reflected everywhere in the codebase:
 - **MessageTemplate / MessageLog** — шаблоны сообщений и история отправок (`/api/messages`). Каналы: `EMAIL | TELEGRAM`.
 - **CustomFieldDefinition / CustomFieldValue** — кастомные поля организаций (типы: `TEXT | NUMBER | DATE | BOOLEAN`).
 - **RevenueSnapshot / Expense / Income** — финансовые снапшоты и расходы/доходы (управленческий учёт).
+- **BankAccount / BankTransaction / PaymentPeriod** — интеграция с Точка Банк (`/api/payments`). Sync через Open Banking API (JWT-авторизация, `TOCHKA_JWT_TOKEN` env). Enums: `TransactionMatchStatus` (UNMATCHED, AUTO, MANUAL, IGNORED), `PaymentPeriodStatus` (PENDING, PAID, PARTIAL, OVERDUE).
+- **Announcement / AnnouncementRead** — объявления сервиса (`/api/announcements`).
+- **PaymentDestination** enum на Organization — BANK_TOCHKA, CARD, CASH, UNKNOWN.

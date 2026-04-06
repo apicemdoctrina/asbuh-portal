@@ -144,7 +144,11 @@ const INITIAL_FORM = {
   reportingChannel: "",
   serviceType: "",
   monthlyPayment: "",
+  previousMonthlyPayment: "",
+  priceChangeDate: "",
   paymentDestination: "",
+  paymentFrequency: "MONTHLY",
+  serviceStartDate: "",
   debtAmount: "",
   checkingAccount: "",
   bik: "",
@@ -236,7 +240,12 @@ export default function OrganizationDetailPage() {
       reportingChannel: data.reportingChannel || "",
       serviceType: data.serviceType || "",
       monthlyPayment: data.monthlyPayment != null ? String(data.monthlyPayment) : "",
+      previousMonthlyPayment:
+        data.previousMonthlyPayment != null ? String(data.previousMonthlyPayment) : "",
+      priceChangeDate: data.priceChangeDate ? data.priceChangeDate.slice(0, 10) : "",
       paymentDestination: data.paymentDestination || "",
+      paymentFrequency: data.paymentFrequency || "MONTHLY",
+      serviceStartDate: data.serviceStartDate ? data.serviceStartDate.slice(0, 10) : "",
       debtAmount: data.debtAmount != null ? String(data.debtAmount) : "",
       checkingAccount: data.checkingAccount || "",
       bik: data.bik || "",
@@ -332,7 +341,11 @@ export default function OrganizationDetailPage() {
           reportingChannel: form.reportingChannel || null,
           serviceType: form.serviceType || null,
           monthlyPayment: toDecimalOrNull(form.monthlyPayment),
+          previousMonthlyPayment: toDecimalOrNull(form.previousMonthlyPayment),
+          priceChangeDate: form.priceChangeDate || null,
           paymentDestination: form.paymentDestination || null,
+          paymentFrequency: form.paymentFrequency || "MONTHLY",
+          serviceStartDate: form.serviceStartDate || null,
           debtAmount: toDecimalOrNull(form.debtAmount),
           checkingAccount: form.checkingAccount || null,
           bik: form.bik || null,
@@ -842,11 +855,57 @@ export default function OrganizationDetailPage() {
                     />
                   </div>
                   <div>
-                    <label className={LABEL_CLS}>Куда поступает платёж</label>
+                    <label className={LABEL_CLS}>Старая цена (до смены)</label>
                     <input
-                      type="text"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={form.previousMonthlyPayment}
+                      onChange={(e) => setField("previousMonthlyPayment", e.target.value)}
+                      className={INPUT_CLS}
+                    />
+                  </div>
+                  <div>
+                    <label className={LABEL_CLS}>Дата смены цены</label>
+                    <input
+                      type="date"
+                      value={form.priceChangeDate}
+                      onChange={(e) => setField("priceChangeDate", e.target.value)}
+                      className={INPUT_CLS}
+                    />
+                  </div>
+                  <div>
+                    <label className={LABEL_CLS}>Куда поступает платёж</label>
+                    <select
                       value={form.paymentDestination}
                       onChange={(e) => setField("paymentDestination", e.target.value)}
+                      className={INPUT_CLS}
+                    >
+                      <option value="">—</option>
+                      <option value="BANK_TOCHKA">Банк (Точка)</option>
+                      <option value="CARD">Карта</option>
+                      <option value="CASH">Наличные</option>
+                      <option value="UNKNOWN">Неизвестно</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className={LABEL_CLS}>Частота оплаты</label>
+                    <select
+                      value={form.paymentFrequency}
+                      onChange={(e) => setField("paymentFrequency", e.target.value)}
+                      className={INPUT_CLS}
+                    >
+                      <option value="MONTHLY">Ежемесячно</option>
+                      <option value="QUARTERLY">Ежеквартально</option>
+                      <option value="SEMI_ANNUAL">Раз в полгода</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className={LABEL_CLS}>Начало обслуживания</label>
+                    <input
+                      type="date"
+                      value={form.serviceStartDate}
+                      onChange={(e) => setField("serviceStartDate", e.target.value)}
                       className={INPUT_CLS}
                     />
                   </div>
@@ -924,7 +983,23 @@ export default function OrganizationDetailPage() {
                       : null
                   }
                 />
-                <Field label="Группа клиента" value={org.clientGroup?.name ?? null} />
+                {org.clientGroup ? (
+                  <div>
+                    <dt className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
+                      Группа клиента
+                    </dt>
+                    <dd className="mt-0.5 text-sm">
+                      <Link
+                        to={`/client-groups/${org.clientGroup.id}`}
+                        className="text-[#6567F1] hover:underline font-medium"
+                      >
+                        {org.clientGroup.name}
+                      </Link>
+                    </dd>
+                  </div>
+                ) : (
+                  <Field label="Группа клиента" value={null} />
+                )}
                 <Field
                   label="Сотрудники"
                   value={org.employeeCount != null ? org.employeeCount : null}
@@ -973,7 +1048,44 @@ export default function OrganizationDetailPage() {
               </h3>
               <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
                 <Field label="Ежемес. платёж" value={formatCurrency(org.monthlyPayment)} />
-                <Field label="Куда поступает" value={org.paymentDestination} />
+                <Field label="Старая цена" value={formatCurrency(org.previousMonthlyPayment)} />
+                <Field
+                  label="Дата смены цены"
+                  value={
+                    org.priceChangeDate
+                      ? new Date(org.priceChangeDate).toLocaleDateString("ru-RU")
+                      : null
+                  }
+                />
+                <Field
+                  label="Куда поступает"
+                  value={
+                    {
+                      BANK_TOCHKA: "Банк (Точка)",
+                      CARD: "Карта",
+                      CASH: "Наличные",
+                      UNKNOWN: "Неизвестно",
+                    }[org.paymentDestination] || null
+                  }
+                />
+                <Field
+                  label="Частота оплаты"
+                  value={
+                    {
+                      MONTHLY: "Ежемесячно",
+                      QUARTERLY: "Ежеквартально",
+                      SEMI_ANNUAL: "Раз в полгода",
+                    }[org.paymentFrequency] || null
+                  }
+                />
+                <Field
+                  label="Начало обслуживания"
+                  value={
+                    org.serviceStartDate
+                      ? new Date(org.serviceStartDate).toLocaleDateString("ru-RU")
+                      : null
+                  }
+                />
                 <Field label="Задолженность" value={formatCurrency(org.debtAmount)} />
               </dl>
             </div>

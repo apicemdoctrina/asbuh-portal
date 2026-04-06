@@ -155,6 +155,9 @@ function buildOrgData(validated: Record<string, unknown>): Prisma.OrganizationUp
     "reportingChannel",
     "serviceType",
     "paymentDestination",
+    "paymentFrequency",
+    "serviceStartDate",
+    "priceChangeDate",
     "importantComment",
     "checkingAccount",
     "bik",
@@ -169,7 +172,7 @@ function buildOrgData(validated: Record<string, unknown>): Prisma.OrganizationUp
   }
 
   // Decimal fields need Prisma.Decimal conversion
-  for (const field of ["monthlyPayment", "debtAmount"] as const) {
+  for (const field of ["monthlyPayment", "previousMonthlyPayment", "debtAmount"] as const) {
     if (validated[field] !== undefined) {
       const val = validated[field];
       (data as Record<string, unknown>)[field] =
@@ -340,6 +343,12 @@ router.post("/", authenticate, requirePermission("organization", "create"), asyn
     if (validated.serviceType !== undefined) createData.serviceType = validated.serviceType;
     if (validated.paymentDestination !== undefined)
       createData.paymentDestination = validated.paymentDestination;
+    if (validated.paymentFrequency !== undefined)
+      createData.paymentFrequency = validated.paymentFrequency;
+    if (validated.serviceStartDate !== undefined)
+      createData.serviceStartDate = validated.serviceStartDate;
+    if (validated.priceChangeDate !== undefined)
+      createData.priceChangeDate = validated.priceChangeDate;
     if (validated.ogrn !== undefined) createData.ogrn = validated.ogrn;
     if (validated.importantComment !== undefined)
       createData.importantComment = validated.importantComment;
@@ -353,6 +362,12 @@ router.post("/", authenticate, requirePermission("organization", "create"), asyn
     if (validated.monthlyPayment !== undefined) {
       createData.monthlyPayment =
         validated.monthlyPayment === null ? null : new Prisma.Decimal(validated.monthlyPayment);
+    }
+    if (validated.previousMonthlyPayment !== undefined) {
+      createData.previousMonthlyPayment =
+        validated.previousMonthlyPayment === null
+          ? null
+          : new Prisma.Decimal(validated.previousMonthlyPayment);
     }
     if (validated.debtAmount !== undefined) {
       createData.debtAmount =
@@ -614,7 +629,16 @@ router.get("/:id", authenticate, requirePermission("organization", "view"), asyn
       where: { id: req.params.id, ...viewScope },
       include: {
         section: { select: { id: true, number: true, name: true, animal: true } },
-        clientGroup: { select: { id: true, name: true, description: true } },
+        clientGroup: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            paymentStrategy: true,
+            payerOrganization: { select: { id: true, name: true } },
+            _count: { select: { organizations: true } },
+          },
+        },
         members: {
           include: {
             user: {

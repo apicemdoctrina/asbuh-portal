@@ -14,11 +14,47 @@ router.get("/", authenticate, requirePermission("organization", "view"), async (
       orderBy: { name: "asc" },
       include: {
         _count: { select: { organizations: true } },
+        payerOrganization: { select: { id: true, name: true } },
       },
     });
     res.json(groups);
   } catch (err) {
     console.error("List client groups error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET /api/client-groups/:id — detail with organizations
+router.get("/:id", authenticate, requirePermission("organization", "view"), async (req, res) => {
+  try {
+    const group = await prisma.clientGroup.findUnique({
+      where: { id: req.params.id },
+      include: {
+        payerOrganization: { select: { id: true, name: true } },
+        organizations: {
+          orderBy: { name: "asc" },
+          select: {
+            id: true,
+            name: true,
+            inn: true,
+            status: true,
+            monthlyPayment: true,
+            previousMonthlyPayment: true,
+            paymentDestination: true,
+            paymentFrequency: true,
+            serviceStartDate: true,
+            debtAmount: true,
+          },
+        },
+      },
+    });
+    if (!group) {
+      res.status(404).json({ error: "Client group not found" });
+      return;
+    }
+    res.json(group);
+  } catch (err) {
+    console.error("Get client group error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

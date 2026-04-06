@@ -329,7 +329,7 @@ function TransactionsTab() {
 function ReconciliationTab() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [month, setMonth] = useState("all"); // "all" or 1-12
   const [statusFilter, setStatusFilter] = useState("");
   const [periods, setPeriods] = useState([]);
   const [summary, setSummary] = useState({ expected: 0, received: 0, debt: 0 });
@@ -344,10 +344,10 @@ function ReconciliationTab() {
     try {
       const params = new URLSearchParams({
         year: String(year),
-        month: String(month),
         page: String(page),
         limit: String(limit),
       });
+      if (month !== "all") params.set("month", String(month));
       if (statusFilter) params.set("status", statusFilter);
       const res = await api(`/api/payments/reconciliation?${params}`);
       if (!res.ok) throw new Error();
@@ -390,11 +390,12 @@ function ReconciliationTab() {
         <select
           value={month}
           onChange={(e) => {
-            setMonth(Number(e.target.value));
+            setMonth(e.target.value === "all" ? "all" : Number(e.target.value));
             setPage(1);
           }}
           className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
         >
+          <option value="all">Весь год</option>
           {MONTHS.slice(1).map((m, i) => (
             <option key={i + 1} value={i + 1}>
               {m}
@@ -409,7 +410,7 @@ function ReconciliationTab() {
           }}
           className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
         >
-          {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map((y) => (
+          {[2025, 2026].map((y) => (
             <option key={y} value={y}>
               {y}
             </option>
@@ -484,6 +485,9 @@ function ReconciliationTab() {
               <tr className="border-b border-slate-100 bg-slate-50/50">
                 <th className="text-left px-4 py-3 font-medium text-slate-500">Организация</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-500">ИНН</th>
+                {month === "all" && (
+                  <th className="text-left px-4 py-3 font-medium text-slate-500">Месяц</th>
+                )}
                 <th className="text-right px-4 py-3 font-medium text-slate-500">Ожидалось</th>
                 <th className="text-right px-4 py-3 font-medium text-slate-500">Поступило</th>
                 <th className="text-right px-4 py-3 font-medium text-slate-500">Долг</th>
@@ -495,6 +499,9 @@ function ReconciliationTab() {
                 <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50/50">
                   <td className="px-4 py-3 font-medium text-slate-900">{p.organization?.name}</td>
                   <td className="px-4 py-3 text-slate-500">{p.organization?.inn || "—"}</td>
+                  {month === "all" && (
+                    <td className="px-4 py-3 text-slate-500">{MONTHS[p.month]}</td>
+                  )}
                   <td className="px-4 py-3 text-right">{fmt(p.expected)}</td>
                   <td className="px-4 py-3 text-right text-green-600 font-medium">
                     {fmt(p.received)}
@@ -574,11 +581,7 @@ function SummaryTab() {
           onChange={(e) => setYear(Number(e.target.value))}
           className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
         >
-          {[
-            new Date().getFullYear() - 1,
-            new Date().getFullYear(),
-            new Date().getFullYear() + 1,
-          ].map((y) => (
+          {[2025, 2026].map((y) => (
             <option key={y} value={y}>
               {y}
             </option>
@@ -628,6 +631,7 @@ export default function PaymentsPage() {
   const [showSetup, setShowSetup] = useState(false);
   const [tochkaAccounts, setTochkaAccounts] = useState(null);
   const [loadingTochka, setLoadingTochka] = useState(false);
+  const [syncYear, setSyncYear] = useState(new Date().getFullYear());
 
   const fetchAccounts = useCallback(async () => {
     try {
@@ -684,7 +688,7 @@ export default function PaymentsPage() {
     }
   }
 
-  async function handleSync() {
+  async function handleSync(dateFrom, dateTo) {
     if (accounts.length === 0) {
       setShowSetup(true);
       return;
@@ -692,10 +696,13 @@ export default function PaymentsPage() {
     setSyncing(true);
     setSyncResult(null);
     try {
+      const body = { accountId: accounts[0].id };
+      if (dateFrom) body.dateFrom = dateFrom;
+      if (dateTo) body.dateTo = dateTo;
       const res = await api("/api/payments/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId: accounts[0].id }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -746,8 +753,23 @@ export default function PaymentsPage() {
               Подключить счёт
             </button>
           )}
+          <select
+            value={syncYear}
+            onChange={(e) => setSyncYear(Number(e.target.value))}
+            className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+          >
+            <option value={2025}>2025</option>
+            <option value={2026}>2026</option>
+          </select>
           <button
-            onClick={handleSync}
+            onClick={() =>
+              handleSync(
+                `${syncYear}-01-01`,
+                syncYear === new Date().getFullYear()
+                  ? new Date().toISOString().slice(0, 10)
+                  : `${syncYear}-12-31`,
+              )
+            }
             disabled={syncing}
             className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] text-white rounded-lg text-sm font-medium shadow-lg shadow-[#6567F1]/30 hover:from-[#5557E1] hover:to-[#4547D1] disabled:opacity-50"
           >

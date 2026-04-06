@@ -38,6 +38,7 @@ const VALID_STATUSES = [
 
 const ORG_FORMS = ["OOO", "IP", "NKO", "AO", "PAO"] as const;
 const PAYMENT_DESTINATIONS = ["BANK_TOCHKA", "CARD", "CASH", "UNKNOWN"] as const;
+const PAYMENT_FREQUENCIES = ["MONTHLY", "QUARTERLY", "SEMI_ANNUAL"] as const;
 
 const decimalField = z
   .union([z.string(), z.number()])
@@ -59,14 +60,20 @@ const orgRequisitesFields = {
   requisitesBank: z.string().nullable().optional(),
 };
 
+const GROUP_PAYMENT_STRATEGIES = ["PER_ORG", "CONSOLIDATED"] as const;
+
 export const createClientGroupSchema = z.object({
   name: z.string().min(1, "name is required"),
   description: z.string().nullable().optional(),
+  paymentStrategy: z.enum(GROUP_PAYMENT_STRATEGIES).optional(),
+  payerOrganizationId: z.string().uuid().nullable().optional(),
 });
 
 export const updateClientGroupSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().nullable().optional(),
+  paymentStrategy: z.enum(GROUP_PAYMENT_STRATEGIES).optional(),
+  payerOrganizationId: z.string().uuid().nullable().optional(),
 });
 
 export const createOrganizationSchema = z.object({
@@ -87,7 +94,11 @@ export const createOrganizationSchema = z.object({
   reportingChannel: z.enum(REPORTING_CHANNELS).nullable().optional(),
   serviceType: z.enum(SERVICE_TYPES).nullable().optional(),
   monthlyPayment: decimalField.nullable().optional(),
+  previousMonthlyPayment: decimalField.nullable().optional(),
+  priceChangeDate: z.coerce.date().nullable().optional(),
   paymentDestination: z.enum(PAYMENT_DESTINATIONS).nullable().optional(),
+  paymentFrequency: z.enum(PAYMENT_FREQUENCIES).optional(),
+  serviceStartDate: z.coerce.date().nullable().optional(),
   debtAmount: decimalField.nullable().optional(),
   ...orgRequisitesFields,
 });
@@ -110,7 +121,11 @@ export const updateOrganizationSchema = z.object({
   reportingChannel: z.enum(REPORTING_CHANNELS).nullable().optional(),
   serviceType: z.enum(SERVICE_TYPES).nullable().optional(),
   monthlyPayment: decimalField.nullable().optional(),
+  previousMonthlyPayment: decimalField.nullable().optional(),
+  priceChangeDate: z.coerce.date().nullable().optional(),
   paymentDestination: z.enum(PAYMENT_DESTINATIONS).nullable().optional(),
+  paymentFrequency: z.enum(PAYMENT_FREQUENCIES).optional(),
+  serviceStartDate: z.coerce.date().nullable().optional(),
   debtAmount: decimalField.nullable().optional(),
   ...orgRequisitesFields,
 });

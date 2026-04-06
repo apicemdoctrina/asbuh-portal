@@ -27,6 +27,7 @@ import KnowledgeArticlePage from "./pages/KnowledgeArticlePage.jsx";
 import TicketsPage from "./pages/TicketsPage.jsx";
 import TicketDetailPage from "./pages/TicketDetailPage.jsx";
 import ReportingPage from "./pages/ReportingPage.jsx";
+import ClientGroupDetailPage from "./pages/ClientGroupDetailPage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
 
 export default function App() {
@@ -51,6 +52,7 @@ export default function App() {
 
               <Route path="organizations" element={<OrganizationsPage />} />
               <Route path="organizations/:id" element={<OrganizationDetailPage />} />
+              <Route path="client-groups/:id" element={<ClientGroupDetailPage />} />
               <Route path="staff" element={<StaffPage />} />
               <Route path="clients" element={<ClientsPage />} />
               <Route path="users/:id" element={<UserProfilePage />} />

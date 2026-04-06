@@ -218,11 +218,19 @@ router.post("/sync", authenticate, requireRole("admin", "supervisor"), async (re
     // Fetch transactions from Tochka via statement API
     const allTx = await fetchTochkaTransactions(account.accountNumber, from, to);
 
-    // Filter only incoming payments (Credit)
-    const incoming = allTx.filter((tx) => tx.creditDebitIndicator === "Credit");
+    // Filter only incoming payments (Credit), exclude deposit returns
+    const DEPOSIT_KEYWORDS = /возврат.*депозит|депозит.*возврат|возврат.*размещ|размещ.*возврат/i;
+    const incoming = allTx.filter(
+      (tx) => tx.creditDebitIndicator === "Credit" && !DEPOSIT_KEYWORDS.test(tx.description || ""),
+    );
 
     let imported = 0;
     let skipped = 0;
+    let depositReturns = 0;
+
+    // Count filtered deposit returns for audit
+    const allCredit = allTx.filter((tx) => tx.creditDebitIndicator === "Credit");
+    depositReturns = allCredit.length - incoming.length;
 
     for (const tx of incoming) {
       const externalId = tx.transactionId;
@@ -274,6 +282,7 @@ router.post("/sync", authenticate, requireRole("admin", "supervisor"), async (re
         matched,
         totalFromBank: allTx.length,
         incoming: incoming.length,
+        depositReturns,
       },
       ipAddress: req.ip,
     });
@@ -476,13 +485,18 @@ router.get("/transactions", authenticate, requireRole("admin", "supervisor"), as
 // ─── Reconciliation ──────────────────────────────────────────────────────────
 
 // POST /api/payments/reconcile — recalculate payment periods
+// Accepts month as number (single month) or "all" (whole year)
+// Handles: serviceStartDate, price history, payment frequency, group payments
 router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), async (req, res) => {
   try {
     const { year, month } = req.body;
     const targetYear = Number(year) || new Date().getFullYear();
-    const targetMonth = Number(month) || new Date().getMonth() + 1;
+    const months =
+      month === "all"
+        ? Array.from({ length: 12 }, (_, i) => i + 1)
+        : [Number(month) || new Date().getMonth() + 1];
 
-    // Get all orgs that pay via bank
+    // Get all orgs that pay via bank (include group info for grouped payments)
     const orgs = await prisma.organization.findMany({
       where: {
         paymentDestination: "BANK_TOCHKA",
@@ -491,63 +505,219 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
           notIn: ["left", "closed", "not_paying", "ceased", "own", "blacklisted", "archived"],
         },
       },
-      select: { id: true, monthlyPayment: true },
+      select: {
+        id: true,
+        monthlyPayment: true,
+        previousMonthlyPayment: true,
+        priceChangeDate: true,
+        paymentFrequency: true,
+        serviceStartDate: true,
+        clientGroupId: true,
+      },
     });
 
     const now = new Date();
-    const deadlineDate = new Date(targetYear, targetMonth - 1 + 1, 15); // 15th of next month
-    const isOverdueEligible = now > deadlineDate;
-
     let updated = 0;
 
-    for (const org of orgs) {
-      const expected = Number(org.monthlyPayment ?? 0);
+    // Helper: determine expected payment for an org in a given month
+    function getExpected(org: (typeof orgs)[0], tYear: number, tMonth: number): number {
+      const periodStart = new Date(tYear, tMonth - 1, 1);
 
-      // Sum all matched transactions for this org in this month
-      const agg = await prisma.bankTransaction.aggregate({
-        where: {
-          organizationId: org.id,
-          matchStatus: { in: ["AUTO", "MANUAL"] },
-          date: {
-            gte: new Date(targetYear, targetMonth - 1, 1),
-            lt: new Date(targetYear, targetMonth, 1),
-          },
-        },
-        _sum: { amount: true },
-      });
+      // 1. Not yet a client — no expectation
+      if (org.serviceStartDate && periodStart < org.serviceStartDate) return 0;
 
-      const received = Number(agg._sum.amount ?? 0);
-      const debt = Math.max(0, expected - received);
-
-      let status: "PAID" | "PARTIAL" | "OVERDUE" | "PENDING";
-      if (received >= expected) {
-        status = "PAID";
-      } else if (isOverdueEligible) {
-        status = received > 0 ? "PARTIAL" : "OVERDUE";
-      } else {
-        status = received > 0 ? "PARTIAL" : "PENDING";
+      // 2. Check payment frequency — only expect in payment months
+      if (org.paymentFrequency === "QUARTERLY") {
+        // Expect payment in months 3, 6, 9, 12 — covering the quarter
+        if (tMonth % 3 !== 0) return 0;
+      } else if (org.paymentFrequency === "SEMI_ANNUAL") {
+        // Expect payment in months 6, 12
+        if (tMonth % 6 !== 0) return 0;
       }
 
-      await prisma.paymentPeriod.upsert({
-        where: {
-          organizationId_year_month: {
+      // 3. Determine price: current or previous
+      let rate = Number(org.monthlyPayment ?? 0);
+      if (org.priceChangeDate && org.previousMonthlyPayment != null) {
+        // If the month is before price change, use old price
+        if (periodStart < org.priceChangeDate) {
+          rate = Number(org.previousMonthlyPayment);
+        }
+      }
+
+      // 4. Multiply by period length for non-monthly
+      if (org.paymentFrequency === "QUARTERLY") return rate * 3;
+      if (org.paymentFrequency === "SEMI_ANNUAL") return rate * 6;
+      return rate;
+    }
+
+    // Load groups with CONSOLIDATED strategy
+    const consolidatedGroups = await prisma.clientGroup.findMany({
+      where: { paymentStrategy: "CONSOLIDATED" },
+      select: { id: true, payerOrganizationId: true },
+    });
+    const consolidatedGroupIds = new Set(consolidatedGroups.map((g) => g.id));
+    const groupPayerMap = new Map(
+      consolidatedGroups
+        .filter((g) => g.payerOrganizationId)
+        .map((g) => [g.id, g.payerOrganizationId!]),
+    );
+
+    // Build group map: clientGroupId → list of org IDs (only for CONSOLIDATED groups)
+    const groupMap = new Map<string, string[]>();
+    for (const org of orgs) {
+      if (org.clientGroupId && consolidatedGroupIds.has(org.clientGroupId)) {
+        const list = groupMap.get(org.clientGroupId) || [];
+        list.push(org.id);
+        groupMap.set(org.clientGroupId, list);
+      }
+    }
+
+    for (const targetMonth of months) {
+      const deadlineDate = new Date(targetYear, targetMonth, 15); // 15th of next month
+      const isOverdueEligible = now > deadlineDate;
+
+      // Track which groups we already processed this month
+      const processedGroups = new Set<string>();
+
+      for (const org of orgs) {
+        const expected = getExpected(org, targetYear, targetMonth);
+
+        // Sum matched transactions for this org in this month
+        const agg = await prisma.bankTransaction.aggregate({
+          where: {
+            organizationId: org.id,
+            matchStatus: { in: ["AUTO", "MANUAL"] },
+            date: {
+              gte: new Date(targetYear, targetMonth - 1, 1),
+              lt: new Date(targetYear, targetMonth, 1),
+            },
+          },
+          _sum: { amount: true },
+        });
+
+        const received = Number(agg._sum.amount ?? 0);
+
+        // CONSOLIDATED group: one org pays for all — match by payer org or any group org
+        if (org.clientGroupId && consolidatedGroupIds.has(org.clientGroupId)) {
+          if (!processedGroups.has(org.clientGroupId)) {
+            processedGroups.add(org.clientGroupId);
+
+            const groupOrgIds = groupMap.get(org.clientGroupId)!;
+            // If there's a designated payer, look only at their transactions
+            // Otherwise, sum transactions matched to ANY org in the group
+            const payerId = groupPayerMap.get(org.clientGroupId);
+            const txFilter = payerId
+              ? { organizationId: payerId }
+              : { organizationId: { in: groupOrgIds } };
+
+            const groupAgg = await prisma.bankTransaction.aggregate({
+              where: {
+                ...txFilter,
+                matchStatus: { in: ["AUTO", "MANUAL"] },
+                date: {
+                  gte: new Date(targetYear, targetMonth - 1, 1),
+                  lt: new Date(targetYear, targetMonth, 1),
+                },
+              },
+              _sum: { amount: true },
+            });
+            const groupReceived = Number(groupAgg._sum.amount ?? 0);
+
+            // Sum expected across all group orgs
+            const groupExpected = groupOrgIds.reduce((sum, gid) => {
+              const gOrg = orgs.find((o) => o.id === gid);
+              return sum + (gOrg ? getExpected(gOrg, targetYear, targetMonth) : 0);
+            }, 0);
+
+            // Distribute proportionally to each org in the group
+            for (const gid of groupOrgIds) {
+              const gOrg = orgs.find((o) => o.id === gid);
+              if (!gOrg) continue;
+              const gExpected = getExpected(gOrg, targetYear, targetMonth);
+              // Proportion: this org's share of group expected
+              const proportion = groupExpected > 0 ? gExpected / groupExpected : 0;
+              const gReceived = Math.round(groupReceived * proportion * 100) / 100;
+              const gDebt = Math.max(0, gExpected - gReceived);
+
+              let gStatus: "PAID" | "PARTIAL" | "OVERDUE" | "PENDING";
+              if (gExpected === 0) {
+                gStatus = "PAID";
+              } else if (gReceived >= gExpected) {
+                gStatus = "PAID";
+              } else if (isOverdueEligible) {
+                gStatus = gReceived > 0 ? "PARTIAL" : "OVERDUE";
+              } else {
+                gStatus = gReceived > 0 ? "PARTIAL" : "PENDING";
+              }
+
+              await prisma.paymentPeriod.upsert({
+                where: {
+                  organizationId_year_month: {
+                    organizationId: gid,
+                    year: targetYear,
+                    month: targetMonth,
+                  },
+                },
+                update: {
+                  expected: gExpected,
+                  received: gReceived,
+                  debtAmount: gDebt,
+                  status: gStatus,
+                },
+                create: {
+                  organizationId: gid,
+                  year: targetYear,
+                  month: targetMonth,
+                  expected: gExpected,
+                  received: gReceived,
+                  debtAmount: gDebt,
+                  status: gStatus,
+                },
+              });
+              updated++;
+            }
+            continue; // Skip individual processing for this org
+          } else {
+            // Already processed as part of group
+            continue;
+          }
+        }
+
+        // Non-group org: standard processing
+        const debt = Math.max(0, expected - received);
+
+        let status: "PAID" | "PARTIAL" | "OVERDUE" | "PENDING";
+        if (expected === 0) {
+          status = "PAID";
+        } else if (received >= expected) {
+          status = "PAID";
+        } else if (isOverdueEligible) {
+          status = received > 0 ? "PARTIAL" : "OVERDUE";
+        } else {
+          status = received > 0 ? "PARTIAL" : "PENDING";
+        }
+
+        await prisma.paymentPeriod.upsert({
+          where: {
+            organizationId_year_month: {
+              organizationId: org.id,
+              year: targetYear,
+              month: targetMonth,
+            },
+          },
+          update: { expected, received, debtAmount: debt, status },
+          create: {
             organizationId: org.id,
             year: targetYear,
             month: targetMonth,
+            expected,
+            received,
+            debtAmount: debt,
+            status,
           },
-        },
-        update: { expected, received, debtAmount: debt, status },
-        create: {
-          organizationId: org.id,
-          year: targetYear,
-          month: targetMonth,
-          expected,
-          received,
-          debtAmount: debt,
-          status,
-        },
-      });
-      updated++;
+        });
+        updated++;
+      }
     }
 
     // Update debtAmount on organizations based on total unpaid
@@ -565,7 +735,11 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
       });
     }
 
-    res.json({ updated, year: targetYear, month: targetMonth });
+    res.json({
+      updated,
+      year: targetYear,
+      months: month === "all" ? "1-12" : months[0],
+    });
   } catch (err) {
     console.error("Reconcile error:", err);
     res.status(500).json({ error: "Internal server error" });

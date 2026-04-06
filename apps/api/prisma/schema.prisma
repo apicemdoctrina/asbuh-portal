@@ -172,6 +172,12 @@ enum PaymentDestination {
   UNKNOWN      // Неизвестно
 }
 
+enum PaymentFrequency {
+  MONTHLY       // Ежемесячно
+  QUARTERLY     // Ежеквартально
+  SEMI_ANNUAL   // Раз в полгода
+}
+
 enum SystemAccessType {
   KASSA   // Касса
   ONE_C   // 1С
@@ -206,14 +212,22 @@ model SectionMember {
   @@map("section_members")
 }
 
-model ClientGroup {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+enum GroupPaymentStrategy {
+  PER_ORG       // Каждая организация платит сама
+  CONSOLIDATED  // Одна организация платит за всех
+}
 
-  organizations Organization[]
+model ClientGroup {
+  id                 String               @id @default(uuid())
+  name               String
+  description        String?
+  paymentStrategy    GroupPaymentStrategy  @default(PER_ORG) @map("payment_strategy")
+  payerOrganizationId String?             @map("payer_organization_id")
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+
+  organizations      Organization[]
+  payerOrganization  Organization?        @relation("GroupPayer", fields: [payerOrganizationId], references: [id], onDelete: SetNull)
 
   @@map("client_groups")
 }
@@ -256,12 +270,17 @@ model Organization {
   serviceType            ServiceType?            @map("service_type")
 
   // --- Финансовая ---
-  monthlyPayment     Decimal? @db.Decimal(12, 2) @map("monthly_payment")
-  paymentDestination PaymentDestination?           @map("payment_destination")
-  debtAmount         Decimal? @db.Decimal(12, 2) @map("debt_amount")
+  monthlyPayment         Decimal?            @db.Decimal(12, 2) @map("monthly_payment")
+  previousMonthlyPayment Decimal?            @db.Decimal(12, 2) @map("previous_monthly_payment")
+  priceChangeDate        DateTime?           @db.Date            @map("price_change_date")
+  paymentDestination     PaymentDestination?                     @map("payment_destination")
+  paymentFrequency       PaymentFrequency    @default(MONTHLY)   @map("payment_frequency")
+  serviceStartDate       DateTime?           @db.Date            @map("service_start_date")
+  debtAmount             Decimal?            @db.Decimal(12, 2)  @map("debt_amount")
 
   section           Section?             @relation(fields: [sectionId], references: [id], onDelete: SetNull)
   clientGroup       ClientGroup?         @relation(fields: [clientGroupId], references: [id], onDelete: SetNull)
+  payerForGroups    ClientGroup[]        @relation("GroupPayer")
   members           OrganizationMember[]
   inviteTokens      InviteToken[]
   bankAccounts      OrganizationBankAccount[]

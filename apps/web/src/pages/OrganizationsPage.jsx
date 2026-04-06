@@ -61,6 +61,12 @@ const PAYMENT_DEST_LABELS = {
   UNKNOWN: "Неизвестно",
 };
 
+const PAYMENT_FREQ_LABELS = {
+  MONTHLY: "Ежемесячно",
+  QUARTERLY: "Ежеквартально",
+  SEMI_ANNUAL: "Раз в полгода",
+};
+
 // Статусы, для которых «Куда поступает платёж» = прочерк
 const INACTIVE_STATUSES = new Set(["not_paying", "ceased", "left", "own", "closed", "blacklisted"]);
 
@@ -117,6 +123,8 @@ const COLUMN_DEFS = [
     options: SERVICE_TYPE_LABELS,
   },
   { key: "monthlyPayment", label: "Ежемес. платёж", editable: true, editType: "number" },
+  { key: "previousMonthlyPayment", label: "Старая цена", editable: true, editType: "number" },
+  { key: "priceChangeDate", label: "Дата смены цены", editable: true, editType: "date" },
   { key: "debtAmount", label: "Задолженность", editable: true, editType: "number" },
   {
     key: "paymentDestination",
@@ -125,6 +133,14 @@ const COLUMN_DEFS = [
     editType: "select",
     options: PAYMENT_DEST_LABELS,
   },
+  {
+    key: "paymentFrequency",
+    label: "Частота оплаты",
+    editable: true,
+    editType: "select",
+    options: PAYMENT_FREQ_LABELS,
+  },
+  { key: "serviceStartDate", label: "Начало обслуживания", editable: true, editType: "date" },
   {
     key: "reportingChannel",
     label: "Отчётность",
@@ -199,11 +215,21 @@ function renderCell(colKey, org) {
       return SERVICE_TYPE_LABELS[org.serviceType] || "—";
     case "monthlyPayment":
       return fmtMoney(org.monthlyPayment);
+    case "previousMonthlyPayment":
+      return fmtMoney(org.previousMonthlyPayment);
+    case "priceChangeDate":
+      return org.priceChangeDate ? new Date(org.priceChangeDate).toLocaleDateString("ru-RU") : "—";
     case "debtAmount":
       return fmtMoney(org.debtAmount);
     case "paymentDestination":
       if (INACTIVE_STATUSES.has(org.status)) return "—";
       return PAYMENT_DEST_LABELS[org.paymentDestination] || "—";
+    case "paymentFrequency":
+      return PAYMENT_FREQ_LABELS[org.paymentFrequency] || "—";
+    case "serviceStartDate":
+      return org.serviceStartDate
+        ? new Date(org.serviceStartDate).toLocaleDateString("ru-RU")
+        : "—";
     case "reportingChannel":
       return REPORTING_CHANNEL_LABELS[org.reportingChannel] || "—";
     case "digitalSignature":
@@ -1076,18 +1102,23 @@ function GroupedView({
               key={g.id}
               className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden"
             >
-              <button
-                onClick={() => toggle(g.id)}
-                className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-50/50 transition-colors"
-              >
+              <div className="flex items-center justify-between px-5 py-3.5 hover:bg-slate-50/50 transition-colors">
                 <div className="flex items-center gap-3">
-                  <Layers size={16} className="text-[#6567F1] shrink-0" />
-                  <span className="font-semibold text-slate-900 text-sm">{g.name}</span>
+                  <button onClick={() => toggle(g.id)} className="flex items-center gap-3">
+                    <Layers size={16} className="text-[#6567F1] shrink-0" />
+                  </button>
+                  <Link
+                    to={`/client-groups/${g.id}`}
+                    className="font-semibold text-[#6567F1] text-sm hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {g.name}
+                  </Link>
                   {g.description && (
                     <span className="text-xs text-slate-400 hidden sm:block">{g.description}</span>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <button onClick={() => toggle(g.id)} className="flex items-center gap-2">
                   <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
                     {orgs.length} орг.
                   </span>
@@ -1096,8 +1127,8 @@ function GroupedView({
                   ) : (
                     <ChevronRightIcon size={16} className="text-slate-400" />
                   )}
-                </div>
-              </button>
+                </button>
+              </div>
               {open && (
                 <div className="border-t border-slate-100 overflow-x-auto">
                   <OrgTable orgs={orgs} visibleCols={visibleCols} />
