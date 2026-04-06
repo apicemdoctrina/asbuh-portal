@@ -4,7 +4,15 @@ import { authenticate, requireRole } from "../middleware/auth.js";
 
 const router = Router();
 
-const EXCLUDED_FROM_REVENUE = ["left", "closed", "not_paying", "ceased", "own"] as const;
+const EXCLUDED_FROM_REVENUE = [
+  "left",
+  "closed",
+  "not_paying",
+  "ceased",
+  "own",
+  "blacklisted",
+  "archived",
+] as const;
 const EXCLUDED_FROM_DEBT = ["left", "closed", "ceased", "own"] as const;
 
 // ─── Shared metric computation ────────────────────────────────────────────────
@@ -28,7 +36,7 @@ async function computeCurrentMetrics() {
   ] = await Promise.all([
     prisma.organization.findMany({
       where: { status: { notIn: [...EXCLUDED_FROM_REVENUE] } },
-      select: { form: true, monthlyPayment: true },
+      select: { form: true, monthlyPayment: true, paymentDestination: true },
     }),
     prisma.organization.findMany({
       where: { status: { notIn: [...EXCLUDED_FROM_DEBT] } },
@@ -110,6 +118,20 @@ async function computeCurrentMetrics() {
   }
   const byOrgForm = Object.entries(formMap).map(([form, d]) => ({ form, ...d }));
 
+  // byPaymentDest — only orgs with payment and known destination
+  const destMap: Record<string, { count: number; revenue: number }> = {};
+  for (const org of revenueOrgs) {
+    if (!org.paymentDestination || Number(org.monthlyPayment ?? 0) <= 0) continue;
+    const dest = org.paymentDestination;
+    if (!destMap[dest]) destMap[dest] = { count: 0, revenue: 0 };
+    destMap[dest].count++;
+    destMap[dest].revenue += Number(org.monthlyPayment ?? 0);
+  }
+  const byPaymentDest = Object.entries(destMap).map(([destination, d]) => ({
+    destination,
+    ...d,
+  }));
+
   return {
     year,
     month,
@@ -125,6 +147,7 @@ async function computeCurrentMetrics() {
     profit: { gross, margin },
     debt: { total: debtTotal, topDebtors },
     byOrgForm,
+    byPaymentDest,
     staff: { byRole: staffByRole },
     clients: { active: clientsActiveCount, new: clientsNewCount },
   };

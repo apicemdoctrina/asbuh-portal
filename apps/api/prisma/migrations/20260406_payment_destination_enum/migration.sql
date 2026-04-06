@@ -4,7 +4,7 @@ CREATE TYPE "PaymentDestination" AS ENUM ('BANK_TOCHKA', 'CARD', 'CASH', 'UNKNOW
 -- Clear payment_destination for inactive statuses
 UPDATE "organizations"
 SET "payment_destination" = NULL
-WHERE "status" IN ('not_paying', 'ceased', 'left', 'own', 'closed', 'blacklisted');
+WHERE "status" IN ('not_paying', 'ceased', 'left', 'own', 'closed', 'blacklisted', 'archived');
 
 -- Nullify dashes and empty values
 UPDATE "organizations"

@@ -24,6 +24,10 @@ import {
   UserMinus,
   Loader2,
   Search,
+  Wallet,
+  CreditCard,
+  Banknote,
+  HelpCircle,
 } from "lucide-react";
 import SectionIcon from "../components/SectionIcon.jsx";
 import AnimalPicker from "../components/AnimalPicker.jsx";
@@ -1295,6 +1299,64 @@ export default function ManagementPage() {
           positive={dashboard.incomes.total > 0}
         />
       </div>
+
+      {/* Payment destinations */}
+      {dashboard.byPaymentDest && (
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Wallet size={18} className="text-[#6567F1]" />
+            <h2 className="text-base font-semibold text-slate-900">Куда поступают платежи</h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              {
+                key: "BANK_TOCHKA",
+                label: "Банк (Точка)",
+                icon: Banknote,
+                color: "text-emerald-600",
+                bg: "bg-emerald-50",
+              },
+              {
+                key: "CARD",
+                label: "Карта",
+                icon: CreditCard,
+                color: "text-blue-600",
+                bg: "bg-blue-50",
+              },
+              {
+                key: "CASH",
+                label: "Наличные",
+                icon: DollarSign,
+                color: "text-amber-600",
+                bg: "bg-amber-50",
+              },
+              {
+                key: "UNKNOWN",
+                label: "Неизвестно",
+                icon: HelpCircle,
+                color: "text-slate-500",
+                bg: "bg-slate-50",
+              },
+            ].map(({ key, label, icon: Icon, color, bg }) => {
+              const item = dashboard.byPaymentDest.find((d) => d.destination === key);
+              const revenue = item?.revenue ?? 0;
+              const count = item?.count ?? 0;
+              return (
+                <div key={key} className={`${bg} rounded-xl p-4`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icon size={16} className={color} />
+                    <span className="text-sm font-medium text-slate-700">{label}</span>
+                  </div>
+                  <div className={`text-lg font-bold ${color}`}>
+                    {revenue.toLocaleString("ru-RU")} ₽
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1">{count} орг.</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Debt block */}
       {dashboard.debt.total > 0 && (
