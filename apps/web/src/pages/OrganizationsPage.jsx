@@ -54,6 +54,15 @@ const SERVICE_TYPE_LABELS = {
 const REPORTING_CHANNEL_LABELS = { KONTUR: "Контур", SBIS: "СБИС", ASTRAL: "Астрал" };
 const DIGITAL_SIGNATURE_LABELS = { NONE: "Нет", CLIENT: "У клиента", US: "У нас" };
 const ORG_FORM_LABELS = { OOO: "ООО", IP: "ИП", NKO: "НКО", AO: "АО", PAO: "ПАО" };
+const PAYMENT_DEST_LABELS = {
+  BANK_TOCHKA: "Банк (Точка)",
+  CARD: "Карта",
+  CASH: "Наличные",
+  UNKNOWN: "Неизвестно",
+};
+
+// Статусы, для которых «Куда поступает платёж» = прочерк
+const INACTIVE_STATUSES = new Set(["not_paying", "ceased", "left", "own", "closed", "blacklisted"]);
 
 const STATUS_LABELS = {
   active: "Активный",
@@ -109,7 +118,13 @@ const COLUMN_DEFS = [
   },
   { key: "monthlyPayment", label: "Ежемес. платёж", editable: true, editType: "number" },
   { key: "debtAmount", label: "Задолженность", editable: true, editType: "number" },
-  { key: "paymentDestination", label: "Куда поступает платёж", editable: true, editType: "text" },
+  {
+    key: "paymentDestination",
+    label: "Куда поступает платёж",
+    editable: true,
+    editType: "select",
+    options: PAYMENT_DEST_LABELS,
+  },
   {
     key: "reportingChannel",
     label: "Отчётность",
@@ -187,7 +202,8 @@ function renderCell(colKey, org) {
     case "debtAmount":
       return fmtMoney(org.debtAmount);
     case "paymentDestination":
-      return org.paymentDestination || "—";
+      if (INACTIVE_STATUSES.has(org.status)) return "—";
+      return PAYMENT_DEST_LABELS[org.paymentDestination] || "—";
     case "reportingChannel":
       return REPORTING_CHANNEL_LABELS[org.reportingChannel] || "—";
     case "digitalSignature":
@@ -1209,7 +1225,6 @@ export default function OrganizationsPage() {
   const [sortOrder, setSortOrder] = useState("asc");
 
   const [paymentDestFilter, setPaymentDestFilter] = useState("");
-  const [paymentDestinations, setPaymentDestinations] = useState([]);
 
   const [clientGroups, setClientGroups] = useState([]);
   const [clientGroupFilter, setClientGroupFilter] = useState("");
@@ -1298,14 +1313,6 @@ export default function OrganizationsPage() {
   useEffect(() => {
     fetchClientGroups();
   }, [fetchClientGroups]);
-
-  useEffect(() => {
-    if (!hasPermission("organization", "view")) return;
-    api("/api/organizations/payment-destinations")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => setPaymentDestinations(Array.isArray(data) ? data : []))
-      .catch(() => {});
-  }, [hasPermission]);
 
   function handleSort(field) {
     if (sortBy === field) {
@@ -1517,7 +1524,7 @@ export default function OrganizationsPage() {
             ))}
           </select>
         )}
-        {!archiveMode && paymentDestinations.length > 0 && (
+        {!archiveMode && (
           <select
             value={paymentDestFilter}
             onChange={(e) => {
@@ -1527,9 +1534,9 @@ export default function OrganizationsPage() {
             className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
           >
             <option value="">Все платежи</option>
-            {paymentDestinations.map((d) => (
-              <option key={d} value={d}>
-                {d}
+            {Object.entries(PAYMENT_DEST_LABELS).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
               </option>
             ))}
           </select>
@@ -1678,7 +1685,10 @@ export default function OrganizationsPage() {
                     {COLUMN_DEFS.filter((c) => visibleCols.includes(c.key)).map((col) => {
                       const isEditing =
                         editingCell?.orgId === org.id && editingCell?.colKey === col.key;
-                      const canEdit = col.editable && hasPermission("organization", "edit");
+                      const canEdit =
+                        col.editable &&
+                        hasPermission("organization", "edit") &&
+                        !(col.key === "paymentDestination" && INACTIVE_STATUSES.has(org.status));
                       return (
                         <td
                           key={col.key}

@@ -37,6 +37,7 @@ const VALID_STATUSES = [
 ] as const;
 
 const ORG_FORMS = ["OOO", "IP", "NKO", "AO", "PAO"] as const;
+const PAYMENT_DESTINATIONS = ["BANK_TOCHKA", "CARD", "CASH", "UNKNOWN"] as const;
 
 const decimalField = z
   .union([z.string(), z.number()])
@@ -86,7 +87,7 @@ export const createOrganizationSchema = z.object({
   reportingChannel: z.enum(REPORTING_CHANNELS).nullable().optional(),
   serviceType: z.enum(SERVICE_TYPES).nullable().optional(),
   monthlyPayment: decimalField.nullable().optional(),
-  paymentDestination: z.string().nullable().optional(),
+  paymentDestination: z.enum(PAYMENT_DESTINATIONS).nullable().optional(),
   debtAmount: decimalField.nullable().optional(),
   ...orgRequisitesFields,
 });
@@ -109,7 +110,7 @@ export const updateOrganizationSchema = z.object({
   reportingChannel: z.enum(REPORTING_CHANNELS).nullable().optional(),
   serviceType: z.enum(SERVICE_TYPES).nullable().optional(),
   monthlyPayment: decimalField.nullable().optional(),
-  paymentDestination: z.string().nullable().optional(),
+  paymentDestination: z.enum(PAYMENT_DESTINATIONS).nullable().optional(),
   debtAmount: decimalField.nullable().optional(),
   ...orgRequisitesFields,
 });

@@ -165,6 +165,13 @@ enum OrgForm {
   PAO  // ПАО
 }
 
+enum PaymentDestination {
+  BANK_TOCHKA  // Банк (Точка)
+  CARD         // Карта
+  CASH         // Наличные
+  UNKNOWN      // Неизвестно
+}
+
 enum SystemAccessType {
   KASSA   // Касса
   ONE_C   // 1С
@@ -250,7 +257,7 @@ model Organization {
 
   // --- Финансовая ---
   monthlyPayment     Decimal? @db.Decimal(12, 2) @map("monthly_payment")
-  paymentDestination String?                     @map("payment_destination")
+  paymentDestination PaymentDestination?           @map("payment_destination")
   debtAmount         Decimal? @db.Decimal(12, 2) @map("debt_amount")
 
   section           Section?             @relation(fields: [sectionId], references: [id], onDelete: SetNull)
