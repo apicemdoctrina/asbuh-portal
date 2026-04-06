@@ -212,22 +212,14 @@ model SectionMember {
   @@map("section_members")
 }
 
-enum GroupPaymentStrategy {
-  PER_ORG       // Каждая организация платит сама
-  CONSOLIDATED  // Одна организация платит за всех
-}
-
 model ClientGroup {
-  id                 String               @id @default(uuid())
-  name               String
-  description        String?
-  paymentStrategy    GroupPaymentStrategy  @default(PER_ORG) @map("payment_strategy")
-  payerOrganizationId String?             @map("payer_organization_id")
-  createdAt          DateTime             @default(now()) @map("created_at")
-  updatedAt          DateTime             @updatedAt @map("updated_at")
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  organizations      Organization[]
-  payerOrganization  Organization?        @relation("GroupPayer", fields: [payerOrganizationId], references: [id], onDelete: SetNull)
+  organizations Organization[]
 
   @@map("client_groups")
 }
@@ -280,7 +272,6 @@ model Organization {
 
   section           Section?             @relation(fields: [sectionId], references: [id], onDelete: SetNull)
   clientGroup       ClientGroup?         @relation(fields: [clientGroupId], references: [id], onDelete: SetNull)
-  payerForGroups    ClientGroup[]        @relation("GroupPayer")
   members           OrganizationMember[]
   inviteTokens      InviteToken[]
   bankAccounts      OrganizationBankAccount[]

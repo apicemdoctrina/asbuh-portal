@@ -1208,6 +1208,14 @@ function OrgTable({ orgs, visibleCols }) {
               <Link to={`/organizations/${org.id}`} className="text-[#6567F1] hover:underline">
                 {org.name}
               </Link>
+              {org.clientGroup && (
+                <Link
+                  to={`/client-groups/${org.clientGroup.id}`}
+                  className="ml-2 text-xs text-slate-400 hover:text-[#6567F1]"
+                >
+                  {org.clientGroup.name}
+                </Link>
+              )}
             </td>
             {COLUMN_DEFS.filter((c) => visibleCols.includes(c.key)).map((col) => (
               <td key={col.key} className="px-4 py-3 text-slate-600 whitespace-nowrap">
@@ -1712,6 +1720,14 @@ export default function OrganizationsPage() {
                       >
                         {org.name}
                       </Link>
+                      {org.clientGroup && (
+                        <Link
+                          to={`/client-groups/${org.clientGroup.id}`}
+                          className="ml-2 text-xs text-slate-400 hover:text-[#6567F1]"
+                        >
+                          {org.clientGroup.name}
+                        </Link>
+                      )}
                     </td>
                     {COLUMN_DEFS.filter((c) => visibleCols.includes(c.key)).map((col) => {
                       const isEditing =

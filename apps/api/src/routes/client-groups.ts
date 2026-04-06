@@ -14,7 +14,6 @@ router.get("/", authenticate, requirePermission("organization", "view"), async (
       orderBy: { name: "asc" },
       include: {
         _count: { select: { organizations: true } },
-        payerOrganization: { select: { id: true, name: true } },
       },
     });
     res.json(groups);
@@ -30,7 +29,6 @@ router.get("/:id", authenticate, requirePermission("organization", "view"), asyn
     const group = await prisma.clientGroup.findUnique({
       where: { id: req.params.id },
       include: {
-        payerOrganization: { select: { id: true, name: true } },
         organizations: {
           orderBy: { name: "asc" },
           select: {

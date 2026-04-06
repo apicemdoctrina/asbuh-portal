@@ -2,12 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
-import { ArrowLeft, Pencil, Save, X, Building2, Loader2, Users, CreditCard } from "lucide-react";
-
-const STRATEGY_LABELS = {
-  PER_ORG: "Каждая организация платит отдельно",
-  CONSOLIDATED: "Одна организация платит за всех",
-};
+import { ArrowLeft, Pencil, Save, X, Building2, Loader2, Users } from "lucide-react";
 
 const PAYMENT_DEST_LABELS = {
   BANK_TOCHKA: "Банк (Точка)",
@@ -47,8 +42,6 @@ export default function ClientGroupDetailPage() {
   const [form, setForm] = useState({
     name: "",
     description: "",
-    paymentStrategy: "PER_ORG",
-    payerOrganizationId: "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -65,8 +58,6 @@ export default function ClientGroupDetailPage() {
       setForm({
         name: data.name || "",
         description: data.description || "",
-        paymentStrategy: data.paymentStrategy || "PER_ORG",
-        payerOrganizationId: data.payerOrganizationId || "",
       });
     } catch {
       navigate("/organizations");
@@ -88,8 +79,6 @@ export default function ClientGroupDetailPage() {
         body: JSON.stringify({
           name: form.name,
           description: form.description || null,
-          paymentStrategy: form.paymentStrategy,
-          payerOrganizationId: form.payerOrganizationId || null,
         }),
       });
       if (res.ok) {
@@ -170,38 +159,6 @@ export default function ClientGroupDetailPage() {
               className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
             />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">
-              Стратегия оплаты
-            </label>
-            <select
-              value={form.paymentStrategy}
-              onChange={(e) => setForm({ ...form, paymentStrategy: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
-            >
-              <option value="PER_ORG">Каждая организация платит отдельно</option>
-              <option value="CONSOLIDATED">Одна организация платит за всех</option>
-            </select>
-          </div>
-          {form.paymentStrategy === "CONSOLIDATED" && (
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">
-                Организация-плательщик
-              </label>
-              <select
-                value={form.payerOrganizationId}
-                onChange={(e) => setForm({ ...form, payerOrganizationId: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
-              >
-                <option value="">Любая из группы</option>
-                {orgs.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
           <div className="flex gap-2">
             <button
               onClick={handleSave}
@@ -223,21 +180,7 @@ export default function ClientGroupDetailPage() {
       )}
 
       {/* Info cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-            <CreditCard size={14} />
-            Стратегия оплаты
-          </div>
-          <div className="text-sm font-medium text-slate-900">
-            {STRATEGY_LABELS[group.paymentStrategy]}
-          </div>
-          {group.paymentStrategy === "CONSOLIDATED" && group.payerOrganization && (
-            <div className="text-xs text-[#6567F1] mt-1">
-              Плательщик: {group.payerOrganization.name}
-            </div>
-          )}
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
             <Building2 size={14} />

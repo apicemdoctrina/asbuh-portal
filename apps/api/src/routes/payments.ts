@@ -550,22 +550,10 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
       return rate;
     }
 
-    // Load groups with CONSOLIDATED strategy
-    const consolidatedGroups = await prisma.clientGroup.findMany({
-      where: { paymentStrategy: "CONSOLIDATED" },
-      select: { id: true, payerOrganizationId: true },
-    });
-    const consolidatedGroupIds = new Set(consolidatedGroups.map((g) => g.id));
-    const groupPayerMap = new Map(
-      consolidatedGroups
-        .filter((g) => g.payerOrganizationId)
-        .map((g) => [g.id, g.payerOrganizationId!]),
-    );
-
-    // Build group map: clientGroupId → list of org IDs (only for CONSOLIDATED groups)
+    // Build group map: clientGroupId → list of org IDs
     const groupMap = new Map<string, string[]>();
     for (const org of orgs) {
-      if (org.clientGroupId && consolidatedGroupIds.has(org.clientGroupId)) {
+      if (org.clientGroupId) {
         const list = groupMap.get(org.clientGroupId) || [];
         list.push(org.id);
         groupMap.set(org.clientGroupId, list);
@@ -582,37 +570,17 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
       for (const org of orgs) {
         const expected = getExpected(org, targetYear, targetMonth);
 
-        // Sum matched transactions for this org in this month
-        const agg = await prisma.bankTransaction.aggregate({
-          where: {
-            organizationId: org.id,
-            matchStatus: { in: ["AUTO", "MANUAL"] },
-            date: {
-              gte: new Date(targetYear, targetMonth - 1, 1),
-              lt: new Date(targetYear, targetMonth, 1),
-            },
-          },
-          _sum: { amount: true },
-        });
-
-        const received = Number(agg._sum.amount ?? 0);
-
-        // CONSOLIDATED group: one org pays for all — match by payer org or any group org
-        if (org.clientGroupId && consolidatedGroupIds.has(org.clientGroupId)) {
+        // Group org: aggregate transactions from ANY org in the group
+        if (org.clientGroupId && groupMap.has(org.clientGroupId)) {
           if (!processedGroups.has(org.clientGroupId)) {
             processedGroups.add(org.clientGroupId);
 
             const groupOrgIds = groupMap.get(org.clientGroupId)!;
-            // If there's a designated payer, look only at their transactions
-            // Otherwise, sum transactions matched to ANY org in the group
-            const payerId = groupPayerMap.get(org.clientGroupId);
-            const txFilter = payerId
-              ? { organizationId: payerId }
-              : { organizationId: { in: groupOrgIds } };
 
+            // Sum transactions from ANY org in the group
             const groupAgg = await prisma.bankTransaction.aggregate({
               where: {
-                ...txFilter,
+                organizationId: { in: groupOrgIds },
                 matchStatus: { in: ["AUTO", "MANUAL"] },
                 date: {
                   gte: new Date(targetYear, targetMonth - 1, 1),
@@ -634,7 +602,6 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
               const gOrg = orgs.find((o) => o.id === gid);
               if (!gOrg) continue;
               const gExpected = getExpected(gOrg, targetYear, targetMonth);
-              // Proportion: this org's share of group expected
               const proportion = groupExpected > 0 ? gExpected / groupExpected : 0;
               const gReceived = Math.round(groupReceived * proportion * 100) / 100;
               const gDebt = Math.max(0, gExpected - gReceived);
@@ -676,14 +643,25 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
               });
               updated++;
             }
-            continue; // Skip individual processing for this org
+            continue;
           } else {
-            // Already processed as part of group
             continue;
           }
         }
 
         // Non-group org: standard processing
+        const agg = await prisma.bankTransaction.aggregate({
+          where: {
+            organizationId: org.id,
+            matchStatus: { in: ["AUTO", "MANUAL"] },
+            date: {
+              gte: new Date(targetYear, targetMonth - 1, 1),
+              lt: new Date(targetYear, targetMonth, 1),
+            },
+          },
+          _sum: { amount: true },
+        });
+        const received = Number(agg._sum.amount ?? 0);
         const debt = Math.max(0, expected - received);
 
         let status: "PAID" | "PARTIAL" | "OVERDUE" | "PENDING";

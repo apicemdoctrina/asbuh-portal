@@ -60,20 +60,14 @@ const orgRequisitesFields = {
   requisitesBank: z.string().nullable().optional(),
 };
 
-const GROUP_PAYMENT_STRATEGIES = ["PER_ORG", "CONSOLIDATED"] as const;
-
 export const createClientGroupSchema = z.object({
   name: z.string().min(1, "name is required"),
   description: z.string().nullable().optional(),
-  paymentStrategy: z.enum(GROUP_PAYMENT_STRATEGIES).optional(),
-  payerOrganizationId: z.string().uuid().nullable().optional(),
 });
 
 export const updateClientGroupSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().nullable().optional(),
-  paymentStrategy: z.enum(GROUP_PAYMENT_STRATEGIES).optional(),
-  payerOrganizationId: z.string().uuid().nullable().optional(),
 });
 
 export const createOrganizationSchema = z.object({

@@ -634,8 +634,6 @@ router.get("/:id", authenticate, requirePermission("organization", "view"), asyn
             id: true,
             name: true,
             description: true,
-            paymentStrategy: true,
-            payerOrganization: { select: { id: true, name: true } },
             _count: { select: { organizations: true } },
           },
         },
