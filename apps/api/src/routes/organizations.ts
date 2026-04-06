@@ -194,6 +194,32 @@ function buildOrgData(validated: Record<string, unknown>): Prisma.OrganizationUp
   return data;
 }
 
+// GET /api/organizations/payment-destinations — unique paymentDestination values
+router.get(
+  "/payment-destinations",
+  authenticate,
+  requirePermission("organization", "view"),
+  async (req, res) => {
+    try {
+      const scope = getViewScopeWhere(req.user!.userId, req.user!.roles);
+      const rows = await prisma.organization.findMany({
+        where: {
+          ...scope,
+          paymentDestination: { not: null },
+          status: { notIn: ["left", "closed", "archived"] },
+        },
+        select: { paymentDestination: true },
+        distinct: ["paymentDestination"],
+        orderBy: { paymentDestination: "asc" },
+      });
+      res.json(rows.map((r) => r.paymentDestination).filter(Boolean));
+    } catch (err) {
+      console.error("Error fetching payment destinations:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
 // GET /api/organizations — list with search, filters, pagination
 router.get("/", authenticate, requirePermission("organization", "view"), async (req, res) => {
   try {
@@ -204,6 +230,7 @@ router.get("/", authenticate, requirePermission("organization", "view"), async (
       status,
       archived,
       taxSystem,
+      paymentDestination,
       sortBy,
       sortOrder,
       page: pageQ,
@@ -239,6 +266,7 @@ router.get("/", authenticate, requirePermission("organization", "view"), async (
       ...(clientGroupId ? { clientGroupId: String(clientGroupId) } : {}),
       ...statusFilter,
       ...(taxSystem ? { taxSystems: { has: String(taxSystem) } } : {}),
+      ...(paymentDestination ? { paymentDestination: String(paymentDestination) } : {}),
       ...(search
         ? {
             OR: [

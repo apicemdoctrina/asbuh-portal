@@ -17,3 +17,9 @@ ALTER TABLE "tasks" ADD CONSTRAINT "tasks_report_section_id_fkey"
 DELETE FROM "task_checklist_items" WHERE "task_id" IN (SELECT id FROM "tasks" WHERE "report_type_id" IS NOT NULL);
 DELETE FROM "task_assignees" WHERE "task_id" IN (SELECT id FROM "tasks" WHERE "report_type_id" IS NOT NULL);
 DELETE FROM "tasks" WHERE "report_type_id" IS NOT NULL;
+
+-- Make report_section_id NOT NULL with default empty string
+ALTER TABLE "tasks" DROP CONSTRAINT IF EXISTS "tasks_report_section_id_fkey";
+ALTER TABLE "tasks" ALTER COLUMN "report_section_id" SET DEFAULT '';
+UPDATE "tasks" SET "report_section_id" = '' WHERE "report_section_id" IS NULL;
+ALTER TABLE "tasks" ALTER COLUMN "report_section_id" SET NOT NULL;

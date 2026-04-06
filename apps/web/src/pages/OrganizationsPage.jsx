@@ -97,6 +97,7 @@ const COLUMN_DEFS = [
   { key: "serviceType", label: "Тип обслуживания" },
   { key: "monthlyPayment", label: "Ежемес. платёж" },
   { key: "debtAmount", label: "Задолженность" },
+  { key: "paymentDestination", label: "Куда поступает платёж" },
   { key: "reportingChannel", label: "Отчётность" },
   { key: "digitalSignature", label: "ЭЦП" },
   { key: "digitalSignatureExpiry", label: "Срок ЭЦП" },
@@ -161,6 +162,8 @@ function renderCell(colKey, org) {
       return fmtMoney(org.monthlyPayment);
     case "debtAmount":
       return fmtMoney(org.debtAmount);
+    case "paymentDestination":
+      return org.paymentDestination || "—";
     case "reportingChannel":
       return REPORTING_CHANNEL_LABELS[org.reportingChannel] || "—";
     case "digitalSignature":
@@ -997,6 +1000,9 @@ export default function OrganizationsPage() {
   const [sortBy, setSortBy] = useState("");
   const [sortOrder, setSortOrder] = useState("asc");
 
+  const [paymentDestFilter, setPaymentDestFilter] = useState("");
+  const [paymentDestinations, setPaymentDestinations] = useState([]);
+
   const [clientGroups, setClientGroups] = useState([]);
   const [clientGroupFilter, setClientGroupFilter] = useState("");
   const [groupByClient, setGroupByClient] = useState(false);
@@ -1049,6 +1055,14 @@ export default function OrganizationsPage() {
     fetchClientGroups();
   }, [fetchClientGroups]);
 
+  useEffect(() => {
+    if (!hasPermission("organization", "view")) return;
+    api("/api/organizations/payment-destinations")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setPaymentDestinations(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, [hasPermission]);
+
   function handleSort(field) {
     if (sortBy === field) {
       if (sortOrder === "asc") {
@@ -1081,6 +1095,7 @@ export default function OrganizationsPage() {
         if (statusFilter) params.set("status", statusFilter);
         if (sectionId) params.set("sectionId", sectionId);
         if (clientGroupFilter) params.set("clientGroupId", clientGroupFilter);
+        if (paymentDestFilter) params.set("paymentDestination", paymentDestFilter);
       }
       const res = await api(`/api/organizations?${params}`);
       if (!res.ok) throw new Error("Failed to load organizations");
@@ -1102,6 +1117,7 @@ export default function OrganizationsPage() {
     sectionId,
     archiveMode,
     clientGroupFilter,
+    paymentDestFilter,
   ]);
 
   useDebouncedEffect(fetchOrganizations, [fetchOrganizations]);
@@ -1253,6 +1269,23 @@ export default function OrganizationsPage() {
             {clientGroups.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.name}
+              </option>
+            ))}
+          </select>
+        )}
+        {!archiveMode && paymentDestinations.length > 0 && (
+          <select
+            value={paymentDestFilter}
+            onChange={(e) => {
+              setPaymentDestFilter(e.target.value);
+              setPage(1);
+            }}
+            className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
+          >
+            <option value="">Все платежи</option>
+            {paymentDestinations.map((d) => (
+              <option key={d} value={d}>
+                {d}
               </option>
             ))}
           </select>
