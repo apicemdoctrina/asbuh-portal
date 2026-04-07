@@ -1100,36 +1100,37 @@ export default function OrganizationDetailPage() {
                     ) : (
                       <span className="text-slate-300">—</span>
                     )}
-                    {org.priceHistory && org.priceHistory.length > 1 && (
+                    {(org.priceHistory?.length > 0 || canEdit) && (
                       <button
                         onClick={() => setPriceHistoryOpen((v) => !v)}
                         className="ml-2 text-xs text-[#6567F1] hover:underline"
                       >
-                        история · {org.priceHistory.length}
+                        история{org.priceHistory?.length ? ` · ${org.priceHistory.length}` : ""}
                       </button>
                     )}
                   </dd>
-                  {priceHistoryOpen && org.priceHistory && org.priceHistory.length > 0 && (
+                  {priceHistoryOpen && (
                     <div className="mt-2 bg-slate-50 rounded-lg border border-slate-200 p-2 text-xs space-y-1">
-                      {[...org.priceHistory].reverse().map((h) => (
-                        <div key={h.id} className="flex items-center justify-between gap-3">
-                          <span className="text-slate-500">
-                            с {new Date(h.effectiveFrom).toLocaleDateString("ru-RU")}
-                          </span>
-                          <span className="font-medium text-slate-700">
-                            {formatCurrency(h.price)}
-                          </span>
-                          {canEdit && (
-                            <button
-                              onClick={() => handleDeletePriceEntry(h.id)}
-                              className="text-slate-300 hover:text-red-500 transition-colors"
-                              title="Удалить"
-                            >
-                              ×
-                            </button>
-                          )}
-                        </div>
-                      ))}
+                      {(org.priceHistory || []).length > 0 &&
+                        [...org.priceHistory].reverse().map((h) => (
+                          <div key={h.id} className="flex items-center justify-between gap-3">
+                            <span className="text-slate-500">
+                              с {new Date(h.effectiveFrom).toLocaleDateString("ru-RU")}
+                            </span>
+                            <span className="font-medium text-slate-700">
+                              {formatCurrency(h.price)}
+                            </span>
+                            {canEdit && (
+                              <button
+                                onClick={() => handleDeletePriceEntry(h.id)}
+                                className="text-slate-300 hover:text-red-500 transition-colors"
+                                title="Удалить"
+                              >
+                                ×
+                              </button>
+                            )}
+                          </div>
+                        ))}
                       {canEdit && <PriceHistoryAddForm orgId={id} onAdded={fetchOrganization} />}
                     </div>
                   )}
