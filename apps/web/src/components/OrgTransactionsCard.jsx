@@ -306,7 +306,6 @@ function ManualTxForm({ onSubmit, onCancel }) {
           <input
             type="number"
             step="0.01"
-            min="0"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="0.00"
