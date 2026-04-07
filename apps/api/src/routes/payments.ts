@@ -728,15 +728,30 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
       return total;
     }
 
-    // Build group map: clientGroupId → list of org IDs
-    const groupMap = new Map<string, string[]>();
-    for (const org of orgs) {
-      if (org.clientGroupId) {
-        const list = groupMap.get(org.clientGroupId) || [];
-        list.push(org.id);
-        groupMap.set(org.clientGroupId, list);
-      }
-    }
+    // Collect all unique group IDs from paying orgs
+    const groupIds = [...new Set(orgs.filter((o) => o.clientGroupId).map((o) => o.clientGroupId!))];
+
+    // Fetch ALL orgs in those groups (including non-paying ones)
+    const allGroupOrgs =
+      groupIds.length > 0
+        ? await prisma.organization.findMany({
+            where: { clientGroupId: { in: groupIds } },
+            select: {
+              id: true,
+              name: true,
+              monthlyPayment: true,
+              serviceStartDate: true,
+              clientGroupId: true,
+              clientGroup: { select: { id: true, name: true } },
+              paymentNote: true,
+              status: true,
+              priceHistory: {
+                select: { price: true, effectiveFrom: true },
+                orderBy: { effectiveFrom: "asc" },
+              },
+            },
+          })
+        : [];
 
     const processedGroups = new Set<string>();
     const results: Array<{
@@ -752,19 +767,17 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
 
     for (const org of orgs) {
       // Group org: handle at group level
-      if (org.clientGroupId && groupMap.has(org.clientGroupId)) {
+      if (org.clientGroupId) {
         if (processedGroups.has(org.clientGroupId)) continue;
         processedGroups.add(org.clientGroupId);
 
-        const groupOrgIds = groupMap.get(org.clientGroupId)!;
+        const groupMembers = allGroupOrgs.filter((o) => o.clientGroupId === org.clientGroupId);
 
-        for (const gid of groupOrgIds) {
-          const gOrg = orgs.find((o) => o.id === gid);
-          if (!gOrg) continue;
+        for (const gOrg of groupMembers) {
           const gExpected = calcExpected(gOrg);
           const gAgg = await prisma.bankTransaction.aggregate({
             where: {
-              organizationId: gid,
+              organizationId: gOrg.id,
               matchStatus: { in: ["AUTO", "MANUAL"] },
               date: { gte: BASE_DATE },
             },
@@ -774,7 +787,7 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
           const gDebt = Math.max(0, gExpected - gReceived);
 
           results.push({
-            orgId: gid,
+            orgId: gOrg.id,
             orgName: gOrg.name,
             groupId: org.clientGroupId,
             groupName: org.clientGroup?.name || null,

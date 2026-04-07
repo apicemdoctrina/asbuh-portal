@@ -541,18 +541,45 @@ function ReconciliationTab() {
                     const isGroupEnd =
                       r.groupId &&
                       (i === filtered.length - 1 || filtered[i + 1]?.groupId !== r.groupId);
+
+                    // Calculate group totals for header
+                    let groupTotals = null;
+                    if (isGroupStart) {
+                      const members = filtered.filter((x) => x.groupId === r.groupId);
+                      groupTotals = {
+                        expected: members.reduce((s, x) => s + x.expected, 0),
+                        received: members.reduce((s, x) => s + x.received, 0),
+                        debt: members.reduce((s, x) => s + x.debt, 0),
+                      };
+                    }
+
                     return (
                       <>
                         {isGroupStart && (
-                          <tr key={`gh-${r.groupId}`} className="bg-amber-50/60">
-                            <td
-                              colSpan={5}
-                              className="px-4 py-1.5 text-xs font-semibold text-amber-700"
-                            >
+                          <tr
+                            key={`gh-${r.groupId}`}
+                            className="bg-amber-50/80 border-b border-amber-200"
+                          >
+                            <td className="px-4 py-2 text-xs font-semibold text-amber-700">
                               <Link to={`/client-groups/${r.groupId}`} className="hover:underline">
                                 {r.groupName || "Группа"}
                               </Link>
+                              <span className="ml-2 text-amber-500 font-normal">
+                                {filtered.filter((x) => x.groupId === r.groupId).length} орг.
+                              </span>
                             </td>
+                            <td className="px-4 py-2 text-right text-xs font-semibold text-amber-700">
+                              {fmt(groupTotals.expected)}
+                            </td>
+                            <td className="px-4 py-2 text-right text-xs font-semibold text-green-700">
+                              {fmt(groupTotals.received)}
+                            </td>
+                            <td
+                              className={`px-4 py-2 text-right text-xs font-semibold ${groupTotals.debt > 0 ? "text-red-600" : "text-amber-700"}`}
+                            >
+                              {groupTotals.debt > 0 ? fmt(groupTotals.debt) : "—"}
+                            </td>
+                            <td className="px-4 py-2"></td>
                           </tr>
                         )}
                         <tr
