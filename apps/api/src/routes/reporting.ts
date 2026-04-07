@@ -5,7 +5,7 @@ import prisma from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
 import { authenticate, requirePermission, requireRole } from "../middleware/auth.js";
 import { sendZodError } from "../lib/route-helpers.js";
-import { syncEntryToChecklist } from "../lib/report-task-generator.js";
+import { syncEntryToChecklist, isReportApplicable } from "../lib/report-task-generator.js";
 
 const router = Router();
 
@@ -156,6 +156,7 @@ router.get("/matrix", authenticate, requirePermission("reporting", "view"), asyn
         inn: true,
         form: true,
         taxSystems: true,
+        employeeCount: true,
         section: { select: { id: true, number: true, name: true } },
       },
       orderBy: [{ section: { number: "asc" } }, { name: "asc" }],
@@ -189,7 +190,27 @@ router.get("/matrix", authenticate, requirePermission("reporting", "view"), asyn
       entryMap[`${e.organizationId}_${e.reportTypeId}`] = e;
     }
 
-    res.json({ organizations, reportTypes, entries: entryMap, year, period, frequency });
+    // Build applicability map: orgId_reportTypeId → boolean
+    const applicability: Record<string, boolean> = {};
+    for (const org of organizations) {
+      for (const rt of reportTypes) {
+        applicability[`${org.id}_${rt.id}`] = isReportApplicable(rt.code, {
+          form: org.form,
+          taxSystems: org.taxSystems as string[],
+          employeeCount: org.employeeCount,
+        });
+      }
+    }
+
+    res.json({
+      organizations,
+      reportTypes,
+      entries: entryMap,
+      applicability,
+      year,
+      period,
+      frequency,
+    });
   } catch (err) {
     console.error("Error fetching reporting matrix:", err);
     res.status(500).json({ error: "Internal server error" });

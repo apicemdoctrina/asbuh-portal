@@ -484,12 +484,18 @@ export default function ReportingPage() {
     ? (() => {
         const orgIds = new Set(filteredOrgs.map((o) => o.id));
         const entries = Object.values(data.entries).filter((e) => orgIds.has(e.organizationId));
-        const total = filteredOrgs.length * (data.reportTypes?.length || 0);
+        // Count only applicable cells
+        let applicableCount = 0;
+        for (const org of filteredOrgs) {
+          for (const rt of data.reportTypes || []) {
+            if (data.applicability?.[`${org.id}_${rt.id}`] !== false) applicableCount++;
+          }
+        }
         const submitted = entries.filter((e) => e.status === "SUBMITTED").length;
         const accepted = entries.filter((e) => e.status === "ACCEPTED").length;
         const rejected = entries.filter((e) => e.status === "REJECTED").length;
-        const notSubmitted = total - submitted - accepted - rejected;
-        return { total, submitted, accepted, rejected, notSubmitted };
+        const notSubmitted = applicableCount - submitted - accepted - rejected;
+        return { total: applicableCount, submitted, accepted, rejected, notSubmitted };
       })()
     : null;
 
@@ -662,18 +668,26 @@ export default function ReportingPage() {
                       </div>
                     </td>
                     {data.reportTypes.map((rt) => {
-                      const entry = data.entries[`${org.id}_${rt.id}`];
+                      const key = `${org.id}_${rt.id}`;
+                      const entry = data.entries[key];
+                      const applicable = data.applicability?.[key] !== false;
                       return (
                         <td key={rt.id} className="px-1.5 py-1.5">
-                          <StatusCell
-                            entry={entry}
-                            orgId={org.id}
-                            rtId={rt.id}
-                            year={data.year}
-                            period={data.period}
-                            canEdit={canEdit}
-                            onUpdate={handleEntryUpdate}
-                          />
+                          {applicable ? (
+                            <StatusCell
+                              entry={entry}
+                              orgId={org.id}
+                              rtId={rt.id}
+                              year={data.year}
+                              period={data.period}
+                              canEdit={canEdit}
+                              onUpdate={handleEntryUpdate}
+                            />
+                          ) : (
+                            <div className="w-full text-center text-slate-300 text-base font-medium py-1.5">
+                              —
+                            </div>
+                          )}
                         </td>
                       );
                     })}
