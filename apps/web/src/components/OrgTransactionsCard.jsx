@@ -73,11 +73,7 @@ export default function OrgTransactionsCard({
   }
 
   async function handleUnignore(txId) {
-    await api(`/api/payments/transactions/${txId}/match`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ organizationId: null }),
-    });
+    await api(`/api/payments/transactions/${txId}/unignore`, { method: "PUT" });
     fetchTx();
   }
 

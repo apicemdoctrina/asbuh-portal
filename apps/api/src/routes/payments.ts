@@ -549,6 +549,37 @@ router.put(
   },
 );
 
+// PUT /api/payments/transactions/:id/unignore — restore from ignored
+router.put(
+  "/transactions/:id/unignore",
+  authenticate,
+  requireRole("admin", "supervisor"),
+  async (req, res) => {
+    try {
+      const old = await prisma.bankTransaction.findUnique({
+        where: { id: req.params.id },
+        select: { organizationId: true },
+      });
+
+      const tx = await prisma.bankTransaction.update({
+        where: { id: req.params.id },
+        data: {
+          matchStatus: old?.organizationId ? "MANUAL" : "UNMATCHED",
+          matchedAt: old?.organizationId ? new Date() : null,
+          matchedBy: old?.organizationId ? req.user!.userId : null,
+        },
+      });
+
+      if (old?.organizationId) await recalcOrgDebt(old.organizationId);
+
+      res.json(tx);
+    } catch (err) {
+      console.error("Unignore transaction error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
 // ─── Transactions list ───────────────────────────────────────────────────────
 
 // GET /api/payments/transactions — list with filters
