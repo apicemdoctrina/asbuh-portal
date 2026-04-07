@@ -367,6 +367,117 @@ router.post("/rematch", authenticate, requireRole("admin", "supervisor"), async 
   }
 });
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+// Recalculate debtAmount for a single org after transaction status change
+async function recalcOrgDebt(orgId: string): Promise<void> {
+  const BASE_DATE = new Date(2025, 0, 1);
+  const now = new Date();
+  const currentMonth1st = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const org = await prisma.organization.findUnique({
+    where: { id: orgId },
+    select: {
+      id: true,
+      monthlyPayment: true,
+      serviceStartDate: true,
+      clientGroupId: true,
+      priceHistory: {
+        select: { price: true, effectiveFrom: true },
+        orderBy: { effectiveFrom: "asc" as const },
+      },
+    },
+  });
+  if (!org) return;
+
+  function monthsBetween(from: Date, to: Date): number {
+    return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
+  }
+  function monthStart(d: Date): Date {
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  }
+
+  function calcExpectedForOrg(o: typeof org): number {
+    const start =
+      o!.serviceStartDate && o!.serviceStartDate > BASE_DATE
+        ? monthStart(o!.serviceStartDate)
+        : BASE_DATE;
+    if (start >= currentMonth1st) return 0;
+
+    const history = o!.priceHistory;
+    if (!history || history.length === 0) {
+      return Number(o!.monthlyPayment ?? 0) * monthsBetween(start, currentMonth1st);
+    }
+
+    let total = 0;
+    for (let i = 0; i < history.length; i++) {
+      const iStart = monthStart(history[i].effectiveFrom);
+      const iEnd =
+        i + 1 < history.length ? monthStart(history[i + 1].effectiveFrom) : currentMonth1st;
+      const from = iStart < start ? start : iStart;
+      const to = iEnd > currentMonth1st ? currentMonth1st : iEnd;
+      const months = monthsBetween(from, to);
+      if (months > 0) total += Number(history[i].price) * months;
+    }
+    return total;
+  }
+
+  // If org is in a group, recalc all group members
+  if (org.clientGroupId) {
+    const groupOrgs = await prisma.organization.findMany({
+      where: { clientGroupId: org.clientGroupId },
+      select: {
+        id: true,
+        monthlyPayment: true,
+        serviceStartDate: true,
+        clientGroupId: true,
+        priceHistory: {
+          select: { price: true, effectiveFrom: true },
+          orderBy: { effectiveFrom: "asc" as const },
+        },
+      },
+    });
+    const groupOrgIds = groupOrgs.map((o) => o.id);
+    const groupAgg = await prisma.bankTransaction.aggregate({
+      where: {
+        organizationId: { in: groupOrgIds },
+        matchStatus: { in: ["AUTO", "MANUAL"] },
+        date: { gte: BASE_DATE },
+      },
+      _sum: { amount: true },
+    });
+    const groupReceived = Number(groupAgg._sum.amount ?? 0);
+    const groupExpected = groupOrgs.reduce((s, o) => s + calcExpectedForOrg(o), 0);
+
+    for (const gOrg of groupOrgs) {
+      const gExpected = calcExpectedForOrg(gOrg);
+      const proportion = groupExpected > 0 ? gExpected / groupExpected : 0;
+      const gReceived = Math.round(groupReceived * proportion * 100) / 100;
+      const debt = Math.max(0, gExpected - gReceived);
+      await prisma.organization.update({
+        where: { id: gOrg.id },
+        data: { debtAmount: debt },
+      });
+    }
+  } else {
+    const expected = calcExpectedForOrg(org);
+    const agg = await prisma.bankTransaction.aggregate({
+      where: {
+        organizationId: orgId,
+        matchStatus: { in: ["AUTO", "MANUAL"] },
+        date: { gte: BASE_DATE },
+      },
+      _sum: { amount: true },
+    });
+    const received = Number(agg._sum.amount ?? 0);
+    const debt = Math.max(0, expected - received);
+    await prisma.organization.update({
+      where: { id: orgId },
+      data: { debtAmount: debt },
+    });
+  }
+}
+
 // ─── Manual match ────────────────────────────────────────────────────────────
 
 // PUT /api/payments/transactions/:id/match — manually match transaction
@@ -377,6 +488,13 @@ router.put(
   async (req, res) => {
     try {
       const { organizationId } = req.body;
+
+      // Get the old orgId before updating (to recalc its debt too)
+      const old = await prisma.bankTransaction.findUnique({
+        where: { id: req.params.id },
+        select: { organizationId: true },
+      });
+
       const tx = await prisma.bankTransaction.update({
         where: { id: req.params.id },
         data: {
@@ -386,6 +504,12 @@ router.put(
           matchedBy: organizationId ? req.user!.userId : null,
         },
       });
+
+      // Recalc debt for affected orgs
+      if (old?.organizationId) await recalcOrgDebt(old.organizationId);
+      if (organizationId && organizationId !== old?.organizationId)
+        await recalcOrgDebt(organizationId);
+
       res.json(tx);
     } catch (err) {
       console.error("Manual match error:", err);
@@ -401,6 +525,11 @@ router.put(
   requireRole("admin", "supervisor"),
   async (req, res) => {
     try {
+      const old = await prisma.bankTransaction.findUnique({
+        where: { id: req.params.id },
+        select: { organizationId: true },
+      });
+
       const tx = await prisma.bankTransaction.update({
         where: { id: req.params.id },
         data: {
@@ -409,6 +538,9 @@ router.put(
           matchedBy: req.user!.userId,
         },
       });
+
+      if (old?.organizationId) await recalcOrgDebt(old.organizationId);
+
       res.json(tx);
     } catch (err) {
       console.error("Ignore transaction error:", err);
@@ -511,10 +643,13 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
         id: true,
         name: true,
         monthlyPayment: true,
-        previousMonthlyPayment: true,
-        priceChangeDate: true,
         serviceStartDate: true,
         clientGroupId: true,
+        paymentNote: true,
+        priceHistory: {
+          select: { price: true, effectiveFrom: true },
+          orderBy: { effectiveFrom: "asc" },
+        },
       },
     });
 
@@ -523,44 +658,47 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
       return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
     }
 
+    // Helper: first of the month for a date
+    function monthStart(d: Date): Date {
+      return new Date(d.getFullYear(), d.getMonth(), 1);
+    }
+
     // Helper: calculate total expected for an org from start to now
+    // Uses priceHistory intervals; falls back to monthlyPayment if no history
     function calcExpected(org: (typeof orgs)[0]): number {
       const start =
         org.serviceStartDate && org.serviceStartDate > BASE_DATE
-          ? new Date(org.serviceStartDate.getFullYear(), org.serviceStartDate.getMonth(), 1)
+          ? monthStart(org.serviceStartDate)
           : BASE_DATE;
 
       if (start >= currentMonth1st) return 0;
 
-      const totalMonths = monthsBetween(start, currentMonth1st);
-      if (totalMonths <= 0) return 0;
+      const history = org.priceHistory;
 
-      const currentRate = Number(org.monthlyPayment ?? 0);
-
-      // If there was a price change, split into old price period + new price period
-      if (org.priceChangeDate && org.previousMonthlyPayment != null) {
-        const changeDate = new Date(
-          org.priceChangeDate.getFullYear(),
-          org.priceChangeDate.getMonth(),
-          1,
-        );
-        const oldRate = Number(org.previousMonthlyPayment);
-
-        if (changeDate <= start) {
-          // Price changed before org started — all at current rate
-          return currentRate * totalMonths;
-        }
-        if (changeDate >= currentMonth1st) {
-          // Price change hasn't happened yet — all at old rate
-          return oldRate * totalMonths;
-        }
-
-        const monthsAtOld = monthsBetween(start, changeDate);
-        const monthsAtNew = monthsBetween(changeDate, currentMonth1st);
-        return oldRate * monthsAtOld + currentRate * monthsAtNew;
+      // No price history — use flat monthlyPayment
+      if (!history || history.length === 0) {
+        const rate = Number(org.monthlyPayment ?? 0);
+        return rate * monthsBetween(start, currentMonth1st);
       }
 
-      return currentRate * totalMonths;
+      // Build intervals from price history
+      let total = 0;
+      for (let i = 0; i < history.length; i++) {
+        const intervalStart = monthStart(history[i].effectiveFrom);
+        const intervalEnd =
+          i + 1 < history.length ? monthStart(history[i + 1].effectiveFrom) : currentMonth1st;
+
+        // Clamp interval to [start, currentMonth1st]
+        const from = intervalStart < start ? start : intervalStart;
+        const to = intervalEnd > currentMonth1st ? currentMonth1st : intervalEnd;
+
+        const months = monthsBetween(from, to);
+        if (months > 0) {
+          total += Number(history[i].price) * months;
+        }
+      }
+
+      return total;
     }
 
     // Build group map: clientGroupId → list of org IDs
@@ -581,6 +719,7 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
       expected: number;
       received: number;
       debt: number;
+      paymentNote: string | null;
     }> = [];
 
     for (const org of orgs) {
@@ -624,6 +763,7 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
             expected: gExpected,
             received: gReceived,
             debt: gDebt,
+            paymentNote: gOrg.paymentNote,
           });
         }
         continue;
@@ -649,6 +789,7 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
         expected,
         received,
         debt,
+        paymentNote: org.paymentNote,
       });
     }
 
@@ -730,6 +871,26 @@ router.get(
       });
     } catch (err) {
       console.error("Reconciliation error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// PUT /api/payments/org/:orgId/note — update payment note
+router.put(
+  "/org/:orgId/note",
+  authenticate,
+  requireRole("admin", "supervisor"),
+  async (req, res) => {
+    try {
+      const { note } = req.body;
+      await prisma.organization.update({
+        where: { id: req.params.orgId },
+        data: { paymentNote: note || null },
+      });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Update payment note error:", err);
       res.status(500).json({ error: "Internal server error" });
     }
   },

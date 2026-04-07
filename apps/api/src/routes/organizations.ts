@@ -154,7 +154,6 @@ function buildOrgData(validated: Record<string, unknown>): Prisma.OrganizationUp
     "paymentDestination",
     "paymentFrequency",
     "serviceStartDate",
-    "priceChangeDate",
     "importantComment",
     "checkingAccount",
     "bik",
@@ -169,7 +168,7 @@ function buildOrgData(validated: Record<string, unknown>): Prisma.OrganizationUp
   }
 
   // Decimal fields need Prisma.Decimal conversion
-  for (const field of ["monthlyPayment", "previousMonthlyPayment", "debtAmount"] as const) {
+  for (const field of ["monthlyPayment", "debtAmount"] as const) {
     if (validated[field] !== undefined) {
       const val = validated[field];
       (data as Record<string, unknown>)[field] =
@@ -344,8 +343,6 @@ router.post("/", authenticate, requirePermission("organization", "create"), asyn
       createData.paymentFrequency = validated.paymentFrequency;
     if (validated.serviceStartDate !== undefined)
       createData.serviceStartDate = validated.serviceStartDate;
-    if (validated.priceChangeDate !== undefined)
-      createData.priceChangeDate = validated.priceChangeDate;
     if (validated.ogrn !== undefined) createData.ogrn = validated.ogrn;
     if (validated.importantComment !== undefined)
       createData.importantComment = validated.importantComment;
@@ -359,12 +356,6 @@ router.post("/", authenticate, requirePermission("organization", "create"), asyn
     if (validated.monthlyPayment !== undefined) {
       createData.monthlyPayment =
         validated.monthlyPayment === null ? null : new Prisma.Decimal(validated.monthlyPayment);
-    }
-    if (validated.previousMonthlyPayment !== undefined) {
-      createData.previousMonthlyPayment =
-        validated.previousMonthlyPayment === null
-          ? null
-          : new Prisma.Decimal(validated.previousMonthlyPayment);
     }
     if (validated.debtAmount !== undefined) {
       createData.debtAmount =
@@ -642,6 +633,10 @@ router.get("/:id", authenticate, requirePermission("organization", "view"), asyn
             uploadedBy: { select: { firstName: true, lastName: true } },
           },
           orderBy: { createdAt: "desc" },
+        },
+        priceHistory: {
+          select: { id: true, price: true, effectiveFrom: true },
+          orderBy: { effectiveFrom: "asc" },
         },
       },
     });
@@ -2006,6 +2001,85 @@ router.post(
       });
     } catch (err) {
       console.error("generate-tasks error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// ── Price History ────────────────────────────────────────────────────────────
+
+// POST /api/organizations/:id/price-history — add price entry
+router.post(
+  "/:id/price-history",
+  authenticate,
+  requirePermission("organization", "edit"),
+  async (req, res) => {
+    try {
+      const { price, effectiveFrom } = req.body;
+      if (!price || !effectiveFrom) {
+        res.status(400).json({ error: "price and effectiveFrom are required" });
+        return;
+      }
+
+      const org = await prisma.organization.findUnique({
+        where: { id: req.params.id },
+        select: { id: true },
+      });
+      if (!org) {
+        res.status(404).json({ error: "Organization not found" });
+        return;
+      }
+
+      const entry = await prisma.priceHistory.create({
+        data: {
+          organizationId: req.params.id,
+          price: new Prisma.Decimal(price),
+          effectiveFrom: new Date(effectiveFrom),
+        },
+      });
+
+      // Update monthlyPayment to the latest price
+      const latest = await prisma.priceHistory.findFirst({
+        where: { organizationId: req.params.id },
+        orderBy: { effectiveFrom: "desc" },
+      });
+      if (latest) {
+        await prisma.organization.update({
+          where: { id: req.params.id },
+          data: { monthlyPayment: latest.price },
+        });
+      }
+
+      res.status(201).json(entry);
+    } catch (err) {
+      console.error("Create price history error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// DELETE /api/organizations/:id/price-history/:entryId — remove price entry
+router.delete(
+  "/:id/price-history/:entryId",
+  authenticate,
+  requirePermission("organization", "edit"),
+  async (req, res) => {
+    try {
+      await prisma.priceHistory.delete({ where: { id: req.params.entryId } });
+
+      // Update monthlyPayment to the latest remaining price
+      const latest = await prisma.priceHistory.findFirst({
+        where: { organizationId: req.params.id },
+        orderBy: { effectiveFrom: "desc" },
+      });
+      await prisma.organization.update({
+        where: { id: req.params.id },
+        data: { monthlyPayment: latest ? latest.price : null },
+      });
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Delete price history error:", err);
       res.status(500).json({ error: "Internal server error" });
     }
   },

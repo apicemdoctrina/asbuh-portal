@@ -124,6 +124,66 @@ function Field({ label, value }) {
   );
 }
 
+function PriceHistoryAddForm({ orgId, onAdded }) {
+  const [price, setPrice] = useState("");
+  const [date, setDate] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleAdd(e) {
+    e.preventDefault();
+    if (!price || !date) return;
+    setSaving(true);
+    try {
+      const res = await api(`/api/organizations/${orgId}/price-history`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ price, effectiveFrom: date }),
+      });
+      if (res.ok) {
+        setPrice("");
+        setDate("");
+        onAdded();
+      }
+    } catch {
+      /* */
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form
+      onSubmit={handleAdd}
+      className="flex items-center gap-2 pt-1 border-t border-slate-200 mt-1"
+    >
+      <input
+        type="date"
+        value={date}
+        onChange={(e) => setDate(e.target.value)}
+        className="px-2 py-1 border border-slate-200 rounded text-xs w-28"
+        required
+      />
+      <input
+        type="number"
+        step="0.01"
+        min="0"
+        placeholder="Цена"
+        value={price}
+        onChange={(e) => setPrice(e.target.value)}
+        className="px-2 py-1 border border-slate-200 rounded text-xs w-20"
+        required
+      />
+      <button
+        type="submit"
+        disabled={saving}
+        className="text-xs text-[#6567F1] hover:underline disabled:opacity-50"
+      >
+        + Добавить
+      </button>
+    </form>
+  );
+}
+
 const INITIAL_FORM = {
   name: "",
   inn: "",
@@ -144,8 +204,6 @@ const INITIAL_FORM = {
   reportingChannel: "",
   serviceType: "",
   monthlyPayment: "",
-  previousMonthlyPayment: "",
-  priceChangeDate: "",
   paymentDestination: "",
   paymentFrequency: "MONTHLY",
   serviceStartDate: "",
@@ -194,6 +252,7 @@ export default function OrganizationDetailPage() {
   const [commentTask, setCommentTask] = useState(null);
   const [showSendMessage, setShowSendMessage] = useState(false);
   const [messageHistoryKey, setMessageHistoryKey] = useState(0);
+  const [priceHistoryOpen, setPriceHistoryOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -240,9 +299,6 @@ export default function OrganizationDetailPage() {
       reportingChannel: data.reportingChannel || "",
       serviceType: data.serviceType || "",
       monthlyPayment: data.monthlyPayment != null ? String(data.monthlyPayment) : "",
-      previousMonthlyPayment:
-        data.previousMonthlyPayment != null ? String(data.previousMonthlyPayment) : "",
-      priceChangeDate: data.priceChangeDate ? data.priceChangeDate.slice(0, 10) : "",
       paymentDestination: data.paymentDestination || "",
       paymentFrequency: data.paymentFrequency || "MONTHLY",
       serviceStartDate: data.serviceStartDate ? data.serviceStartDate.slice(0, 10) : "",
@@ -341,8 +397,6 @@ export default function OrganizationDetailPage() {
           reportingChannel: form.reportingChannel || null,
           serviceType: form.serviceType || null,
           monthlyPayment: toDecimalOrNull(form.monthlyPayment),
-          previousMonthlyPayment: toDecimalOrNull(form.previousMonthlyPayment),
-          priceChangeDate: form.priceChangeDate || null,
           paymentDestination: form.paymentDestination || null,
           paymentFrequency: form.paymentFrequency || "MONTHLY",
           serviceStartDate: form.serviceStartDate || null,
@@ -441,6 +495,15 @@ export default function OrganizationDetailPage() {
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // fallback
+    }
+  }
+
+  async function handleDeletePriceEntry(entryId) {
+    try {
+      await api(`/api/organizations/${id}/price-history/${entryId}`, { method: "DELETE" });
+      fetchOrganization();
+    } catch {
+      /* */
     }
   }
 
@@ -855,26 +918,6 @@ export default function OrganizationDetailPage() {
                     />
                   </div>
                   <div>
-                    <label className={LABEL_CLS}>Старая цена (до смены)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={form.previousMonthlyPayment}
-                      onChange={(e) => setField("previousMonthlyPayment", e.target.value)}
-                      className={INPUT_CLS}
-                    />
-                  </div>
-                  <div>
-                    <label className={LABEL_CLS}>Дата смены цены</label>
-                    <input
-                      type="date"
-                      value={form.priceChangeDate}
-                      onChange={(e) => setField("priceChangeDate", e.target.value)}
-                      className={INPUT_CLS}
-                    />
-                  </div>
-                  <div>
                     <label className={LABEL_CLS}>Куда поступает платёж</label>
                     <select
                       value={form.paymentDestination}
@@ -1047,16 +1090,50 @@ export default function OrganizationDetailPage() {
                 Финансы
               </h3>
               <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
-                <Field label="Ежемес. платёж" value={formatCurrency(org.monthlyPayment)} />
-                <Field label="Старая цена" value={formatCurrency(org.previousMonthlyPayment)} />
-                <Field
-                  label="Дата смены цены"
-                  value={
-                    org.priceChangeDate
-                      ? new Date(org.priceChangeDate).toLocaleDateString("ru-RU")
-                      : null
-                  }
-                />
+                <div className="min-w-0">
+                  <dt className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide leading-none">
+                    Ежемес. платёж
+                  </dt>
+                  <dd className="text-sm text-slate-700 mt-1 leading-snug">
+                    {org.monthlyPayment ? (
+                      formatCurrency(org.monthlyPayment)
+                    ) : (
+                      <span className="text-slate-300">—</span>
+                    )}
+                    {org.priceHistory && org.priceHistory.length > 1 && (
+                      <button
+                        onClick={() => setPriceHistoryOpen((v) => !v)}
+                        className="ml-2 text-xs text-[#6567F1] hover:underline"
+                      >
+                        история · {org.priceHistory.length}
+                      </button>
+                    )}
+                  </dd>
+                  {priceHistoryOpen && org.priceHistory && org.priceHistory.length > 0 && (
+                    <div className="mt-2 bg-slate-50 rounded-lg border border-slate-200 p-2 text-xs space-y-1">
+                      {[...org.priceHistory].reverse().map((h) => (
+                        <div key={h.id} className="flex items-center justify-between gap-3">
+                          <span className="text-slate-500">
+                            с {new Date(h.effectiveFrom).toLocaleDateString("ru-RU")}
+                          </span>
+                          <span className="font-medium text-slate-700">
+                            {formatCurrency(h.price)}
+                          </span>
+                          {canEdit && (
+                            <button
+                              onClick={() => handleDeletePriceEntry(h.id)}
+                              className="text-slate-300 hover:text-red-500 transition-colors"
+                              title="Удалить"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      {canEdit && <PriceHistoryAddForm orgId={id} onAdded={fetchOrganization} />}
+                    </div>
+                  )}
+                </div>
                 <Field
                   label="Куда поступает"
                   value={

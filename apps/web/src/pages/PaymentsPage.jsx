@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, Link } from "react-router";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
@@ -18,6 +18,7 @@ import {
   Clock,
   Filter,
   Calculator,
+  MessageSquare,
 } from "lucide-react";
 
 const MATCH_STATUS_LABELS = {
@@ -323,6 +324,72 @@ function TransactionsTab({ onOrgClick }) {
 
 // ─── Tab: Reconciliation ─────────────────────────────────────────────────────
 
+function NoteCell({ orgId, initialNote }) {
+  const [editing, setEditing] = useState(false);
+  const [note, setNote] = useState(initialNote || "");
+  const [saved, setSaved] = useState(initialNote || "");
+
+  async function handleSave() {
+    await api(`/api/payments/org/${orgId}/note`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ note }),
+    });
+    setSaved(note);
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1">
+        <input
+          type="text"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSave();
+            if (e.key === "Escape") {
+              setNote(saved);
+              setEditing(false);
+            }
+          }}
+          autoFocus
+          className="px-2 py-1 border border-slate-200 rounded text-xs w-full min-w-[120px] focus:outline-none focus:ring-1 focus:ring-[#6567F1]/30"
+        />
+        <button onClick={handleSave} className="text-green-600 hover:text-green-700">
+          <Check size={14} />
+        </button>
+        <button
+          onClick={() => {
+            setNote(saved);
+            setEditing(false);
+          }}
+          className="text-slate-400 hover:text-slate-600"
+        >
+          <XIcon size={14} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setEditing(true)}
+      className="flex items-center gap-1 text-xs text-slate-400 hover:text-[#6567F1] transition-colors max-w-[200px] text-left"
+      title={saved || "Добавить примечание"}
+    >
+      {saved ? (
+        <span className="text-slate-500 truncate">{saved}</span>
+      ) : (
+        <>
+          <MessageSquare size={12} />
+          <span>примечание</span>
+        </>
+      )}
+    </button>
+  );
+}
+
 function ReconciliationTab() {
   const [results, setResults] = useState([]);
   const [summary, setSummary] = useState({ expected: 0, received: 0, debt: 0, debtorCount: 0 });
@@ -441,13 +508,19 @@ function ReconciliationTab() {
                     <th className="text-right px-4 py-3 font-medium text-slate-500">Ожидалось</th>
                     <th className="text-right px-4 py-3 font-medium text-slate-500">Поступило</th>
                     <th className="text-right px-4 py-3 font-medium text-slate-500">Долг</th>
+                    <th className="text-left px-4 py-3 font-medium text-slate-500">Примечание</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((r) => (
                     <tr key={r.orgId} className="border-b border-slate-50 hover:bg-slate-50/50">
-                      <td className="px-4 py-3 font-medium text-slate-900">
-                        {r.orgName}
+                      <td className="px-4 py-3">
+                        <Link
+                          to={`/organizations/${r.orgId}`}
+                          className="font-medium text-[#6567F1] hover:underline"
+                        >
+                          {r.orgName}
+                        </Link>
                         {r.groupId && <span className="ml-2 text-xs text-slate-400">группа</span>}
                       </td>
                       <td className="px-4 py-3 text-right">{fmt(r.expected)}</td>
@@ -458,6 +531,9 @@ function ReconciliationTab() {
                         className={`px-4 py-3 text-right font-medium ${r.debt > 0 ? "text-red-600" : "text-slate-400"}`}
                       >
                         {r.debt > 0 ? fmt(r.debt) : "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <NoteCell orgId={r.orgId} initialNote={r.paymentNote} />
                       </td>
                     </tr>
                   ))}

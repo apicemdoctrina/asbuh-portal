@@ -123,8 +123,6 @@ const COLUMN_DEFS = [
     options: SERVICE_TYPE_LABELS,
   },
   { key: "monthlyPayment", label: "Ежемес. платёж", editable: true, editType: "number" },
-  { key: "previousMonthlyPayment", label: "Старая цена", editable: true, editType: "number" },
-  { key: "priceChangeDate", label: "Дата смены цены", editable: true, editType: "date" },
   { key: "debtAmount", label: "Задолженность", editable: true, editType: "number" },
   {
     key: "paymentDestination",
@@ -215,10 +213,6 @@ function renderCell(colKey, org) {
       return SERVICE_TYPE_LABELS[org.serviceType] || "—";
     case "monthlyPayment":
       return fmtMoney(org.monthlyPayment);
-    case "previousMonthlyPayment":
-      return fmtMoney(org.previousMonthlyPayment);
-    case "priceChangeDate":
-      return org.priceChangeDate ? new Date(org.priceChangeDate).toLocaleDateString("ru-RU") : "—";
     case "debtAmount":
       return fmtMoney(org.debtAmount);
     case "paymentDestination":

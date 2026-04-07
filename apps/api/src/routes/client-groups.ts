@@ -37,7 +37,6 @@ router.get("/:id", authenticate, requirePermission("organization", "view"), asyn
             inn: true,
             status: true,
             monthlyPayment: true,
-            previousMonthlyPayment: true,
             paymentDestination: true,
             paymentFrequency: true,
             serviceStartDate: true,
