@@ -30,6 +30,7 @@ import DocumentsCard from "../components/DocumentsCard.jsx";
 import OrgCompletenessCard from "../components/OrgCompletenessCard.jsx";
 import MessageHistoryCard from "../components/MessageHistoryCard.jsx";
 import SendMessageModal from "../components/SendMessageModal.jsx";
+import OrgTransactionsCard from "../components/OrgTransactionsCard.jsx";
 
 const TAX_SYSTEM_LABELS = {
   USN6: "УСН 6%",
@@ -1226,6 +1227,7 @@ export default function OrganizationDetailPage() {
             }
           />
         )}
+        {(hasRole("admin") || hasRole("supervisor")) && <OrgTransactionsCard organizationId={id} />}
         {/* <OrgTicketsCard organizationId={id} /> — hidden until ticket system is released */}
       </div>
 

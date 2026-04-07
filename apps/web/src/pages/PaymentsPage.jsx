@@ -480,37 +480,35 @@ function ReconciliationTab() {
 // ─── Tab: Monthly Summary ────────────────────────────────────────────────────
 
 function SummaryTab() {
-  const [year, setYear] = useState(new Date().getFullYear());
+  const [period, setPeriod] = useState("all");
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    api(`/api/payments/summary?year=${year}`)
+    api(`/api/payments/summary?year=${period}`)
       .then((r) => (r.ok ? r.json() : { months: [] }))
       .then((d) => setData(d.months || []))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [year]);
+  }, [period]);
 
-  const totalYear = data.reduce((s, m) => s + m.total, 0);
+  const totalAll = data.reduce((s, m) => s + m.total, 0);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
         <select
-          value={year}
-          onChange={(e) => setYear(Number(e.target.value))}
+          value={period}
+          onChange={(e) => setPeriod(e.target.value)}
           className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
         >
-          {[2025, 2026].map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
+          <option value="all">Весь период</option>
+          <option value="2025">2025</option>
+          <option value="2026">2026</option>
         </select>
         <div className="text-sm text-slate-500">
-          Итого за год: <span className="font-bold text-slate-900">{fmt(totalYear)}</span>
+          Итого за период: <span className="font-bold text-slate-900">{fmt(totalAll)}</span>
         </div>
       </div>
 
@@ -522,10 +520,12 @@ function SummaryTab() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {data.map((m) => (
             <div
-              key={m.month}
+              key={`${m.year || ""}-${m.month}`}
               className={`bg-white rounded-xl border p-4 ${m.total > 0 ? "border-green-200" : "border-slate-200"}`}
             >
-              <div className="text-sm text-slate-500 mb-1">{MONTHS[m.month]}</div>
+              <div className="text-sm text-slate-500 mb-1">
+                {m.year ? `${MONTHS[m.month]} ${m.year}` : MONTHS[m.month]}
+              </div>
               <div
                 className={`text-lg font-bold ${m.total > 0 ? "text-green-600" : "text-slate-300"}`}
               >
@@ -554,7 +554,7 @@ export default function PaymentsPage() {
   const [showSetup, setShowSetup] = useState(false);
   const [tochkaAccounts, setTochkaAccounts] = useState(null);
   const [loadingTochka, setLoadingTochka] = useState(false);
-  const [syncYear, setSyncYear] = useState(new Date().getFullYear());
+  const [syncPeriod, setSyncPeriod] = useState("all");
 
   const fetchAccounts = useCallback(async () => {
     try {
@@ -677,22 +677,24 @@ export default function PaymentsPage() {
             </button>
           )}
           <select
-            value={syncYear}
-            onChange={(e) => setSyncYear(Number(e.target.value))}
+            value={syncPeriod}
+            onChange={(e) => setSyncPeriod(e.target.value)}
             className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
           >
-            <option value={2025}>2025</option>
-            <option value={2026}>2026</option>
+            <option value="all">Весь период</option>
+            <option value="2025">2025</option>
+            <option value="2026">2026</option>
           </select>
           <button
-            onClick={() =>
-              handleSync(
-                `${syncYear}-01-01`,
-                syncYear === new Date().getFullYear()
-                  ? new Date().toISOString().slice(0, 10)
-                  : `${syncYear}-12-31`,
-              )
-            }
+            onClick={() => {
+              const today = new Date().toISOString().slice(0, 10);
+              if (syncPeriod === "all") {
+                handleSync("2025-01-01", today);
+              } else {
+                const y = Number(syncPeriod);
+                handleSync(`${y}-01-01`, y === new Date().getFullYear() ? today : `${y}-12-31`);
+              }
+            }}
             disabled={syncing}
             className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] text-white rounded-lg text-sm font-medium shadow-lg shadow-[#6567F1]/30 hover:from-[#5557E1] hover:to-[#4547D1] disabled:opacity-50"
           >

@@ -218,8 +218,9 @@ router.post("/sync", authenticate, requireRole("admin", "supervisor"), async (re
     // Fetch transactions from Tochka via statement API
     const allTx = await fetchTochkaTransactions(account.accountNumber, from, to);
 
-    // Filter only incoming payments (Credit), exclude deposit returns
-    const DEPOSIT_KEYWORDS = /возврат.*депозит|депозит.*возврат|возврат.*размещ|размещ.*возврат/i;
+    // Filter only incoming payments (Credit), exclude deposit returns and deposit interest
+    const DEPOSIT_KEYWORDS =
+      /возврат.*депозит|депозит.*возврат|возврат.*размещ|размещ.*возврат|процент.*депозит|депозит.*процент|выплата.*процент.*по.*депозит|%.*депозит|депозитн/i;
     const incoming = allTx.filter(
       (tx) => tx.creditDebitIndicator === "Credit" && !DEPOSIT_KEYWORDS.test(tx.description || ""),
     );
@@ -428,6 +429,7 @@ router.get("/transactions", authenticate, requireRole("admin", "supervisor"), as
       month,
       year,
       organizationId,
+      clientGroupId,
       search,
     } = req.query;
 
@@ -439,6 +441,9 @@ router.get("/transactions", authenticate, requireRole("admin", "supervisor"), as
     if (matchStatus)
       where.matchStatus = String(matchStatus) as Prisma.EnumTransactionMatchStatusFilter["equals"];
     if (organizationId) where.organizationId = String(organizationId);
+    if (clientGroupId) {
+      where.organization = { clientGroupId: String(clientGroupId) };
+    }
     if (year && month) {
       const y = Number(year);
       const m = Number(month);
@@ -733,29 +738,65 @@ router.get(
 // GET /api/payments/summary — monthly totals
 router.get("/summary", authenticate, requireRole("admin", "supervisor"), async (req, res) => {
   try {
-    const targetYear = Number(req.query.year) || new Date().getFullYear();
+    const yearParam = req.query.year as string | undefined;
+    const isAll = yearParam === "all";
+    const targetYear = isAll ? null : Number(yearParam) || new Date().getFullYear();
 
-    const months = [];
-    for (let m = 1; m <= 12; m++) {
-      const agg = await prisma.bankTransaction.aggregate({
-        where: {
-          matchStatus: { in: ["AUTO", "MANUAL"] },
-          date: {
-            gte: new Date(targetYear, m - 1, 1),
-            lt: new Date(targetYear, m, 1),
+    if (isAll) {
+      // Return monthly totals from 2025-01 to current month
+      const startYear = 2025;
+      const now = new Date();
+      const endYear = now.getFullYear();
+      const endMonth = now.getMonth() + 1;
+      const months = [];
+
+      for (let y = startYear; y <= endYear; y++) {
+        const lastMonth = y === endYear ? endMonth : 12;
+        for (let m = 1; m <= lastMonth; m++) {
+          const agg = await prisma.bankTransaction.aggregate({
+            where: {
+              matchStatus: { in: ["AUTO", "MANUAL"] },
+              date: {
+                gte: new Date(y, m - 1, 1),
+                lt: new Date(y, m, 1),
+              },
+            },
+            _sum: { amount: true },
+            _count: true,
+          });
+          months.push({
+            year: y,
+            month: m,
+            total: Number(agg._sum.amount ?? 0),
+            count: agg._count,
+          });
+        }
+      }
+
+      res.json({ year: "all", months });
+    } else {
+      const months = [];
+      for (let m = 1; m <= 12; m++) {
+        const agg = await prisma.bankTransaction.aggregate({
+          where: {
+            matchStatus: { in: ["AUTO", "MANUAL"] },
+            date: {
+              gte: new Date(targetYear!, m - 1, 1),
+              lt: new Date(targetYear!, m, 1),
+            },
           },
-        },
-        _sum: { amount: true },
-        _count: true,
-      });
-      months.push({
-        month: m,
-        total: Number(agg._sum.amount ?? 0),
-        count: agg._count,
-      });
-    }
+          _sum: { amount: true },
+          _count: true,
+        });
+        months.push({
+          month: m,
+          total: Number(agg._sum.amount ?? 0),
+          count: agg._count,
+        });
+      }
 
-    res.json({ year: targetYear, months });
+      res.json({ year: targetYear, months });
+    }
   } catch (err) {
     console.error("Payment summary error:", err);
     res.status(500).json({ error: "Internal server error" });

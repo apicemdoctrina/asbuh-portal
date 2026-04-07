@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from "react-router";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { ArrowLeft, Pencil, Save, X, Building2, Loader2, Users } from "lucide-react";
+import OrgTransactionsCard from "../components/OrgTransactionsCard.jsx";
 
 const PAYMENT_DEST_LABELS = {
   BANK_TOCHKA: "Банк (Точка)",
@@ -33,7 +34,7 @@ function fmtMoney(val) {
 export default function ClientGroupDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { hasPermission } = useAuth();
+  const { hasPermission, hasRole } = useAuth();
   const canEdit = hasPermission("organization", "edit");
 
   const [group, setGroup] = useState(null);
@@ -275,6 +276,11 @@ export default function ClientGroupDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Transactions for the whole group */}
+      {(hasRole("admin") || hasRole("supervisor")) && (
+        <OrgTransactionsCard clientGroupId={id} showOrgName />
+      )}
     </div>
   );
 }
