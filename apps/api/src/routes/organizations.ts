@@ -21,9 +21,6 @@ import {
   createContactSchema,
   updateContactSchema,
   createDocumentSchema,
-  createCustomFieldDefSchema,
-  updateCustomFieldDefSchema,
-  upsertCustomFieldValuesSchema,
 } from "../lib/validators.js";
 import { upload, UPLOADS_DIR } from "../lib/upload.js";
 
@@ -560,63 +557,6 @@ router.post("/bulk/remove", authenticate, requireRole("admin"), async (req, res)
   }
 });
 
-// GET /api/organizations/custom-field-defs — all definitions
-router.get("/custom-field-defs", authenticate, async (req, res) => {
-  try {
-    const defs = await prisma.customFieldDefinition.findMany({ orderBy: { order: "asc" } });
-    res.json(defs);
-  } catch (err) {
-    console.error("List custom field defs error:", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// POST /api/organizations/custom-field-defs — create definition (admin only)
-router.post("/custom-field-defs", authenticate, requireRole("admin"), async (req, res) => {
-  try {
-    const result = createCustomFieldDefSchema.safeParse(req.body);
-    if (!result.success) {
-      sendZodError(res, result.error);
-      return;
-    }
-    const def = await prisma.customFieldDefinition.create({ data: result.data });
-    res.status(201).json(def);
-  } catch (err) {
-    console.error("Create custom field def error:", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// PUT /api/organizations/custom-field-defs/:defId — update definition (admin only)
-router.put("/custom-field-defs/:defId", authenticate, requireRole("admin"), async (req, res) => {
-  try {
-    const result = updateCustomFieldDefSchema.safeParse(req.body);
-    if (!result.success) {
-      sendZodError(res, result.error);
-      return;
-    }
-    const def = await prisma.customFieldDefinition.update({
-      where: { id: req.params.defId },
-      data: result.data,
-    });
-    res.json(def);
-  } catch (err) {
-    console.error("Update custom field def error:", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// DELETE /api/organizations/custom-field-defs/:defId — delete definition (admin only)
-router.delete("/custom-field-defs/:defId", authenticate, requireRole("admin"), async (req, res) => {
-  try {
-    await prisma.customFieldDefinition.delete({ where: { id: req.params.defId } });
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Delete custom field def error:", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
 // GET /api/organizations/:id — details + section + members + bankAccounts + contacts
 router.get("/:id", authenticate, requirePermission("organization", "view"), async (req, res) => {
   try {
@@ -702,9 +642,6 @@ router.get("/:id", authenticate, requirePermission("organization", "view"), asyn
             uploadedBy: { select: { firstName: true, lastName: true } },
           },
           orderBy: { createdAt: "desc" },
-        },
-        customFieldValues: {
-          include: { field: true },
         },
       },
     });
@@ -2069,47 +2006,6 @@ router.post(
       });
     } catch (err) {
       console.error("generate-tasks error:", err);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  },
-);
-
-// PUT /api/organizations/:id/custom-fields — upsert custom field values
-router.put(
-  "/:id/custom-fields",
-  authenticate,
-  requirePermission("organization", "edit"),
-  async (req, res) => {
-    try {
-      const result = upsertCustomFieldValuesSchema.safeParse(req.body);
-      if (!result.success) {
-        res.status(400).json({ error: "Validation failed", issues: result.error.issues });
-        return;
-      }
-
-      const scope = getScopedWhere(req.user!.userId, req.user!.roles);
-      const org = await prisma.organization.findFirst({
-        where: { id: req.params.id, ...scope },
-        select: { id: true },
-      });
-      if (!org) {
-        res.status(404).json({ error: "Organization not found" });
-        return;
-      }
-
-      await Promise.all(
-        result.data.values.map(({ fieldId, value }) =>
-          prisma.customFieldValue.upsert({
-            where: { organizationId_fieldId: { organizationId: req.params.id, fieldId } },
-            create: { organizationId: req.params.id, fieldId, value },
-            update: { value },
-          }),
-        ),
-      );
-
-      res.json({ success: true });
-    } catch (err) {
-      console.error("Upsert custom field values error:", err);
       res.status(500).json({ error: "Internal server error" });
     }
   },

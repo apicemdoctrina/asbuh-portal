@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../lib/api.js";
-import { DollarSign, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { DollarSign, Loader2, ChevronLeft, ChevronRight, EyeOff, RotateCcw } from "lucide-react";
 
 function fmtMoney(val) {
   if (val == null) return "—";
@@ -57,6 +57,20 @@ export default function OrgTransactionsCard({
     fetchTx();
   }, [fetchTx]);
 
+  async function handleIgnore(txId) {
+    await api(`/api/payments/transactions/${txId}/ignore`, { method: "PUT" });
+    fetchTx();
+  }
+
+  async function handleUnignore(txId) {
+    await api(`/api/payments/transactions/${txId}/match`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organizationId: null }),
+    });
+    fetchTx();
+  }
+
   const totalPages = Math.ceil(total / limit);
   const totalAmount = transactions.reduce((s, t) => s + Number(t.amount || 0), 0);
 
@@ -96,13 +110,17 @@ export default function OrgTransactionsCard({
                   )}
                   <th className="text-left px-4 py-3 font-medium text-slate-500">Назначение</th>
                   <th className="text-left px-4 py-3 font-medium text-slate-500">Статус</th>
+                  <th className="text-right px-4 py-3 font-medium text-slate-500"></th>
                 </tr>
               </thead>
               <tbody>
                 {transactions.map((tx) => {
                   const badge = STATUS_BADGE[tx.matchStatus] || STATUS_BADGE.UNMATCHED;
                   return (
-                    <tr key={tx.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+                    <tr
+                      key={tx.id}
+                      className={`border-b border-slate-50 hover:bg-slate-50/50 ${tx.matchStatus === "IGNORED" ? "opacity-50" : ""}`}
+                    >
                       <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
                         {fmtDate(tx.date)}
                       </td>
@@ -133,6 +151,27 @@ export default function OrgTransactionsCard({
                         >
                           {badge.label}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        {tx.matchStatus === "IGNORED" ? (
+                          <button
+                            onClick={() => handleUnignore(tx.id)}
+                            title="Вернуть в учёт"
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs text-slate-500 hover:text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg transition-colors"
+                          >
+                            <RotateCcw size={13} />
+                            Вернуть
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleIgnore(tx.id)}
+                            title="Не учитывать"
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                          >
+                            <EyeOff size={13} />
+                            Игнорировать
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

@@ -279,8 +279,7 @@ model Organization {
   contacts          OrganizationContact[]
   documents         OrganizationDocument[]
   tasks             Task[]
-  customFieldValues CustomFieldValue[]
-  messageLogs       MessageLog[]
+messageLogs       MessageLog[]
   tickets           Ticket[]
   reportEntries     ReportEntry[]
   bankTransactions  BankTransaction[]
@@ -662,42 +661,6 @@ model TelegramBinding {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("telegram_bindings")
-}
-
-enum FieldType {
-  TEXT
-  NUMBER
-  DATE
-  BOOLEAN
-}
-
-model CustomFieldDefinition {
-  id        String    @id @default(uuid())
-  name      String
-  fieldType FieldType @map("field_type")
-  required  Boolean   @default(false)
-  order     Int       @default(0)
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-
-  values CustomFieldValue[]
-
-  @@map("custom_field_definitions")
-}
-
-model CustomFieldValue {
-  id             String   @id @default(uuid())
-  organizationId String   @map("organization_id")
-  fieldId        String   @map("field_id")
-  value          String?
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-
-  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  field        CustomFieldDefinition @relation(fields: [fieldId], references: [id], onDelete: Cascade)
-
-  @@unique([organizationId, fieldId])
-  @@map("custom_field_values")
 }
 
 enum MessageChannel {

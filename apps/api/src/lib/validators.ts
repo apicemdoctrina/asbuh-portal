@@ -231,21 +231,3 @@ export const createDocumentSchema = z.object({
   periodMonth: z.coerce.number().int().min(1).max(12).optional(),
   periodYear: z.coerce.number().int().min(2000).max(2100).optional(),
 });
-
-export const createCustomFieldDefSchema = z.object({
-  name: z.string().min(1).max(100),
-  fieldType: z.enum(["TEXT", "NUMBER", "DATE", "BOOLEAN"]),
-  required: z.boolean().default(false),
-  order: z.number().int().default(0),
-});
-
-export const updateCustomFieldDefSchema = createCustomFieldDefSchema.partial();
-
-export const upsertCustomFieldValuesSchema = z.object({
-  values: z.array(
-    z.object({
-      fieldId: z.string().uuid(),
-      value: z.string().nullable(),
-    }),
-  ),
-});
