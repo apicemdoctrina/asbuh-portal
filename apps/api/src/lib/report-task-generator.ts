@@ -81,7 +81,8 @@ type OrgInfo = {
   employeeCount: number | null;
 };
 
-const USN_SYSTEMS = ["USN6", "USN15", "AUSN8", "AUSN20", "USN_NDS5", "USN_NDS7", "USN_NDS22"];
+const USN_SYSTEMS = ["USN6", "USN15", "USN_NDS5", "USN_NDS7", "USN_NDS22"];
+const AUSN_SYSTEMS = ["AUSN8", "AUSN20"];
 const OSNO_SYSTEMS = ["OSNO"];
 const HAS_NDS = ["OSNO", "USN_NDS5", "USN_NDS7", "USN_NDS22"];
 
@@ -122,21 +123,21 @@ export function isReportApplicable(reportCode: string, org: OrgInfo): boolean {
     case "USN_ADVANCE":
       return hasAny(ts, USN_SYSTEMS);
 
-    // 6-НДФЛ — if has employees
+    // 6-НДФЛ — if has employees, NOT AUSN (bank calculates NDFL automatically)
     case "6NDFL":
-      return hasEmployees(org);
+      return hasEmployees(org) && !hasAny(ts, AUSN_SYSTEMS);
 
-    // РСВ — if has employees
+    // РСВ — if has employees, NOT AUSN (tax authority calculates contributions)
     case "RSV":
-      return hasEmployees(org);
+      return hasEmployees(org) && !hasAny(ts, AUSN_SYSTEMS);
 
-    // Персонифицированные сведения — if has employees
+    // Персонифицированные сведения — if has employees, NOT AUSN
     case "PERS_SVED":
-      return hasEmployees(org);
+      return hasEmployees(org) && !hasAny(ts, AUSN_SYSTEMS);
 
-    // ЕФС-1 (СЗВ-ТД) — if has employees
+    // ЕФС-1 (СЗВ-ТД) — if has employees, NOT AUSN
     case "SZV_TD":
-      return hasEmployees(org);
+      return hasEmployees(org) && !hasAny(ts, AUSN_SYSTEMS);
 
     // Бухгалтерская отчётность — legal entities only (not ИП)
     case "BUH_OTCH":
