@@ -369,98 +369,112 @@ router.post("/rematch", authenticate, requireRole("admin", "supervisor"), async 
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-// Recalculate debtAmount for a single org after transaction status change
-async function recalcOrgDebt(orgId: string): Promise<void> {
-  const BASE_DATE = new Date(2025, 0, 1);
+const DEBT_BASE_DATE = new Date(2025, 0, 1);
+
+function monthsBetween(from: Date, to: Date): number {
+  return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
+}
+
+function monthStart(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+interface OrgForExpected {
+  monthlyPayment: unknown;
+  serviceStartDate: Date | null;
+  priceHistory: Array<{ price: unknown; effectiveFrom: Date }>;
+}
+
+function calcExpected(org: OrgForExpected): number {
   const now = new Date();
   const currentMonth1st = new Date(now.getFullYear(), now.getMonth(), 1);
+  const start =
+    org.serviceStartDate && org.serviceStartDate > DEBT_BASE_DATE
+      ? monthStart(org.serviceStartDate)
+      : DEBT_BASE_DATE;
+  if (start >= currentMonth1st) return 0;
 
+  const history = org.priceHistory;
+  if (!history || history.length === 0) {
+    return Number(org.monthlyPayment ?? 0) * monthsBetween(start, currentMonth1st);
+  }
+
+  let total = 0;
+  for (let i = 0; i < history.length; i++) {
+    const iStart = monthStart(history[i].effectiveFrom);
+    const iEnd =
+      i + 1 < history.length ? monthStart(history[i + 1].effectiveFrom) : currentMonth1st;
+    const from = iStart < start ? start : iStart;
+    const to = iEnd > currentMonth1st ? currentMonth1st : iEnd;
+    const months = monthsBetween(from, to);
+    if (months > 0) total += Number(history[i].price) * months;
+  }
+  return total;
+}
+
+const ORG_EXPECTED_SELECT = {
+  id: true,
+  monthlyPayment: true,
+  serviceStartDate: true,
+  clientGroupId: true,
+  paymentDestination: true,
+  priceHistory: {
+    select: { price: true, effectiveFrom: true },
+    orderBy: { effectiveFrom: "asc" as const },
+  },
+} as const;
+
+// Recalculate debtAmount for a single org after transaction status change
+async function recalcOrgDebt(orgId: string): Promise<void> {
   const org = await prisma.organization.findUnique({
     where: { id: orgId },
-    select: {
-      id: true,
-      monthlyPayment: true,
-      serviceStartDate: true,
-      clientGroupId: true,
-      priceHistory: {
-        select: { price: true, effectiveFrom: true },
-        orderBy: { effectiveFrom: "asc" as const },
-      },
-    },
+    select: ORG_EXPECTED_SELECT,
   });
   if (!org) return;
 
-  function monthsBetween(from: Date, to: Date): number {
-    return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
-  }
-  function monthStart(d: Date): Date {
-    return new Date(d.getFullYear(), d.getMonth(), 1);
-  }
-
-  function calcExpectedForOrg(o: typeof org): number {
-    const start =
-      o!.serviceStartDate && o!.serviceStartDate > BASE_DATE
-        ? monthStart(o!.serviceStartDate)
-        : BASE_DATE;
-    if (start >= currentMonth1st) return 0;
-
-    const history = o!.priceHistory;
-    if (!history || history.length === 0) {
-      return Number(o!.monthlyPayment ?? 0) * monthsBetween(start, currentMonth1st);
-    }
-
-    let total = 0;
-    for (let i = 0; i < history.length; i++) {
-      const iStart = monthStart(history[i].effectiveFrom);
-      const iEnd =
-        i + 1 < history.length ? monthStart(history[i + 1].effectiveFrom) : currentMonth1st;
-      const from = iStart < start ? start : iStart;
-      const to = iEnd > currentMonth1st ? currentMonth1st : iEnd;
-      const months = monthsBetween(from, to);
-      if (months > 0) total += Number(history[i].price) * months;
-    }
-    return total;
-  }
-
-  // If org is in a group, recalc all group members
+  // If org is in a group, calculate group-level debt (same logic as reconciliation)
   if (org.clientGroupId) {
     const groupOrgs = await prisma.organization.findMany({
       where: { clientGroupId: org.clientGroupId },
-      select: {
-        id: true,
-        monthlyPayment: true,
-        serviceStartDate: true,
-        clientGroupId: true,
-        priceHistory: {
-          select: { price: true, effectiveFrom: true },
-          orderBy: { effectiveFrom: "asc" as const },
-        },
-      },
+      select: ORG_EXPECTED_SELECT,
     });
+    const bankMembers = groupOrgs.filter((o) => o.paymentDestination === "BANK_TOCHKA");
+    const bankMemberIds = bankMembers.map((o) => o.id);
+    const groupExpected = bankMembers.reduce((s, o) => s + calcExpected(o), 0);
+    const groupAgg = await prisma.bankTransaction.aggregate({
+      where: {
+        organizationId: { in: bankMemberIds },
+        matchStatus: { in: ["AUTO", "MANUAL"] },
+        date: { gte: DEBT_BASE_DATE },
+      },
+      _sum: { amount: true },
+    });
+    const groupReceived = Number(groupAgg._sum.amount ?? 0);
+    const groupDebt = Math.max(0, groupExpected - groupReceived);
+    // Store 0 per org — debt lives at group level
     for (const gOrg of groupOrgs) {
-      const gExpected = calcExpectedForOrg(gOrg);
-      const gAgg = await prisma.bankTransaction.aggregate({
-        where: {
-          organizationId: gOrg.id,
-          matchStatus: { in: ["AUTO", "MANUAL"] },
-          date: { gte: BASE_DATE },
-        },
-        _sum: { amount: true },
-      });
-      const gReceived = Number(gAgg._sum.amount ?? 0);
-      const gDebt = Math.max(0, gExpected - gReceived);
       await prisma.organization.update({
         where: { id: gOrg.id },
-        data: { debtAmount: gDebt },
+        data: { debtAmount: 0 },
+      });
+    }
+    // Store group debt on the org with highest monthlyPayment for display in org list
+    if (bankMembers.length > 0) {
+      const flagship = bankMembers.reduce((best, o) =>
+        Number(o.monthlyPayment ?? 0) > Number(best.monthlyPayment ?? 0) ? o : best,
+      );
+      await prisma.organization.update({
+        where: { id: flagship.id },
+        data: { debtAmount: groupDebt },
       });
     }
   } else {
-    const expected = calcExpectedForOrg(org);
+    const expected = calcExpected(org);
     const agg = await prisma.bankTransaction.aggregate({
       where: {
         organizationId: orgId,
         matchStatus: { in: ["AUTO", "MANUAL"] },
-        date: { gte: BASE_DATE },
+        date: { gte: DEBT_BASE_DATE },
       },
       _sum: { amount: true },
     });
@@ -567,6 +581,15 @@ router.put(
 
       if (old?.organizationId) await recalcOrgDebt(old.organizationId);
 
+      await logAudit({
+        action: "transaction_unignore",
+        userId: req.user!.userId,
+        entity: "bank_transaction",
+        entityId: req.params.id,
+        details: { organizationId: old?.organizationId },
+        ipAddress: req.ip,
+      });
+
       res.json(tx);
     } catch (err) {
       console.error("Unignore transaction error:", err);
@@ -652,10 +675,6 @@ router.get("/transactions", authenticate, requireRole("admin", "supervisor"), as
 // Handles: serviceStartDate, price history, payment frequency, group payments
 router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), async (req, res) => {
   try {
-    const BASE_DATE = new Date(2025, 0, 1); // 2025-01-01
-    const now = new Date();
-    const currentMonth1st = new Date(now.getFullYear(), now.getMonth(), 1);
-
     // Only orgs that pay via bank
     const orgs = await prisma.organization.findMany({
       where: {
@@ -673,60 +692,13 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
         clientGroupId: true,
         clientGroup: { select: { id: true, name: true } },
         paymentNote: true,
+        paymentDestination: true,
         priceHistory: {
           select: { price: true, effectiveFrom: true },
-          orderBy: { effectiveFrom: "asc" },
+          orderBy: { effectiveFrom: "asc" as const },
         },
       },
     });
-
-    // Helper: count full months between two dates (1st of each month)
-    function monthsBetween(from: Date, to: Date): number {
-      return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
-    }
-
-    // Helper: first of the month for a date
-    function monthStart(d: Date): Date {
-      return new Date(d.getFullYear(), d.getMonth(), 1);
-    }
-
-    // Helper: calculate total expected for an org from start to now
-    // Uses priceHistory intervals; falls back to monthlyPayment if no history
-    function calcExpected(org: (typeof orgs)[0]): number {
-      const start =
-        org.serviceStartDate && org.serviceStartDate > BASE_DATE
-          ? monthStart(org.serviceStartDate)
-          : BASE_DATE;
-
-      if (start >= currentMonth1st) return 0;
-
-      const history = org.priceHistory;
-
-      // No price history — use flat monthlyPayment
-      if (!history || history.length === 0) {
-        const rate = Number(org.monthlyPayment ?? 0);
-        return rate * monthsBetween(start, currentMonth1st);
-      }
-
-      // Build intervals from price history
-      let total = 0;
-      for (let i = 0; i < history.length; i++) {
-        const intervalStart = monthStart(history[i].effectiveFrom);
-        const intervalEnd =
-          i + 1 < history.length ? monthStart(history[i + 1].effectiveFrom) : currentMonth1st;
-
-        // Clamp interval to [start, currentMonth1st]
-        const from = intervalStart < start ? start : intervalStart;
-        const to = intervalEnd > currentMonth1st ? currentMonth1st : intervalEnd;
-
-        const months = monthsBetween(from, to);
-        if (months > 0) {
-          total += Number(history[i].price) * months;
-        }
-      }
-
-      return total;
-    }
 
     // Collect all unique group IDs from paying orgs
     const groupIds = [...new Set(orgs.filter((o) => o.clientGroupId).map((o) => o.clientGroupId!))];
@@ -786,7 +758,7 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
           where: {
             organizationId: { in: bankMemberIds },
             matchStatus: { in: ["AUTO", "MANUAL"] },
-            date: { gte: BASE_DATE },
+            date: { gte: DEBT_BASE_DATE },
           },
           _sum: { amount: true },
         });
@@ -818,7 +790,7 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
         where: {
           organizationId: org.id,
           matchStatus: { in: ["AUTO", "MANUAL"] },
-          date: { gte: BASE_DATE },
+          date: { gte: DEBT_BASE_DATE },
         },
         _sum: { amount: true },
       });
@@ -838,12 +810,30 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
     }
 
     // Update debtAmount on each organization
-    // For grouped orgs, store 0 (debt is at group level)
+    // For grouped orgs: 0 for all, then flagship gets the group debt
     for (const r of results) {
       await prisma.organization.update({
         where: { id: r.orgId },
         data: { debtAmount: r.groupId ? 0 : r.debt },
       });
+    }
+    // Assign group debt to flagship (highest monthlyPayment) per group
+    const groupFlagships = new Map<string, { id: string; payment: number; debt: number }>();
+    for (const r of results) {
+      if (!r.groupId) continue;
+      const payment = Number(orgs.find((o) => o.id === r.orgId)?.monthlyPayment ?? 0);
+      const cur = groupFlagships.get(r.groupId);
+      if (!cur || payment > cur.payment) {
+        groupFlagships.set(r.groupId, { id: r.orgId, payment, debt: r.groupDebt ?? 0 });
+      }
+    }
+    for (const f of groupFlagships.values()) {
+      if (f.debt > 0) {
+        await prisma.organization.update({
+          where: { id: f.id },
+          data: { debtAmount: f.debt },
+        });
+      }
     }
 
     // Calculate totals: count group debt once per group
@@ -969,8 +959,13 @@ router.post(
   async (req, res) => {
     try {
       const { date, amount, organizationId, payerName, purpose } = req.body;
-      if (!date || !amount) {
+      if (!date || amount == null || amount === "") {
         res.status(400).json({ error: "date and amount are required" });
+        return;
+      }
+      const numAmount = Number(amount);
+      if (isNaN(numAmount)) {
+        res.status(400).json({ error: "amount must be a valid number" });
         return;
       }
 
@@ -993,6 +988,15 @@ router.post(
 
       // Recalc debt if assigned to org
       if (organizationId) await recalcOrgDebt(organizationId);
+
+      await logAudit({
+        action: "manual_transaction_create",
+        userId: req.user!.userId,
+        entity: "bank_transaction",
+        entityId: tx.id,
+        details: { amount: numAmount, date, organizationId, payerName, purpose },
+        ipAddress: req.ip,
+      });
 
       res.status(201).json(tx);
     } catch (err) {
@@ -1025,6 +1029,15 @@ router.delete(
       await prisma.bankTransaction.delete({ where: { id: req.params.id } });
 
       if (tx.organizationId) await recalcOrgDebt(tx.organizationId);
+
+      await logAudit({
+        action: "manual_transaction_delete",
+        userId: req.user!.userId,
+        entity: "bank_transaction",
+        entityId: req.params.id,
+        details: { organizationId: tx.organizationId },
+        ipAddress: req.ip,
+      });
 
       res.json({ success: true });
     } catch (err) {

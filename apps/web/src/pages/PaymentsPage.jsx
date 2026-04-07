@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import { useNavigate, Link } from "react-router";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -543,7 +543,7 @@ function ReconciliationTab() {
                       (i === filtered.length - 1 || filtered[i + 1]?.groupId !== r.groupId);
 
                     return (
-                      <>
+                      <Fragment key={r.orgId}>
                         {isGroupStart && (
                           <tr
                             key={`gh-${r.groupId}`}
@@ -611,7 +611,7 @@ function ReconciliationTab() {
                             <NoteCell orgId={r.orgId} initialNote={r.paymentNote} />
                           </td>
                         </tr>
-                      </>
+                      </Fragment>
                     );
                   })}
                 </tbody>

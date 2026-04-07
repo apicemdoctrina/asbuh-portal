@@ -128,11 +128,13 @@ function PriceHistoryAddForm({ orgId, onAdded }) {
   const [price, setPrice] = useState("");
   const [date, setDate] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
 
   async function handleAdd(e) {
     e.preventDefault();
     if (!price || !date) return;
     setSaving(true);
+    setError(null);
     try {
       const res = await api(`/api/organizations/${orgId}/price-history`, {
         method: "POST",
@@ -143,9 +145,11 @@ function PriceHistoryAddForm({ orgId, onAdded }) {
         setPrice("");
         setDate("");
         onAdded();
+      } else {
+        setError("Не удалось сохранить");
       }
     } catch {
-      /* */
+      setError("Ошибка сети");
     } finally {
       setSaving(false);
     }
@@ -178,6 +182,7 @@ function PriceHistoryAddForm({ orgId, onAdded }) {
           />
         </div>
       </div>
+      {error && <div className="text-xs text-red-500">{error}</div>}
       <button
         type="submit"
         disabled={saving || !price || !date}
@@ -505,10 +510,16 @@ export default function OrganizationDetailPage() {
 
   async function handleDeletePriceEntry(entryId) {
     try {
-      await api(`/api/organizations/${id}/price-history/${entryId}`, { method: "DELETE" });
-      fetchOrganization();
+      const res = await api(`/api/organizations/${id}/price-history/${entryId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        fetchOrganization();
+      } else {
+        alert("Не удалось удалить запись");
+      }
     } catch {
-      /* */
+      alert("Ошибка сети");
     }
   }
 
