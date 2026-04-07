@@ -449,14 +449,17 @@ async function recalcOrgDebt(orgId: string): Promise<void> {
     const groupReceived = Number(groupAgg._sum.amount ?? 0);
     const groupExpected = groupOrgs.reduce((s, o) => s + calcExpectedForOrg(o), 0);
 
+    const groupDebt = Math.max(0, groupExpected - groupReceived);
+
+    // Flagship = org with highest current monthlyPayment
+    const flagship = groupOrgs.reduce((best, o) =>
+      Number(o.monthlyPayment ?? 0) > Number(best.monthlyPayment ?? 0) ? o : best,
+    );
+
     for (const gOrg of groupOrgs) {
-      const gExpected = calcExpectedForOrg(gOrg);
-      const proportion = groupExpected > 0 ? gExpected / groupExpected : 0;
-      const gReceived = Math.round(groupReceived * proportion * 100) / 100;
-      const debt = Math.max(0, gExpected - gReceived);
       await prisma.organization.update({
         where: { id: gOrg.id },
-        data: { debtAmount: debt },
+        data: { debtAmount: gOrg.id === flagship.id ? groupDebt : 0 },
       });
     }
   } else {
@@ -778,22 +781,27 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
           return sum + (gOrg ? calcExpected(gOrg) : 0);
         }, 0);
 
-        // Distribute proportionally
+        const groupDebt = Math.max(0, groupExpected - groupReceived);
+
+        // Flagship = org with highest monthlyPayment — gets all group debt
+        const flagship = groupOrgIds.reduce((bestId, gid) => {
+          const a = orgs.find((o) => o.id === bestId);
+          const b = orgs.find((o) => o.id === gid);
+          return Number(b?.monthlyPayment ?? 0) > Number(a?.monthlyPayment ?? 0) ? gid : bestId;
+        }, groupOrgIds[0]);
+
         for (const gid of groupOrgIds) {
           const gOrg = orgs.find((o) => o.id === gid);
           if (!gOrg) continue;
           const gExpected = calcExpected(gOrg);
-          const proportion = groupExpected > 0 ? gExpected / groupExpected : 0;
-          const gReceived = Math.round(groupReceived * proportion * 100) / 100;
-          const gDebt = Math.max(0, gExpected - gReceived);
 
           results.push({
             orgId: gid,
             orgName: gOrg.name,
             groupId: org.clientGroupId,
             expected: gExpected,
-            received: gReceived,
-            debt: gDebt,
+            received: gid === flagship ? groupReceived : 0,
+            debt: gid === flagship ? groupDebt : 0,
             paymentNote: gOrg.paymentNote,
           });
         }

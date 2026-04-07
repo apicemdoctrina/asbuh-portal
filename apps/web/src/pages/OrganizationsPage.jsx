@@ -1221,6 +1221,13 @@ function OrgTable({ orgs, visibleCols }) {
                   </span>
                 ) : col.key === "debtAmount" && org.debtAmount > 0 ? (
                   <span className="text-red-600 font-medium">{fmtMoney(org.debtAmount)}</span>
+                ) : col.key === "debtAmount" && org.debtAmount === 0 && org.clientGroup ? (
+                  <Link
+                    to={`/client-groups/${org.clientGroup.id}`}
+                    className="text-xs text-[#6567F1] hover:underline"
+                  >
+                    → группа
+                  </Link>
                 ) : (
                   (() => {
                     const val = renderCell(col.key, org);
@@ -1760,6 +1767,15 @@ export default function OrganizationsPage() {
                             <span className="text-red-600 font-medium">
                               {fmtMoney(org.debtAmount)}
                             </span>
+                          ) : col.key === "debtAmount" &&
+                            org.debtAmount === 0 &&
+                            org.clientGroup ? (
+                            <Link
+                              to={`/client-groups/${org.clientGroup.id}`}
+                              className="text-xs text-[#6567F1] hover:underline"
+                            >
+                              → группа
+                            </Link>
                           ) : (
                             (() => {
                               const val = renderCell(col.key, org);
