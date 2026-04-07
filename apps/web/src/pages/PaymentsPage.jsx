@@ -423,8 +423,8 @@ function ReconciliationTab() {
 
   const filtered = (() => {
     const base = results.filter((r) => {
-      if (filter === "debtors") return r.debt > 0;
-      if (filter === "paid") return r.debt === 0;
+      if (filter === "debtors") return r.groupId ? (r.groupDebt ?? 0) > 0 : r.debt > 0;
+      if (filter === "paid") return r.groupId ? (r.groupDebt ?? 0) === 0 : r.debt === 0;
       return true;
     });
     // Sort alphabetically, then group: when an org has a group,
@@ -542,17 +542,6 @@ function ReconciliationTab() {
                       r.groupId &&
                       (i === filtered.length - 1 || filtered[i + 1]?.groupId !== r.groupId);
 
-                    // Calculate group totals for header
-                    let groupTotals = null;
-                    if (isGroupStart) {
-                      const members = filtered.filter((x) => x.groupId === r.groupId);
-                      groupTotals = {
-                        expected: members.reduce((s, x) => s + x.expected, 0),
-                        received: members.reduce((s, x) => s + x.received, 0),
-                        debt: members.reduce((s, x) => s + x.debt, 0),
-                      };
-                    }
-
                     return (
                       <>
                         {isGroupStart && (
@@ -569,15 +558,15 @@ function ReconciliationTab() {
                               </span>
                             </td>
                             <td className="px-4 py-2 text-right text-xs font-semibold text-amber-700">
-                              {fmt(groupTotals.expected)}
+                              {fmt(r.groupExpected)}
                             </td>
                             <td className="px-4 py-2 text-right text-xs font-semibold text-green-700">
-                              {fmt(groupTotals.received)}
+                              {fmt(r.groupReceived)}
                             </td>
                             <td
-                              className={`px-4 py-2 text-right text-xs font-semibold ${groupTotals.debt > 0 ? "text-red-600" : "text-amber-700"}`}
+                              className={`px-4 py-2 text-right text-xs font-semibold ${r.groupDebt > 0 ? "text-red-600" : "text-amber-700"}`}
                             >
-                              {groupTotals.debt > 0 ? fmt(groupTotals.debt) : "—"}
+                              {r.groupDebt > 0 ? fmt(r.groupDebt) : "—"}
                             </td>
                             <td className="px-4 py-2"></td>
                           </tr>
@@ -594,15 +583,30 @@ function ReconciliationTab() {
                               {r.orgName}
                             </Link>
                           </td>
-                          <td className="px-4 py-3 text-right">{fmt(r.expected)}</td>
-                          <td className="px-4 py-3 text-right text-green-600 font-medium">
-                            {fmt(r.received)}
+                          <td className="px-4 py-3 text-right">
+                            {isInGroup ? (
+                              <span className="text-slate-400">{fmt(r.expected)}</span>
+                            ) : (
+                              fmt(r.expected)
+                            )}
                           </td>
-                          <td
-                            className={`px-4 py-3 text-right font-medium ${r.debt > 0 ? "text-red-600" : "text-slate-400"}`}
-                          >
-                            {r.debt > 0 ? fmt(r.debt) : "—"}
-                          </td>
+                          {isInGroup ? (
+                            <>
+                              <td className="px-4 py-3"></td>
+                              <td className="px-4 py-3"></td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="px-4 py-3 text-right text-green-600 font-medium">
+                                {fmt(r.received)}
+                              </td>
+                              <td
+                                className={`px-4 py-3 text-right font-medium ${r.debt > 0 ? "text-red-600" : "text-slate-400"}`}
+                              >
+                                {r.debt > 0 ? fmt(r.debt) : "—"}
+                              </td>
+                            </>
+                          )}
                           <td className="px-4 py-3">
                             <NoteCell orgId={r.orgId} initialNote={r.paymentNote} />
                           </td>

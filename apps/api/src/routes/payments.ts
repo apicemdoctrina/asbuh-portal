@@ -762,6 +762,9 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
       expected: number;
       received: number;
       debt: number;
+      groupDebt?: number;
+      groupExpected?: number;
+      groupReceived?: number;
       paymentNote: string | null;
     }> = [];
 
@@ -772,28 +775,33 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
         processedGroups.add(org.clientGroupId);
 
         const groupMembers = allGroupOrgs.filter((o) => o.clientGroupId === org.clientGroupId);
+        const groupMemberIds = groupMembers.map((o) => o.id);
+
+        // Group-level totals
+        const groupExpected = groupMembers.reduce((s, o) => s + calcExpected(o), 0);
+        const groupAgg = await prisma.bankTransaction.aggregate({
+          where: {
+            organizationId: { in: groupMemberIds },
+            matchStatus: { in: ["AUTO", "MANUAL"] },
+            date: { gte: BASE_DATE },
+          },
+          _sum: { amount: true },
+        });
+        const groupReceived = Number(groupAgg._sum.amount ?? 0);
+        const groupDebt = Math.max(0, groupExpected - groupReceived);
 
         for (const gOrg of groupMembers) {
-          const gExpected = calcExpected(gOrg);
-          const gAgg = await prisma.bankTransaction.aggregate({
-            where: {
-              organizationId: gOrg.id,
-              matchStatus: { in: ["AUTO", "MANUAL"] },
-              date: { gte: BASE_DATE },
-            },
-            _sum: { amount: true },
-          });
-          const gReceived = Number(gAgg._sum.amount ?? 0);
-          const gDebt = Math.max(0, gExpected - gReceived);
-
           results.push({
             orgId: gOrg.id,
             orgName: gOrg.name,
             groupId: org.clientGroupId,
             groupName: org.clientGroup?.name || null,
-            expected: gExpected,
-            received: gReceived,
-            debt: gDebt,
+            expected: calcExpected(gOrg),
+            received: 0,
+            debt: 0,
+            groupDebt,
+            groupExpected,
+            groupReceived,
             paymentNote: gOrg.paymentNote,
           });
         }
@@ -826,25 +834,44 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
     }
 
     // Update debtAmount on each organization
+    // For grouped orgs, store 0 (debt is at group level)
     for (const r of results) {
       await prisma.organization.update({
         where: { id: r.orgId },
-        data: { debtAmount: r.debt },
+        data: { debtAmount: r.groupId ? 0 : r.debt },
       });
     }
 
-    const totalExpected = results.reduce((s, r) => s + r.expected, 0);
-    const totalReceived = results.reduce((s, r) => s + r.received, 0);
-    const totalDebt = results.reduce((s, r) => s + r.debt, 0);
-    const debtors = results.filter((r) => r.debt > 0);
+    // Calculate totals: count group debt once per group
+    const countedGroups = new Set<string>();
+    let totalExpected = 0;
+    let totalReceived = 0;
+    let totalDebt = 0;
+    let debtorCount = 0;
+    for (const r of results) {
+      if (r.groupId) {
+        if (!countedGroups.has(r.groupId)) {
+          countedGroups.add(r.groupId);
+          totalExpected += r.groupExpected ?? 0;
+          totalReceived += r.groupReceived ?? 0;
+          totalDebt += r.groupDebt ?? 0;
+          if ((r.groupDebt ?? 0) > 0) debtorCount++;
+        }
+      } else {
+        totalExpected += r.expected;
+        totalReceived += r.received;
+        totalDebt += r.debt;
+        if (r.debt > 0) debtorCount++;
+      }
+    }
 
     res.json({
       orgCount: results.length,
       totalExpected,
       totalReceived,
       totalDebt,
-      debtorCount: debtors.length,
-      results: results.sort((a, b) => b.debt - a.debt),
+      debtorCount,
+      results,
     });
   } catch (err) {
     console.error("Reconcile error:", err);
