@@ -896,6 +896,81 @@ router.put(
   },
 );
 
+// ─── Manual transactions ─────────────────────────────────────────────────────
+
+// POST /api/payments/transactions/manual — create a manual transaction
+router.post(
+  "/transactions/manual",
+  authenticate,
+  requireRole("admin", "supervisor"),
+  async (req, res) => {
+    try {
+      const { date, amount, organizationId, payerName, purpose } = req.body;
+      if (!date || !amount) {
+        res.status(400).json({ error: "date and amount are required" });
+        return;
+      }
+
+      const tx = await prisma.bankTransaction.create({
+        data: {
+          date: new Date(date),
+          amount: new Prisma.Decimal(amount),
+          organizationId: organizationId || null,
+          payerName: payerName || null,
+          purpose: purpose || null,
+          isManual: true,
+          matchStatus: organizationId ? "MANUAL" : "UNMATCHED",
+          matchedAt: organizationId ? new Date() : null,
+          matchedBy: organizationId ? req.user!.userId : null,
+        },
+        include: {
+          organization: { select: { id: true, name: true, inn: true } },
+        },
+      });
+
+      // Recalc debt if assigned to org
+      if (organizationId) await recalcOrgDebt(organizationId);
+
+      res.status(201).json(tx);
+    } catch (err) {
+      console.error("Create manual transaction error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// DELETE /api/payments/transactions/:id/manual — delete a manual transaction
+router.delete(
+  "/transactions/:id/manual",
+  authenticate,
+  requireRole("admin", "supervisor"),
+  async (req, res) => {
+    try {
+      const tx = await prisma.bankTransaction.findUnique({
+        where: { id: req.params.id },
+        select: { isManual: true, organizationId: true },
+      });
+      if (!tx) {
+        res.status(404).json({ error: "Transaction not found" });
+        return;
+      }
+      if (!tx.isManual) {
+        res.status(400).json({ error: "Can only delete manual transactions" });
+        return;
+      }
+
+      await prisma.bankTransaction.delete({ where: { id: req.params.id } });
+
+      if (tx.organizationId) await recalcOrgDebt(tx.organizationId);
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Delete manual transaction error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
 // GET /api/payments/summary — monthly totals
 router.get("/summary", authenticate, requireRole("admin", "supervisor"), async (req, res) => {
   try {

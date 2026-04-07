@@ -944,8 +944,8 @@ model BankAccount {
 
 model BankTransaction {
   id              String    @id @default(uuid())
-  bankAccountId   String    @map("bank_account_id")
-  externalId      String    @unique @map("external_id") // ID from bank API
+  bankAccountId   String?   @map("bank_account_id")
+  externalId      String?   @unique @map("external_id") // ID from bank API (null for manual)
   date            DateTime
   amount          Decimal   @db.Decimal(12, 2)
   payerName       String?   @map("payer_name")
@@ -956,9 +956,10 @@ model BankTransaction {
   matchStatus     TransactionMatchStatus @default(UNMATCHED) @map("match_status")
   matchedAt       DateTime? @map("matched_at")
   matchedBy       String?   @map("matched_by") // "auto" or userId
+  isManual        Boolean   @default(false) @map("is_manual")
   createdAt       DateTime  @default(now()) @map("created_at")
 
-  bankAccount  BankAccount   @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  bankAccount  BankAccount?  @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   @@index([bankAccountId, date])
