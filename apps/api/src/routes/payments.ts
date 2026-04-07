@@ -437,29 +437,21 @@ async function recalcOrgDebt(orgId: string): Promise<void> {
         },
       },
     });
-    const groupOrgIds = groupOrgs.map((o) => o.id);
-    const groupAgg = await prisma.bankTransaction.aggregate({
-      where: {
-        organizationId: { in: groupOrgIds },
-        matchStatus: { in: ["AUTO", "MANUAL"] },
-        date: { gte: BASE_DATE },
-      },
-      _sum: { amount: true },
-    });
-    const groupReceived = Number(groupAgg._sum.amount ?? 0);
-    const groupExpected = groupOrgs.reduce((s, o) => s + calcExpectedForOrg(o), 0);
-
-    const groupDebt = Math.max(0, groupExpected - groupReceived);
-
-    // Flagship = org with highest current monthlyPayment
-    const flagship = groupOrgs.reduce((best, o) =>
-      Number(o.monthlyPayment ?? 0) > Number(best.monthlyPayment ?? 0) ? o : best,
-    );
-
     for (const gOrg of groupOrgs) {
+      const gExpected = calcExpectedForOrg(gOrg);
+      const gAgg = await prisma.bankTransaction.aggregate({
+        where: {
+          organizationId: gOrg.id,
+          matchStatus: { in: ["AUTO", "MANUAL"] },
+          date: { gte: BASE_DATE },
+        },
+        _sum: { amount: true },
+      });
+      const gReceived = Number(gAgg._sum.amount ?? 0);
+      const gDebt = Math.max(0, gExpected - gReceived);
       await prisma.organization.update({
         where: { id: gOrg.id },
-        data: { debtAmount: gOrg.id === flagship.id ? groupDebt : 0 },
+        data: { debtAmount: gDebt },
       });
     }
   } else {
@@ -679,6 +671,7 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
         monthlyPayment: true,
         serviceStartDate: true,
         clientGroupId: true,
+        clientGroup: { select: { id: true, name: true } },
         paymentNote: true,
         priceHistory: {
           select: { price: true, effectiveFrom: true },
@@ -750,6 +743,7 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
       orgId: string;
       orgName: string;
       groupId: string | null;
+      groupName: string | null;
       expected: number;
       received: number;
       debt: number;
@@ -764,44 +758,29 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
 
         const groupOrgIds = groupMap.get(org.clientGroupId)!;
 
-        // Sum received from ANY org in the group (all time from BASE_DATE)
-        const groupAgg = await prisma.bankTransaction.aggregate({
-          where: {
-            organizationId: { in: groupOrgIds },
-            matchStatus: { in: ["AUTO", "MANUAL"] },
-            date: { gte: BASE_DATE },
-          },
-          _sum: { amount: true },
-        });
-        const groupReceived = Number(groupAgg._sum.amount ?? 0);
-
-        // Sum expected across all group orgs
-        const groupExpected = groupOrgIds.reduce((sum, gid) => {
-          const gOrg = orgs.find((o) => o.id === gid);
-          return sum + (gOrg ? calcExpected(gOrg) : 0);
-        }, 0);
-
-        const groupDebt = Math.max(0, groupExpected - groupReceived);
-
-        // Flagship = org with highest monthlyPayment — gets all group debt
-        const flagship = groupOrgIds.reduce((bestId, gid) => {
-          const a = orgs.find((o) => o.id === bestId);
-          const b = orgs.find((o) => o.id === gid);
-          return Number(b?.monthlyPayment ?? 0) > Number(a?.monthlyPayment ?? 0) ? gid : bestId;
-        }, groupOrgIds[0]);
-
         for (const gid of groupOrgIds) {
           const gOrg = orgs.find((o) => o.id === gid);
           if (!gOrg) continue;
           const gExpected = calcExpected(gOrg);
+          const gAgg = await prisma.bankTransaction.aggregate({
+            where: {
+              organizationId: gid,
+              matchStatus: { in: ["AUTO", "MANUAL"] },
+              date: { gte: BASE_DATE },
+            },
+            _sum: { amount: true },
+          });
+          const gReceived = Number(gAgg._sum.amount ?? 0);
+          const gDebt = Math.max(0, gExpected - gReceived);
 
           results.push({
             orgId: gid,
             orgName: gOrg.name,
             groupId: org.clientGroupId,
+            groupName: org.clientGroup?.name || null,
             expected: gExpected,
-            received: gid === flagship ? groupReceived : 0,
-            debt: gid === flagship ? groupDebt : 0,
+            received: gReceived,
+            debt: gDebt,
             paymentNote: gOrg.paymentNote,
           });
         }
@@ -825,6 +804,7 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
         orgId: org.id,
         orgName: org.name,
         groupId: null,
+        groupName: null,
         expected,
         received,
         debt,

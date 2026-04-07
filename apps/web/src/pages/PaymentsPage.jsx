@@ -421,11 +421,33 @@ function ReconciliationTab() {
     }
   }
 
-  const filtered = results.filter((r) => {
-    if (filter === "debtors") return r.debt > 0;
-    if (filter === "paid") return r.debt === 0;
-    return true;
-  });
+  const filtered = (() => {
+    const base = results.filter((r) => {
+      if (filter === "debtors") return r.debt > 0;
+      if (filter === "paid") return r.debt === 0;
+      return true;
+    });
+    // Sort alphabetically, then group: when an org has a group,
+    // place all group members right after the first alphabetical member
+    const sorted = [...base].sort((a, b) => a.orgName.localeCompare(b.orgName, "ru"));
+    const grouped = [];
+    const placed = new Set();
+    for (const r of sorted) {
+      if (placed.has(r.orgId)) continue;
+      placed.add(r.orgId);
+      grouped.push(r);
+      if (r.groupId) {
+        // Add remaining group members right after
+        for (const g of sorted) {
+          if (g.groupId === r.groupId && !placed.has(g.orgId)) {
+            placed.add(g.orgId);
+            grouped.push(g);
+          }
+        }
+      }
+    }
+    return grouped;
+  })();
 
   return (
     <div className="space-y-4">
@@ -512,31 +534,55 @@ function ReconciliationTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((r) => (
-                    <tr key={r.orgId} className="border-b border-slate-50 hover:bg-slate-50/50">
-                      <td className="px-4 py-3">
-                        <Link
-                          to={`/organizations/${r.orgId}`}
-                          className="font-medium text-[#6567F1] hover:underline"
+                  {filtered.map((r, i) => {
+                    const isGroupStart =
+                      r.groupId && (i === 0 || filtered[i - 1]?.groupId !== r.groupId);
+                    const isInGroup = !!r.groupId;
+                    const isGroupEnd =
+                      r.groupId &&
+                      (i === filtered.length - 1 || filtered[i + 1]?.groupId !== r.groupId);
+                    return (
+                      <>
+                        {isGroupStart && (
+                          <tr key={`gh-${r.groupId}`} className="bg-amber-50/60">
+                            <td
+                              colSpan={5}
+                              className="px-4 py-1.5 text-xs font-semibold text-amber-700"
+                            >
+                              <Link to={`/client-groups/${r.groupId}`} className="hover:underline">
+                                {r.groupName || "Группа"}
+                              </Link>
+                            </td>
+                          </tr>
+                        )}
+                        <tr
+                          key={r.orgId}
+                          className={`border-b hover:bg-slate-50/50 ${isInGroup ? "bg-amber-50/30 border-amber-100" : "border-slate-50"} ${isGroupEnd ? "border-b-2 border-b-amber-200" : ""}`}
                         >
-                          {r.orgName}
-                        </Link>
-                        {r.groupId && <span className="ml-2 text-xs text-slate-400">группа</span>}
-                      </td>
-                      <td className="px-4 py-3 text-right">{fmt(r.expected)}</td>
-                      <td className="px-4 py-3 text-right text-green-600 font-medium">
-                        {fmt(r.received)}
-                      </td>
-                      <td
-                        className={`px-4 py-3 text-right font-medium ${r.debt > 0 ? "text-red-600" : "text-slate-400"}`}
-                      >
-                        {r.debt > 0 ? fmt(r.debt) : "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <NoteCell orgId={r.orgId} initialNote={r.paymentNote} />
-                      </td>
-                    </tr>
-                  ))}
+                          <td className={`py-3 ${isInGroup ? "pl-8 pr-4" : "px-4"}`}>
+                            <Link
+                              to={`/organizations/${r.orgId}`}
+                              className="font-medium text-[#6567F1] hover:underline"
+                            >
+                              {r.orgName}
+                            </Link>
+                          </td>
+                          <td className="px-4 py-3 text-right">{fmt(r.expected)}</td>
+                          <td className="px-4 py-3 text-right text-green-600 font-medium">
+                            {fmt(r.received)}
+                          </td>
+                          <td
+                            className={`px-4 py-3 text-right font-medium ${r.debt > 0 ? "text-red-600" : "text-slate-400"}`}
+                          >
+                            {r.debt > 0 ? fmt(r.debt) : "—"}
+                          </td>
+                          <td className="px-4 py-3">
+                            <NoteCell orgId={r.orgId} initialNote={r.paymentNote} />
+                          </td>
+                        </tr>
+                      </>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
