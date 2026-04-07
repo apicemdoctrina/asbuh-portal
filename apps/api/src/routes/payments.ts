@@ -744,6 +744,7 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
               clientGroupId: true,
               clientGroup: { select: { id: true, name: true } },
               paymentNote: true,
+              paymentDestination: true,
               status: true,
               priceHistory: {
                 select: { price: true, effectiveFrom: true },
@@ -775,13 +776,15 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
         processedGroups.add(org.clientGroupId);
 
         const groupMembers = allGroupOrgs.filter((o) => o.clientGroupId === org.clientGroupId);
-        const groupMemberIds = groupMembers.map((o) => o.id);
+        // Only bank-paying members count toward group debt
+        const bankMembers = groupMembers.filter((o) => o.paymentDestination === "BANK_TOCHKA");
+        const bankMemberIds = bankMembers.map((o) => o.id);
 
-        // Group-level totals
-        const groupExpected = groupMembers.reduce((s, o) => s + calcExpected(o), 0);
+        // Group-level totals (only bank-paying orgs)
+        const groupExpected = bankMembers.reduce((s, o) => s + calcExpected(o), 0);
         const groupAgg = await prisma.bankTransaction.aggregate({
           where: {
-            organizationId: { in: groupMemberIds },
+            organizationId: { in: bankMemberIds },
             matchStatus: { in: ["AUTO", "MANUAL"] },
             date: { gte: BASE_DATE },
           },
@@ -791,12 +794,13 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
         const groupDebt = Math.max(0, groupExpected - groupReceived);
 
         for (const gOrg of groupMembers) {
+          const isBankPayer = gOrg.paymentDestination === "BANK_TOCHKA";
           results.push({
             orgId: gOrg.id,
             orgName: gOrg.name,
             groupId: org.clientGroupId,
             groupName: org.clientGroup?.name || null,
-            expected: calcExpected(gOrg),
+            expected: isBankPayer ? calcExpected(gOrg) : 0,
             received: 0,
             debt: 0,
             groupDebt,
