@@ -489,14 +489,11 @@ router.get("/transactions", authenticate, requireRole("admin", "supervisor"), as
 // Handles: serviceStartDate, price history, payment frequency, group payments
 router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), async (req, res) => {
   try {
-    const { year, month } = req.body;
-    const targetYear = Number(year) || new Date().getFullYear();
-    const months =
-      month === "all"
-        ? Array.from({ length: 12 }, (_, i) => i + 1)
-        : [Number(month) || new Date().getMonth() + 1];
+    const BASE_DATE = new Date(2025, 0, 1); // 2025-01-01
+    const now = new Date();
+    const currentMonth1st = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    // Get all orgs that pay via bank (include group info for grouped payments)
+    // Only orgs that pay via bank
     const orgs = await prisma.organization.findMany({
       where: {
         paymentDestination: "BANK_TOCHKA",
@@ -507,47 +504,58 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
       },
       select: {
         id: true,
+        name: true,
         monthlyPayment: true,
         previousMonthlyPayment: true,
         priceChangeDate: true,
-        paymentFrequency: true,
         serviceStartDate: true,
         clientGroupId: true,
       },
     });
 
-    const now = new Date();
-    let updated = 0;
+    // Helper: count full months between two dates (1st of each month)
+    function monthsBetween(from: Date, to: Date): number {
+      return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
+    }
 
-    // Helper: determine expected payment for an org in a given month
-    function getExpected(org: (typeof orgs)[0], tYear: number, tMonth: number): number {
-      const periodStart = new Date(tYear, tMonth - 1, 1);
+    // Helper: calculate total expected for an org from start to now
+    function calcExpected(org: (typeof orgs)[0]): number {
+      const start =
+        org.serviceStartDate && org.serviceStartDate > BASE_DATE
+          ? new Date(org.serviceStartDate.getFullYear(), org.serviceStartDate.getMonth(), 1)
+          : BASE_DATE;
 
-      // 1. Not yet a client — no expectation
-      if (org.serviceStartDate && periodStart < org.serviceStartDate) return 0;
+      if (start >= currentMonth1st) return 0;
 
-      // 2. Check payment frequency — only expect in payment months
-      if (org.paymentFrequency === "QUARTERLY") {
-        // Expect payment in months 3, 6, 9, 12 — covering the quarter
-        if (tMonth % 3 !== 0) return 0;
-      } else if (org.paymentFrequency === "SEMI_ANNUAL") {
-        // Expect payment in months 6, 12
-        if (tMonth % 6 !== 0) return 0;
-      }
+      const totalMonths = monthsBetween(start, currentMonth1st);
+      if (totalMonths <= 0) return 0;
 
-      // 3. Determine price: current or previous
-      let rate = Number(org.monthlyPayment ?? 0);
+      const currentRate = Number(org.monthlyPayment ?? 0);
+
+      // If there was a price change, split into old price period + new price period
       if (org.priceChangeDate && org.previousMonthlyPayment != null) {
-        // If the month is before price change, use old price
-        if (periodStart < org.priceChangeDate) {
-          rate = Number(org.previousMonthlyPayment);
+        const changeDate = new Date(
+          org.priceChangeDate.getFullYear(),
+          org.priceChangeDate.getMonth(),
+          1,
+        );
+        const oldRate = Number(org.previousMonthlyPayment);
+
+        if (changeDate <= start) {
+          // Price changed before org started — all at current rate
+          return currentRate * totalMonths;
         }
+        if (changeDate >= currentMonth1st) {
+          // Price change hasn't happened yet — all at old rate
+          return oldRate * totalMonths;
+        }
+
+        const monthsAtOld = monthsBetween(start, changeDate);
+        const monthsAtNew = monthsBetween(changeDate, currentMonth1st);
+        return oldRate * monthsAtOld + currentRate * monthsAtNew;
       }
 
-      // 4. Multiply by period length for non-monthly
-      if (org.paymentFrequency === "QUARTERLY") return rate * 3;
-      if (org.paymentFrequency === "SEMI_ANNUAL") return rate * 6;
-      return rate;
+      return currentRate * totalMonths;
     }
 
     // Build group map: clientGroupId → list of org IDs
@@ -560,163 +568,105 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
       }
     }
 
-    for (const targetMonth of months) {
-      const deadlineDate = new Date(targetYear, targetMonth, 15); // 15th of next month
-      const isOverdueEligible = now > deadlineDate;
+    const processedGroups = new Set<string>();
+    const results: Array<{
+      orgId: string;
+      orgName: string;
+      groupId: string | null;
+      expected: number;
+      received: number;
+      debt: number;
+    }> = [];
 
-      // Track which groups we already processed this month
-      const processedGroups = new Set<string>();
+    for (const org of orgs) {
+      // Group org: handle at group level
+      if (org.clientGroupId && groupMap.has(org.clientGroupId)) {
+        if (processedGroups.has(org.clientGroupId)) continue;
+        processedGroups.add(org.clientGroupId);
 
-      for (const org of orgs) {
-        const expected = getExpected(org, targetYear, targetMonth);
+        const groupOrgIds = groupMap.get(org.clientGroupId)!;
 
-        // Group org: aggregate transactions from ANY org in the group
-        if (org.clientGroupId && groupMap.has(org.clientGroupId)) {
-          if (!processedGroups.has(org.clientGroupId)) {
-            processedGroups.add(org.clientGroupId);
-
-            const groupOrgIds = groupMap.get(org.clientGroupId)!;
-
-            // Sum transactions from ANY org in the group
-            const groupAgg = await prisma.bankTransaction.aggregate({
-              where: {
-                organizationId: { in: groupOrgIds },
-                matchStatus: { in: ["AUTO", "MANUAL"] },
-                date: {
-                  gte: new Date(targetYear, targetMonth - 1, 1),
-                  lt: new Date(targetYear, targetMonth, 1),
-                },
-              },
-              _sum: { amount: true },
-            });
-            const groupReceived = Number(groupAgg._sum.amount ?? 0);
-
-            // Sum expected across all group orgs
-            const groupExpected = groupOrgIds.reduce((sum, gid) => {
-              const gOrg = orgs.find((o) => o.id === gid);
-              return sum + (gOrg ? getExpected(gOrg, targetYear, targetMonth) : 0);
-            }, 0);
-
-            // Distribute proportionally to each org in the group
-            for (const gid of groupOrgIds) {
-              const gOrg = orgs.find((o) => o.id === gid);
-              if (!gOrg) continue;
-              const gExpected = getExpected(gOrg, targetYear, targetMonth);
-              const proportion = groupExpected > 0 ? gExpected / groupExpected : 0;
-              const gReceived = Math.round(groupReceived * proportion * 100) / 100;
-              const gDebt = Math.max(0, gExpected - gReceived);
-
-              let gStatus: "PAID" | "PARTIAL" | "OVERDUE" | "PENDING";
-              if (gExpected === 0) {
-                gStatus = "PAID";
-              } else if (gReceived >= gExpected) {
-                gStatus = "PAID";
-              } else if (isOverdueEligible) {
-                gStatus = gReceived > 0 ? "PARTIAL" : "OVERDUE";
-              } else {
-                gStatus = gReceived > 0 ? "PARTIAL" : "PENDING";
-              }
-
-              await prisma.paymentPeriod.upsert({
-                where: {
-                  organizationId_year_month: {
-                    organizationId: gid,
-                    year: targetYear,
-                    month: targetMonth,
-                  },
-                },
-                update: {
-                  expected: gExpected,
-                  received: gReceived,
-                  debtAmount: gDebt,
-                  status: gStatus,
-                },
-                create: {
-                  organizationId: gid,
-                  year: targetYear,
-                  month: targetMonth,
-                  expected: gExpected,
-                  received: gReceived,
-                  debtAmount: gDebt,
-                  status: gStatus,
-                },
-              });
-              updated++;
-            }
-            continue;
-          } else {
-            continue;
-          }
-        }
-
-        // Non-group org: standard processing
-        const agg = await prisma.bankTransaction.aggregate({
+        // Sum received from ANY org in the group (all time from BASE_DATE)
+        const groupAgg = await prisma.bankTransaction.aggregate({
           where: {
-            organizationId: org.id,
+            organizationId: { in: groupOrgIds },
             matchStatus: { in: ["AUTO", "MANUAL"] },
-            date: {
-              gte: new Date(targetYear, targetMonth - 1, 1),
-              lt: new Date(targetYear, targetMonth, 1),
-            },
+            date: { gte: BASE_DATE },
           },
           _sum: { amount: true },
         });
-        const received = Number(agg._sum.amount ?? 0);
-        const debt = Math.max(0, expected - received);
+        const groupReceived = Number(groupAgg._sum.amount ?? 0);
 
-        let status: "PAID" | "PARTIAL" | "OVERDUE" | "PENDING";
-        if (expected === 0) {
-          status = "PAID";
-        } else if (received >= expected) {
-          status = "PAID";
-        } else if (isOverdueEligible) {
-          status = received > 0 ? "PARTIAL" : "OVERDUE";
-        } else {
-          status = received > 0 ? "PARTIAL" : "PENDING";
+        // Sum expected across all group orgs
+        const groupExpected = groupOrgIds.reduce((sum, gid) => {
+          const gOrg = orgs.find((o) => o.id === gid);
+          return sum + (gOrg ? calcExpected(gOrg) : 0);
+        }, 0);
+
+        // Distribute proportionally
+        for (const gid of groupOrgIds) {
+          const gOrg = orgs.find((o) => o.id === gid);
+          if (!gOrg) continue;
+          const gExpected = calcExpected(gOrg);
+          const proportion = groupExpected > 0 ? gExpected / groupExpected : 0;
+          const gReceived = Math.round(groupReceived * proportion * 100) / 100;
+          const gDebt = Math.max(0, gExpected - gReceived);
+
+          results.push({
+            orgId: gid,
+            orgName: gOrg.name,
+            groupId: org.clientGroupId,
+            expected: gExpected,
+            received: gReceived,
+            debt: gDebt,
+          });
         }
-
-        await prisma.paymentPeriod.upsert({
-          where: {
-            organizationId_year_month: {
-              organizationId: org.id,
-              year: targetYear,
-              month: targetMonth,
-            },
-          },
-          update: { expected, received, debtAmount: debt, status },
-          create: {
-            organizationId: org.id,
-            year: targetYear,
-            month: targetMonth,
-            expected,
-            received,
-            debtAmount: debt,
-            status,
-          },
-        });
-        updated++;
+        continue;
       }
-    }
 
-    // Update debtAmount on organizations based on total unpaid
-    for (const org of orgs) {
-      const debtAgg = await prisma.paymentPeriod.aggregate({
+      // Non-group org
+      const expected = calcExpected(org);
+      const agg = await prisma.bankTransaction.aggregate({
         where: {
           organizationId: org.id,
-          status: { in: ["OVERDUE", "PARTIAL"] },
+          matchStatus: { in: ["AUTO", "MANUAL"] },
+          date: { gte: BASE_DATE },
         },
-        _sum: { debtAmount: true },
+        _sum: { amount: true },
       });
-      await prisma.organization.update({
-        where: { id: org.id },
-        data: { debtAmount: Number(debtAgg._sum.debtAmount ?? 0) },
+      const received = Number(agg._sum.amount ?? 0);
+      const debt = Math.max(0, expected - received);
+
+      results.push({
+        orgId: org.id,
+        orgName: org.name,
+        groupId: null,
+        expected,
+        received,
+        debt,
       });
     }
 
+    // Update debtAmount on each organization
+    for (const r of results) {
+      await prisma.organization.update({
+        where: { id: r.orgId },
+        data: { debtAmount: r.debt },
+      });
+    }
+
+    const totalExpected = results.reduce((s, r) => s + r.expected, 0);
+    const totalReceived = results.reduce((s, r) => s + r.received, 0);
+    const totalDebt = results.reduce((s, r) => s + r.debt, 0);
+    const debtors = results.filter((r) => r.debt > 0);
+
     res.json({
-      updated,
-      year: targetYear,
-      months: month === "all" ? "1-12" : months[0],
+      orgCount: results.length,
+      totalExpected,
+      totalReceived,
+      totalDebt,
+      debtorCount: debtors.length,
+      results: results.sort((a, b) => b.debt - a.debt),
     });
   } catch (err) {
     console.error("Reconcile error:", err);

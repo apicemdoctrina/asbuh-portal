@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
@@ -32,19 +33,6 @@ const MATCH_STATUS_COLORS = {
   IGNORED: "bg-slate-100 text-slate-500",
 };
 
-const PERIOD_STATUS_LABELS = {
-  PENDING: "Ожидание",
-  PAID: "Оплачено",
-  PARTIAL: "Частично",
-  OVERDUE: "Просрочено",
-};
-const PERIOD_STATUS_COLORS = {
-  PENDING: "bg-slate-100 text-slate-600",
-  PAID: "bg-green-100 text-green-700",
-  PARTIAL: "bg-amber-100 text-amber-700",
-  OVERDUE: "bg-red-100 text-red-700",
-};
-
 const MONTHS = [
   "",
   "Январь",
@@ -68,7 +56,7 @@ function fmt(val) {
 
 // ─── Tab: Transactions ───────────────────────────────────────────────────────
 
-function TransactionsTab() {
+function TransactionsTab({ onOrgClick }) {
   const [transactions, setTransactions] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -184,14 +172,20 @@ function TransactionsTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/50">
-                <th className="text-left px-4 py-3 font-medium text-slate-500">Дата</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-500">Сумма</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-500">Плательщик</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-500">ИНН</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-500">Назначение</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-500">Организация</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-500">Статус</th>
-                <th className="px-4 py-3"></th>
+                <th className="text-left px-4 py-3 font-medium text-slate-500 w-[100px]">Дата</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-500 w-[100px]">Сумма</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-500 min-w-[220px]">
+                  Плательщик
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-slate-500 w-[120px]">ИНН</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-500 min-w-[280px]">
+                  Назначение
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-slate-500 min-w-[180px]">
+                  Организация
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-slate-500 w-[100px]">Статус</th>
+                <th className="px-4 py-3 w-[60px]"></th>
               </tr>
             </thead>
             <tbody>
@@ -203,11 +197,9 @@ function TransactionsTab() {
                   <td className="px-4 py-3 whitespace-nowrap font-medium text-green-600">
                     +{fmt(tx.amount)}
                   </td>
-                  <td className="px-4 py-3 max-w-[200px] truncate">{tx.payerName || "—"}</td>
+                  <td className="px-4 py-3">{tx.payerName || "—"}</td>
                   <td className="px-4 py-3 whitespace-nowrap">{tx.payerInn || "—"}</td>
-                  <td className="px-4 py-3 max-w-[250px] truncate text-slate-500">
-                    {tx.purpose || "—"}
-                  </td>
+                  <td className="px-4 py-3 text-slate-500">{tx.purpose || "—"}</td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     {matchingId === tx.id ? (
                       <div className="flex items-center gap-1">
@@ -241,7 +233,12 @@ function TransactionsTab() {
                         </button>
                       </div>
                     ) : tx.organization ? (
-                      <span className="text-[#6567F1] text-xs">{tx.organization.name}</span>
+                      <button
+                        onClick={() => onOrgClick(tx.organization.id)}
+                        className="text-[#6567F1] text-xs hover:underline text-left"
+                      >
+                        {tx.organization.name}
+                      </button>
                     ) : (
                       <span className="text-slate-400 text-xs">—</span>
                     )}
@@ -327,54 +324,29 @@ function TransactionsTab() {
 // ─── Tab: Reconciliation ─────────────────────────────────────────────────────
 
 function ReconciliationTab() {
-  const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState("all"); // "all" or 1-12
-  const [statusFilter, setStatusFilter] = useState("");
-  const [periods, setPeriods] = useState([]);
-  const [summary, setSummary] = useState({ expected: 0, received: 0, debt: 0 });
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [results, setResults] = useState([]);
+  const [summary, setSummary] = useState({ expected: 0, received: 0, debt: 0, debtorCount: 0 });
   const [reconciling, setReconciling] = useState(false);
-  const limit = 50;
-
-  const fetchPeriods = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        year: String(year),
-        page: String(page),
-        limit: String(limit),
-      });
-      if (month !== "all") params.set("month", String(month));
-      if (statusFilter) params.set("status", statusFilter);
-      const res = await api(`/api/payments/reconciliation?${params}`);
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      setPeriods(data.periods);
-      setTotal(data.total);
-      setSummary(data.summary);
-    } catch {
-      /* */
-    } finally {
-      setLoading(false);
-    }
-  }, [year, month, statusFilter, page]);
-
-  useEffect(() => {
-    fetchPeriods();
-  }, [fetchPeriods]);
+  const [done, setDone] = useState(false);
+  const [filter, setFilter] = useState("all"); // all | debtors | paid
 
   async function handleReconcile() {
     setReconciling(true);
     try {
-      await api("/api/payments/reconcile", {
+      const res = await api("/api/payments/reconcile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ year, month }),
       });
-      fetchPeriods();
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setResults(data.results);
+      setSummary({
+        expected: data.totalExpected,
+        received: data.totalReceived,
+        debt: data.totalDebt,
+        debtorCount: data.debtorCount,
+      });
+      setDone(true);
     } catch {
       /* */
     } finally {
@@ -382,55 +354,15 @@ function ReconciliationTab() {
     }
   }
 
-  const totalPages = Math.ceil(total / limit);
+  const filtered = results.filter((r) => {
+    if (filter === "debtors") return r.debt > 0;
+    if (filter === "paid") return r.debt === 0;
+    return true;
+  });
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center flex-wrap">
-        <select
-          value={month}
-          onChange={(e) => {
-            setMonth(e.target.value === "all" ? "all" : Number(e.target.value));
-            setPage(1);
-          }}
-          className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
-        >
-          <option value="all">Весь год</option>
-          {MONTHS.slice(1).map((m, i) => (
-            <option key={i + 1} value={i + 1}>
-              {m}
-            </option>
-          ))}
-        </select>
-        <select
-          value={year}
-          onChange={(e) => {
-            setYear(Number(e.target.value));
-            setPage(1);
-          }}
-          className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
-        >
-          {[2025, 2026].map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
-        <select
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value);
-            setPage(1);
-          }}
-          className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
-        >
-          <option value="">Все статусы</option>
-          {Object.entries(PERIOD_STATUS_LABELS).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
-        </select>
         <button
           onClick={handleReconcile}
           disabled={reconciling}
@@ -439,116 +371,106 @@ function ReconciliationTab() {
           <Calculator size={16} className={reconciling ? "animate-spin" : ""} />
           Пересчитать
         </button>
-      </div>
-
-      {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-            <DollarSign size={14} />
-            Ожидалось
-          </div>
-          <div className="text-lg font-bold text-slate-900">{fmt(summary.expected)}</div>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-            <TrendingUp size={14} />
-            Поступило
-          </div>
-          <div className="text-lg font-bold text-green-600">{fmt(summary.received)}</div>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
-            <AlertCircle size={14} />
-            Задолженность
-          </div>
-          <div
-            className={`text-lg font-bold ${summary.debt > 0 ? "text-red-600" : "text-slate-900"}`}
+        {done && (
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
           >
-            {fmt(summary.debt)}
-          </div>
-        </div>
+            <option value="all">Все ({results.length})</option>
+            <option value="debtors">Должники ({summary.debtorCount})</option>
+            <option value="paid">Без долга ({results.length - summary.debtorCount})</option>
+          </select>
+        )}
+        {done && (
+          <span className="text-xs text-slate-400">Расчёт с 01.01.2025 по текущий месяц</span>
+        )}
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-16 text-slate-400">
-          <Loader2 size={24} className="animate-spin" />
-        </div>
-      ) : periods.length === 0 ? (
-        <div className="text-slate-400 text-sm py-8 text-center">
-          Нет данных. Нажмите «Пересчитать» для создания сверки.
-        </div>
-      ) : (
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/50">
-                <th className="text-left px-4 py-3 font-medium text-slate-500">Организация</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-500">ИНН</th>
-                {month === "all" && (
-                  <th className="text-left px-4 py-3 font-medium text-slate-500">Месяц</th>
-                )}
-                <th className="text-right px-4 py-3 font-medium text-slate-500">Ожидалось</th>
-                <th className="text-right px-4 py-3 font-medium text-slate-500">Поступило</th>
-                <th className="text-right px-4 py-3 font-medium text-slate-500">Долг</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-500">Статус</th>
-              </tr>
-            </thead>
-            <tbody>
-              {periods.map((p) => (
-                <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                  <td className="px-4 py-3 font-medium text-slate-900">{p.organization?.name}</td>
-                  <td className="px-4 py-3 text-slate-500">{p.organization?.inn || "—"}</td>
-                  {month === "all" && (
-                    <td className="px-4 py-3 text-slate-500">{MONTHS[p.month]}</td>
-                  )}
-                  <td className="px-4 py-3 text-right">{fmt(p.expected)}</td>
-                  <td className="px-4 py-3 text-right text-green-600 font-medium">
-                    {fmt(p.received)}
-                  </td>
-                  <td
-                    className={`px-4 py-3 text-right font-medium ${Number(p.debtAmount) > 0 ? "text-red-600" : "text-slate-400"}`}
-                  >
-                    {Number(p.debtAmount) > 0 ? fmt(p.debtAmount) : "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-medium ${PERIOD_STATUS_COLORS[p.status]}`}
-                    >
-                      {PERIOD_STATUS_LABELS[p.status]}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {done && (
+        <>
+          {/* Summary cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+                <DollarSign size={14} />
+                Ожидалось
+              </div>
+              <div className="text-lg font-bold text-slate-900">{fmt(summary.expected)}</div>
+            </div>
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+                <TrendingUp size={14} />
+                Поступило
+              </div>
+              <div className="text-lg font-bold text-green-600">{fmt(summary.received)}</div>
+            </div>
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+                <AlertCircle size={14} />
+                Задолженность
+              </div>
+              <div
+                className={`text-lg font-bold ${summary.debt > 0 ? "text-red-600" : "text-slate-900"}`}
+              >
+                {fmt(summary.debt)}
+              </div>
+            </div>
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+                <AlertCircle size={14} />
+                Должников
+              </div>
+              <div
+                className={`text-lg font-bold ${summary.debtorCount > 0 ? "text-red-600" : "text-slate-900"}`}
+              >
+                {summary.debtorCount}
+              </div>
+            </div>
+          </div>
+
+          {/* Results table */}
+          {filtered.length === 0 ? (
+            <div className="text-slate-400 text-sm py-8 text-center">Нет данных</div>
+          ) : (
+            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/50">
+                    <th className="text-left px-4 py-3 font-medium text-slate-500">Организация</th>
+                    <th className="text-right px-4 py-3 font-medium text-slate-500">Ожидалось</th>
+                    <th className="text-right px-4 py-3 font-medium text-slate-500">Поступило</th>
+                    <th className="text-right px-4 py-3 font-medium text-slate-500">Долг</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((r) => (
+                    <tr key={r.orgId} className="border-b border-slate-50 hover:bg-slate-50/50">
+                      <td className="px-4 py-3 font-medium text-slate-900">
+                        {r.orgName}
+                        {r.groupId && <span className="ml-2 text-xs text-slate-400">группа</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right">{fmt(r.expected)}</td>
+                      <td className="px-4 py-3 text-right text-green-600 font-medium">
+                        {fmt(r.received)}
+                      </td>
+                      <td
+                        className={`px-4 py-3 text-right font-medium ${r.debt > 0 ? "text-red-600" : "text-slate-400"}`}
+                      >
+                        {r.debt > 0 ? fmt(r.debt) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-slate-500">
-            {(page - 1) * limit + 1}–{Math.min(page * limit, total)} из {total}
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              disabled={page <= 1}
-              onClick={() => setPage(page - 1)}
-              className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <span className="text-sm text-slate-600">
-              {page} / {totalPages}
-            </span>
-            <button
-              disabled={page >= totalPages}
-              onClick={() => setPage(page + 1)}
-              className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
+      {!done && !reconciling && (
+        <div className="text-slate-400 text-sm py-8 text-center">
+          Нажмите «Пересчитать» для сверки всех оплат с 01.01.2025
         </div>
       )}
     </div>
@@ -624,6 +546,7 @@ function SummaryTab() {
 
 export default function PaymentsPage() {
   const { hasRole } = useAuth();
+  const navigate = useNavigate();
   const [tab, setTab] = useState("reconciliation");
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
@@ -871,7 +794,9 @@ export default function PaymentsPage() {
         ))}
       </div>
 
-      {tab === "transactions" && <TransactionsTab />}
+      {tab === "transactions" && (
+        <TransactionsTab onOrgClick={(id) => navigate(`/organizations/${id}`)} />
+      )}
       {tab === "reconciliation" && <ReconciliationTab />}
       {tab === "summary" && <SummaryTab />}
     </div>
