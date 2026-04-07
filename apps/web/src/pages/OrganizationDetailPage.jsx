@@ -152,33 +152,38 @@ function PriceHistoryAddForm({ orgId, onAdded }) {
   }
 
   return (
-    <form
-      onSubmit={handleAdd}
-      className="flex items-center gap-2 pt-1 border-t border-slate-200 mt-1"
-    >
-      <input
-        type="date"
-        value={date}
-        onChange={(e) => setDate(e.target.value)}
-        className="px-2 py-1 border border-slate-200 rounded text-xs w-28"
-        required
-      />
-      <input
-        type="number"
-        step="0.01"
-        min="0"
-        placeholder="Цена"
-        value={price}
-        onChange={(e) => setPrice(e.target.value)}
-        className="px-2 py-1 border border-slate-200 rounded text-xs w-20"
-        required
-      />
+    <form onSubmit={handleAdd} className="pt-2 border-t border-slate-200 mt-2 space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="block text-[10px] font-medium text-slate-400 mb-0.5">Дата</label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] font-medium text-slate-400 mb-0.5">Сумма ₽</label>
+          <input
+            type="number"
+            step="1"
+            min="0"
+            placeholder="10 000"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+            required
+          />
+        </div>
+      </div>
       <button
         type="submit"
-        disabled={saving}
-        className="text-xs text-[#6567F1] hover:underline disabled:opacity-50"
+        disabled={saving || !price || !date}
+        className="w-full py-1.5 text-xs font-medium text-white bg-gradient-to-r from-[#6567F1] to-[#5557E1] rounded-lg hover:from-[#5557E1] hover:to-[#4547D1] disabled:opacity-50 transition-all"
       >
-        + Добавить
+        Добавить запись
       </button>
     </form>
   );
