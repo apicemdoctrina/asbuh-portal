@@ -21,6 +21,7 @@ import {
   MessageSquare,
   Banknote,
   Plus,
+  Scale,
 } from "lucide-react";
 
 const MATCH_STATUS_LABELS = {
@@ -401,6 +402,28 @@ function ReconciliationTab() {
   const [sortBy, setSortBy] = useState("debt"); // alpha | debt
   const [sectionFilter, setSectionFilter] = useState(""); // "" = all sections
 
+  const [writingOff, setWritingOff] = useState(null); // orgId or groupId being written off
+
+  async function handleWriteOff(orgId, groupId) {
+    const target = groupId || orgId;
+    if (!confirm("Выполнить взаимозачёт? Баланс будет обнулён.")) return;
+    setWritingOff(target);
+    try {
+      const body = groupId ? { groupId } : { organizationId: orgId };
+      const res = await api("/api/payments/write-off", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error();
+      handleReconcile();
+    } catch {
+      /* */
+    } finally {
+      setWritingOff(null);
+    }
+  }
+
   async function handleReconcile() {
     setReconciling(true);
     try {
@@ -577,8 +600,9 @@ function ReconciliationTab() {
                     <th className="text-left px-4 py-3 font-medium text-slate-500">Организация</th>
                     <th className="text-right px-4 py-3 font-medium text-slate-500">Ожидалось</th>
                     <th className="text-right px-4 py-3 font-medium text-slate-500">Поступило</th>
-                    <th className="text-right px-4 py-3 font-medium text-slate-500">Долг</th>
+                    <th className="text-right px-4 py-3 font-medium text-slate-500">Баланс</th>
                     <th className="text-left px-4 py-3 font-medium text-slate-500">Примечание</th>
+                    <th className="px-4 py-3 w-[50px]"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -612,11 +636,28 @@ function ReconciliationTab() {
                               {fmt(r.groupReceived)}
                             </td>
                             <td
-                              className={`px-4 py-2 text-right text-xs font-semibold ${r.groupDebt > 0 ? "text-red-600" : "text-amber-700"}`}
+                              className={`px-4 py-2 text-right text-xs font-semibold ${(r.groupExpected ?? 0) !== (r.groupReceived ?? 0) ? ((r.groupDebt ?? 0) > 0 ? "text-red-600" : "text-blue-600") : "text-amber-700"}`}
                             >
-                              {r.groupDebt > 0 ? fmt(r.groupDebt) : "—"}
+                              {(() => {
+                                const diff = (r.groupExpected ?? 0) - (r.groupReceived ?? 0);
+                                if (diff > 0) return fmt(diff);
+                                if (diff < 0) return "+" + fmt(Math.abs(diff));
+                                return "—";
+                              })()}
                             </td>
                             <td className="px-4 py-2"></td>
+                            <td className="px-4 py-2">
+                              {(r.groupExpected ?? 0) !== (r.groupReceived ?? 0) && (
+                                <button
+                                  onClick={() => handleWriteOff(null, r.groupId)}
+                                  disabled={writingOff === r.groupId}
+                                  className="p-1 text-slate-400 hover:text-[#6567F1] hover:bg-[#6567F1]/10 rounded transition-colors"
+                                  title="Взаимозачёт"
+                                >
+                                  <Scale size={14} />
+                                </button>
+                              )}
+                            </td>
                           </tr>
                         )}
                         <tr
@@ -648,15 +689,34 @@ function ReconciliationTab() {
                               <td className="px-4 py-3 text-right text-green-600 font-medium">
                                 {fmt(r.received)}
                               </td>
-                              <td
-                                className={`px-4 py-3 text-right font-medium ${r.debt > 0 ? "text-red-600" : "text-slate-400"}`}
-                              >
-                                {r.debt > 0 ? fmt(r.debt) : "—"}
+                              <td className="px-4 py-3 text-right font-medium">
+                                {(() => {
+                                  const diff = r.expected - r.received;
+                                  if (diff > 0)
+                                    return <span className="text-red-600">{fmt(diff)}</span>;
+                                  if (diff < 0)
+                                    return (
+                                      <span className="text-blue-600">+{fmt(Math.abs(diff))}</span>
+                                    );
+                                  return <span className="text-slate-400">—</span>;
+                                })()}
                               </td>
                             </>
                           )}
                           <td className="px-4 py-3">
                             <NoteCell orgId={r.orgId} initialNote={r.paymentNote} />
+                          </td>
+                          <td className="px-4 py-3">
+                            {!isInGroup && r.expected !== r.received && (
+                              <button
+                                onClick={() => handleWriteOff(r.orgId, null)}
+                                disabled={writingOff === r.orgId}
+                                className="p-1 text-slate-400 hover:text-[#6567F1] hover:bg-[#6567F1]/10 rounded transition-colors"
+                                title="Взаимозачёт"
+                              >
+                                <Scale size={14} />
+                              </button>
+                            )}
                           </td>
                         </tr>
                       </Fragment>
@@ -762,6 +822,25 @@ function CashCardTab() {
   const [adding, setAdding] = useState(null); // orgId being added
   const [addForm, setAddForm] = useState({ amount: "", date: "", note: "" });
   const [saving, setSaving] = useState(false);
+  const [writingOff, setWritingOff] = useState(null);
+
+  async function handleWriteOff(orgId) {
+    if (!confirm("Выполнить взаимозачёт? Баланс будет обнулён.")) return;
+    setWritingOff(orgId);
+    try {
+      const res = await api("/api/payments/write-off", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId: orgId }),
+      });
+      if (!res.ok) throw new Error();
+      handleReconcile();
+    } catch {
+      /* */
+    } finally {
+      setWritingOff(null);
+    }
+  }
 
   async function handleReconcile() {
     setLoading(true);
@@ -936,9 +1015,9 @@ function CashCardTab() {
                     </th>
                     <th className="text-right px-4 py-3 font-medium text-slate-500">Ожидалось</th>
                     <th className="text-right px-4 py-3 font-medium text-slate-500">Поступило</th>
-                    <th className="text-right px-4 py-3 font-medium text-slate-500">Долг</th>
+                    <th className="text-right px-4 py-3 font-medium text-slate-500">Баланс</th>
                     <th className="text-left px-4 py-3 font-medium text-slate-500">Примечание</th>
-                    <th className="px-4 py-3 w-[50px]"></th>
+                    <th className="px-4 py-3 w-[100px]"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -964,29 +1043,45 @@ function CashCardTab() {
                         <td className="px-4 py-3 text-right text-green-600 font-medium">
                           {fmt(r.received)}
                         </td>
-                        <td
-                          className={`px-4 py-3 text-right font-medium ${r.debt > 0 ? "text-red-600" : "text-slate-400"}`}
-                        >
-                          {r.debt > 0 ? fmt(r.debt) : "—"}
+                        <td className="px-4 py-3 text-right font-medium">
+                          {(() => {
+                            const diff = r.expected - r.received;
+                            if (diff > 0) return <span className="text-red-600">{fmt(diff)}</span>;
+                            if (diff < 0)
+                              return <span className="text-blue-600">+{fmt(Math.abs(diff))}</span>;
+                            return <span className="text-slate-400">—</span>;
+                          })()}
                         </td>
                         <td className="px-4 py-3">
                           <NoteCell orgId={r.orgId} initialNote={r.paymentNote} />
                         </td>
                         <td className="px-4 py-3">
-                          <button
-                            onClick={() => {
-                              setAdding(adding === r.orgId ? null : r.orgId);
-                              setAddForm({
-                                amount: "",
-                                date: new Date().toISOString().slice(0, 10),
-                                note: "",
-                              });
-                            }}
-                            className="p-1 text-[#6567F1] hover:bg-[#6567F1]/10 rounded"
-                            title="Внести оплату"
-                          >
-                            <Plus size={16} />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            {r.expected !== r.received && (
+                              <button
+                                onClick={() => handleWriteOff(r.orgId)}
+                                disabled={writingOff === r.orgId}
+                                className="p-1 text-slate-400 hover:text-[#6567F1] hover:bg-[#6567F1]/10 rounded transition-colors"
+                                title="Взаимозачёт"
+                              >
+                                <Scale size={14} />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => {
+                                setAdding(adding === r.orgId ? null : r.orgId);
+                                setAddForm({
+                                  amount: "",
+                                  date: new Date().toISOString().slice(0, 10),
+                                  note: "",
+                                });
+                              }}
+                              className="p-1 text-[#6567F1] hover:bg-[#6567F1]/10 rounded"
+                              title="Внести оплату"
+                            >
+                              <Plus size={16} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                       {adding === r.orgId && (

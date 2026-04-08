@@ -1018,6 +1018,151 @@ router.post(
   },
 );
 
+// POST /api/payments/write-off — create correction transaction to zero out balance
+router.post("/write-off", authenticate, requireRole("admin", "supervisor"), async (req, res) => {
+  try {
+    const { organizationId, groupId } = req.body;
+    if (!organizationId && !groupId) {
+      res.status(400).json({ error: "organizationId or groupId required" });
+      return;
+    }
+
+    // For grouped orgs: calculate group-level balance
+    if (groupId) {
+      const groupOrgs = await prisma.organization.findMany({
+        where: { clientGroupId: groupId },
+        select: {
+          ...ORG_EXPECTED_SELECT,
+          id: true,
+          name: true,
+        },
+      });
+      const bankMembers = groupOrgs.filter((o) => o.paymentDestination === "BANK_TOCHKA");
+      const bankMemberIds = bankMembers.map((o) => o.id);
+      const groupExpected = bankMembers.reduce((s, o) => s + calcExpected(o), 0);
+      const agg = await prisma.bankTransaction.aggregate({
+        where: {
+          organizationId: { in: bankMemberIds },
+          matchStatus: { in: ["AUTO", "MANUAL"] },
+          date: { gte: DEBT_BASE_DATE },
+        },
+        _sum: { amount: true },
+      });
+      const groupReceived = Number(agg._sum.amount ?? 0);
+      const diff = groupExpected - groupReceived; // positive = debt, negative = overpayment
+
+      if (diff === 0) {
+        res.json({ message: "Баланс уже нулевой", correction: 0 });
+        return;
+      }
+
+      // Pick flagship (highest monthlyPayment) to attach the correction
+      const flagship = bankMembers.reduce((best, o) =>
+        Number(o.monthlyPayment ?? 0) > Number(best.monthlyPayment ?? 0) ? o : best,
+      );
+
+      const tx = await prisma.bankTransaction.create({
+        data: {
+          date: new Date(),
+          amount: new Prisma.Decimal(Math.abs(diff)),
+          organizationId: flagship.id,
+          payerName:
+            diff > 0 ? "Взаимозачёт — списание долга" : "Взаимозачёт — корректировка переплаты",
+          purpose: `Корректировка баланса группы: ${diff > 0 ? "+" : "-"}${Math.abs(diff)} ₽`,
+          isManual: true,
+          matchStatus: "MANUAL",
+          matchedAt: new Date(),
+          matchedBy: req.user!.userId,
+        },
+      });
+
+      // If overpayment: we created a positive tx to match expected, but we need negative.
+      // Actually: if diff > 0 (debt), we add +diff to increase received.
+      // If diff < 0 (overpaid), we need to reduce received, so create negative amount.
+      if (diff < 0) {
+        await prisma.bankTransaction.update({
+          where: { id: tx.id },
+          data: { amount: new Prisma.Decimal(diff) }, // negative
+        });
+      }
+
+      // Recalc debt for all group members
+      for (const o of groupOrgs) {
+        await recalcOrgDebt(o.id);
+      }
+
+      await logAudit({
+        action: "payment_write_off",
+        userId: req.user!.userId,
+        entity: "client_group",
+        entityId: groupId,
+        details: { correction: diff, flagshipId: flagship.id },
+      });
+
+      res.json({ message: "Взаимозачёт выполнен", correction: diff, transactionId: tx.id });
+      return;
+    }
+
+    // Single org
+    const org = await prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: ORG_EXPECTED_SELECT,
+    });
+    if (!org) {
+      res.status(404).json({ error: "Организация не найдена" });
+      return;
+    }
+
+    const baseDate = org.paymentDestination === "BANK_TOCHKA" ? DEBT_BASE_DATE : MANUAL_BASE_DATE;
+    const expected = calcExpected(org, baseDate);
+    const agg = await prisma.bankTransaction.aggregate({
+      where: {
+        organizationId,
+        matchStatus: { in: ["AUTO", "MANUAL"] },
+        date: { gte: baseDate },
+      },
+      _sum: { amount: true },
+    });
+    const received = Number(agg._sum.amount ?? 0);
+    const diff = expected - received;
+
+    if (diff === 0) {
+      res.json({ message: "Баланс уже нулевой", correction: 0 });
+      return;
+    }
+
+    await prisma.bankTransaction.create({
+      data: {
+        date: new Date(),
+        amount: new Prisma.Decimal(diff), // positive = covers debt, negative = removes overpayment
+        organizationId,
+        payerName:
+          diff > 0 ? "Взаимозачёт — списание долга" : "Взаимозачёт — корректировка переплаты",
+        purpose: `Корректировка баланса: ${diff > 0 ? "+" : ""}${diff} ₽`,
+        isManual: true,
+        matchStatus: "MANUAL",
+        matchedAt: new Date(),
+        matchedBy: req.user!.userId,
+      },
+    });
+
+    await recalcOrgDebt(organizationId);
+
+    await logAudit({
+      action: "payment_write_off",
+      userId: req.user!.userId,
+      entity: "organization",
+      entityId: organizationId,
+      details: { correction: diff, expected, received },
+    });
+
+    res.json({ message: "Взаимозачёт выполнен", correction: diff });
+  } catch (err) {
+    console.error("Write-off error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // GET /api/payments/reconciliation — view payment periods
 router.get(
   "/reconciliation",
