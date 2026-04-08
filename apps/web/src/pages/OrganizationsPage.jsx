@@ -26,6 +26,7 @@ import {
   Building2,
   LinkIcon,
   Unlink,
+  Banknote,
 } from "lucide-react";
 import SectionIcon from "../components/SectionIcon.jsx";
 
@@ -1450,15 +1451,26 @@ export default function OrganizationsPage() {
     <>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Организации</h1>
-        {hasPermission("organization", "create") && !archiveMode && (
-          <button
-            onClick={() => setShowCreate(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all"
-          >
-            <Plus size={16} />
-            Создать организацию
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {(hasRole("manager") || hasRole("accountant")) && (
+            <Link
+              to="/my-payments"
+              className="inline-flex items-center gap-2 px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] rounded-lg text-sm font-medium hover:bg-[#6567F1]/5 transition-colors"
+            >
+              <Banknote size={16} />
+              Оплаты
+            </Link>
+          )}
+          {hasPermission("organization", "create") && !archiveMode && (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all"
+            >
+              <Plus size={16} />
+              Создать организацию
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filters */}

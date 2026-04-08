@@ -10,6 +10,7 @@ import {
   ArrowRight,
   TrendingUp,
   ClipboardList,
+  Banknote,
 } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -300,8 +301,20 @@ export default function DashboardPage() {
         ) : null)}
 
       {/* Quick actions */}
-      {(hasPermission("organization", "create") || hasPermission("section", "create")) && (
+      {(hasPermission("organization", "create") ||
+        hasPermission("section", "create") ||
+        hasRole("manager") ||
+        hasRole("accountant")) && (
         <div className="flex flex-wrap gap-3 mb-8">
+          {(hasRole("manager") || hasRole("accountant")) && (
+            <Link
+              to="/my-payments"
+              className="inline-flex items-center gap-2 px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+            >
+              <Banknote size={16} />
+              Оплаты
+            </Link>
+          )}
           {hasPermission("organization", "create") && (
             <Link
               to="/organizations"

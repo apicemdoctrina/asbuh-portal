@@ -17,6 +17,7 @@ import AuditLogPage from "./pages/AuditLogPage.jsx";
 import KnowledgePage from "./pages/KnowledgePage.jsx";
 import ManagementPage from "./pages/ManagementPage.jsx";
 import PaymentsPage from "./pages/PaymentsPage.jsx";
+import MyPaymentsPage from "./pages/MyPaymentsPage.jsx";
 import TasksPage from "./pages/TasksPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import InvitePage from "./pages/InvitePage.jsx";
@@ -62,6 +63,7 @@ export default function App() {
               <Route path="audit-log" element={<AuditLogPage />} />
               <Route path="management" element={<ManagementPage />} />
               <Route path="payments" element={<PaymentsPage />} />
+              <Route path="my-payments" element={<MyPaymentsPage />} />
               <Route path="tasks" element={<TasksPage />} />
               <Route path="tickets" element={<TicketsPage />} />
               <Route path="tickets/:id" element={<TicketDetailPage />} />

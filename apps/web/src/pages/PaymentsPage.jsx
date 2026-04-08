@@ -19,6 +19,8 @@ import {
   Filter,
   Calculator,
   MessageSquare,
+  Banknote,
+  Plus,
 } from "lucide-react";
 
 const MATCH_STATUS_LABELS = {
@@ -396,6 +398,8 @@ function ReconciliationTab() {
   const [reconciling, setReconciling] = useState(false);
   const [done, setDone] = useState(false);
   const [filter, setFilter] = useState("all"); // all | debtors | paid
+  const [sortBy, setSortBy] = useState("debt"); // alpha | debt
+  const [sectionFilter, setSectionFilter] = useState(""); // "" = all sections
 
   async function handleReconcile() {
     setReconciling(true);
@@ -421,15 +425,35 @@ function ReconciliationTab() {
     }
   }
 
+  const sections = (() => {
+    const map = new Map();
+    for (const r of results) {
+      if (r.sectionId && !map.has(r.sectionId)) map.set(r.sectionId, r.sectionName);
+    }
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "ru"));
+  })();
+
   const filtered = (() => {
-    const base = results.filter((r) => {
-      if (filter === "debtors") return r.groupId ? (r.groupDebt ?? 0) > 0 : r.debt > 0;
-      if (filter === "paid") return r.groupId ? (r.groupDebt ?? 0) === 0 : r.debt === 0;
-      return true;
-    });
-    // Sort alphabetically, then group: when an org has a group,
+    const base = results
+      .filter((r) => {
+        if (filter === "debtors") return r.groupId ? (r.groupDebt ?? 0) > 0 : r.debt > 0;
+        if (filter === "paid") return r.groupId ? (r.groupDebt ?? 0) === 0 : r.debt === 0;
+        return true;
+      })
+      .filter((r) => {
+        if (!sectionFilter) return true;
+        return r.sectionId === sectionFilter;
+      });
+    // Sort then group: when an org has a group,
     // place all group members right after the first alphabetical member
-    const sorted = [...base].sort((a, b) => a.orgName.localeCompare(b.orgName, "ru"));
+    const sorted = [...base].sort((a, b) => {
+      if (sortBy === "debt") {
+        const debtA = a.groupId ? (a.groupDebt ?? 0) : a.debt;
+        const debtB = b.groupId ? (b.groupDebt ?? 0) : b.debt;
+        if (debtA !== debtB) return debtB - debtA; // descending by debt
+      }
+      return a.orgName.localeCompare(b.orgName, "ru");
+    });
     const grouped = [];
     const placed = new Set();
     for (const r of sorted) {
@@ -461,15 +485,39 @@ function ReconciliationTab() {
           Пересчитать
         </button>
         {done && (
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
-          >
-            <option value="all">Все ({results.length})</option>
-            <option value="debtors">Должники ({summary.debtorCount})</option>
-            <option value="paid">Без долга ({results.length - summary.debtorCount})</option>
-          </select>
+          <>
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+            >
+              <option value="all">Все ({results.length})</option>
+              <option value="debtors">Должники ({summary.debtorCount})</option>
+              <option value="paid">Без долга ({results.length - summary.debtorCount})</option>
+            </select>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+            >
+              <option value="debt">Сначала с долгом</option>
+              <option value="alpha">По алфавиту</option>
+            </select>
+            {sections.length > 0 && (
+              <select
+                value={sectionFilter}
+                onChange={(e) => setSectionFilter(e.target.value)}
+                className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+              >
+                <option value="">Все участки</option>
+                {sections.map(([id, name]) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </>
         )}
         {done && (
           <span className="text-xs text-slate-400">Расчёт с 01.01.2025 по текущий месяц</span>
@@ -695,6 +743,313 @@ function SummaryTab() {
   );
 }
 
+// ─── Tab: Cash & Card ───────────────────────────────────────────────────────
+
+const DEST_LABELS = { CARD: "Карта", CASH: "Наличные" };
+const DEST_COLORS = {
+  CARD: "bg-blue-100 text-blue-700",
+  CASH: "bg-emerald-100 text-emerald-700",
+};
+
+function CashCardTab() {
+  const [results, setResults] = useState([]);
+  const [summary, setSummary] = useState({ expected: 0, received: 0, debt: 0, debtorCount: 0 });
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const [filter, setFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("debt");
+  const [sectionFilter, setSectionFilter] = useState("");
+  const [adding, setAdding] = useState(null); // orgId being added
+  const [addForm, setAddForm] = useState({ amount: "", date: "", note: "" });
+  const [saving, setSaving] = useState(false);
+
+  async function handleReconcile() {
+    setLoading(true);
+    try {
+      const res = await api("/api/payments/reconcile-manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setResults(data.results);
+      setSummary({
+        expected: data.totalExpected,
+        received: data.totalReceived,
+        debt: data.totalDebt,
+        debtorCount: data.debtorCount,
+      });
+      setDone(true);
+    } catch {
+      /* */
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleAddPayment(orgId) {
+    if (!addForm.amount || !addForm.date) return;
+    setSaving(true);
+    try {
+      const res = await api("/api/payments/transactions/manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: Number(addForm.amount),
+          date: addForm.date,
+          organizationId: orgId,
+          purpose: addForm.note || "Оплата нал/карта",
+        }),
+      });
+      if (!res.ok) throw new Error();
+      setAdding(null);
+      setAddForm({ amount: "", date: "", note: "" });
+      handleReconcile();
+    } catch {
+      /* */
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const sections = (() => {
+    const map = new Map();
+    for (const r of results) {
+      if (r.sectionId && !map.has(r.sectionId)) map.set(r.sectionId, r.sectionName);
+    }
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "ru"));
+  })();
+
+  const filtered = (() => {
+    return results
+      .filter((r) => {
+        if (filter === "debtors") return r.debt > 0;
+        if (filter === "paid") return r.debt === 0;
+        return true;
+      })
+      .filter((r) => !sectionFilter || r.sectionId === sectionFilter)
+      .sort((a, b) => {
+        if (sortBy === "debt" && a.debt !== b.debt) return b.debt - a.debt;
+        return a.orgName.localeCompare(b.orgName, "ru");
+      });
+  })();
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center flex-wrap">
+        <button
+          onClick={handleReconcile}
+          disabled={loading}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] text-white rounded-lg text-sm font-medium shadow-lg shadow-[#6567F1]/30 hover:from-[#5557E1] hover:to-[#4547D1] disabled:opacity-50"
+        >
+          <Calculator size={16} className={loading ? "animate-spin" : ""} />
+          Пересчитать
+        </button>
+        {done && (
+          <>
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+            >
+              <option value="all">Все ({results.length})</option>
+              <option value="debtors">Должники ({summary.debtorCount})</option>
+              <option value="paid">Без долга ({results.length - summary.debtorCount})</option>
+            </select>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+            >
+              <option value="debt">Сначала с долгом</option>
+              <option value="alpha">По алфавиту</option>
+            </select>
+            {sections.length > 0 && (
+              <select
+                value={sectionFilter}
+                onChange={(e) => setSectionFilter(e.target.value)}
+                className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+              >
+                <option value="">Все участки</option>
+                {sections.map(([id, name]) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </>
+        )}
+      </div>
+
+      {done && (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+                <DollarSign size={14} />
+                Ожидалось
+              </div>
+              <div className="text-lg font-bold text-slate-900">{fmt(summary.expected)}</div>
+            </div>
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+                <TrendingUp size={14} />
+                Поступило
+              </div>
+              <div className="text-lg font-bold text-green-600">{fmt(summary.received)}</div>
+            </div>
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+                <AlertCircle size={14} />
+                Задолженность
+              </div>
+              <div
+                className={`text-lg font-bold ${summary.debt > 0 ? "text-red-600" : "text-slate-900"}`}
+              >
+                {fmt(summary.debt)}
+              </div>
+            </div>
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+                <AlertCircle size={14} />
+                Должников
+              </div>
+              <div
+                className={`text-lg font-bold ${summary.debtorCount > 0 ? "text-red-600" : "text-slate-900"}`}
+              >
+                {summary.debtorCount}
+              </div>
+            </div>
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="text-slate-400 text-sm py-8 text-center">Нет данных</div>
+          ) : (
+            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/50">
+                    <th className="text-left px-4 py-3 font-medium text-slate-500">Организация</th>
+                    <th className="text-left px-4 py-3 font-medium text-slate-500 w-[90px]">
+                      Способ
+                    </th>
+                    <th className="text-right px-4 py-3 font-medium text-slate-500">Ожидалось</th>
+                    <th className="text-right px-4 py-3 font-medium text-slate-500">Поступило</th>
+                    <th className="text-right px-4 py-3 font-medium text-slate-500">Долг</th>
+                    <th className="text-left px-4 py-3 font-medium text-slate-500">Примечание</th>
+                    <th className="px-4 py-3 w-[50px]"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((r) => (
+                    <Fragment key={r.orgId}>
+                      <tr className="border-b border-slate-50 hover:bg-slate-50/50">
+                        <td className="px-4 py-3">
+                          <Link
+                            to={`/organizations/${r.orgId}`}
+                            className="font-medium text-[#6567F1] hover:underline"
+                          >
+                            {r.orgName}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${DEST_COLORS[r.paymentDestination] || "bg-slate-100 text-slate-500"}`}
+                          >
+                            {DEST_LABELS[r.paymentDestination] || r.paymentDestination}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">{fmt(r.expected)}</td>
+                        <td className="px-4 py-3 text-right text-green-600 font-medium">
+                          {fmt(r.received)}
+                        </td>
+                        <td
+                          className={`px-4 py-3 text-right font-medium ${r.debt > 0 ? "text-red-600" : "text-slate-400"}`}
+                        >
+                          {r.debt > 0 ? fmt(r.debt) : "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <NoteCell orgId={r.orgId} initialNote={r.paymentNote} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => {
+                              setAdding(adding === r.orgId ? null : r.orgId);
+                              setAddForm({
+                                amount: "",
+                                date: new Date().toISOString().slice(0, 10),
+                                note: "",
+                              });
+                            }}
+                            className="p-1 text-[#6567F1] hover:bg-[#6567F1]/10 rounded"
+                            title="Внести оплату"
+                          >
+                            <Plus size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                      {adding === r.orgId && (
+                        <tr className="border-b border-slate-100 bg-slate-50/80">
+                          <td colSpan={7} className="px-4 py-3">
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <input
+                                type="number"
+                                placeholder="Сумма"
+                                value={addForm.amount}
+                                onChange={(e) => setAddForm({ ...addForm, amount: e.target.value })}
+                                className="w-32 px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                                autoFocus
+                              />
+                              <input
+                                type="date"
+                                value={addForm.date}
+                                onChange={(e) => setAddForm({ ...addForm, date: e.target.value })}
+                                className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                              />
+                              <input
+                                type="text"
+                                placeholder="Комментарий (необязательно)"
+                                value={addForm.note}
+                                onChange={(e) => setAddForm({ ...addForm, note: e.target.value })}
+                                className="w-48 px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                              />
+                              <button
+                                onClick={() => handleAddPayment(r.orgId)}
+                                disabled={saving || !addForm.amount || !addForm.date}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-[#6567F1] to-[#5557E1] text-white rounded-lg text-sm font-medium shadow-sm hover:from-[#5557E1] hover:to-[#4547D1] disabled:opacity-50"
+                              >
+                                <Check size={14} />
+                                Сохранить
+                              </button>
+                              <button
+                                onClick={() => setAdding(null)}
+                                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg"
+                              >
+                                <XIcon size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
+      {!done && !loading && (
+        <div className="text-slate-400 text-sm py-8 text-center">
+          Нажмите «Пересчитать» для сверки оплат наличными и картой с 01.01.2025
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main page ───────────────────────────────────────────────────────────────
 
 export default function PaymentsPage() {
@@ -799,6 +1154,7 @@ export default function PaymentsPage() {
 
   const tabs = [
     { key: "reconciliation", label: "Сверка", icon: Calculator },
+    { key: "cashcard", label: "Наличные / Карта", icon: Banknote },
     { key: "transactions", label: "Транзакции", icon: DollarSign },
     { key: "summary", label: "По месяцам", icon: Clock },
   ];
@@ -953,6 +1309,7 @@ export default function PaymentsPage() {
         <TransactionsTab onOrgClick={(id) => navigate(`/organizations/${id}`)} />
       )}
       {tab === "reconciliation" && <ReconciliationTab />}
+      {tab === "cashcard" && <CashCardTab />}
       {tab === "summary" && <SummaryTab />}
     </div>
   );

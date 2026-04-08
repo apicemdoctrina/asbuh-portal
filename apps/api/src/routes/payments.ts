@@ -432,6 +432,15 @@ async function recalcOrgDebt(orgId: string): Promise<void> {
   });
   if (!org) return;
 
+  // Non-bank orgs should have zero debt (they are tracked separately)
+  if (org.paymentDestination !== "BANK_TOCHKA") {
+    await prisma.organization.update({
+      where: { id: orgId },
+      data: { debtAmount: 0 },
+    });
+    return;
+  }
+
   // If org is in a group, calculate group-level debt (same logic as reconciliation)
   if (org.clientGroupId) {
     const groupOrgs = await prisma.organization.findMany({
@@ -691,6 +700,8 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
         serviceStartDate: true,
         clientGroupId: true,
         clientGroup: { select: { id: true, name: true } },
+        sectionId: true,
+        section: { select: { id: true, name: true } },
         paymentNote: true,
         paymentDestination: true,
         priceHistory: {
@@ -715,6 +726,8 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
               serviceStartDate: true,
               clientGroupId: true,
               clientGroup: { select: { id: true, name: true } },
+              sectionId: true,
+              section: { select: { id: true, name: true } },
               paymentNote: true,
               paymentDestination: true,
               status: true,
@@ -732,6 +745,8 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
       orgName: string;
       groupId: string | null;
       groupName: string | null;
+      sectionId: string | null;
+      sectionName: string | null;
       expected: number;
       received: number;
       debt: number;
@@ -772,6 +787,8 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
             orgName: gOrg.name,
             groupId: org.clientGroupId,
             groupName: org.clientGroup?.name || null,
+            sectionId: gOrg.sectionId || null,
+            sectionName: gOrg.section?.name || null,
             expected: isBankPayer ? calcExpected(gOrg) : 0,
             received: 0,
             debt: 0,
@@ -802,6 +819,8 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
         orgName: org.name,
         groupId: null,
         groupName: null,
+        sectionId: org.sectionId || null,
+        sectionName: org.section?.name || null,
         expected,
         received,
         debt,
@@ -835,6 +854,15 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
         });
       }
     }
+
+    // Zero out debt for orgs that no longer pay via bank
+    await prisma.organization.updateMany({
+      where: {
+        paymentDestination: { not: "BANK_TOCHKA" },
+        debtAmount: { gt: 0 },
+      },
+      data: { debtAmount: 0 },
+    });
 
     // Calculate totals: count group debt once per group
     const countedGroups = new Set<string>();
@@ -872,6 +900,92 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+// POST /api/payments/reconcile-manual — reconciliation for CARD/CASH orgs
+router.post(
+  "/reconcile-manual",
+  authenticate,
+  requireRole("admin", "supervisor"),
+  async (req, res) => {
+    try {
+      const orgs = await prisma.organization.findMany({
+        where: {
+          paymentDestination: { in: ["CARD", "CASH"] },
+          monthlyPayment: { not: null, gt: 0 },
+          status: {
+            notIn: ["left", "closed", "not_paying", "ceased", "own", "blacklisted", "archived"],
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          monthlyPayment: true,
+          serviceStartDate: true,
+          paymentDestination: true,
+          paymentNote: true,
+          sectionId: true,
+          section: { select: { id: true, name: true } },
+          priceHistory: {
+            select: { price: true, effectiveFrom: true },
+            orderBy: { effectiveFrom: "asc" as const },
+          },
+        },
+      });
+
+      const results = [];
+      let totalExpected = 0;
+      let totalReceived = 0;
+      let totalDebt = 0;
+      let debtorCount = 0;
+
+      for (const org of orgs) {
+        const expected = calcExpected(org);
+
+        // Sum manual transactions linked to this org
+        const agg = await prisma.bankTransaction.aggregate({
+          where: {
+            organizationId: org.id,
+            isManual: true,
+            matchStatus: { in: ["AUTO", "MANUAL"] },
+            date: { gte: DEBT_BASE_DATE },
+          },
+          _sum: { amount: true },
+        });
+        const received = Number(agg._sum.amount ?? 0);
+        const debt = Math.max(0, expected - received);
+
+        totalExpected += expected;
+        totalReceived += received;
+        totalDebt += debt;
+        if (debt > 0) debtorCount++;
+
+        results.push({
+          orgId: org.id,
+          orgName: org.name,
+          paymentDestination: org.paymentDestination,
+          sectionId: org.sectionId || null,
+          sectionName: org.section?.name || null,
+          expected,
+          received,
+          debt,
+          paymentNote: org.paymentNote,
+        });
+      }
+
+      res.json({
+        orgCount: results.length,
+        totalExpected,
+        totalReceived,
+        totalDebt,
+        debtorCount,
+        results,
+      });
+    } catch (err) {
+      console.error("Reconcile-manual error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
 
 // GET /api/payments/reconciliation — view payment periods
 router.get(
@@ -1114,5 +1228,133 @@ router.get("/summary", authenticate, requireRole("admin", "supervisor"), async (
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+// ─── Staff endpoints (accountant / manager) ────────────────────────────────
+
+/** Get org IDs belonging to the user's sections */
+async function getStaffOrgIds(userId: string): Promise<string[]> {
+  const sections = await prisma.sectionMember.findMany({
+    where: { userId },
+    select: { sectionId: true },
+  });
+  if (sections.length === 0) return [];
+  const orgs = await prisma.organization.findMany({
+    where: { sectionId: { in: sections.map((s) => s.sectionId) } },
+    select: { id: true },
+  });
+  return orgs.map((o) => o.id);
+}
+
+// GET /api/payments/my-transactions — transactions for staff's own orgs
+router.get(
+  "/my-transactions",
+  authenticate,
+  requireRole("admin", "supervisor", "manager", "accountant"),
+  async (req, res) => {
+    try {
+      const roles: string[] = req.user!.roles || [];
+      const isAdmin = roles.includes("admin") || roles.includes("supervisor");
+
+      let orgIds: string[] | null = null;
+      if (!isAdmin) {
+        orgIds = await getStaffOrgIds(req.user!.userId);
+        if (orgIds.length === 0) {
+          res.json({ transactions: [], total: 0, page: 1, limit: 50 });
+          return;
+        }
+      }
+
+      const { page: pageQ, limit: limitQ, search } = req.query;
+      const page = Math.max(1, Number(pageQ) || 1);
+      const limit = Math.min(100, Math.max(1, Number(limitQ) || 50));
+      const skip = (page - 1) * limit;
+
+      const where: Prisma.BankTransactionWhereInput = {};
+      if (orgIds) where.organizationId = { in: orgIds };
+      if (search) {
+        const s = String(search);
+        where.OR = [
+          { payerName: { contains: s, mode: "insensitive" } },
+          { purpose: { contains: s, mode: "insensitive" } },
+        ];
+      }
+
+      const [transactions, total] = await Promise.all([
+        prisma.bankTransaction.findMany({
+          where,
+          orderBy: { date: "desc" },
+          skip,
+          take: limit,
+          include: {
+            organization: { select: { id: true, name: true } },
+          },
+        }),
+        prisma.bankTransaction.count({ where }),
+      ]);
+
+      res.json({ transactions, total, page, limit });
+    } catch (err) {
+      console.error("My transactions error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+// POST /api/payments/my-transactions/manual — staff adds manual payment for their org
+router.post(
+  "/my-transactions/manual",
+  authenticate,
+  requireRole("admin", "supervisor", "manager", "accountant"),
+  async (req, res) => {
+    try {
+      const { amount, date, organizationId, purpose } = req.body;
+      if (!amount || !date || !organizationId) {
+        res.status(400).json({ error: "amount, date, organizationId required" });
+        return;
+      }
+
+      const roles: string[] = req.user!.roles || [];
+      const isAdmin = roles.includes("admin") || roles.includes("supervisor");
+
+      // Verify org belongs to staff's sections
+      if (!isAdmin) {
+        const orgIds = await getStaffOrgIds(req.user!.userId);
+        if (!orgIds.includes(organizationId)) {
+          res.status(403).json({ error: "Нет доступа к этой организации" });
+          return;
+        }
+      }
+
+      const tx = await prisma.bankTransaction.create({
+        data: {
+          date: new Date(date),
+          amount: Number(amount),
+          organizationId,
+          payerName: purpose || null,
+          purpose: purpose || "Оплата нал/карта",
+          isManual: true,
+          matchStatus: "MANUAL",
+          matchedAt: new Date(),
+        },
+      });
+
+      await logAudit({
+        action: "manual_transaction_create",
+        userId: req.user!.userId,
+        entity: "bank_transaction",
+        entityId: tx.id,
+        details: `Staff manual: ${amount} for org ${organizationId}`,
+      });
+
+      // Recalc debt for the org
+      await recalcOrgDebt(organizationId);
+
+      res.status(201).json(tx);
+    } catch (err) {
+      console.error("Staff manual transaction error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
 
 export default router;
