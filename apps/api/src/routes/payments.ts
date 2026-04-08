@@ -611,72 +611,102 @@ router.put(
 // ─── Transactions list ───────────────────────────────────────────────────────
 
 // GET /api/payments/transactions — list with filters
-router.get("/transactions", authenticate, requireRole("admin", "supervisor"), async (req, res) => {
-  try {
-    const {
-      page: pageQ,
-      limit: limitQ,
-      matchStatus,
-      month,
-      year,
-      organizationId,
-      clientGroupId,
-      search,
-    } = req.query;
+router.get(
+  "/transactions",
+  authenticate,
+  requireRole("admin", "supervisor", "manager", "accountant"),
+  async (req, res) => {
+    try {
+      const {
+        page: pageQ,
+        limit: limitQ,
+        matchStatus,
+        month,
+        year,
+        organizationId,
+        clientGroupId,
+        search,
+      } = req.query;
 
-    const page = Math.max(1, Number(pageQ) || 1);
-    const limit = Math.min(100, Math.max(1, Number(limitQ) || 50));
-    const skip = (page - 1) * limit;
+      const page = Math.max(1, Number(pageQ) || 1);
+      const limit = Math.min(100, Math.max(1, Number(limitQ) || 50));
+      const skip = (page - 1) * limit;
 
-    const where: Prisma.BankTransactionWhereInput = {};
-    if (matchStatus)
-      where.matchStatus = String(matchStatus) as Prisma.EnumTransactionMatchStatusFilter["equals"];
-    if (organizationId) where.organizationId = String(organizationId);
-    if (clientGroupId) {
-      where.organization = { clientGroupId: String(clientGroupId) };
+      const where: Prisma.BankTransactionWhereInput = {};
+
+      // Staff: restrict to their sections' orgs
+      const roles: string[] = req.user!.roles || [];
+      const isAdmin = roles.includes("admin") || roles.includes("supervisor");
+      if (!isAdmin) {
+        const staffOrgIds = await getStaffOrgIds(req.user!.userId);
+        if (staffOrgIds.length === 0) {
+          res.json({ transactions: [], total: 0, page, limit });
+          return;
+        }
+        where.organizationId = { in: staffOrgIds };
+      }
+
+      if (matchStatus)
+        where.matchStatus = String(
+          matchStatus,
+        ) as Prisma.EnumTransactionMatchStatusFilter["equals"];
+      if (organizationId) {
+        // Staff: verify they have access to this org
+        if (!isAdmin) {
+          const staffOrgIds = await getStaffOrgIds(req.user!.userId);
+          if (!staffOrgIds.includes(String(organizationId))) {
+            res.json({ transactions: [], total: 0, page, limit });
+            return;
+          }
+        }
+        where.organizationId = String(organizationId);
+      }
+      if (clientGroupId) {
+        where.organization = { clientGroupId: String(clientGroupId) };
+      }
+      if (year && month) {
+        const y = Number(year);
+        const m = Number(month);
+        where.date = {
+          gte: new Date(y, m - 1, 1),
+          lt: new Date(y, m, 1),
+        };
+      } else if (year) {
+        const y = Number(year);
+        where.date = {
+          gte: new Date(y, 0, 1),
+          lt: new Date(y + 1, 0, 1),
+        };
+      }
+      if (search) {
+        const s = String(search);
+        where.OR = [
+          { payerName: { contains: s, mode: "insensitive" } },
+          { payerInn: { contains: s } },
+          { purpose: { contains: s, mode: "insensitive" } },
+        ];
+      }
+
+      const [transactions, total] = await Promise.all([
+        prisma.bankTransaction.findMany({
+          where,
+          orderBy: { date: "desc" },
+          skip,
+          take: limit,
+          include: {
+            organization: { select: { id: true, name: true, inn: true } },
+          },
+        }),
+        prisma.bankTransaction.count({ where }),
+      ]);
+
+      res.json({ transactions, total, page, limit });
+    } catch (err) {
+      console.error("List transactions error:", err);
+      res.status(500).json({ error: "Internal server error" });
     }
-    if (year && month) {
-      const y = Number(year);
-      const m = Number(month);
-      where.date = {
-        gte: new Date(y, m - 1, 1),
-        lt: new Date(y, m, 1),
-      };
-    } else if (year) {
-      const y = Number(year);
-      where.date = {
-        gte: new Date(y, 0, 1),
-        lt: new Date(y + 1, 0, 1),
-      };
-    }
-    if (search) {
-      const s = String(search);
-      where.OR = [
-        { payerName: { contains: s, mode: "insensitive" } },
-        { payerInn: { contains: s } },
-        { purpose: { contains: s, mode: "insensitive" } },
-      ];
-    }
-
-    const [transactions, total] = await Promise.all([
-      prisma.bankTransaction.findMany({
-        where,
-        orderBy: { date: "desc" },
-        skip,
-        take: limit,
-        include: {
-          organization: { select: { id: true, name: true, inn: true } },
-        },
-      }),
-      prisma.bankTransaction.count({ where }),
-    ]);
-
-    res.json({ transactions, total, page, limit });
-  } catch (err) {
-    console.error("List transactions error:", err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+  },
+);
 
 // ─── Reconciliation ──────────────────────────────────────────────────────────
 
@@ -1070,13 +1100,24 @@ router.put(
 router.post(
   "/transactions/manual",
   authenticate,
-  requireRole("admin", "supervisor"),
+  requireRole("admin", "supervisor", "manager", "accountant"),
   async (req, res) => {
     try {
       const { date, amount, organizationId, payerName, purpose } = req.body;
       if (!date || amount == null || amount === "") {
         res.status(400).json({ error: "date and amount are required" });
         return;
+      }
+
+      // Staff: verify org belongs to their sections
+      const roles: string[] = req.user!.roles || [];
+      const isAdmin = roles.includes("admin") || roles.includes("supervisor");
+      if (!isAdmin && organizationId) {
+        const staffOrgIds = await getStaffOrgIds(req.user!.userId);
+        if (!staffOrgIds.includes(String(organizationId))) {
+          res.status(403).json({ error: "Нет доступа к этой организации" });
+          return;
+        }
       }
       const numAmount = Number(amount);
       if (isNaN(numAmount)) {
@@ -1125,7 +1166,7 @@ router.post(
 router.delete(
   "/transactions/:id/manual",
   authenticate,
-  requireRole("admin", "supervisor"),
+  requireRole("admin", "supervisor", "manager", "accountant"),
   async (req, res) => {
     try {
       const tx = await prisma.bankTransaction.findUnique({

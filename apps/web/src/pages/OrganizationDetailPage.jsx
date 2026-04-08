@@ -1313,7 +1313,10 @@ export default function OrganizationDetailPage() {
             }
           />
         )}
-        {(hasRole("admin") || hasRole("supervisor")) && <OrgTransactionsCard organizationId={id} />}
+        {(hasRole("admin") ||
+          hasRole("supervisor") ||
+          hasRole("manager") ||
+          hasRole("accountant")) && <OrgTransactionsCard organizationId={id} />}
         {/* <OrgTicketsCard organizationId={id} /> — hidden until ticket system is released */}
       </div>
 
