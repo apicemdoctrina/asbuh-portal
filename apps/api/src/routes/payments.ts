@@ -370,6 +370,7 @@ router.post("/rematch", authenticate, requireRole("admin", "supervisor"), async 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const DEBT_BASE_DATE = new Date(2025, 0, 1);
+const MANUAL_BASE_DATE = new Date(2026, 0, 1);
 
 function monthsBetween(from: Date, to: Date): number {
   return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
@@ -385,13 +386,13 @@ interface OrgForExpected {
   priceHistory: Array<{ price: unknown; effectiveFrom: Date }>;
 }
 
-function calcExpected(org: OrgForExpected): number {
+function calcExpected(org: OrgForExpected, baseDate = DEBT_BASE_DATE): number {
   const now = new Date();
   const currentMonth1st = new Date(now.getFullYear(), now.getMonth(), 1);
   const start =
-    org.serviceStartDate && org.serviceStartDate > DEBT_BASE_DATE
+    org.serviceStartDate && org.serviceStartDate > baseDate
       ? monthStart(org.serviceStartDate)
-      : DEBT_BASE_DATE;
+      : baseDate;
   if (start >= currentMonth1st) return 0;
 
   const history = org.priceHistory;
@@ -939,7 +940,7 @@ router.post(
       let debtorCount = 0;
 
       for (const org of orgs) {
-        const expected = calcExpected(org);
+        const expected = calcExpected(org, MANUAL_BASE_DATE);
 
         // Sum manual transactions linked to this org
         const agg = await prisma.bankTransaction.aggregate({
@@ -947,7 +948,7 @@ router.post(
             organizationId: org.id,
             isManual: true,
             matchStatus: { in: ["AUTO", "MANUAL"] },
-            date: { gte: DEBT_BASE_DATE },
+            date: { gte: MANUAL_BASE_DATE },
           },
           _sum: { amount: true },
         });
