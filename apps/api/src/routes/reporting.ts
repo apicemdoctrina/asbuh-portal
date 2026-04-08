@@ -5,7 +5,7 @@ import prisma from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
 import { authenticate, requirePermission, requireRole } from "../middleware/auth.js";
 import { sendZodError } from "../lib/route-helpers.js";
-import { syncEntryToChecklist, isReportApplicable } from "../lib/report-task-generator.js";
+import { isReportApplicable } from "../lib/report-task-generator.js";
 
 const router = Router();
 
@@ -258,11 +258,6 @@ router.put("/entries", authenticate, requirePermission("reporting", "edit"), asy
       ),
     );
 
-    // Sync linked tasks
-    for (const r of results) {
-      syncEntryToChecklist(r.id, r.status).catch(console.error);
-    }
-
     await logAudit({
       action: "report_entries_updated",
       userId: user.userId,
@@ -318,9 +313,6 @@ router.put("/entry", authenticate, requirePermission("reporting", "edit"), async
         filedBy: { select: { id: true, firstName: true, lastName: true } },
       },
     });
-
-    // Sync linked task status
-    syncEntryToChecklist(result.id, result.status).catch(console.error);
 
     res.json(result);
   } catch (err) {

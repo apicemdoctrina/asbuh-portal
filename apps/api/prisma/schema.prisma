@@ -34,6 +34,7 @@ model User {
   createdTasks        Task[]               @relation("TaskCreator")
   taskAssignees       TaskAssignee[]
   taskComments        TaskComment[]        @relation("TaskCommentAuthor")
+  taskCommentReads    TaskCommentRead[]
   telegramBinding      TelegramBinding?
   notifications        Notification[]
   passwordResetTokens  PasswordResetToken[]
@@ -592,6 +593,7 @@ model Task {
   createdBy       User                @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Cascade)
   assignees       TaskAssignee[]
   comments        TaskComment[]
+  commentReads    TaskCommentRead[]
   checklistItems  TaskChecklistItem[]
 
   @@unique([reportTypeId, reportYear, reportPeriod, reportSectionId])
@@ -614,6 +616,18 @@ model TaskComment {
 
   @@index([taskId])
   @@map("task_comments")
+}
+
+model TaskCommentRead {
+  taskId     String   @map("task_id")
+  userId     String   @map("user_id")
+  lastReadAt DateTime @default(now()) @map("last_read_at")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+  @@map("task_comment_reads")
 }
 
 model TaskChecklistItem {

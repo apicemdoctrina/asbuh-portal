@@ -345,6 +345,14 @@ async function main() {
       deadlineDay: 28,
       deadlineMonthOffset: 1,
     },
+    {
+      code: "EFS1_NS",
+      name: "ЕФС-1 (Несчастный случай)",
+      frequency: "QUARTERLY" as const,
+      order: 13,
+      deadlineDay: 25,
+      deadlineMonthOffset: 1,
+    },
   ];
 
   for (const rt of reportTypes) {

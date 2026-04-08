@@ -671,23 +671,20 @@ export default function ReportingPage() {
                       const key = `${org.id}_${rt.id}`;
                       const entry = data.entries[key];
                       const applicable = data.applicability?.[key] !== false;
+                      // Non-applicable cells default to NOT_APPLICABLE but are still editable
+                      const effectiveEntry =
+                        entry || (!applicable ? { status: "NOT_APPLICABLE" } : null);
                       return (
                         <td key={rt.id} className="px-1.5 py-1.5">
-                          {applicable ? (
-                            <StatusCell
-                              entry={entry}
-                              orgId={org.id}
-                              rtId={rt.id}
-                              year={data.year}
-                              period={data.period}
-                              canEdit={canEdit}
-                              onUpdate={handleEntryUpdate}
-                            />
-                          ) : (
-                            <div className="w-full text-center text-slate-300 text-base font-medium py-1.5">
-                              —
-                            </div>
-                          )}
+                          <StatusCell
+                            entry={effectiveEntry}
+                            orgId={org.id}
+                            rtId={rt.id}
+                            year={data.year}
+                            period={data.period}
+                            canEdit={canEdit}
+                            onUpdate={handleEntryUpdate}
+                          />
                         </td>
                       );
                     })}

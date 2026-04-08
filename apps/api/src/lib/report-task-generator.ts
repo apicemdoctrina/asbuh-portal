@@ -1,19 +1,21 @@
 /**
- * Automatic task generation for reporting deadlines.
+ * Reporting deadline notifier.
  *
- * Runs daily. For each active ReportType:
- * - Determines the current period (month/quarter/year)
- * - Creates ONE task per ReportType+period (e.g. "НДС (2 кв. 2026)")
- * - Each active Organization becomes a checklist item linked to its ReportEntry
- * - Assigns the task to all accountants across relevant sections
+ * Replaces the old task-generation approach: reporting lives entirely
+ * in the matrix table; this module only sends deadline reminders
+ * (in-app + Telegram) to accountants whose orgs have un-submitted reports.
  *
- * Status sync (checklist ↔ matrix):
- * - syncChecklistToEntry(): checklist item checked → entry SUBMITTED
- * - syncEntryToChecklist(): entry SUBMITTED/ACCEPTED in matrix → checklist item checked
- * - When all checklist items done → task DONE. If any unchecked → task OPEN.
+ * Schedule:
+ * - On startup (5 s delay)
+ * - Daily at 00:05
+ *
+ * For each active ReportType whose deadline is within 3 days,
+ * notifies each accountant about their orgs that still have
+ * NOT_SUBMITTED entries.
  */
 
 import prisma from "./prisma.js";
+import { notifyWithTelegram } from "./notify.js";
 
 // ─── Period helpers ───
 
@@ -95,121 +97,57 @@ function hasEmployees(org: OrgInfo): boolean {
 }
 
 function isJuridical(org: OrgInfo): boolean {
-  return org.form !== "IP"; // ООО, НКО, АО, ПАО — юрлица
+  return org.form !== "IP";
 }
 
 /**
  * Returns true if the given report type applies to this organization.
- * Rules are based on Russian tax law basics.
  */
 export function isReportApplicable(reportCode: string, org: OrgInfo): boolean {
   const ts = org.taxSystems ?? [];
-  if (ts.length === 0) return true; // if no tax system set, show everything
+  if (ts.length === 0) return true;
 
   switch (reportCode) {
-    // НДС — only ОСНО or USN+NDS
     case "NDS":
       return hasAny(ts, HAS_NDS);
-
-    // Налог на прибыль — only ОСНО, only legal entities
     case "NALOG_PRIBYL":
       return hasAny(ts, OSNO_SYSTEMS) && isJuridical(org);
-
-    // УСН декларация — only USN-based systems
     case "USN":
       return hasAny(ts, USN_SYSTEMS);
-
-    // УСН авансы — only USN-based systems
     case "USN_ADVANCE":
       return hasAny(ts, USN_SYSTEMS);
-
-    // 6-НДФЛ — if has employees, NOT AUSN (bank calculates NDFL automatically)
     case "6NDFL":
       return hasEmployees(org) && !hasAny(ts, AUSN_SYSTEMS);
-
-    // РСВ — if has employees, NOT AUSN (tax authority calculates contributions)
     case "RSV":
       return hasEmployees(org) && !hasAny(ts, AUSN_SYSTEMS);
-
-    // Персонифицированные сведения — if has employees, NOT AUSN
     case "PERS_SVED":
       return hasEmployees(org) && !hasAny(ts, AUSN_SYSTEMS);
-
-    // ЕФС-1 (СЗВ-ТД) — if has employees, NOT AUSN
     case "SZV_TD":
       return hasEmployees(org) && !hasAny(ts, AUSN_SYSTEMS);
-
-    // Бухгалтерская отчётность — legal entities only (not ИП)
+    case "EFS1_NS":
+      return hasEmployees(org) && !hasAny(ts, AUSN_SYSTEMS);
     case "BUH_OTCH":
       return isJuridical(org);
-
-    // Налог на имущество — ОСНО legal entities
     case "NALOG_IMUSH":
       return hasAny(ts, OSNO_SYSTEMS) && isJuridical(org);
-
-    // Земельный / транспортный налог — по умолчанию не применимо (зависит от активов)
     case "ZEMEL_NALOG":
     case "TRANSPORT":
       return false;
-
     default:
       return true;
   }
 }
 
-// ─── Main generator ───
+// ─── Deadline notification sender ───
 
-export async function generateReportTasks(): Promise<number> {
-  const reportTypes = await prisma.reportType.findMany({
-    where: { isActive: true },
-  });
+const WARN_DAYS = 3; // notify when deadline is within N days
+
+async function sendDeadlineNotifications(): Promise<number> {
+  const reportTypes = await prisma.reportType.findMany({ where: { isActive: true } });
   if (reportTypes.length === 0) return 0;
 
-  const organizations = await prisma.organization.findMany({
-    where: { status: { in: ["active", "new"] } },
-    select: {
-      id: true,
-      name: true,
-      form: true,
-      taxSystems: true,
-      employeeCount: true,
-      sectionId: true,
-      section: {
-        select: {
-          members: {
-            where: { role: "accountant" },
-            select: { userId: true },
-          },
-        },
-      },
-    },
-    orderBy: [{ name: "asc" }],
-  });
-
-  const admin = await prisma.user.findFirst({
-    where: { userRoles: { some: { role: { name: "admin" } } } },
-    select: { id: true },
-  });
-  if (!admin) {
-    console.warn("[report-task-generator] No admin user found, skipping");
-    return 0;
-  }
-
-  // Group organizations by sectionId
-  const orgsBySection = new Map<string, typeof organizations>();
-  for (const org of organizations) {
-    const key = org.sectionId ?? "__none__";
-    if (!orgsBySection.has(key)) orgsBySection.set(key, []);
-    orgsBySection.get(key)!.push(org);
-  }
-
-  // Fetch sections for titles
-  const sections = await prisma.section.findMany({
-    select: { id: true, number: true, name: true },
-  });
-  const sectionMap = new Map(sections.map((s) => [s.id, s]));
-
-  let created = 0;
+  const now = new Date();
+  let sent = 0;
 
   for (const rt of reportTypes) {
     const { year, period } = getCurrentPeriod(rt.frequency);
@@ -220,272 +158,91 @@ export async function generateReportTasks(): Promise<number> {
       rt.deadlineDay,
       rt.deadlineMonthOffset,
     );
+
+    // Only notify if deadline is within WARN_DAYS and hasn't passed yet
+    const daysUntil = (deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+    if (daysUntil < 0 || daysUntil > WARN_DAYS) continue;
+
     const label = periodLabel(rt.frequency, period);
+    const deadlineStr = deadline.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
 
-    // Create report entries for ALL orgs (including N/A) — needed for matrix
-    for (const org of organizations) {
-      const applicable = isReportApplicable(rt.code, {
-        form: org.form,
-        taxSystems: org.taxSystems as string[],
-        employeeCount: org.employeeCount,
-      });
-      await prisma.reportEntry.upsert({
-        where: {
-          organizationId_reportTypeId_year_period: {
-            organizationId: org.id,
-            reportTypeId: rt.id,
-            year,
-            period,
+    // Find orgs with NOT_SUBMITTED entries for this report+period
+    const pendingEntries = await prisma.reportEntry.findMany({
+      where: {
+        reportTypeId: rt.id,
+        year,
+        period,
+        status: "NOT_SUBMITTED",
+      },
+      select: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            sectionId: true,
           },
         },
-        update: {},
-        create: {
-          organizationId: org.id,
-          reportTypeId: rt.id,
-          year,
-          period,
-          status: applicable ? "NOT_SUBMITTED" : "NOT_APPLICABLE",
-        },
-      });
+      },
+    });
+
+    if (pendingEntries.length === 0) continue;
+
+    // Group pending orgs by section
+    const orgsBySection = new Map<string, string[]>();
+    for (const entry of pendingEntries) {
+      const sectionId = entry.organization.sectionId ?? "__none__";
+      if (!orgsBySection.has(sectionId)) orgsBySection.set(sectionId, []);
+      orgsBySection.get(sectionId)!.push(entry.organization.name);
     }
 
-    // Create one task per section
-    for (const [sectionKey, sectionOrgs] of orgsBySection) {
-      const sectionId = sectionKey === "__none__" ? null : sectionKey;
-      const section = sectionId ? sectionMap.get(sectionId) : null;
-      const sectionLabel = section ? ` — §${section.number}` : "";
+    // Find accountants per section and notify
+    for (const [sectionId, orgNames] of orgsBySection) {
+      if (sectionId === "__none__") continue;
 
-      // Find or create the task for this section
-      let task = await prisma.task.findUnique({
-        where: {
-          reportTypeId_reportYear_reportPeriod_reportSectionId: {
-            reportTypeId: rt.id,
-            reportYear: year,
-            reportPeriod: period,
-            reportSectionId: sectionId ?? "",
-          },
-        },
-        include: { checklistItems: { select: { reportEntryId: true } } },
+      const members = await prisma.sectionMember.findMany({
+        where: { sectionId, role: "accountant" },
+        select: { userId: true },
       });
 
-      const existingEntryIds = new Set(
-        task?.checklistItems.map((ci) => ci.reportEntryId).filter(Boolean) ?? [],
-      );
+      const daysWord = daysUntil < 1 ? "сегодня" : `через ${Math.ceil(daysUntil)} дн.`;
+      const title = `${rt.name} (${label} ${year}) — дедлайн ${daysWord}`;
+      const body = `Не сдано: ${orgNames.length} орг. Срок: ${deadlineStr}`;
+      const tgText = `⏰ <b>${title}</b>\n${body}\n\nОрганизации: ${orgNames.slice(0, 5).join(", ")}${orgNames.length > 5 ? ` и ещё ${orgNames.length - 5}` : ""}`;
 
-      // Filter to applicable orgs in this section
-      const applicableOrgs = sectionOrgs.filter((org) =>
-        isReportApplicable(rt.code, {
-          form: org.form,
-          taxSystems: org.taxSystems as string[],
-          employeeCount: org.employeeCount,
-        }),
-      );
+      // Deduplicate: check if notification already sent today
+      const todayStart = new Date(now);
+      todayStart.setHours(0, 0, 0, 0);
 
-      // Skip creating a task if no applicable orgs in this section
-      if (applicableOrgs.length === 0) continue;
-
-      if (!task) {
-        task = await prisma.task.create({
-          data: {
-            title: `${rt.name} (${label} ${year})${sectionLabel}`,
-            category: "REPORTING",
-            priority: "MEDIUM",
-            status: "OPEN",
-            dueDate: deadline,
-            reportTypeId: rt.id,
-            reportYear: year,
-            reportPeriod: period,
-            reportSectionId: sectionId ?? "",
-            createdById: admin.id,
-          },
-          include: { checklistItems: { select: { reportEntryId: true } } },
-        });
-        created++;
-      }
-
-      // Add checklist items for each applicable org
-      let position = task.checklistItems.length;
-      const sectionAccountantIds = new Set<string>();
-
-      for (const org of applicableOrgs) {
-        const entry = await prisma.reportEntry.findUnique({
+      for (const m of members) {
+        const existing = await prisma.notification.findFirst({
           where: {
-            organizationId_reportTypeId_year_period: {
-              organizationId: org.id,
-              reportTypeId: rt.id,
-              year,
-              period,
-            },
+            userId: m.userId,
+            type: "reporting_deadline",
+            title,
+            createdAt: { gte: todayStart },
           },
         });
-        if (!entry || entry.status === "NOT_APPLICABLE") continue;
+        if (existing) continue;
 
-        if (!existingEntryIds.has(entry.id)) {
-          await prisma.taskChecklistItem.create({
-            data: {
-              taskId: task.id,
-              text: org.name,
-              done: entry.status === "SUBMITTED" || entry.status === "ACCEPTED",
-              position: position++,
-              reportEntryId: entry.id,
-            },
-          });
-        }
-
-        org.section?.members.forEach((m) => sectionAccountantIds.add(m.userId));
-      }
-
-      // Assign section's accountants to this task
-      if (sectionAccountantIds.size > 0) {
-        const existingAssignees = await prisma.taskAssignee.findMany({
-          where: { taskId: task.id },
-          select: { userId: true },
-        });
-        const existingSet = new Set(existingAssignees.map((a) => a.userId));
-        const newAssignees = [...sectionAccountantIds].filter((id) => !existingSet.has(id));
-        if (newAssignees.length > 0) {
-          await prisma.taskAssignee.createMany({
-            data: newAssignees.map((userId) => ({ taskId: task!.id, userId })),
-            skipDuplicates: true,
-          });
-        }
+        await notifyWithTelegram(m.userId, "reporting_deadline", title, body, "/reporting", tgText);
+        sent++;
       }
     }
   }
 
-  return created;
-}
-
-// ─── Status sync ───
-
-/**
- * Call when a checklist item is toggled.
- * Syncs the linked report entry status.
- */
-export async function syncChecklistToEntry(checklistItemId: string): Promise<void> {
-  const item = await prisma.taskChecklistItem.findUnique({
-    where: { id: checklistItemId },
-    select: { done: true, reportEntryId: true, taskId: true },
-  });
-  if (!item?.reportEntryId) return;
-
-  if (item.done) {
-    await prisma.reportEntry.update({
-      where: { id: item.reportEntryId },
-      data: { status: "SUBMITTED", filedAt: new Date() },
-    });
-  } else {
-    const entry = await prisma.reportEntry.findUnique({
-      where: { id: item.reportEntryId },
-      select: { status: true },
-    });
-    if (entry?.status === "SUBMITTED") {
-      await prisma.reportEntry.update({
-        where: { id: item.reportEntryId },
-        data: { status: "NOT_SUBMITTED", filedAt: null },
-      });
-    }
-  }
-
-  // Update parent task status based on all checklist items
-  await updateTaskStatusFromChecklist(item.taskId);
-}
-
-/**
- * Call when a report entry status changes in the matrix.
- * Syncs the linked checklist item.
- */
-export async function syncEntryToChecklist(entryId: string, newStatus: string): Promise<void> {
-  const item = await prisma.taskChecklistItem.findUnique({
-    where: { reportEntryId: entryId },
-    select: { id: true, done: true, taskId: true },
-  });
-  if (!item) return;
-
-  const shouldBeDone = newStatus === "SUBMITTED" || newStatus === "ACCEPTED";
-  if (item.done !== shouldBeDone) {
-    await prisma.taskChecklistItem.update({
-      where: { id: item.id },
-      data: { done: shouldBeDone },
-    });
-  }
-
-  // Update parent task status
-  await updateTaskStatusFromChecklist(item.taskId);
-}
-
-/**
- * If all checklist items are done → task DONE.
- * If any are unchecked → task OPEN (unless already IN_PROGRESS).
- */
-async function updateTaskStatusFromChecklist(taskId: string): Promise<void> {
-  const task = await prisma.task.findUnique({
-    where: { id: taskId },
-    select: { status: true, reportTypeId: true, checklistItems: { select: { done: true } } },
-  });
-  if (!task || !task.reportTypeId) return; // only for report tasks
-
-  const allDone = task.checklistItems.length > 0 && task.checklistItems.every((ci) => ci.done);
-
-  if (allDone && task.status !== "DONE") {
-    await prisma.task.update({ where: { id: taskId }, data: { status: "DONE" } });
-  } else if (!allDone && task.status === "DONE") {
-    await prisma.task.update({ where: { id: taskId }, data: { status: "OPEN" } });
-  }
-}
-
-/**
- * Legacy compat — called from tasks route when task status changes.
- * For grouped report tasks: if task → DONE, mark all checklist entries as SUBMITTED.
- * If task reopened, mark all as NOT_SUBMITTED.
- */
-export async function syncTaskToEntries(taskId: string): Promise<void> {
-  const task = await prisma.task.findUnique({
-    where: { id: taskId },
-    select: {
-      status: true,
-      reportTypeId: true,
-      checklistItems: { select: { id: true, reportEntryId: true } },
-    },
-  });
-  if (!task?.reportTypeId) return;
-
-  const entryIds = task.checklistItems
-    .map((ci) => ci.reportEntryId)
-    .filter((id): id is string => id != null);
-  if (entryIds.length === 0) return;
-
-  if (task.status === "DONE") {
-    await prisma.reportEntry.updateMany({
-      where: { id: { in: entryIds }, status: "NOT_SUBMITTED" },
-      data: { status: "SUBMITTED", filedAt: new Date() },
-    });
-    await prisma.taskChecklistItem.updateMany({
-      where: { taskId, done: false },
-      data: { done: true },
-    });
-  } else if (task.status === "OPEN" || task.status === "IN_PROGRESS") {
-    await prisma.reportEntry.updateMany({
-      where: { id: { in: entryIds }, status: "SUBMITTED" },
-      data: { status: "NOT_SUBMITTED", filedAt: null },
-    });
-    await prisma.taskChecklistItem.updateMany({
-      where: { taskId, done: true },
-      data: { done: false },
-    });
-  }
+  return sent;
 }
 
 // ─── Cron ───
 
-export function startReportTaskGenerator(): void {
+export function startReportDeadlineNotifier(): void {
   setTimeout(async () => {
     try {
-      const count = await generateReportTasks();
+      const count = await sendDeadlineNotifications();
       if (count > 0)
-        console.log(`[report-task-generator] Created ${count} report tasks on startup`);
+        console.log(`[report-notifier] Sent ${count} deadline notifications on startup`);
     } catch (err) {
-      console.error("[report-task-generator] Startup run failed:", err);
+      console.error("[report-notifier] Startup run failed:", err);
     }
   }, 5_000);
 
@@ -498,15 +255,15 @@ export function startReportTaskGenerator(): void {
 
     setTimeout(async () => {
       try {
-        const count = await generateReportTasks();
-        if (count > 0) console.log(`[report-task-generator] Created ${count} report tasks`);
+        const count = await sendDeadlineNotifications();
+        if (count > 0) console.log(`[report-notifier] Sent ${count} deadline notifications`);
       } catch (err) {
-        console.error("[report-task-generator] Daily run failed:", err);
+        console.error("[report-notifier] Daily run failed:", err);
       }
       scheduleNext();
     }, ms);
   }
 
   scheduleNext();
-  console.log("[report-task-generator] Scheduled daily at 00:05");
+  console.log("[report-notifier] Scheduled daily at 00:05");
 }

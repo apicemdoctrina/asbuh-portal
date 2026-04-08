@@ -844,7 +844,17 @@ export default function TasksPage() {
         </div>
       )}
 
-      {commentTask && <TaskCommentsModal task={commentTask} onClose={() => setCommentTask(null)} />}
+      {commentTask && (
+        <TaskCommentsModal
+          task={commentTask}
+          onClose={() => {
+            setTasks((prev) =>
+              prev.map((t) => (t.id === commentTask.id ? { ...t, hasUnreadComments: false } : t)),
+            );
+            setCommentTask(null);
+          }}
+        />
+      )}
       {checklistTask && (
         <TaskChecklistModal
           task={checklistTask}
@@ -905,6 +915,11 @@ function GroupedTaskRow({
         </span>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium leading-tight truncate text-slate-800">{first.title}</p>
+          {first.description && (
+            <p className="text-[11px] text-slate-400 leading-snug truncate mt-0.5">
+              {first.description}
+            </p>
+          )}
           <div className="flex items-center gap-2.5 mt-0.5 text-[11px] flex-wrap">
             <span className="flex items-center gap-0.5 font-medium text-[#6567F1]">
               <Building2 size={10} />
@@ -1007,12 +1022,14 @@ function GroupedTaskRow({
                       e.stopPropagation();
                       onComment(task);
                     }}
-                    className={`relative p-1.5 transition-colors hover:text-[#6567F1] ${task._count?.comments > 0 ? "text-[#6567F1]" : "text-slate-300"}`}
-                    title={`Комментарии${task._count?.comments > 0 ? ` (${task._count.comments})` : ""}`}
+                    className={`relative p-1.5 transition-colors hover:text-[#6567F1] ${task.hasUnreadComments ? "text-orange-500" : task._count?.comments > 0 ? "text-[#6567F1]" : "text-slate-300"}`}
+                    title={`Комментарии${task._count?.comments > 0 ? ` (${task._count.comments})` : ""}${task.hasUnreadComments ? " · новые" : ""}`}
                   >
                     <MessageSquare size={13} />
                     {task._count?.comments > 0 && (
-                      <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-[#6567F1] text-white text-[7px] font-bold rounded-full flex items-center justify-center">
+                      <span
+                        className={`absolute -top-0.5 -right-0.5 w-3 h-3 text-white text-[7px] font-bold rounded-full flex items-center justify-center ${task.hasUnreadComments ? "bg-orange-500" : "bg-[#6567F1]"}`}
+                      >
                         {task._count.comments > 9 ? "9+" : task._count.comments}
                       </span>
                     )}
@@ -1273,12 +1290,14 @@ function KanbanCard({
           )}
           <button
             onClick={() => onComment(task)}
-            className={`relative p-1 transition-colors hover:text-[#6567F1] ${task._count?.comments > 0 ? "text-[#6567F1]" : "text-slate-300"}`}
-            title={`Комментарии${task._count?.comments > 0 ? ` (${task._count.comments})` : ""}`}
+            className={`relative p-1 transition-colors hover:text-[#6567F1] ${task.hasUnreadComments ? "text-orange-500" : task._count?.comments > 0 ? "text-[#6567F1]" : "text-slate-300"}`}
+            title={`Комментарии${task._count?.comments > 0 ? ` (${task._count.comments})` : ""}${task.hasUnreadComments ? " · новые" : ""}`}
           >
             <MessageSquare size={13} />
             {task._count?.comments > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-[#6567F1] text-white text-[7px] font-bold rounded-full flex items-center justify-center">
+              <span
+                className={`absolute -top-0.5 -right-0.5 w-3 h-3 text-white text-[7px] font-bold rounded-full flex items-center justify-center ${task.hasUnreadComments ? "bg-orange-500" : "bg-[#6567F1]"}`}
+              >
                 {task._count.comments > 9 ? "9+" : task._count.comments}
               </span>
             )}
@@ -1354,7 +1373,14 @@ function KanbanGroupCard({
         </div>
 
         {/* Title */}
-        <p className="text-sm font-medium leading-snug mb-1.5 text-slate-800">{first.title}</p>
+        <p className="text-sm font-medium leading-snug mb-1 text-slate-800">{first.title}</p>
+
+        {/* Description */}
+        {first.description && (
+          <p className="text-[11px] text-slate-400 leading-snug line-clamp-2 mb-1.5">
+            {first.description}
+          </p>
+        )}
 
         {/* Group badge + progress */}
         <div className="flex items-center gap-1.5 mb-1.5">
@@ -1425,9 +1451,17 @@ function KanbanGroupCard({
                 className={`flex items-center gap-2 px-3 py-1.5 ${taskOverdue ? "bg-red-50/30" : ""}`}
               >
                 <Building2 size={10} className="text-slate-400 shrink-0" />
-                <span className="text-[11px] text-slate-600 truncate flex-1 min-w-0">
-                  {task.organization?.name ?? "—"}
-                </span>
+                {task.organization ? (
+                  <Link
+                    to={`/organizations/${task.organization.id}`}
+                    className="text-[11px] text-slate-600 hover:text-[#6567F1] transition-colors truncate flex-1 min-w-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {task.organization.name}
+                  </Link>
+                ) : (
+                  <span className="text-[11px] text-slate-600 truncate flex-1 min-w-0">—</span>
+                )}
                 {canEditTask(task) ? (
                   <select
                     value={task.status}
@@ -1456,12 +1490,14 @@ function KanbanGroupCard({
                     e.stopPropagation();
                     onComment(task);
                   }}
-                  className={`relative p-1 transition-colors hover:text-[#6567F1] shrink-0 ${task._count?.comments > 0 ? "text-[#6567F1]" : "text-slate-300"}`}
-                  title={`Комментарии${task._count?.comments > 0 ? ` (${task._count.comments})` : ""}`}
+                  className={`relative p-1 transition-colors hover:text-[#6567F1] shrink-0 ${task.hasUnreadComments ? "text-orange-500" : task._count?.comments > 0 ? "text-[#6567F1]" : "text-slate-300"}`}
+                  title={`Комментарии${task._count?.comments > 0 ? ` (${task._count.comments})` : ""}${task.hasUnreadComments ? " · новые" : ""}`}
                 >
                   <MessageSquare size={11} />
                   {task._count?.comments > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#6567F1] text-white text-[6px] font-bold rounded-full flex items-center justify-center">
+                    <span
+                      className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 text-white text-[6px] font-bold rounded-full flex items-center justify-center ${task.hasUnreadComments ? "bg-orange-500" : "bg-[#6567F1]"}`}
+                    >
                       {task._count.comments}
                     </span>
                   )}
@@ -1638,12 +1674,14 @@ function TaskCard({
 
         <button
           onClick={() => onComment(task)}
-          className={`relative p-1.5 transition-colors hover:text-[#6567F1] ${task._count?.comments > 0 ? "text-[#6567F1]" : "text-slate-300"}`}
-          title={`Комментарии${task._count?.comments > 0 ? ` (${task._count.comments})` : ""}`}
+          className={`relative p-1.5 transition-colors hover:text-[#6567F1] ${task.hasUnreadComments ? "text-orange-500" : task._count?.comments > 0 ? "text-[#6567F1]" : "text-slate-300"}`}
+          title={`Комментарии${task._count?.comments > 0 ? ` (${task._count.comments})` : ""}${task.hasUnreadComments ? " · новые" : ""}`}
         >
           <MessageSquare size={14} />
           {task._count?.comments > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-[#6567F1] text-white text-[8px] font-bold rounded-full flex items-center justify-center leading-none">
+            <span
+              className={`absolute -top-0.5 -right-0.5 w-3.5 h-3.5 text-white text-[8px] font-bold rounded-full flex items-center justify-center leading-none ${task.hasUnreadComments ? "bg-orange-500" : "bg-[#6567F1]"}`}
+            >
               {task._count.comments > 9 ? "9+" : task._count.comments}
             </span>
           )}

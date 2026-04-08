@@ -7,7 +7,7 @@ import {
   startEscalationNotifier,
 } from "./lib/task-notifier.js";
 import { startTaskArchiver } from "./lib/task-archiver.js";
-import { startReportTaskGenerator } from "./lib/report-task-generator.js";
+import { startReportDeadlineNotifier } from "./lib/report-task-generator.js";
 
 const PORT = process.env.PORT || 3001;
 
@@ -54,4 +54,4 @@ startDailyNotifier();
 startDeadlineReminder();
 startEscalationNotifier();
 startTaskArchiver();
-startReportTaskGenerator();
+startReportDeadlineNotifier();

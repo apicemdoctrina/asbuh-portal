@@ -5,7 +5,6 @@ import { logAudit } from "../lib/audit.js";
 import { authenticate, requirePermission } from "../middleware/auth.js";
 import { notifyAssigned } from "../lib/task-notifier.js";
 import { createNotification } from "../lib/notify.js";
-import { syncTaskToEntries, syncChecklistToEntry } from "../lib/report-task-generator.js";
 
 const router = Router();
 
@@ -87,7 +86,29 @@ router.get("/", authenticate, requirePermission("task", "view"), async (req, res
       orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
     });
 
-    res.json(tasks);
+    // Compute hasUnreadComments for each task
+    const taskIds = tasks.map((t) => t.id);
+    const [lastComments, reads] = await Promise.all([
+      prisma.taskComment.groupBy({
+        by: ["taskId"],
+        where: { taskId: { in: taskIds } },
+        _max: { createdAt: true },
+      }),
+      prisma.taskCommentRead.findMany({
+        where: { taskId: { in: taskIds }, userId: req.user!.userId },
+      }),
+    ]);
+    const lastCommentMap = new Map(lastComments.map((c) => [c.taskId, c._max.createdAt]));
+    const readMap = new Map(reads.map((r) => [r.taskId, r.lastReadAt]));
+
+    const result = tasks.map((t) => {
+      const lastComment = lastCommentMap.get(t.id);
+      const lastRead = readMap.get(t.id);
+      const hasUnreadComments = !!lastComment && (!lastRead || lastComment > lastRead);
+      return { ...t, hasUnreadComments };
+    });
+
+    res.json(result);
   } catch (err) {
     console.error("GET /api/tasks error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -291,11 +312,6 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
       }
     }
 
-    // Sync report entries when task status changes
-    if (data.status) {
-      syncTaskToEntries(task.id).catch(console.error);
-    }
-
     await logAudit({
       action: "task.update",
       userId: req.user.userId,
@@ -379,6 +395,13 @@ router.get("/:id/comments", authenticate, requirePermission("task", "view"), asy
       where: { taskId: id },
       include: { author: { select: COMMENT_AUTHOR_SELECT } },
       orderBy: { createdAt: "asc" },
+    });
+
+    // Mark comments as read
+    await prisma.taskCommentRead.upsert({
+      where: { taskId_userId: { taskId: id, userId: req.user!.userId } },
+      update: { lastReadAt: new Date() },
+      create: { taskId: id, userId: req.user!.userId },
     });
 
     res.json(comments);
@@ -483,11 +506,6 @@ router.patch(
         where: { id: req.params.itemId },
         data,
       });
-
-      // Sync report entry if this checklist item is linked
-      if (data.done !== undefined) {
-        syncChecklistToEntry(item.id).catch(console.error);
-      }
 
       res.json(item);
     } catch (err) {
