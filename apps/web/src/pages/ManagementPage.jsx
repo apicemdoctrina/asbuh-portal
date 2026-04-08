@@ -27,7 +27,6 @@ import {
   Wallet,
   CreditCard,
   Banknote,
-  HelpCircle,
 } from "lucide-react";
 import SectionIcon from "../components/SectionIcon.jsx";
 import AnimalPicker from "../components/AnimalPicker.jsx";
@@ -1307,7 +1306,7 @@ export default function ManagementPage() {
             <Wallet size={18} className="text-[#6567F1]" />
             <h2 className="text-base font-semibold text-slate-900">Куда поступают платежи</h2>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             {[
               {
                 key: "BANK_TOCHKA",
@@ -1315,6 +1314,8 @@ export default function ManagementPage() {
                 icon: Banknote,
                 color: "text-emerald-600",
                 bg: "bg-emerald-50",
+                ring: "hover:ring-emerald-300",
+                link: "/payments",
               },
               {
                 key: "CARD",
@@ -1322,6 +1323,8 @@ export default function ManagementPage() {
                 icon: CreditCard,
                 color: "text-blue-600",
                 bg: "bg-blue-50",
+                ring: "hover:ring-blue-300",
+                link: "/payments?tab=cashcard",
               },
               {
                 key: "CASH",
@@ -1329,24 +1332,18 @@ export default function ManagementPage() {
                 icon: DollarSign,
                 color: "text-amber-600",
                 bg: "bg-amber-50",
+                ring: "hover:ring-amber-300",
+                link: "/payments?tab=cashcard",
               },
-              {
-                key: "UNKNOWN",
-                label: "Неизвестно",
-                icon: HelpCircle,
-                color: "text-slate-500",
-                bg: "bg-slate-50",
-              },
-            ].map(({ key, label, icon: Icon, color, bg }) => {
+            ].map(({ key, label, icon: Icon, color, bg, ring, link }) => {
               const item = dashboard.byPaymentDest.find((d) => d.destination === key);
               const revenue = item?.revenue ?? 0;
               const count = item?.count ?? 0;
-              const isClickable = key === "BANK_TOCHKA";
               return (
                 <div
                   key={key}
-                  className={`${bg} rounded-xl p-4 ${isClickable ? "cursor-pointer hover:ring-2 hover:ring-emerald-300 transition-all" : ""}`}
-                  onClick={isClickable ? () => navigate("/payments") : undefined}
+                  className={`${bg} rounded-xl p-4 cursor-pointer hover:ring-2 ${ring} transition-all`}
+                  onClick={() => navigate(link)}
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <Icon size={16} className={color} />

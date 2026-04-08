@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, Fragment } from "react";
-import { useNavigate, Link } from "react-router";
+import { useNavigate, useSearchParams, Link } from "react-router";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
@@ -19,7 +19,6 @@ import {
   Filter,
   Calculator,
   MessageSquare,
-  Banknote,
   Plus,
   Scale,
 } from "lucide-react";
@@ -403,6 +402,10 @@ function ReconciliationTab() {
   const [sectionFilter, setSectionFilter] = useState(""); // "" = all sections
 
   const [writingOff, setWritingOff] = useState(null); // orgId or groupId being written off
+
+  useEffect(() => {
+    handleReconcile();
+  }, []);
 
   async function handleWriteOff(orgId, groupId) {
     const target = groupId || orgId;
@@ -824,6 +827,10 @@ function CashCardTab() {
   const [saving, setSaving] = useState(false);
   const [writingOff, setWritingOff] = useState(null);
 
+  useEffect(() => {
+    handleReconcile();
+  }, []);
+
   async function handleWriteOff(orgId) {
     if (!confirm("Выполнить взаимозачёт? Баланс будет обнулён.")) return;
     setWritingOff(orgId);
@@ -1150,7 +1157,8 @@ function CashCardTab() {
 export default function PaymentsPage() {
   const { hasRole } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState("reconciliation");
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState(() => searchParams.get("tab") || "reconciliation");
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
   const [accounts, setAccounts] = useState([]);
@@ -1247,9 +1255,18 @@ export default function PaymentsPage() {
     return <div className="text-slate-400 text-center py-16">Нет доступа</div>;
   }
 
+  // Standalone cash/card page — no bank UI, no tabs
+  if (searchParams.get("tab") === "cashcard") {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-slate-900">Оплаты картой и наличными</h1>
+        <CashCardTab />
+      </div>
+    );
+  }
+
   const tabs = [
     { key: "reconciliation", label: "Сверка", icon: Calculator },
-    { key: "cashcard", label: "Наличные / Карта", icon: Banknote },
     { key: "transactions", label: "Транзакции", icon: DollarSign },
     { key: "summary", label: "По месяцам", icon: Clock },
   ];
@@ -1404,7 +1421,6 @@ export default function PaymentsPage() {
         <TransactionsTab onOrgClick={(id) => navigate(`/organizations/${id}`)} />
       )}
       {tab === "reconciliation" && <ReconciliationTab />}
-      {tab === "cashcard" && <CashCardTab />}
       {tab === "summary" && <SummaryTab />}
     </div>
   );

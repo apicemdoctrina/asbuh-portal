@@ -1544,4 +1544,82 @@ router.post(
   },
 );
 
+// ─── Auto-sync bank transactions daily ───────────────────────────────────────
+
+async function syncBankNow(): Promise<void> {
+  if (!TOCHKA_TOKEN) {
+    console.log("[bank-sync] TOCHKA_JWT_TOKEN not configured, skipping");
+    return;
+  }
+
+  const account = await prisma.bankAccount.findFirst({ orderBy: { createdAt: "asc" } });
+  if (!account) {
+    console.log("[bank-sync] No bank account configured, skipping");
+    return;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+
+  const DEPOSIT_KEYWORDS =
+    /возврат.*депозит|депозит.*возврат|возврат.*размещ|размещ.*возврат|процент.*депозит|депозит.*процент|выплата.*процент.*по.*депозит|%.*депозит|депозитн/i;
+
+  const allTx = await fetchTochkaTransactions(account.accountNumber, weekAgo, today);
+  const incoming = allTx.filter(
+    (tx) => tx.creditDebitIndicator === "Credit" && !DEPOSIT_KEYWORDS.test(tx.description || ""),
+  );
+
+  let imported = 0;
+  for (const tx of incoming) {
+    const externalId = tx.transactionId;
+    const exists = await prisma.bankTransaction.findUnique({ where: { externalId } });
+    if (exists) continue;
+
+    await prisma.bankTransaction.create({
+      data: {
+        bankAccountId: account.id,
+        externalId,
+        date: new Date(tx.documentProcessDate),
+        amount: Number(tx.Amount?.amount ?? 0),
+        payerName: tx.DebtorParty?.name || null,
+        payerInn: tx.DebtorParty?.inn || null,
+        payerAccount: tx.DebtorAccount?.identification || null,
+        purpose: tx.description || null,
+        matchStatus: "UNMATCHED",
+      },
+    });
+    imported++;
+  }
+
+  await prisma.bankAccount.update({
+    where: { id: account.id },
+    data: { lastSyncAt: new Date() },
+  });
+
+  const matched = await autoMatchTransactions();
+
+  console.log(`[bank-sync] Done: imported=${imported}, matched=${matched}`);
+}
+
+export function startBankAutoSync(): void {
+  // Run daily at 07:00
+  function scheduleNext() {
+    const now = new Date();
+    const next = new Date(now);
+    next.setHours(7, 0, 0, 0);
+    if (next <= now) next.setDate(next.getDate() + 1);
+    const delay = next.getTime() - now.getTime();
+    setTimeout(async () => {
+      try {
+        await syncBankNow();
+      } catch (err) {
+        console.error("[bank-sync] Error:", err);
+      }
+      scheduleNext();
+    }, delay);
+    console.log(`[bank-sync] Next sync scheduled at ${next.toLocaleString("ru-RU")}`);
+  }
+  scheduleNext();
+}
+
 export default router;

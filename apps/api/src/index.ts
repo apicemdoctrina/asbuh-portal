@@ -8,6 +8,7 @@ import {
 } from "./lib/task-notifier.js";
 import { startTaskArchiver } from "./lib/task-archiver.js";
 import { startReportDeadlineNotifier } from "./lib/report-task-generator.js";
+import { startBankAutoSync } from "./routes/payments.js";
 
 const PORT = process.env.PORT || 3001;
 
@@ -55,3 +56,4 @@ startDeadlineReminder();
 startEscalationNotifier();
 startTaskArchiver();
 startReportDeadlineNotifier();
+startBankAutoSync();
