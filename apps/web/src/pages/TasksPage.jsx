@@ -268,6 +268,8 @@ export default function TasksPage() {
       category: task.category,
       dueDate: task.dueDate ? task.dueDate.slice(0, 10) : "",
       organizationId: task.organizationId || "",
+      organizationIds: [],
+      addOrganizationIds: [],
       assignedToIds: task.assignees?.map((a) => a.userId) ?? [],
       recurrence: task.recurrenceType ? `${task.recurrenceType}:${task.recurrenceInterval}` : "",
     });
@@ -306,7 +308,12 @@ export default function TasksPage() {
         category: form.category,
         dueDate: form.dueDate || null,
         ...(editingTask
-          ? { organizationId: form.organizationId || null }
+          ? {
+              organizationId: form.organizationId || null,
+              addOrganizationIds: form.addOrganizationIds?.length
+                ? form.addOrganizationIds
+                : undefined,
+            }
           : { organizationIds: form.organizationIds }),
         assignedToIds: form.assignedToIds,
         recurrenceType: recurrenceType || null,
@@ -783,21 +790,33 @@ export default function TasksPage() {
               <div>
                 <label className={LABEL_CLS}>{editingTask ? "Организация" : "Организации"}</label>
                 {editingTask ? (
-                  <select
-                    value={form.organizationId}
-                    onChange={(e) => {
-                      setField("organizationId", e.target.value);
-                      setField("assignedToIds", []);
-                    }}
-                    className={SELECT_CLS}
-                  >
-                    <option value="">Без организации</option>
-                    {orgs.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.name}
-                      </option>
-                    ))}
-                  </select>
+                  <>
+                    <select
+                      value={form.organizationId}
+                      onChange={(e) => {
+                        setField("organizationId", e.target.value);
+                        setField("assignedToIds", []);
+                      }}
+                      className={SELECT_CLS}
+                    >
+                      <option value="">Без организации</option>
+                      {orgs.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="mt-2">
+                      <label className="block text-xs font-medium text-slate-500 mb-1">
+                        Добавить ещё организации (создаст копии задачи)
+                      </label>
+                      <OrgMultiSelect
+                        options={orgs.filter((o) => o.id !== form.organizationId)}
+                        value={form.addOrganizationIds || []}
+                        onChange={(ids) => setField("addOrganizationIds", ids)}
+                      />
+                    </div>
+                  </>
                 ) : (
                   <OrgMultiSelect
                     options={orgs}

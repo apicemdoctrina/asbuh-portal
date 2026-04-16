@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Source of truth
 
-- ARC.md = то, что мы УЖЕ сделали.
-- MVP.md = то, что нам НУЖНО сделать.
-- DESIGN_SYSTEM.md = визуальные правила UI.
-- BUSINESS_MODEL_LONG.md = как наше приложение соотносится с нашей бизнес-моделью и логикой.
+- `docs/ARC.md` = то, что мы УЖЕ сделали.
+- `docs/MVP.md` = то, что нам НУЖНО сделать.
+- `docs/DESIGN_SYSTEM.md` = визуальные правила UI.
+- `docs/BUSINESS_MODEL_LONG.md` = как наше приложение соотносится с нашей бизнес-моделью и логикой.
 
 ## Commands
 
@@ -46,7 +46,8 @@ Pre-commit hook (husky + lint-staged) runs eslint --fix + prettier on staged fil
 - **Routes**: `src/routes/*.ts` — each file exports a Router, mounted at `/api/<name>` in app.ts. Current routes: auth, users, sections, organizations, stats, work-contacts, audit-logs, knowledge, management, tasks, telegram, notifications, messages, tickets, client-groups, announcements, reporting, payments
 - **Auth middleware**: `src/middleware/auth.ts` — `authenticate` (JWT Bearer), `requireRole(...names)`, `requirePermission(entity, action)` (checks DB via Prisma)
 - **Prisma ORM**: schema at `prisma/schema.prisma`, singleton client at `src/lib/prisma.ts`
-- **Libs** (`src/lib/`): `audit.ts` (audit logging), `tokens.ts` (JWT sign/verify), `password.ts` (bcrypt), `crypto.ts` (AES-256-GCM for bank secrets), `notify.ts` (in-app notifications + SSE push), `telegram.ts` (bot API), `mailer.ts` (SMTP), `task-notifier.ts` (cron-like reminders/escalation), `sse-manager.ts` (SSE connections), `validators.ts` (Zod schemas), `route-helpers.ts`, `upload.ts` (multer file uploads, serves `/uploads` static dir)
+- **Libs** (`src/lib/`): `audit.ts` (audit logging), `tokens.ts` (JWT sign/verify), `password.ts` (bcrypt), `crypto.ts` (AES-256-GCM for bank secrets), `notify.ts` (in-app notifications + SSE push), `telegram.ts` (bot API), `mailer.ts` (SMTP), `task-notifier.ts` (cron-like reminders/escalation), `sse-manager.ts` (SSE connections), `validators.ts` (Zod schemas), `route-helpers.ts`, `upload.ts` (multer file uploads, serves `/uploads` static dir), `task-archiver.ts` (auto-archive old completed tasks), `report-task-generator.ts` (auto-create reporting tasks by deadline)
+- **Background jobs** (started in `index.ts`): `startDailyNotifier` (09:00 Telegram digest), `startDeadlineReminder` (every 30min, 24h before deadline), `startEscalationNotifier` (every hour, overdue → managers), `startTaskArchiver`, `startReportDeadlineNotifier`, `startBankAutoSync` (07:00 daily sync with Tochka bank, last 7 days)
 
 ### Frontend (`apps/web/`)
 
@@ -102,4 +103,17 @@ Schema additions not yet reflected everywhere in the codebase:
 - **RevenueSnapshot / Expense / Income** — финансовые снапшоты и расходы/доходы (управленческий учёт).
 - **BankAccount / BankTransaction / PaymentPeriod** — интеграция с Точка Банк (`/api/payments`). Sync через Open Banking API (JWT-авторизация, `TOCHKA_JWT_TOKEN` env). Enums: `TransactionMatchStatus` (UNMATCHED, AUTO, MANUAL, IGNORED), `PaymentPeriodStatus` (PENDING, PAID, PARTIAL, OVERDUE).
 - **Announcement / AnnouncementRead** — объявления сервиса (`/api/announcements`).
-- **PaymentDestination** enum на Organization — BANK_TOCHKA, CARD, CASH, UNKNOWN.
+- **PaymentDestination** enum на Organization — BANK_TOCHKA, CARD, CASH (UNKNOWN в enum есть, но в UI убран).
+- **PriceHistory** — история изменений цен организации. `Organization.monthlyPayment` обновляется автоматически при добавлении/удалении записи.
+- **BankTransaction.isManual** — ручные транзакции (наличные/карта), `bankAccountId` и `externalId` nullable для них.
+
+### Payments & debt calculation
+
+- Shared utility `calcExpected(org)` в `payments.ts` — считает ожидаемую сумму по price history с 01.01.2025.
+- **Групповой долг**: для организаций в `ClientGroup` долг считается на уровне группы (сумма ожиданий банковских орг минус сумма поступлений). Только `BANK_TOCHKA` орги учитываются в расчёте. Долг записывается на «флагмана» (орг с наибольшим `monthlyPayment`), остальные — 0.
+- `recalcOrgDebt(orgId)` вызывается после любого изменения транзакции (match/ignore/unignore/manual create/delete).
+- Reconciliation (`POST /api/payments/reconcile`) — полный пересчёт всех организаций.
+
+### Deploy
+
+Деплой описан в `DEPLOY.md`. Сервер: `app.asbuh.com`, API: systemd `asbuh-api.service`, фронт: nginx. Все `npm run ... -w apps/api` — только из корня `/opt/asbuh-portal`.

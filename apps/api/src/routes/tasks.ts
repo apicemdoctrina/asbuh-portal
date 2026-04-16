@@ -229,6 +229,7 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
       category,
       dueDate,
       organizationId,
+      addOrganizationIds,
       assignedToIds,
       recurrenceType,
       recurrenceInterval,
@@ -344,6 +345,68 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
           `${task.title}${orgName}`,
           taskLink,
         ).catch(console.error);
+      }
+    }
+
+    // Clone task for additional organizations
+    if (Array.isArray(addOrganizationIds) && addOrganizationIds.length > 0) {
+      // Use first clone as group anchor if original has no org
+      const firstClone = await prisma.task.create({
+        data: {
+          title: task.title,
+          description: task.description,
+          priority: task.priority,
+          category: task.category,
+          dueDate: task.dueDate,
+          recurrenceType: task.recurrenceType,
+          recurrenceInterval: task.recurrenceInterval,
+          organizationId: addOrganizationIds[0],
+          groupId: task.organizationId ? (task.groupId ?? task.id) : undefined,
+          createdById: req.user!.userId,
+        },
+      });
+
+      // Determine groupId: use existing, or first clone as anchor when original has no org
+      const groupId = task.organizationId ? (task.groupId ?? task.id) : firstClone.id;
+
+      // Set groupId on first clone if it wasn't set yet
+      if (!task.organizationId) {
+        await prisma.task.update({ where: { id: firstClone.id }, data: { groupId } });
+      }
+
+      // Create remaining clones
+      for (let i = 1; i < addOrganizationIds.length; i++) {
+        const cloned = await prisma.task.create({
+          data: {
+            title: task.title,
+            description: task.description,
+            priority: task.priority,
+            category: task.category,
+            dueDate: task.dueDate,
+            recurrenceType: task.recurrenceType,
+            recurrenceInterval: task.recurrenceInterval,
+            organizationId: addOrganizationIds[i],
+            groupId,
+            createdById: req.user!.userId,
+          },
+        });
+        if (task.assignees.length > 0) {
+          await prisma.taskAssignee.createMany({
+            data: task.assignees.map((a) => ({ taskId: cloned.id, userId: a.userId })),
+          });
+        }
+      }
+
+      // Copy assignees to first clone
+      if (task.assignees.length > 0) {
+        await prisma.taskAssignee.createMany({
+          data: task.assignees.map((a) => ({ taskId: firstClone.id, userId: a.userId })),
+        });
+      }
+
+      // Set groupId on original only if it has an org
+      if (task.organizationId && !task.groupId) {
+        await prisma.task.update({ where: { id: task.id }, data: { groupId } });
       }
     }
 

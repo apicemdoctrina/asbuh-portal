@@ -353,6 +353,22 @@ async function main() {
       deadlineDay: 25,
       deadlineMonthOffset: 1,
     },
+    {
+      code: "DOHOD_INOSTR",
+      name: "Доходы, выплачиваемые иностранным организациям",
+      frequency: "QUARTERLY" as const,
+      order: 14,
+      deadlineDay: 25,
+      deadlineMonthOffset: 1,
+    },
+    {
+      code: "USN_ADVANCE_NOTIF",
+      name: "УСН (авансы) — уведомление",
+      frequency: "QUARTERLY" as const,
+      order: 15,
+      deadlineDay: 25,
+      deadlineMonthOffset: 1,
+    },
   ];
 
   for (const rt of reportTypes) {
