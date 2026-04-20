@@ -6,3 +6,24 @@ dist
 build
 coverage
 apps/api/uploads/
+
+# local-only dev configs and assistant caches
+.claude/
+.serena/
+.playwright-mcp/
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+scripts/ai-review.js
+README.md
+DEPLOY.md
+
+# internal docs — local only
+docs/
+!docs/.gitkeep
+
+# local scratch / session files
+ANNOUNCE_DRAFT.md
+apps/web/lint_*.txt
+/nul
+/*.png
