@@ -114,9 +114,12 @@ export function isReportApplicable(reportCode: string, org: OrgInfo): boolean {
       return hasAny(ts, OSNO_SYSTEMS) && isJuridical(org);
     case "USN":
       return hasAny(ts, USN_SYSTEMS);
-    case "USN_ADVANCE":
     case "USN_ADVANCE_NOTIF":
       return hasAny(ts, USN_SYSTEMS);
+    case "AUSN_CALC":
+      return hasAny(ts, AUSN_SYSTEMS);
+    case "TRANSPORT_NOTIF":
+      return true;
     case "6NDFL":
       return hasEmployees(org) && !hasAny(ts, AUSN_SYSTEMS);
     case "RSV":
