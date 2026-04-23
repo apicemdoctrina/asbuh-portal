@@ -118,9 +118,13 @@ router.get("/", authenticate, async (req, res) => {
           lastSeenAt: true,
           salary: true,
           tax: true,
+          accountantType: true,
           userRoles: { include: { role: { select: { name: true } } } },
           sectionMembers: {
-            select: { section: { select: { id: true, number: true, name: true, animal: true } } },
+            select: {
+              expiresAt: true,
+              section: { select: { id: true, number: true, name: true, animal: true } },
+            },
           },
         },
       });
@@ -133,8 +137,12 @@ router.get("/", authenticate, async (req, res) => {
           lastName: u.lastName,
           isActive: u.isActive,
           lastSeenAt: u.lastSeenAt,
+          accountantType: u.accountantType,
           roles: u.userRoles.map((ur) => ur.role.name),
-          sections: u.sectionMembers.map((sm) => sm.section),
+          sections: u.sectionMembers.map((sm) => ({
+            ...sm.section,
+            expiresAt: sm.expiresAt,
+          })),
           ...(canSeeCompensation
             ? {
                 salary: u.salary !== null ? Number(u.salary) : null,
@@ -556,12 +564,21 @@ router.patch(
 );
 
 const ALLOWED_ROLES = ["admin", "manager", "accountant", "supervisor"];
+const ACCOUNTANT_TYPES = ["REPORTING", "PRIMARY", "UNIVERSAL"] as const;
 
 // PUT /api/users/:id — edit user (admin only)
 router.put("/:id", authenticate, requireRole("admin"), async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, email, roleNames, isActive, salary, tax } = req.body;
+    const { firstName, lastName, email, roleNames, isActive, salary, tax, accountantType } =
+      req.body;
+
+    if (accountantType !== undefined && accountantType !== null) {
+      if (!ACCOUNTANT_TYPES.includes(accountantType)) {
+        res.status(400).json({ error: "Недопустимый тип бухгалтера" });
+        return;
+      }
+    }
 
     // Validate roleNames if provided — exactly one role
     if (roleNames !== undefined) {
@@ -602,6 +619,21 @@ router.put("/:id", authenticate, requireRole("admin"), async (req, res) => {
       }
     }
 
+    // Admin is a singleton: cannot promote another user to admin if one already exists
+    if (roleNames !== undefined && roleNames[0] === "admin" && !targetIsAdmin) {
+      const existingAdmin = await prisma.user.findFirst({
+        where: {
+          id: { not: id },
+          userRoles: { some: { role: { name: "admin" } } },
+        },
+        select: { id: true },
+      });
+      if (existingAdmin) {
+        res.status(409).json({ error: "Администратор может быть только один" });
+        return;
+      }
+    }
+
     // Update user fields
     const data: Prisma.UserUpdateInput = {};
     if (firstName !== undefined) data.firstName = firstName;
@@ -610,6 +642,7 @@ router.put("/:id", authenticate, requireRole("admin"), async (req, res) => {
     if (isActive !== undefined) data.isActive = isActive;
     if (salary !== undefined) data.salary = salary === null ? null : Number(salary);
     if (tax !== undefined) data.tax = tax === null ? null : Number(tax);
+    if (accountantType !== undefined) data.accountantType = accountantType;
 
     try {
       await prisma.user.update({ where: { id }, data });

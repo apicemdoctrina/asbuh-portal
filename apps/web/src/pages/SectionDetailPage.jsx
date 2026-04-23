@@ -28,6 +28,9 @@ export default function SectionDetailPage() {
   const [allUsers, setAllUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [memberRole, setMemberRole] = useState("accountant");
+  const [memberIsTemporary, setMemberIsTemporary] = useState(false);
+  const [memberExpiresAt, setMemberExpiresAt] = useState("");
+  const [memberReason, setMemberReason] = useState("");
   const [addingMember, setAddingMember] = useState(false);
   const [memberError, setMemberError] = useState("");
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -105,12 +108,21 @@ export default function SectionDetailPage() {
       setMemberError("Выберите пользователя из списка");
       return;
     }
+    if (memberIsTemporary && !memberExpiresAt) {
+      setMemberError("Укажите дату окончания временного доступа");
+      return;
+    }
     setAddingMember(true);
     setMemberError("");
     try {
+      const body = { email: selectedUser.email, role: memberRole };
+      if (memberIsTemporary) {
+        body.expiresAt = new Date(memberExpiresAt).toISOString();
+        if (memberReason.trim()) body.reason = memberReason.trim();
+      }
       const res = await api(`/api/sections/${id}/members`, {
         method: "POST",
-        body: JSON.stringify({ email: selectedUser.email, role: memberRole }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -120,6 +132,9 @@ export default function SectionDetailPage() {
       setSelectedUser(null);
       setAllUsers([]);
       setMemberRole("accountant");
+      setMemberIsTemporary(false);
+      setMemberExpiresAt("");
+      setMemberReason("");
       setShowAddMember(false);
       fetchSection();
     } catch (err) {
@@ -152,6 +167,15 @@ export default function SectionDetailPage() {
     setAllUsers([]);
     setMemberError("");
     setMemberRole("accountant");
+    setMemberIsTemporary(false);
+    setMemberExpiresAt("");
+    setMemberReason("");
+  }
+
+  function formatExpiry(iso) {
+    if (!iso) return null;
+    const d = new Date(iso);
+    return d.toLocaleDateString("ru-RU");
   }
 
   if (loading)
@@ -272,6 +296,14 @@ export default function SectionDetailPage() {
                   <span className="ml-2 bg-[#6567F1]/10 text-[#6567F1] px-2 py-0.5 rounded-full text-xs font-medium">
                     {m.role}
                   </span>
+                  {m.expiresAt && (
+                    <span
+                      className="ml-2 bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-xs font-medium"
+                      title={m.reason || "Временное назначение"}
+                    >
+                      до {formatExpiry(m.expiresAt)}
+                    </span>
+                  )}
                 </div>
                 {canEdit && (
                   <button
@@ -400,6 +432,47 @@ export default function SectionDetailPage() {
                   <option value="auditor">Аудитор</option>
                 </select>
               </div>
+
+              <div className="border-t border-slate-100 pt-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={memberIsTemporary}
+                    onChange={(e) => setMemberIsTemporary(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                  />
+                  <span className="text-sm font-medium text-slate-700">Временное назначение</span>
+                </label>
+                {memberIsTemporary && (
+                  <div className="mt-3 space-y-3 pl-6">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Действует до *
+                      </label>
+                      <input
+                        type="date"
+                        value={memberExpiresAt}
+                        onChange={(e) => setMemberExpiresAt(e.target.value)}
+                        min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Причина
+                      </label>
+                      <input
+                        type="text"
+                        value={memberReason}
+                        onChange={(e) => setMemberReason(e.target.value)}
+                        placeholder="Замена, отпуск и т.д."
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {memberError && (
                 <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{memberError}</div>
               )}

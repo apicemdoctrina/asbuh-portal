@@ -110,7 +110,13 @@ router.get("/:id", authenticate, requirePermission("section", "view"), async (re
         members: {
           include: {
             user: {
-              select: { id: true, email: true, firstName: true, lastName: true },
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                accountantType: true,
+              },
             },
           },
         },
@@ -221,7 +227,7 @@ router.post(
   requirePermission("section", "edit"),
   async (req, res) => {
     try {
-      const { email, role } = req.body;
+      const { email, role, expiresAt, reason } = req.body;
 
       if (!email || !role) {
         res.status(400).json({ error: "email and role are required" });
@@ -234,6 +240,20 @@ router.post(
           error: `Invalid role. Must be one of: ${validRoles.join(", ")}`,
         });
         return;
+      }
+
+      let expiresAtDate: Date | null = null;
+      if (expiresAt) {
+        const d = new Date(expiresAt);
+        if (isNaN(d.getTime())) {
+          res.status(400).json({ error: "expiresAt must be a valid date" });
+          return;
+        }
+        if (d.getTime() <= Date.now()) {
+          res.status(400).json({ error: "expiresAt must be in the future" });
+          return;
+        }
+        expiresAtDate = d;
       }
 
       const section = await prisma.section.findUnique({
@@ -251,10 +271,23 @@ router.post(
       }
 
       const member = await prisma.sectionMember.create({
-        data: { sectionId: section.id, userId: user.id, role },
+        data: {
+          sectionId: section.id,
+          userId: user.id,
+          role,
+          expiresAt: expiresAtDate,
+          grantedById: req.user!.userId,
+          reason: reason?.trim() || null,
+        },
         include: {
           user: {
-            select: { id: true, email: true, firstName: true, lastName: true },
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              accountantType: true,
+            },
           },
         },
       });
@@ -281,20 +314,23 @@ router.post(
         userId: req.user!.userId,
         entity: "section",
         entityId: section.id,
-        details: { memberId: user.id, email, role },
+        details: { memberId: user.id, email, role, expiresAt: expiresAtDate, reason },
         ipAddress: req.ip,
       });
 
       const ROLE_LABELS: Record<string, string> = { accountant: "Бухгалтер", auditor: "Аудитор" };
       const roleLabel = ROLE_LABELS[role] ?? role;
       const sectionLabel = `участок №${section.number}${section.name ? ` (${section.name})` : ""}`;
+      const expirySuffix = expiresAtDate
+        ? ` (временно, до ${expiresAtDate.toLocaleDateString("ru-RU")})`
+        : "";
       notifyWithTelegram(
         user.id,
         "section_member_added",
         "Добавлены на участок",
-        `Вы добавлены на ${sectionLabel} с ролью «${roleLabel}»`,
+        `Вы добавлены на ${sectionLabel} с ролью «${roleLabel}»${expirySuffix}`,
         undefined,
-        `📂 <b>Вы добавлены на участок №${section.number}${section.name ? ` — ${section.name}` : ""}</b>\n\nРоль: ${roleLabel}`,
+        `📂 <b>Вы добавлены на участок №${section.number}${section.name ? ` — ${section.name}` : ""}</b>\n\nРоль: ${roleLabel}${expirySuffix ? `\n\n⏱ ${expirySuffix.trim()}` : ""}${reason ? `\n\nПричина: ${reason}` : ""}`,
       ).catch(console.error);
 
       res.status(201).json(member);

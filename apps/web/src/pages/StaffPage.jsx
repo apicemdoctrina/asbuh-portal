@@ -49,6 +49,12 @@ const ROLE_LABELS = {
   client: "Клиент",
 };
 
+const ACCOUNTANT_TYPE_LABELS = {
+  REPORTING: "Отчётность",
+  PRIMARY: "Первичка",
+  UNIVERSAL: "Универсал",
+};
+
 const ROLE_AVATAR_COLORS = {
   admin: "bg-[#6567F1] text-white",
   supervisor: "bg-purple-500 text-white",
@@ -249,6 +255,14 @@ export default function StaffPage() {
                           {ROLE_LABELS[r] || r}
                         </span>
                       ))}
+                    {u.roles.includes("accountant") && u.accountantType && (
+                      <span
+                        className="px-1.5 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-600 border border-emerald-200"
+                        title="Тип бухгалтера"
+                      >
+                        {ACCOUNTANT_TYPE_LABELS[u.accountantType]}
+                      </span>
+                    )}
                     {!u.isActive && (
                       <span className="px-1.5 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-400">
                         Неактивен
@@ -709,6 +723,7 @@ function EditStaffModal({ user: target, currentUserId, onClose, onUpdated }) {
     email: target.email,
     role: currentRole,
     isActive: target.isActive,
+    accountantType: target.accountantType ?? "",
   });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -769,6 +784,13 @@ function EditStaffModal({ user: target, currentUserId, onClose, onUpdated }) {
     if (!rolesDisabled) {
       body.roleNames = [form.role];
       body.isActive = form.isActive;
+    }
+
+    if (form.role === "accountant") {
+      body.accountantType = form.accountantType || null;
+    } else if (currentRole === "accountant" && form.role !== "accountant") {
+      // Cleared when role changes away from accountant
+      body.accountantType = null;
     }
 
     setSubmitting(true);
@@ -852,6 +874,37 @@ function EditStaffModal({ user: target, currentUserId, onClose, onUpdated }) {
               ))}
             </div>
           </div>
+          {form.role === "accountant" && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Тип бухгалтера
+              </label>
+              <div className="flex flex-wrap gap-3">
+                {Object.entries(ACCOUNTANT_TYPE_LABELS).map(([code, label]) => (
+                  <label key={code} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="accountantType"
+                      checked={form.accountantType === code}
+                      onChange={() => setField("accountantType", code)}
+                      className="w-4 h-4 border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                    />
+                    <span className="text-sm text-slate-700">{label}</span>
+                  </label>
+                ))}
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="accountantType"
+                    checked={!form.accountantType}
+                    onChange={() => setField("accountantType", "")}
+                    className="w-4 h-4 border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                  />
+                  <span className="text-sm text-slate-400">Не задан</span>
+                </label>
+              </div>
+            </div>
+          )}
           <div>
             <label
               className={`flex items-center gap-2 ${rolesDisabled || isSelf ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}

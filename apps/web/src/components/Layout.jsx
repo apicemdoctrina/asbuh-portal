@@ -37,7 +37,7 @@ const navItems = [
     permission: ["reporting", "view"],
   },
   { to: "/management", label: "Управление", icon: TrendingUp, roles: ["admin", "supervisor"] },
-  { to: "/staff", label: "Сотрудники", icon: Users, role: "admin" },
+  { to: "/staff", label: "Сотрудники", icon: Users, roles: ["admin", "supervisor"] },
   {
     to: "/organizations",
     label: "Организации",

@@ -81,7 +81,7 @@ function getTicketScopedWhere(req: Request): Record<string, any> {
   const roles: string[] = req.user!.roles;
   const userId = req.user!.userId;
 
-  if (roles.includes("admin")) return {};
+  if (roles.includes("admin") || roles.includes("supervisor")) return {};
   if (roles.includes("manager")) {
     return { organization: { section: { members: { some: { userId } } } } };
   }

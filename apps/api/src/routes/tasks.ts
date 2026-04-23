@@ -110,12 +110,32 @@ router.get("/", authenticate, requirePermission("task", "view"), async (req, res
     if (organizationId) {
       // Inside an org card — show all tasks for that org
       where.organizationId = organizationId as string;
-    } else if (!req.user!.roles.some((r) => ["admin", "supervisor"].includes(r))) {
-      // Tasks page — show only tasks the user created or is assigned to (not for admin)
-      where.OR = [
-        { createdById: req.user!.userId },
-        { assignees: { some: { userId: req.user!.userId } } },
-      ];
+    } else {
+      const roles = req.user!.roles;
+      const userId = req.user!.userId;
+      const isAdminOrSup = roles.some((r) => ["admin", "supervisor"].includes(r));
+      const isMgrOrAcc = roles.some((r) => ["manager", "accountant"].includes(r));
+
+      if (isAdminOrSup) {
+        // no scope filter — sees everything
+      } else if (isMgrOrAcc) {
+        // Tasks on any org within the user's sections +
+        // personal tasks (no org) they created or are assigned to
+        where.OR = [
+          { organization: { section: { members: { some: { userId } } } } },
+          {
+            AND: [
+              { organizationId: null },
+              {
+                OR: [{ createdById: userId }, { assignees: { some: { userId } } }],
+              },
+            ],
+          },
+        ];
+      } else {
+        // Client / other — only own created or assigned
+        where.OR = [{ createdById: userId }, { assignees: { some: { userId } } }];
+      }
     }
 
     if (assignedToId) where.assignees = { some: { userId: assignedToId as string } };

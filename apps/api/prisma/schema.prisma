@@ -7,45 +7,52 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  firstName    String   @map("first_name")
-  lastName     String   @map("last_name")
-  avatarPath   String?   @map("avatar_path")
-  phone        String?
-  birthDate    DateTime? @map("birth_date") @db.Date
-  salary       Decimal?  @db.Decimal(12, 2)
-  tax          Decimal?  @db.Decimal(12, 2)
-  lastSeenAt   DateTime? @map("last_seen_at")
-  isActive     Boolean   @default(true) @map("is_active")
-  notificationPreferences Json? @map("notification_preferences")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+enum AccountantType {
+  REPORTING // только отчётность
+  PRIMARY // только первичка
+  UNIVERSAL // и то, и другое
+}
 
-  userRoles           UserRole[]
-  refreshTokens       RefreshToken[]
-  sectionMembers      SectionMember[]
-  organizationMembers OrganizationMember[]
-  createdInvites      InviteToken[]
-  auditLogs           AuditLog[]
-  uploadedDocuments   OrganizationDocument[]
-  workContacts        WorkContact[]
-  knowledgeItems      KnowledgeItem[]
-  createdTasks        Task[]               @relation("TaskCreator")
-  taskAssignees       TaskAssignee[]
-  taskComments        TaskComment[]        @relation("TaskCommentAuthor")
-  taskCommentReads    TaskCommentRead[]
+model User {
+  id                      String          @id @default(uuid())
+  email                   String          @unique
+  passwordHash            String          @map("password_hash")
+  firstName               String          @map("first_name")
+  lastName                String          @map("last_name")
+  avatarPath              String?         @map("avatar_path")
+  phone                   String?
+  birthDate               DateTime?       @map("birth_date") @db.Date
+  salary                  Decimal?        @db.Decimal(12, 2)
+  tax                     Decimal?        @db.Decimal(12, 2)
+  lastSeenAt              DateTime?       @map("last_seen_at")
+  isActive                Boolean         @default(true) @map("is_active")
+  accountantType          AccountantType? @map("accountant_type")
+  notificationPreferences Json?           @map("notification_preferences")
+  createdAt               DateTime        @default(now()) @map("created_at")
+  updatedAt               DateTime        @updatedAt @map("updated_at")
+
+  userRoles            UserRole[]
+  refreshTokens        RefreshToken[]
+  sectionMembers       SectionMember[]
+  organizationMembers  OrganizationMember[]
+  createdInvites       InviteToken[]
+  auditLogs            AuditLog[]
+  uploadedDocuments    OrganizationDocument[]
+  workContacts         WorkContact[]
+  knowledgeItems       KnowledgeItem[]
+  createdTasks         Task[]                 @relation("TaskCreator")
+  taskAssignees        TaskAssignee[]
+  taskComments         TaskComment[]          @relation("TaskCommentAuthor")
+  taskCommentReads     TaskCommentRead[]
   telegramBinding      TelegramBinding?
   notifications        Notification[]
   passwordResetTokens  PasswordResetToken[]
-  messageTemplates     MessageTemplate[]    @relation("MessageTemplateCreator")
-  sentMessages         MessageLog[]         @relation("MessageLogSender")
-  createdTickets       Ticket[]             @relation("TicketCreator")
-  assignedTickets      Ticket[]             @relation("TicketAssignee")
-  ticketMessages       TicketMessage[]      @relation("TicketMessageAuthor")
-  createdAnnouncements Announcement[]       @relation("AnnouncementAuthor")
+  messageTemplates     MessageTemplate[]      @relation("MessageTemplateCreator")
+  sentMessages         MessageLog[]           @relation("MessageLogSender")
+  createdTickets       Ticket[]               @relation("TicketCreator")
+  assignedTickets      Ticket[]               @relation("TicketAssignee")
+  ticketMessages       TicketMessage[]        @relation("TicketMessageAuthor")
+  createdAnnouncements Announcement[]         @relation("AnnouncementAuthor")
   announcementReads    AnnouncementRead[]
   filedReportEntries   ReportEntry[]
 
@@ -117,11 +124,11 @@ model RefreshToken {
 
 enum DocumentType {
   CONTRACT // Договор
-  ACT      // Акт
-  INVOICE  // Счёт
-  REPORT   // Отчёт
-  WAYBILL  // Накладная
-  OTHER    // Прочее
+  ACT // Акт
+  INVOICE // Счёт
+  REPORT // Отчёт
+  WAYBILL // Накладная
+  OTHER // Прочее
 }
 
 enum TaxSystem {
@@ -161,30 +168,30 @@ enum ServiceType {
 }
 
 enum OrgForm {
-  OOO  // ООО
-  IP   // ИП
-  NKO  // НКО
-  AO   // АО
-  PAO  // ПАО
+  OOO // ООО
+  IP // ИП
+  NKO // НКО
+  AO // АО
+  PAO // ПАО
 }
 
 enum PaymentDestination {
-  BANK_TOCHKA  // Банк (Точка)
-  CARD         // Карта
-  CASH         // Наличные
-  UNKNOWN      // Неизвестно
+  BANK_TOCHKA // Банк (Точка)
+  CARD // Карта
+  CASH // Наличные
+  UNKNOWN // Неизвестно
 }
 
 enum PaymentFrequency {
-  MONTHLY       // Ежемесячно
-  QUARTERLY     // Ежеквартально
-  SEMI_ANNUAL   // Раз в полгода
+  MONTHLY // Ежемесячно
+  QUARTERLY // Ежеквартально
+  SEMI_ANNUAL // Раз в полгода
 }
 
 enum SystemAccessType {
-  KASSA   // Касса
-  ONE_C   // 1С
-  OTHER   // Другое
+  KASSA // Касса
+  ONE_C // 1С
+  OTHER // Другое
 }
 
 model Section {
@@ -202,16 +209,20 @@ model Section {
 }
 
 model SectionMember {
-  id        String @id @default(uuid())
-  sectionId String @map("section_id")
-  userId    String @map("user_id")
-  role      String // accountant, auditor
+  id          String    @id @default(uuid())
+  sectionId   String    @map("section_id")
+  userId      String    @map("user_id")
+  role        String // accountant, auditor
+  expiresAt   DateTime? @map("expires_at") // null = permanent
+  grantedById String?   @map("granted_by_id") // userId who granted (no FK for simplicity)
+  reason      String?
 
   section Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([sectionId, userId])
   @@index([userId])
+  @@index([expiresAt])
   @@map("section_members")
 }
 
@@ -239,10 +250,10 @@ model Organization {
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   // --- Общая ---
-  taxSystems      TaxSystem[]                    @map("tax_systems")
-  employeeCount   Int?                           @map("employee_count")
-  opsPerMonth     Int?                           @map("ops_per_month")
-  hasCashRegister Boolean     @default(false)    @map("has_cash_register")
+  taxSystems      TaxSystem[] @map("tax_systems")
+  employeeCount   Int?        @map("employee_count")
+  opsPerMonth     Int?        @map("ops_per_month")
+  hasCashRegister Boolean     @default(false) @map("has_cash_register")
 
   // --- Юридическая ---
   ogrn         String?
@@ -250,10 +261,10 @@ model Organization {
   legalAddress String? @map("legal_address")
 
   // --- Реквизиты ---
-  checkingAccount     String? @map("checking_account")
-  bik                 String?
+  checkingAccount      String? @map("checking_account")
+  bik                  String?
   correspondentAccount String? @map("correspondent_account")
-  requisitesBank      String? @map("requisites_bank")
+  requisitesBank       String? @map("requisites_bank")
 
   // --- Прочее ---
   importantComment String? @map("important_comment")
@@ -265,28 +276,28 @@ model Organization {
   serviceType            ServiceType?            @map("service_type")
 
   // --- Финансовая ---
-  monthlyPayment         Decimal?            @db.Decimal(12, 2) @map("monthly_payment")
-  paymentDestination     PaymentDestination?                     @map("payment_destination")
-  paymentFrequency       PaymentFrequency    @default(MONTHLY)   @map("payment_frequency")
-  serviceStartDate       DateTime?           @db.Date            @map("service_start_date")
-  debtAmount             Decimal?            @db.Decimal(12, 2)  @map("debt_amount")
-  paymentNote            String?                                  @map("payment_note")
+  monthlyPayment     Decimal?            @map("monthly_payment") @db.Decimal(12, 2)
+  paymentDestination PaymentDestination? @map("payment_destination")
+  paymentFrequency   PaymentFrequency    @default(MONTHLY) @map("payment_frequency")
+  serviceStartDate   DateTime?           @map("service_start_date") @db.Date
+  debtAmount         Decimal?            @map("debt_amount") @db.Decimal(12, 2)
+  paymentNote        String?             @map("payment_note")
 
-  section           Section?             @relation(fields: [sectionId], references: [id], onDelete: SetNull)
-  clientGroup       ClientGroup?         @relation(fields: [clientGroupId], references: [id], onDelete: SetNull)
-  members           OrganizationMember[]
-  inviteTokens      InviteToken[]
-  bankAccounts      OrganizationBankAccount[]
-  systemAccesses    OrganizationSystemAccess[]
-  contacts          OrganizationContact[]
-  documents         OrganizationDocument[]
-  tasks             Task[]
-messageLogs       MessageLog[]
-  tickets           Ticket[]
-  reportEntries     ReportEntry[]
-  bankTransactions  BankTransaction[]
-  paymentPeriods    PaymentPeriod[]
-  priceHistory      PriceHistory[]
+  section          Section?                   @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  clientGroup      ClientGroup?               @relation(fields: [clientGroupId], references: [id], onDelete: SetNull)
+  members          OrganizationMember[]
+  inviteTokens     InviteToken[]
+  bankAccounts     OrganizationBankAccount[]
+  systemAccesses   OrganizationSystemAccess[]
+  contacts         OrganizationContact[]
+  documents        OrganizationDocument[]
+  tasks            Task[]
+  messageLogs      MessageLog[]
+  tickets          Ticket[]
+  reportEntries    ReportEntry[]
+  bankTransactions BankTransaction[]
+  paymentPeriods   PaymentPeriod[]
+  priceHistory     PriceHistory[]
 
   @@index([sectionId])
   @@index([clientGroupId])
@@ -297,7 +308,7 @@ model PriceHistory {
   id             String   @id @default(uuid())
   organizationId String   @map("organization_id")
   price          Decimal  @db.Decimal(12, 2)
-  effectiveFrom  DateTime @db.Date @map("effective_from")
+  effectiveFrom  DateTime @map("effective_from") @db.Date
   createdAt      DateTime @default(now()) @map("created_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -424,11 +435,11 @@ enum KnowledgeAudience {
 }
 
 model KnowledgeItem {
-  id           String              @id @default(uuid())
-  title        String
-  type         KnowledgeItemType
-  audience     KnowledgeAudience
-  tags         String[]
+  id             String            @id @default(uuid())
+  title          String
+  type           KnowledgeItemType
+  audience       KnowledgeAudience
+  tags           String[]
   description    String?
   content        String?
   url            String?
@@ -438,9 +449,9 @@ model KnowledgeItem {
   storagePath    String?           @map("storage_path")
   mimeType       String?           @map("mime_type")
   fileSize       Int?              @map("file_size")
-  createdById  String              @map("created_by_id")
-  createdAt    DateTime            @default(now()) @map("created_at")
-  updatedAt    DateTime            @updatedAt @map("updated_at")
+  createdById    String            @map("created_by_id")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
 
   createdBy User @relation(fields: [createdById], references: [id], onDelete: Cascade)
 
@@ -481,34 +492,34 @@ model WorkContact {
 
 enum ExpenseType {
   RECURRING // постоянные (ежемесячные)
-  ONE_TIME  // разовые
+  ONE_TIME // разовые
 }
 
 model RevenueSnapshot {
-  id               String   @id @default(uuid())
-  year             Int
-  month            Int
+  id                String  @id @default(uuid())
+  year              Int
+  month             Int
   // Revenue
-  totalRevenue     Decimal  @db.Decimal(12, 2) @map("total_revenue")
-  orgCount         Int      @map("org_count")
-  orgsWithPayment  Int      @default(0) @map("orgs_with_payment")
-  avgCheck         Decimal  @db.Decimal(12, 2) @map("avg_check")
+  totalRevenue      Decimal @map("total_revenue") @db.Decimal(12, 2)
+  orgCount          Int     @map("org_count")
+  orgsWithPayment   Int     @default(0) @map("orgs_with_payment")
+  avgCheck          Decimal @map("avg_check") @db.Decimal(12, 2)
   // Payroll
-  payrollTotal     Decimal  @default(0) @db.Decimal(12, 2) @map("payroll_total")
-  staffCount       Int      @default(0) @map("staff_count")
+  payrollTotal      Decimal @default(0) @map("payroll_total") @db.Decimal(12, 2)
+  staffCount        Int     @default(0) @map("staff_count")
   // Expenses & Income
-  recurringExpenses Decimal @default(0) @db.Decimal(12, 2) @map("recurring_expenses")
-  oneTimeExpenses  Decimal  @default(0) @db.Decimal(12, 2) @map("one_time_expenses")
-  incomeTotal      Decimal  @default(0) @db.Decimal(12, 2) @map("income_total")
+  recurringExpenses Decimal @default(0) @map("recurring_expenses") @db.Decimal(12, 2)
+  oneTimeExpenses   Decimal @default(0) @map("one_time_expenses") @db.Decimal(12, 2)
+  incomeTotal       Decimal @default(0) @map("income_total") @db.Decimal(12, 2)
   // Profit
-  grossProfit      Decimal  @default(0) @db.Decimal(12, 2) @map("gross_profit")
-  margin           Decimal  @default(0) @db.Decimal(8, 4)
+  grossProfit       Decimal @default(0) @map("gross_profit") @db.Decimal(12, 2)
+  margin            Decimal @default(0) @db.Decimal(8, 4)
   // Debt & Clients
-  debtTotal        Decimal  @default(0) @db.Decimal(12, 2) @map("debt_total")
-  clientsActive    Int      @default(0) @map("clients_active")
-  clientsNew       Int      @default(0) @map("clients_new")
+  debtTotal         Decimal @default(0) @map("debt_total") @db.Decimal(12, 2)
+  clientsActive     Int     @default(0) @map("clients_active")
+  clientsNew        Int     @default(0) @map("clients_new")
 
-  createdAt        DateTime @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@unique([year, month])
   @@map("revenue_snapshots")
@@ -528,13 +539,13 @@ model Expense {
 }
 
 model Income {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   name        String
-  amount      Decimal  @db.Decimal(12, 2)
+  amount      Decimal   @db.Decimal(12, 2)
   date        DateTime?
   description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   @@map("incomes")
 }
@@ -590,13 +601,13 @@ model Task {
   createdAt          DateTime        @default(now()) @map("created_at")
   updatedAt          DateTime        @updatedAt @map("updated_at")
 
-  organization    Organization?       @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  reportType      ReportType?         @relation(fields: [reportTypeId], references: [id], onDelete: SetNull)
-  createdBy       User                @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Cascade)
-  assignees       TaskAssignee[]
-  comments        TaskComment[]
-  commentReads    TaskCommentRead[]
-  checklistItems  TaskChecklistItem[]
+  organization   Organization?       @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  reportType     ReportType?         @relation(fields: [reportTypeId], references: [id], onDelete: SetNull)
+  createdBy      User                @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  assignees      TaskAssignee[]
+  comments       TaskComment[]
+  commentReads   TaskCommentRead[]
+  checklistItems TaskChecklistItem[]
 
   @@unique([reportTypeId, reportYear, reportPeriod, reportSectionId])
   @@index([organizationId])
@@ -606,10 +617,10 @@ model Task {
 }
 
 model TaskComment {
-  id        String   @id @default(uuid())
-  taskId    String   @map("task_id")
-  authorId  String   @map("author_id")
-  text      String
+  id       String @id @default(uuid())
+  taskId   String @map("task_id")
+  authorId String @map("author_id")
+  text     String
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -633,14 +644,14 @@ model TaskCommentRead {
 }
 
 model TaskChecklistItem {
-  id             String    @id @default(uuid())
-  taskId         String    @map("task_id")
-  text           String
-  done           Boolean   @default(false)
-  position       Int       @default(0)
-  dueDate        DateTime? @map("due_date") @db.Date
-  reportEntryId  String?   @unique @map("report_entry_id")
-  createdAt      DateTime  @default(now()) @map("created_at")
+  id            String    @id @default(uuid())
+  taskId        String    @map("task_id")
+  text          String
+  done          Boolean   @default(false)
+  position      Int       @default(0)
+  dueDate       DateTime? @map("due_date") @db.Date
+  reportEntryId String?   @unique @map("report_entry_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
 
   task        Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
   reportEntry ReportEntry? @relation(fields: [reportEntryId], references: [id], onDelete: SetNull)
@@ -663,7 +674,7 @@ model TaskAssignee {
 model Notification {
   id        String    @id @default(uuid())
   userId    String    @map("user_id")
-  type      String    // "task_assigned" | "deadline_soon"
+  type      String // "task_assigned" | "deadline_soon"
   title     String
   body      String?
   link      String?
@@ -776,27 +787,27 @@ enum TicketPriority {
 }
 
 model Ticket {
-  id             String         @id @default(uuid())
-  number         Int            @unique @default(autoincrement())
-  subject        String
-  type           TicketType     @default(QUESTION)
-  status         TicketStatus   @default(NEW)
-  priority       TicketPriority @default(NORMAL)
+  id       String         @id @default(uuid())
+  number   Int            @unique @default(autoincrement())
+  subject  String
+  type     TicketType     @default(QUESTION)
+  status   TicketStatus   @default(NEW)
+  priority TicketPriority @default(NORMAL)
 
-  organizationId String         @map("organization_id")
-  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String       @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  createdById    String         @map("created_by_id")
-  createdBy      User           @relation("TicketCreator", fields: [createdById], references: [id])
+  createdById String @map("created_by_id")
+  createdBy   User   @relation("TicketCreator", fields: [createdById], references: [id])
 
-  assignedToId   String?        @map("assigned_to_id")
-  assignedTo     User?          @relation("TicketAssignee", fields: [assignedToId], references: [id])
+  assignedToId String? @map("assigned_to_id")
+  assignedTo   User?   @relation("TicketAssignee", fields: [assignedToId], references: [id])
 
-  closedAt       DateTime?      @map("closed_at")
-  createdAt      DateTime       @default(now()) @map("created_at")
-  updatedAt      DateTime       @updatedAt @map("updated_at")
+  closedAt  DateTime? @map("closed_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
 
-  messages       TicketMessage[]
+  messages TicketMessage[]
 
   @@index([organizationId, status])
   @@index([assignedToId])
@@ -810,14 +821,14 @@ model TicketMessage {
   isInternal Boolean   @default(false) @map("is_internal")
   deletedAt  DateTime? @map("deleted_at")
 
-  ticketId   String    @map("ticket_id")
-  ticket     Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticketId String @map("ticket_id")
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
-  authorId   String    @map("author_id")
-  author     User      @relation("TicketMessageAuthor", fields: [authorId], references: [id])
+  authorId String @map("author_id")
+  author   User   @relation("TicketMessageAuthor", fields: [authorId], references: [id])
 
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   attachments TicketAttachment[]
 
@@ -826,13 +837,13 @@ model TicketMessage {
 }
 
 model TicketAttachment {
-  id        String   @id @default(uuid())
-  fileName  String   @map("file_name")
-  fileKey   String   @map("file_key")
-  fileSize  Int      @map("file_size")
-  mimeType  String   @map("mime_type")
+  id       String @id @default(uuid())
+  fileName String @map("file_name")
+  fileKey  String @map("file_key")
+  fileSize Int    @map("file_size")
+  mimeType String @map("mime_type")
 
-  messageId String   @map("message_id")
+  messageId String        @map("message_id")
   message   TicketMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -853,16 +864,16 @@ enum AnnouncementAudience {
 }
 
 model Announcement {
-  id          String                @id @default(uuid())
+  id          String               @id @default(uuid())
   title       String
   body        String
-  type        AnnouncementType      @default(FEATURE)
-  audience    AnnouncementAudience  @default(STAFF)
-  publishedAt DateTime              @default(now()) @map("published_at")
-  authorId    String                @map("author_id")
-  author      User                  @relation("AnnouncementAuthor", fields: [authorId], references: [id])
+  type        AnnouncementType     @default(FEATURE)
+  audience    AnnouncementAudience @default(STAFF)
+  publishedAt DateTime             @default(now()) @map("published_at")
+  authorId    String               @map("author_id")
+  author      User                 @relation("AnnouncementAuthor", fields: [authorId], references: [id])
   reads       AnnouncementRead[]
-  createdAt   DateTime              @default(now()) @map("created_at")
+  createdAt   DateTime             @default(now()) @map("created_at")
 
   @@map("announcements")
 }
@@ -918,10 +929,10 @@ model ReportEntry {
   organizationId String            @map("organization_id")
   reportTypeId   String            @map("report_type_id")
   year           Int
-  period         Int               // month (1-12) for MONTHLY, quarter (1-4) for QUARTERLY, 0 for YEARLY
+  period         Int // month (1-12) for MONTHLY, quarter (1-4) for QUARTERLY, 0 for YEARLY
   status         ReportEntryStatus @default(NOT_SUBMITTED)
   filedAt        DateTime?         @map("filed_at") @db.Date
-  taxAmount      Decimal?          @db.Decimal(12, 2) @map("tax_amount")
+  taxAmount      Decimal?          @map("tax_amount") @db.Decimal(12, 2)
   comment        String?
   filedById      String?           @map("filed_by_id")
   createdAt      DateTime          @default(now()) @map("created_at")
@@ -942,16 +953,16 @@ model ReportEntry {
 // ─── Bank Integration ────────────────────────────────────────────────────────
 
 model BankAccount {
-  id            String   @id @default(uuid())
-  bankName      String   @map("bank_name") // "tochka"
-  accountNumber String   @unique @map("account_number")
-  accessToken   String?  @map("access_token")
-  refreshToken  String?  @map("refresh_token")
+  id             String    @id @default(uuid())
+  bankName       String    @map("bank_name") // "tochka"
+  accountNumber  String    @unique @map("account_number")
+  accessToken    String?   @map("access_token")
+  refreshToken   String?   @map("refresh_token")
   tokenExpiresAt DateTime? @map("token_expires_at")
-  isActive      Boolean  @default(true) @map("is_active")
-  lastSyncAt    DateTime? @map("last_sync_at")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  isActive       Boolean   @default(true) @map("is_active")
+  lastSyncAt     DateTime? @map("last_sync_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   transactions BankTransaction[]
 
@@ -959,21 +970,21 @@ model BankAccount {
 }
 
 model BankTransaction {
-  id              String    @id @default(uuid())
-  bankAccountId   String?   @map("bank_account_id")
-  externalId      String?   @unique @map("external_id") // ID from bank API (null for manual)
-  date            DateTime
-  amount          Decimal   @db.Decimal(12, 2)
-  payerName       String?   @map("payer_name")
-  payerInn        String?   @map("payer_inn")
-  payerAccount    String?   @map("payer_account")
-  purpose         String?   // назначение платежа
-  organizationId  String?   @map("organization_id")
-  matchStatus     TransactionMatchStatus @default(UNMATCHED) @map("match_status")
-  matchedAt       DateTime? @map("matched_at")
-  matchedBy       String?   @map("matched_by") // "auto" or userId
-  isManual        Boolean   @default(false) @map("is_manual")
-  createdAt       DateTime  @default(now()) @map("created_at")
+  id             String                 @id @default(uuid())
+  bankAccountId  String?                @map("bank_account_id")
+  externalId     String?                @unique @map("external_id") // ID from bank API (null for manual)
+  date           DateTime
+  amount         Decimal                @db.Decimal(12, 2)
+  payerName      String?                @map("payer_name")
+  payerInn       String?                @map("payer_inn")
+  payerAccount   String?                @map("payer_account")
+  purpose        String? // назначение платежа
+  organizationId String?                @map("organization_id")
+  matchStatus    TransactionMatchStatus @default(UNMATCHED) @map("match_status")
+  matchedAt      DateTime?              @map("matched_at")
+  matchedBy      String?                @map("matched_by") // "auto" or userId
+  isManual       Boolean                @default(false) @map("is_manual")
+  createdAt      DateTime               @default(now()) @map("created_at")
 
   bankAccount  BankAccount?  @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
@@ -986,10 +997,10 @@ model BankTransaction {
 }
 
 enum TransactionMatchStatus {
-  UNMATCHED  // не сопоставлен
-  AUTO       // автоматически по ИНН/названию
-  MANUAL     // вручную привязан
-  IGNORED    // игнорировать (не от клиента)
+  UNMATCHED // не сопоставлен
+  AUTO // автоматически по ИНН/названию
+  MANUAL // вручную привязан
+  IGNORED // игнорировать (не от клиента)
 }
 
 model PaymentPeriod {
@@ -1000,7 +1011,7 @@ model PaymentPeriod {
   expected       Decimal             @db.Decimal(12, 2) // monthlyPayment на момент расчёта
   received       Decimal             @default(0) @db.Decimal(12, 2)
   status         PaymentPeriodStatus @default(PENDING)
-  debtAmount     Decimal             @default(0) @db.Decimal(12, 2) @map("debt_amount")
+  debtAmount     Decimal             @default(0) @map("debt_amount") @db.Decimal(12, 2)
   createdAt      DateTime            @default(now()) @map("created_at")
   updatedAt      DateTime            @updatedAt @map("updated_at")
 
@@ -1013,8 +1024,8 @@ model PaymentPeriod {
 }
 
 enum PaymentPeriodStatus {
-  PENDING   // ещё не наступил дедлайн
-  PAID      // оплачено полностью
-  PARTIAL   // частично оплачено
-  OVERDUE   // просрочено (>15 дней)
+  PENDING // ещё не наступил дедлайн
+  PAID // оплачено полностью
+  PARTIAL // частично оплачено
+  OVERDUE // просрочено (>15 дней)
 }

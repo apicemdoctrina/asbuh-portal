@@ -106,7 +106,7 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "organization", action: "edit" },
     { entity: "document", action: "view" },
     { entity: "document", action: "create" },
-    { entity: "audit_log", action: "view" },
+    // NOTE: audit_log:view is admin-only by spec
     { entity: "organization_secret", action: "view" },
     { entity: "work_contact", action: "view" },
     { entity: "work_contact", action: "create" },

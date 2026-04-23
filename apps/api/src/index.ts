@@ -9,6 +9,7 @@ import {
 import { startTaskArchiver } from "./lib/task-archiver.js";
 import { startReportDeadlineNotifier } from "./lib/report-task-generator.js";
 import { startBankAutoSync } from "./routes/payments.js";
+import { startTemporarySectionRevoker } from "./lib/section-revoker.js";
 
 const PORT = process.env.PORT || 3001;
 
@@ -57,3 +58,4 @@ startEscalationNotifier();
 startTaskArchiver();
 startReportDeadlineNotifier();
 startBankAutoSync();
+startTemporarySectionRevoker();
