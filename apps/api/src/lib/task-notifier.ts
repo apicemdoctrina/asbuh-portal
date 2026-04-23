@@ -8,6 +8,7 @@
 import prisma from "./prisma.js";
 import { sendMessage } from "./telegram.js";
 import { createNotification } from "./notify.js";
+import { isNotificationEnabled } from "./notification-prefs.js";
 
 const REMINDER_HOURS = 24; // remind when dueDate is within this many hours
 
@@ -37,6 +38,7 @@ export async function notifyAssigned(task: {
   organization?: { name: string } | null;
   assignedBy?: { firstName: string; lastName: string } | null;
 }): Promise<void> {
+  if (!(await isNotificationEnabled(task.assignedToId, "task_assigned"))) return;
   const binding = await prisma.telegramBinding.findUnique({
     where: { userId: task.assignedToId },
   });
@@ -112,13 +114,14 @@ async function checkDeadlines(): Promise<void> {
 
     let notified = false;
     for (const recipientId of recipients) {
+      if (!(await isNotificationEnabled(recipientId, "deadline_soon"))) continue;
       const chatId = bindingMap.get(recipientId);
-      if (!chatId) continue;
-
-      await sendMessage(
-        chatId,
-        `⏰ <b>Скоро дедлайн!</b>\n\n${task.title}${org}\n📅 Срок: <b>${due}</b> (через ~${hoursLeft} ч.)`,
-      );
+      if (chatId) {
+        await sendMessage(
+          chatId,
+          `⏰ <b>Скоро дедлайн!</b>\n\n${task.title}${org}\n📅 Срок: <b>${due}</b> (через ~${hoursLeft} ч.)`,
+        );
+      }
       await createNotification(
         recipientId,
         "deadline_soon",
@@ -190,6 +193,7 @@ async function checkEscalations(): Promise<void> {
   }
 
   for (const manager of managers) {
+    if (!(await isNotificationEnabled(manager.id, "escalation"))) continue;
     if (manager.telegramBinding?.chatId) {
       await sendMessage(manager.telegramBinding.chatId, lines.join("\n"));
     }
@@ -250,6 +254,7 @@ async function sendDailyDigest(): Promise<void> {
   });
 
   for (const binding of bindings) {
+    if (!(await isNotificationEnabled(binding.userId, "task_daily_digest"))) continue;
     const tasks = await prisma.task.findMany({
       where: {
         status: { notIn: ["DONE", "CANCELLED"] },

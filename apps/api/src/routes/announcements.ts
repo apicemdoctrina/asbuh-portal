@@ -2,6 +2,7 @@ import { Router } from "express";
 import prisma from "../lib/prisma.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
 import { sendMessage } from "../lib/telegram.js";
+import { isNotificationEnabled } from "../lib/notification-prefs.js";
 
 const router = Router();
 
@@ -181,14 +182,22 @@ const typeLabel: Record<string, string> = {
 
 async function sendTelegramAnnouncement(title: string, body: string, type: string) {
   try {
-    const bindings = await prisma.telegramBinding.findMany({ select: { chatId: true } });
+    const bindings = await prisma.telegramBinding.findMany({
+      select: { userId: true, chatId: true },
+    });
     if (!bindings.length) return;
 
     const emoji = typeEmoji[type] ?? "📢";
     const label = typeLabel[type] ?? type;
     const text = `${emoji} <b>[${label}] ${title}</b>\n\n${body}`;
 
-    await Promise.allSettled(bindings.map((b) => sendMessage(b.chatId, text)));
+    const allowed = await Promise.all(
+      bindings.map(async (b) =>
+        (await isNotificationEnabled(b.userId, "announcement")) ? b : null,
+      ),
+    );
+    const targets = allowed.filter((b): b is NonNullable<typeof b> => b !== null);
+    await Promise.allSettled(targets.map((b) => sendMessage(b.chatId, text)));
   } catch (err) {
     console.error("[announcements] Telegram push error:", err);
   }

@@ -50,7 +50,13 @@ async function tgFetch(method: string, body?: object): Promise<any> {
       headers,
       body: body ? JSON.stringify(body) : undefined,
     });
-    return res.json();
+    const data = await res.json();
+    if (!res.ok || data?.ok === false) {
+      console.error(
+        `[Telegram] ${method} failed: status=${res.status} response=${JSON.stringify(data)}`,
+      );
+    }
+    return data;
   } catch (err) {
     console.error(`[Telegram] ${method} error:`, err);
     return null;

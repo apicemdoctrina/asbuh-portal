@@ -7,6 +7,7 @@ import { auditFromReq } from "../lib/audit.js";
 import { authLimiter } from "../middleware/rate-limit.js";
 import { authenticate, requireRole, requirePermission } from "../middleware/auth.js";
 import { sendPasswordResetEmail } from "../lib/mailer.js";
+import { sendMessage } from "../lib/telegram.js";
 import crypto from "node:crypto";
 
 const router = Router();
@@ -66,6 +67,12 @@ router.post("/login", authLimiter, async (req, res) => {
     setRefreshCookie(res, refreshToken);
 
     await auditFromReq(req, { action: "login", userId: user.id });
+
+    if (roles.includes("admin")) {
+      void sendAdminLoginAlert(user.id, user.email, req).catch((err) =>
+        console.error("[admin-login-alert]", err),
+      );
+    }
 
     res.json({
       accessToken,
@@ -536,5 +543,30 @@ router.post("/reset-password", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+async function sendAdminLoginAlert(
+  userId: string,
+  email: string,
+  req: import("express").Request,
+): Promise<void> {
+  const binding = await prisma.telegramBinding.findUnique({ where: { userId } });
+  if (!binding?.chatId) return;
+
+  const ip =
+    (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0].trim() || req.ip || "—";
+  const ua = (req.headers["user-agent"] as string | undefined) || "—";
+  const now = new Date().toLocaleString("ru-RU", { timeZone: "Europe/Moscow" });
+
+  const text = [
+    "🔐 <b>Вход в админ-аккаунт</b>",
+    "",
+    `👤 ${email}`,
+    `🕒 ${now} (МСК)`,
+    `🌐 IP: <code>${ip}</code>`,
+    `🖥 ${ua}`,
+  ].join("\n");
+
+  await sendMessage(binding.chatId, text);
+}
 
 export default router;

@@ -13,6 +13,8 @@ import {
   CheckCircle,
   Copy,
   Loader2,
+  Bell,
+  ChevronDown,
 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -44,6 +46,11 @@ export default function ProfilePage() {
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
 
+  // Notification preferences
+  const [notifPrefs, setNotifPrefs] = useState(null); // { preferences, types, groupLabels } | null
+  const [notifSavingType, setNotifSavingType] = useState(null);
+  const [notifExpanded, setNotifExpanded] = useState(false);
+
   // Telegram
   const [tgStatus, setTgStatus] = useState(null); // null=loading
   const [tgConnecting, setTgConnecting] = useState(false);
@@ -52,8 +59,42 @@ export default function ProfilePage() {
 
   useEffect(() => {
     fetchTgStatus();
+    fetchNotifPrefs();
     return () => clearInterval(tgPollRef.current);
   }, []);
+
+  async function fetchNotifPrefs() {
+    try {
+      const res = await api("/api/users/me/notification-preferences");
+      if (res.ok) setNotifPrefs(await res.json());
+    } catch {
+      // ignore
+    }
+  }
+
+  async function toggleNotifPref(type, nextValue) {
+    setNotifSavingType(type);
+    const prev = notifPrefs.preferences[type];
+    setNotifPrefs({
+      ...notifPrefs,
+      preferences: { ...notifPrefs.preferences, [type]: nextValue },
+    });
+    try {
+      const res = await api("/api/users/me/notification-preferences", {
+        method: "PUT",
+        body: JSON.stringify({ [type]: nextValue }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      // rollback
+      setNotifPrefs((cur) => ({
+        ...cur,
+        preferences: { ...cur.preferences, [type]: prev },
+      }));
+    } finally {
+      setNotifSavingType(null);
+    }
+  }
 
   async function fetchTgStatus() {
     try {
@@ -428,6 +469,78 @@ export default function ProfilePage() {
             </button>
           </div>
         )}
+      </div>
+
+      {/* Notification preferences card */}
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+        <button
+          type="button"
+          onClick={() => setNotifExpanded((v) => !v)}
+          className="w-full flex items-center justify-between text-left"
+        >
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+              <Bell size={20} className="text-[#6567F1]" />
+              Уведомления
+            </h2>
+            {!notifExpanded && (
+              <p className="text-sm text-slate-500 mt-1">
+                Нажмите, чтобы настроить типы уведомлений
+              </p>
+            )}
+          </div>
+          <ChevronDown
+            size={20}
+            className={`text-slate-400 transition-transform ${notifExpanded ? "rotate-180" : ""}`}
+          />
+        </button>
+        {notifExpanded && (
+          <p className="text-sm text-slate-500 mt-2 mb-4">
+            Отключение снимает и in-app, и Telegram-уведомления по этому типу.
+          </p>
+        )}
+        {notifExpanded &&
+          (notifPrefs === null ? (
+            <p className="text-sm text-slate-400 flex items-center gap-2">
+              <Loader2 size={14} className="animate-spin" /> Загрузка...
+            </p>
+          ) : (
+            <div className="space-y-5">
+              {Object.entries(notifPrefs.groupLabels).map(([groupId, groupLabel]) => {
+                const typesInGroup = notifPrefs.types.filter((t) => t.group === groupId);
+                if (typesInGroup.length === 0) return null;
+                return (
+                  <div key={groupId}>
+                    <h3 className="text-sm font-semibold text-slate-700 mb-2">{groupLabel}</h3>
+                    <div className="space-y-1.5 pl-1">
+                      {typesInGroup.map((t) => {
+                        const enabled = notifPrefs.preferences[t.type];
+                        const saving = notifSavingType === t.type;
+                        return (
+                          <label
+                            key={t.type}
+                            className="flex items-center gap-3 py-1 cursor-pointer text-sm text-slate-700 hover:text-slate-900"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={enabled}
+                              disabled={saving}
+                              onChange={(e) => toggleNotifPref(t.type, e.target.checked)}
+                              className="w-4 h-4 rounded border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                            />
+                            <span className="flex-1">{t.label}</span>
+                            {saving && (
+                              <Loader2 size={12} className="animate-spin text-slate-400" />
+                            )}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
       </div>
 
       {/* Change password card */}

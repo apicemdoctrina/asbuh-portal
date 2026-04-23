@@ -19,6 +19,7 @@ model User {
   salary       Decimal?  @db.Decimal(12, 2)
   lastSeenAt   DateTime? @map("last_seen_at")
   isActive     Boolean   @default(true) @map("is_active")
+  notificationPreferences Json? @map("notification_preferences")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 

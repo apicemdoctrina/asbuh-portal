@@ -1,6 +1,7 @@
 import prisma from "./prisma.js";
 import { pushToUser } from "./sse-manager.js";
 import { sendMessage } from "./telegram.js";
+import { isNotificationEnabled } from "./notification-prefs.js";
 
 export async function createNotification(
   userId: string,
@@ -9,6 +10,7 @@ export async function createNotification(
   body?: string,
   link?: string,
 ): Promise<void> {
+  if (!(await isNotificationEnabled(userId, type))) return;
   const notif = await prisma.notification.create({
     data: { userId, type, title, body: body ?? null, link: link ?? null },
   });
@@ -17,6 +19,7 @@ export async function createNotification(
 
 /**
  * Create an in-app notification AND send a Telegram message if the user has a binding.
+ * Both channels are suppressed if the user has disabled this notification type.
  * telegramText — HTML-formatted text for Telegram (falls back to title if omitted).
  */
 export async function notifyWithTelegram(
@@ -27,6 +30,7 @@ export async function notifyWithTelegram(
   link?: string,
   telegramText?: string,
 ): Promise<void> {
+  if (!(await isNotificationEnabled(userId, type))) return;
   await createNotification(userId, type, title, body, link);
 
   const binding = await prisma.telegramBinding.findUnique({ where: { userId } });

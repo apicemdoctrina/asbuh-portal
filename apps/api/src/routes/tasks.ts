@@ -4,7 +4,7 @@ import prisma from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
 import { authenticate, requirePermission } from "../middleware/auth.js";
 import { notifyAssigned } from "../lib/task-notifier.js";
-import { createNotification } from "../lib/notify.js";
+import { createNotification, notifyWithTelegram } from "../lib/notify.js";
 
 const router = Router();
 
@@ -23,6 +23,51 @@ const COMMENT_AUTHOR_SELECT = { id: true, firstName: true, lastName: true };
 
 function isAdminOrManager(roles: string[]) {
   return roles.some((r) => ["admin", "supervisor", "manager"].includes(r));
+}
+
+/**
+ * Collect notification recipients for a task event: current assignees + creator,
+ * minus the actor (author of the change) and minus users in `excludeUserIds`.
+ */
+async function getTaskRecipients(
+  taskId: string,
+  actorUserId: string,
+  excludeUserIds: string[] = [],
+): Promise<{ ids: string[]; taskTitle: string; orgId: string | null }> {
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    select: {
+      title: true,
+      organizationId: true,
+      createdById: true,
+      assignees: { select: { userId: true } },
+    },
+  });
+  if (!task) return { ids: [], taskTitle: "", orgId: null };
+  const exclude = new Set([actorUserId, ...excludeUserIds]);
+  const ids = new Set<string>();
+  if (task.createdById) ids.add(task.createdById);
+  for (const a of task.assignees) ids.add(a.userId);
+  for (const id of exclude) ids.delete(id);
+  return { ids: Array.from(ids), taskTitle: task.title, orgId: task.organizationId };
+}
+
+/** Notify recipients about a task change/comment. */
+async function notifyTaskRecipients(
+  taskId: string,
+  actorUserId: string,
+  type: string,
+  title: string,
+  body: string,
+  telegramText: string,
+  excludeUserIds: string[] = [],
+): Promise<void> {
+  const { ids, orgId } = await getTaskRecipients(taskId, actorUserId, excludeUserIds);
+  if (ids.length === 0) return;
+  const link = orgId ? `/organizations/${orgId}` : "/tasks";
+  await Promise.all(
+    ids.map((uid) => notifyWithTelegram(uid, type, title, body, link, telegramText)),
+  );
 }
 
 function calcNextDue(from: Date, type: string, interval: number): Date {
@@ -322,12 +367,14 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
     });
 
     // Notify newly added assignees
+    const newlyAddedAssignees: string[] = [];
     if (assignedToIds !== undefined) {
       const existingIds = new Set(existing.assignees.map((a) => a.userId));
       const orgName = task.organization ? ` · ${task.organization.name}` : "";
       const taskLink = task.organizationId ? `/organizations/${task.organizationId}` : "/tasks";
       for (const a of task.assignees) {
         if (existingIds.has(a.userId)) continue;
+        newlyAddedAssignees.push(a.userId);
         notifyAssigned({
           title: task.title,
           description: task.description,
@@ -346,6 +393,76 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
           taskLink,
         ).catch(console.error);
       }
+    }
+
+    const orgNameSuffix = task.organization ? ` · ${task.organization.name}` : "";
+
+    // Notify about deadline change
+    if (data.dueDate !== undefined) {
+      const oldDue = existing.dueDate?.toISOString().slice(0, 10) ?? "—";
+      const newDue = data.dueDate ? new Date(data.dueDate).toISOString().slice(0, 10) : "—";
+      if (oldDue !== newDue) {
+        notifyTaskRecipients(
+          task.id,
+          req.user!.userId,
+          "task_due_changed",
+          "Изменён срок задачи",
+          `«${task.title}»${orgNameSuffix}: ${oldDue} → ${newDue}`,
+          `📅 <b>Изменён срок задачи</b>\n\n«${task.title}»${orgNameSuffix}\n\n${oldDue} → <b>${newDue}</b>`,
+          newlyAddedAssignees,
+        ).catch(console.error);
+      }
+    }
+
+    // Notify about status change (opt-in, off by default)
+    if (data.status !== undefined && data.status !== existing.status) {
+      notifyTaskRecipients(
+        task.id,
+        req.user!.userId,
+        "task_status_changed",
+        "Изменён статус задачи",
+        `«${task.title}»${orgNameSuffix}: ${existing.status} → ${data.status}`,
+        `🔄 <b>Изменён статус задачи</b>\n\n«${task.title}»${orgNameSuffix}\n\n${existing.status} → <b>${data.status}</b>`,
+        newlyAddedAssignees,
+      ).catch(console.error);
+    }
+
+    // Notify about other field changes (opt-in, off by default)
+    const otherChanges: string[] = [];
+    if (data.title !== undefined && data.title !== existing.title) {
+      otherChanges.push(`название: «${existing.title}» → «${data.title}»`);
+    }
+    if (data.description !== undefined && data.description !== existing.description) {
+      otherChanges.push("описание изменено");
+    }
+    if (data.priority !== undefined && data.priority !== existing.priority) {
+      otherChanges.push(`приоритет: ${existing.priority} → ${data.priority}`);
+    }
+    if (data.category !== undefined && data.category !== existing.category) {
+      otherChanges.push(`категория: ${existing.category ?? "—"} → ${data.category ?? "—"}`);
+    }
+    if (assignedToIds !== undefined) {
+      const oldIds = new Set(existing.assignees.map((a) => a.userId));
+      const newIds = new Set(task.assignees.map((a) => a.userId));
+      const added = [...newIds].filter((x) => !oldIds.has(x)).length;
+      const removed = [...oldIds].filter((x) => !newIds.has(x)).length;
+      if (added || removed) {
+        const parts: string[] = [];
+        if (added) parts.push(`+${added}`);
+        if (removed) parts.push(`-${removed}`);
+        otherChanges.push(`исполнители (${parts.join(", ")})`);
+      }
+    }
+    if (otherChanges.length > 0) {
+      notifyTaskRecipients(
+        task.id,
+        req.user!.userId,
+        "task_updated",
+        "Изменение задачи",
+        `«${task.title}»${orgNameSuffix}: ${otherChanges.join("; ")}`,
+        `✏️ <b>Изменение задачи</b>\n\n«${task.title}»${orgNameSuffix}\n\n${otherChanges.map((c) => `• ${c}`).join("\n")}`,
+        newlyAddedAssignees,
+      ).catch(console.error);
     }
 
     // Clone task for additional organizations
@@ -492,6 +609,18 @@ router.post("/:id/comments", authenticate, requirePermission("task", "view"), as
       include: { author: { select: COMMENT_AUTHOR_SELECT } },
     });
 
+    const authorName =
+      `${comment.author.firstName ?? ""} ${comment.author.lastName ?? ""}`.trim() || "Сотрудник";
+    const preview = text.trim().length > 200 ? text.trim().slice(0, 200) + "…" : text.trim();
+    notifyTaskRecipients(
+      id,
+      req.user!.userId,
+      "task_comment",
+      "Новый комментарий к задаче",
+      `${authorName}: ${preview}`,
+      `💬 <b>Новый комментарий</b>\n\n«${task.title}»\n\n<b>${authorName}:</b>\n${preview}`,
+    ).catch(console.error);
+
     res.status(201).json(comment);
   } catch (err) {
     console.error("POST /api/tasks/:id/comments error:", err);
@@ -540,6 +669,15 @@ router.post("/:id/checklist", authenticate, requirePermission("task", "edit"), a
       },
     });
 
+    notifyTaskRecipients(
+      req.params.id,
+      req.user!.userId,
+      "task_checklist_changed",
+      "Изменение чек-листа",
+      `«${task.title}»: добавлен пункт «${item.text}»`,
+      `✏️ <b>Чек-лист задачи</b>\n\n«${task.title}»\n\n+ пункт: «${item.text}»`,
+    ).catch(console.error);
+
     res.status(201).json(item);
   } catch (err) {
     console.error("POST /api/tasks/:id/checklist error:", err);
@@ -570,6 +708,36 @@ router.patch(
         data,
       });
 
+      const parentTask = await prisma.task.findUnique({
+        where: { id: req.params.id },
+        select: { title: true },
+      });
+      if (parentTask) {
+        const changeParts: string[] = [];
+        if (data.done !== undefined && data.done !== existing.done) {
+          changeParts.push(data.done ? "✅ выполнен" : "↩ возвращён в работу");
+        }
+        if (data.text !== undefined && data.text !== existing.text) {
+          changeParts.push(`текст: «${existing.text}» → «${data.text}»`);
+        }
+        if (data.dueDate !== undefined) {
+          const oldDue = existing.dueDate?.toISOString().slice(0, 10) ?? "—";
+          const newDue = data.dueDate ? new Date(data.dueDate).toISOString().slice(0, 10) : "—";
+          if (oldDue !== newDue) changeParts.push(`срок пункта: ${oldDue} → ${newDue}`);
+        }
+        if (changeParts.length > 0) {
+          const summary = `пункт «${item.text}»: ${changeParts.join("; ")}`;
+          notifyTaskRecipients(
+            req.params.id,
+            req.user!.userId,
+            "task_checklist_changed",
+            "Изменение чек-листа",
+            `«${parentTask.title}»: ${summary}`,
+            `✏️ <b>Чек-лист задачи</b>\n\n«${parentTask.title}»\n\n${summary}`,
+          ).catch(console.error);
+        }
+      }
+
       res.json(item);
     } catch (err) {
       console.error("PATCH /api/tasks/:id/checklist/:itemId error:", err);
@@ -591,6 +759,22 @@ router.delete(
       if (!existing) return res.status(404).json({ error: "Item not found" });
 
       await prisma.taskChecklistItem.delete({ where: { id: req.params.itemId } });
+
+      const parentTask = await prisma.task.findUnique({
+        where: { id: req.params.id },
+        select: { title: true },
+      });
+      if (parentTask) {
+        notifyTaskRecipients(
+          req.params.id,
+          req.user!.userId,
+          "task_checklist_changed",
+          "Изменение чек-листа",
+          `«${parentTask.title}»: удалён пункт «${existing.text}»`,
+          `✏️ <b>Чек-лист задачи</b>\n\n«${parentTask.title}»\n\n− пункт: «${existing.text}»`,
+        ).catch(console.error);
+      }
+
       res.status(204).send();
     } catch (err) {
       console.error("DELETE /api/tasks/:id/checklist/:itemId error:", err);

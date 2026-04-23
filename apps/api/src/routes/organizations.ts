@@ -94,6 +94,69 @@ async function notifySectionMembers(
   );
 }
 
+/** Notify section members that org's status changed. */
+async function notifyOrgStatusChanged(
+  orgId: string,
+  oldStatus: string | null,
+  newStatus: string | null,
+  actorUserId: string,
+): Promise<void> {
+  const org = await prisma.organization.findUnique({
+    where: { id: orgId },
+    select: { name: true, sectionId: true, section: { select: { number: true } } },
+  });
+  if (!org?.sectionId) return;
+  const members = await prisma.sectionMember.findMany({
+    where: { sectionId: org.sectionId, userId: { not: actorUserId } },
+    select: { userId: true },
+  });
+  const sectionNum = org.section?.number ?? "—";
+  await Promise.all(
+    members.map((m) =>
+      notifyWithTelegram(
+        m.userId,
+        "org_status_changed",
+        "Изменён статус организации",
+        `«${org.name}»: ${oldStatus ?? "—"} → ${newStatus ?? "—"}`,
+        `/organizations/${orgId}`,
+        `🔄 <b>Статус организации изменён</b>\n\nОрганизация: «${org.name}»\nУчасток №${sectionNum}\n\n${oldStatus ?? "—"} → <b>${newStatus ?? "—"}</b>`,
+      ),
+    ),
+  );
+}
+
+/** Notify section members that org's monthly payment changed. */
+async function notifyOrgPaymentChanged(
+  orgId: string,
+  oldAmount: Prisma.Decimal | null,
+  newAmount: Prisma.Decimal | null,
+  actorUserId: string,
+): Promise<void> {
+  const org = await prisma.organization.findUnique({
+    where: { id: orgId },
+    select: { name: true, sectionId: true, section: { select: { number: true } } },
+  });
+  if (!org?.sectionId) return;
+  const members = await prisma.sectionMember.findMany({
+    where: { sectionId: org.sectionId, userId: { not: actorUserId } },
+    select: { userId: true },
+  });
+  const sectionNum = org.section?.number ?? "—";
+  const fmt = (v: Prisma.Decimal | null) => (v == null ? "—" : `${v.toString()} ₽`);
+  await Promise.all(
+    members.map((m) =>
+      notifyWithTelegram(
+        m.userId,
+        "org_payment_changed",
+        "Изменена сумма оплаты",
+        `«${org.name}»: ${fmt(oldAmount)} → ${fmt(newAmount)}`,
+        `/organizations/${orgId}`,
+        `💰 <b>Изменена сумма оплаты</b>\n\nОрганизация: «${org.name}»\nУчасток №${sectionNum}\n\n${fmt(oldAmount)} → <b>${fmt(newAmount)}</b>`,
+      ),
+    ),
+  );
+}
+
 /** Check if user has only client-level access (no admin/manager/accountant). */
 function isClientOnly(roles: string[]): boolean {
   return !roles.some((r) => ["admin", "manager", "accountant"].includes(r));
@@ -736,6 +799,30 @@ router.put("/:id", authenticate, requirePermission("organization", "edit"), asyn
         organization.id,
         req.user!.userId,
       ).catch(console.error);
+    }
+
+    // Notify section members if org status changed
+    if (validated.status !== undefined && validated.status !== existing.status) {
+      notifyOrgStatusChanged(
+        organization.id,
+        existing.status,
+        organization.status,
+        req.user!.userId,
+      ).catch(console.error);
+    }
+
+    // Notify section members if monthlyPayment changed via direct PUT (not via price-history)
+    if (validated.monthlyPayment !== undefined) {
+      const before = existing.monthlyPayment;
+      const after = organization.monthlyPayment;
+      const changed =
+        (before == null) !== (after == null) ||
+        (before != null && after != null && !before.equals(after));
+      if (changed) {
+        notifyOrgPaymentChanged(organization.id, before, after, req.user!.userId).catch(
+          console.error,
+        );
+      }
     }
 
     res.json(organization);
@@ -2023,7 +2110,7 @@ router.post(
 
       const org = await prisma.organization.findUnique({
         where: { id: req.params.id },
-        select: { id: true },
+        select: { id: true, monthlyPayment: true },
       });
       if (!org) {
         res.status(404).json({ error: "Organization not found" });
@@ -2048,6 +2135,16 @@ router.post(
           where: { id: req.params.id },
           data: { monthlyPayment: latest.price },
         });
+        const before = org.monthlyPayment;
+        const after = latest.price;
+        const changed =
+          (before == null) !== (after == null) ||
+          (before != null && after != null && !before.equals(after));
+        if (changed) {
+          notifyOrgPaymentChanged(req.params.id, before, after, req.user!.userId).catch(
+            console.error,
+          );
+        }
       }
 
       res.status(201).json(entry);
@@ -2065,6 +2162,10 @@ router.delete(
   requirePermission("organization", "edit"),
   async (req, res) => {
     try {
+      const before = await prisma.organization.findUnique({
+        where: { id: req.params.id },
+        select: { monthlyPayment: true },
+      });
       await prisma.priceHistory.delete({ where: { id: req.params.entryId } });
 
       // Update monthlyPayment to the latest remaining price
@@ -2076,6 +2177,17 @@ router.delete(
         where: { id: req.params.id },
         data: { monthlyPayment: latest ? latest.price : null },
       });
+
+      const beforeAmt = before?.monthlyPayment ?? null;
+      const afterAmt = latest ? latest.price : null;
+      const changed =
+        (beforeAmt == null) !== (afterAmt == null) ||
+        (beforeAmt != null && afterAmt != null && !beforeAmt.equals(afterAmt));
+      if (changed) {
+        notifyOrgPaymentChanged(req.params.id, beforeAmt, afterAmt, req.user!.userId).catch(
+          console.error,
+        );
+      }
 
       res.json({ success: true });
     } catch (err) {
