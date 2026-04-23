@@ -18,7 +18,7 @@ import {
   Redo2,
 } from "lucide-react";
 
-export default function RichTextEditor({ content, onChange }) {
+export default function RichTextEditor({ content, onChange, showImage = true }) {
   const fileInputRef = useRef(null);
 
   const editor = useEditor({
@@ -152,21 +152,25 @@ export default function RichTextEditor({ content, onChange }) {
         >
           <LinkIcon size={16} />
         </button>
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className={btnClass(false)}
-          title="Вставить изображение"
-        >
-          <ImagePlus size={16} />
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleImageUpload}
-        />
+        {showImage && (
+          <>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className={btnClass(false)}
+              title="Вставить изображение"
+            >
+              <ImagePlus size={16} />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleImageUpload}
+            />
+          </>
+        )}
         <div className="w-px h-5 bg-slate-200 mx-1" />
         <button
           type="button"

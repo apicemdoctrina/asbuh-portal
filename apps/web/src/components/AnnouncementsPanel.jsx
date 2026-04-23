@@ -2,6 +2,14 @@ import { useState, useEffect, useCallback } from "react";
 import { X, Plus, Megaphone, Loader2, Trash2, ChevronUp } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
+import RichTextEditor from "./RichTextEditor.jsx";
+
+function stripHtml(html) {
+  return html
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .trim();
+}
 
 const TYPE_META = {
   FEATURE: { label: "Новое", color: "bg-emerald-100 text-emerald-700" },
@@ -66,7 +74,7 @@ export default function AnnouncementsPanel({ onClose, onUnreadChange }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!form.title.trim() || !form.body.trim()) {
+    if (!form.title.trim() || !stripHtml(form.body)) {
       setError("Заполните заголовок и текст");
       return;
     }
@@ -169,12 +177,10 @@ export default function AnnouncementsPanel({ onClose, onUnreadChange }) {
                   className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#6567F1]"
                 />
               </div>
-              <textarea
-                value={form.body}
-                onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
-                placeholder="Описание изменений..."
-                rows={3}
-                className="text-sm border border-slate-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-[#6567F1]"
+              <RichTextEditor
+                content={form.body}
+                onChange={(html) => setForm((f) => ({ ...f, body: html }))}
+                showImage={false}
               />
               {error && <p className="text-xs text-red-500">{error}</p>}
               <div className="flex justify-end gap-2">
@@ -239,9 +245,10 @@ export default function AnnouncementsPanel({ onClose, onUnreadChange }) {
                         <p className="text-sm font-semibold text-slate-800 leading-snug">
                           {item.title}
                         </p>
-                        <p className="text-sm text-slate-600 mt-1 whitespace-pre-wrap leading-relaxed">
-                          {item.body}
-                        </p>
+                        <div
+                          className="tiptap-content text-sm text-slate-600 mt-1"
+                          dangerouslySetInnerHTML={{ __html: item.body }}
+                        />
                         <p className="text-xs text-slate-400 mt-2">
                           {formatDate(item.publishedAt)} · {item.author}
                         </p>

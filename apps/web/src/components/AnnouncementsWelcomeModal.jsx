@@ -67,9 +67,10 @@ export default function AnnouncementsWelcomeModal({ items, onClose }) {
                   <span className="text-xs text-slate-400">{formatDate(item.publishedAt)}</span>
                 </div>
                 <p className="text-sm font-semibold text-slate-800">{item.title}</p>
-                <p className="text-sm text-slate-600 mt-1 whitespace-pre-wrap leading-relaxed">
-                  {item.body}
-                </p>
+                <div
+                  className="tiptap-content text-sm text-slate-600 mt-1"
+                  dangerouslySetInnerHTML={{ __html: item.body }}
+                />
               </div>
             );
           })}
