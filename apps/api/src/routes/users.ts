@@ -103,6 +103,8 @@ router.get("/", authenticate, async (req, res) => {
         })),
       );
     } else {
+      const canSeeCompensation = isAdmin || req.user!.roles?.includes("supervisor") === true;
+
       const users = await prisma.user.findMany({
         where,
         take: 50,
@@ -114,6 +116,8 @@ router.get("/", authenticate, async (req, res) => {
           lastName: true,
           isActive: true,
           lastSeenAt: true,
+          salary: true,
+          tax: true,
           userRoles: { include: { role: { select: { name: true } } } },
           sectionMembers: {
             select: { section: { select: { id: true, number: true, name: true, animal: true } } },
@@ -131,6 +135,12 @@ router.get("/", authenticate, async (req, res) => {
           lastSeenAt: u.lastSeenAt,
           roles: u.userRoles.map((ur) => ur.role.name),
           sections: u.sectionMembers.map((sm) => sm.section),
+          ...(canSeeCompensation
+            ? {
+                salary: u.salary !== null ? Number(u.salary) : null,
+                tax: u.tax !== null ? Number(u.tax) : null,
+              }
+            : {}),
         })),
       );
     }
@@ -437,6 +447,7 @@ router.get("/:id", authenticate, requireRole("admin"), async (req, res) => {
       phone: user.phone,
       birthDate: user.birthDate,
       salary: user.salary !== null ? Number(user.salary) : null,
+      tax: user.tax !== null ? Number(user.tax) : null,
       lastSeenAt: user.lastSeenAt,
       isActive: user.isActive,
       createdAt: user.createdAt,
@@ -492,13 +503,65 @@ router.patch("/:id/password", authenticate, requireRole("admin"), async (req, re
   }
 });
 
+// PATCH /api/users/:id/compensation — set salary & tax (admin or supervisor)
+router.patch(
+  "/:id/compensation",
+  authenticate,
+  requireRole("admin", "supervisor"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { salary, tax } = req.body ?? {};
+
+      function parseAmount(v: unknown): number | null | "invalid" {
+        if (v === null || v === undefined || v === "") return null;
+        const n = typeof v === "number" ? v : Number(v);
+        if (!Number.isFinite(n) || n < 0) return "invalid";
+        return n;
+      }
+
+      const salaryParsed = parseAmount(salary);
+      const taxParsed = parseAmount(tax);
+      if (salaryParsed === "invalid" || taxParsed === "invalid") {
+        res.status(400).json({ error: "Некорректные суммы" });
+        return;
+      }
+
+      const target = await prisma.user.findUnique({ where: { id } });
+      if (!target) {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
+
+      await prisma.user.update({
+        where: { id },
+        data: { salary: salaryParsed, tax: taxParsed },
+      });
+
+      await logAudit({
+        action: "user_compensation_updated",
+        userId: req.user!.userId,
+        entity: "user",
+        entityId: id,
+        details: { salary: salaryParsed, tax: taxParsed },
+        ipAddress: req.ip,
+      });
+
+      res.json({ ok: true, salary: salaryParsed, tax: taxParsed });
+    } catch (err) {
+      console.error("Update compensation error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
 const ALLOWED_ROLES = ["admin", "manager", "accountant", "supervisor"];
 
 // PUT /api/users/:id — edit user (admin only)
 router.put("/:id", authenticate, requireRole("admin"), async (req, res) => {
   try {
     const { id } = req.params;
-    const { firstName, lastName, email, roleNames, isActive, salary } = req.body;
+    const { firstName, lastName, email, roleNames, isActive, salary, tax } = req.body;
 
     // Validate roleNames if provided — exactly one role
     if (roleNames !== undefined) {
@@ -546,6 +609,7 @@ router.put("/:id", authenticate, requireRole("admin"), async (req, res) => {
     if (email !== undefined) data.email = email;
     if (isActive !== undefined) data.isActive = isActive;
     if (salary !== undefined) data.salary = salary === null ? null : Number(salary);
+    if (tax !== undefined) data.tax = tax === null ? null : Number(tax);
 
     try {
       await prisma.user.update({ where: { id }, data });
@@ -587,7 +651,7 @@ router.put("/:id", authenticate, requireRole("admin"), async (req, res) => {
       userId: req.user!.userId,
       entity: "user",
       entityId: id,
-      details: { firstName, lastName, email, roleNames, isActive, salary },
+      details: { firstName, lastName, email, roleNames, isActive, salary, tax },
       ipAddress: req.ip,
     });
 

@@ -17,6 +17,7 @@ model User {
   phone        String?
   birthDate    DateTime? @map("birth_date") @db.Date
   salary       Decimal?  @db.Decimal(12, 2)
+  tax          Decimal?  @db.Decimal(12, 2)
   lastSeenAt   DateTime? @map("last_seen_at")
   isActive     Boolean   @default(true) @map("is_active")
   notificationPreferences Json? @map("notification_preferences")

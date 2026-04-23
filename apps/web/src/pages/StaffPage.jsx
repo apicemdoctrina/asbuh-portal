@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   AlertCircle,
   ListTodo,
+  Wallet,
 } from "lucide-react";
 import SectionIcon from "../components/SectionIcon.jsx";
 
@@ -66,6 +67,11 @@ function getInitials(firstName, lastName) {
   return `${(lastName?.[0] ?? "").toUpperCase()}${(firstName?.[0] ?? "").toUpperCase()}`;
 }
 
+function formatMoney(n) {
+  if (n == null) return "—";
+  return Math.round(Number(n)).toLocaleString("ru-RU");
+}
+
 function getPrimaryRole(roles) {
   for (const r of ["admin", "supervisor", "manager", "accountant"]) {
     if (roles.includes(r)) return r;
@@ -81,8 +87,11 @@ export default function StaffPage() {
   const [search, setSearch] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const [compUser, setCompUser] = useState(null);
 
   const isAdmin = hasRole("admin");
+  const isSupervisor = hasRole("supervisor");
+  const canManageCompensation = isAdmin || isSupervisor;
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -265,6 +274,24 @@ export default function StaffPage() {
                   )}
                 </div>
 
+                {/* Compensation (admin/supervisor only) */}
+                {canManageCompensation && (
+                  <div className="flex flex-col items-end w-24 shrink-0 text-xs leading-tight">
+                    <span
+                      className={`font-semibold ${u.salary != null ? "text-slate-700" : "text-slate-300"}`}
+                      title="Зарплата"
+                    >
+                      {formatMoney(u.salary)} ₽
+                    </span>
+                    <span
+                      className={`${u.tax != null ? "text-slate-400" : "text-slate-300"}`}
+                      title="Налог"
+                    >
+                      +{formatMoney(u.tax)} ₽
+                    </span>
+                  </div>
+                )}
+
                 {/* KPI stats */}
                 <div className="flex items-center gap-2 shrink-0">
                   {/* Active tasks */}
@@ -349,16 +376,27 @@ export default function StaffPage() {
                 </div>
 
                 {/* Actions */}
-                {isAdmin && (
+                {(isAdmin || canManageCompensation) && (
                   <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                    <button
-                      onClick={() => setEditingUser(u)}
-                      className="p-1.5 text-slate-400 hover:text-[#6567F1] hover:bg-[#6567F1]/8 rounded-lg transition-colors"
-                      title="Редактировать"
-                    >
-                      <Pencil size={15} />
-                    </button>
-                    {canDelete(u) && (
+                    {canManageCompensation && (
+                      <button
+                        onClick={() => setCompUser(u)}
+                        className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                        title="Зарплата и налог"
+                      >
+                        <Wallet size={15} />
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button
+                        onClick={() => setEditingUser(u)}
+                        className="p-1.5 text-slate-400 hover:text-[#6567F1] hover:bg-[#6567F1]/8 rounded-lg transition-colors"
+                        title="Редактировать"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                    )}
+                    {isAdmin && canDelete(u) && (
                       <button
                         onClick={() => handleDelete(u)}
                         className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
@@ -387,6 +425,125 @@ export default function StaffPage() {
           onUpdated={handleUpdated}
         />
       )}
+
+      {compUser && (
+        <CompensationModal
+          user={compUser}
+          onClose={() => setCompUser(null)}
+          onSaved={() => {
+            setCompUser(null);
+            fetchUsers();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function CompensationModal({ user: target, onClose, onSaved }) {
+  const [salary, setSalary] = useState(target.salary != null ? String(target.salary) : "");
+  const [tax, setTax] = useState(target.tax != null ? String(target.tax) : "");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  function parseInput(v) {
+    const s = v.trim().replace(/\s+/g, "").replace(",", ".");
+    if (s === "") return null;
+    const n = Number(s);
+    if (!Number.isFinite(n) || n < 0) return "invalid";
+    return n;
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+    const s = parseInput(salary);
+    const t = parseInput(tax);
+    if (s === "invalid" || t === "invalid") {
+      setError("Суммы должны быть неотрицательными числами");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await api(`/api/users/${target.id}/compensation`, {
+        method: "PATCH",
+        body: JSON.stringify({ salary: s, tax: t }),
+      });
+      if (res.ok) {
+        onSaved();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Ошибка сохранения");
+      }
+    } catch {
+      setError("Сетевая ошибка");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Зарплата и налог</h2>
+            <p className="text-sm text-slate-500 mt-0.5">
+              {target.lastName} {target.firstName}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Зарплата, ₽</label>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={salary}
+              onChange={(e) => setSalary(e.target.value)}
+              placeholder="0"
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Налог, ₽</label>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={tax}
+              onChange={(e) => setTax(e.target.value)}
+              placeholder="0"
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+            />
+          </div>
+          {error && (
+            <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>
+          )}
+          <div className="flex justify-end gap-3 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+            >
+              Отмена
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white shadow-lg shadow-[#6567F1]/30 transition-all disabled:opacity-50"
+            >
+              {submitting && <Loader2 size={14} className="animate-spin" />}
+              Сохранить
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
