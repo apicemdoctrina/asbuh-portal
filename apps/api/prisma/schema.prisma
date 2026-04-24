@@ -600,6 +600,8 @@ model Task {
   createdById        String          @map("created_by_id")
   createdAt          DateTime        @default(now()) @map("created_at")
   updatedAt          DateTime        @updatedAt @map("updated_at")
+  visibleToClient    Boolean         @default(false) @map("visible_to_client")
+  completedAt        DateTime?       @map("completed_at")
 
   organization   Organization?       @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   reportType     ReportType?         @relation(fields: [reportTypeId], references: [id], onDelete: SetNull)
@@ -613,6 +615,7 @@ model Task {
   @@index([organizationId])
   @@index([dueDate])
   @@index([groupId])
+  @@index([organizationId, visibleToClient, status])
   @@map("tasks")
 }
 

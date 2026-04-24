@@ -27,3 +27,4 @@ ANNOUNCE_DRAFT.md
 apps/web/lint_*.txt
 /nul
 /*.png
+.superpowers/
