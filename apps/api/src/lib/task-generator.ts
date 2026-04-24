@@ -12,6 +12,7 @@ export type TaskTemplate = {
   dueDate: Date | null;
   recurrenceType: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY" | null;
   recurrenceInterval: number;
+  visibleToClient: boolean;
 };
 
 type OrgParams = {
@@ -230,6 +231,12 @@ export function generateTaskTemplates(org: OrgParams): TaskTemplate[] {
       recurrenceType: "MONTHLY",
       recurrenceInterval: 1,
     });
+  }
+
+  // Default client visibility: REPORTING tasks (декларации, отчёты) видны клиенту;
+  // PAYMENT/DOCUMENTS/OTHER — внутренние, бухгалтер может включить вручную.
+  for (const t of tasks) {
+    t.visibleToClient = t.category === "REPORTING";
   }
 
   return tasks;
