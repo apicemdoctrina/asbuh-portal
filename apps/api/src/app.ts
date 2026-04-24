@@ -19,6 +19,7 @@ import clientGroupsRouter from "./routes/client-groups.js";
 import announcementsRouter from "./routes/announcements.js";
 import reportingRouter from "./routes/reporting.js";
 import paymentsRouter from "./routes/payments.js";
+import healthRouter from "./routes/health.js";
 import { UPLOADS_DIR } from "./lib/upload.js";
 
 const app = express();
@@ -59,6 +60,7 @@ app.use("/api/client-groups", clientGroupsRouter);
 app.use("/api/announcements", announcementsRouter);
 app.use("/api/reporting", reportingRouter);
 app.use("/api/payments", paymentsRouter);
+app.use("/api/admin/health", healthRouter);
 
 // Global error handler (Express requires all 4 params for error middleware)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

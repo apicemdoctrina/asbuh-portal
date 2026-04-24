@@ -37,9 +37,25 @@ export type TgMessage = {
   text?: string;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function tgFetch(method: string, body?: object): Promise<any> {
-  if (!BOT_TOKEN) return null;
+let onFailure: ((err: unknown) => void) | null = null;
+let onSuccess: (() => void) | null = null;
+export function setTelegramHealthReporters(
+  failure: (err: unknown) => void,
+  success: () => void,
+): void {
+  onFailure = failure;
+  onSuccess = success;
+}
+
+type TgFetchResult = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: any;
+  ok: boolean;
+  error?: unknown;
+};
+
+async function tgFetchRaw(method: string, body?: object): Promise<TgFetchResult> {
+  if (!BOT_TOKEN) return { data: null, ok: false, error: new Error("TELEGRAM_BOT_TOKEN not set") };
   try {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (TG_PROXY_URL && TG_PROXY_SECRET) {
@@ -55,16 +71,43 @@ async function tgFetch(method: string, body?: object): Promise<any> {
       console.error(
         `[Telegram] ${method} failed: status=${res.status} response=${JSON.stringify(data)}`,
       );
+      return {
+        data,
+        ok: false,
+        error: new Error(`status=${res.status} body=${JSON.stringify(data)}`),
+      };
     }
-    return data;
+    return { data, ok: true };
   } catch (err) {
     console.error(`[Telegram] ${method} error:`, err);
-    return null;
+    return { data: null, ok: false, error: err };
   }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function tgFetch(method: string, body?: object): Promise<any> {
+  const { data, ok, error } = await tgFetchRaw(method, body);
+  // Only user-facing methods should trigger health reporting — getUpdates failures
+  // are expected during outages and would cause noise.
+  if (method === "sendMessage") {
+    if (ok) onSuccess?.();
+    else onFailure?.(error);
+  }
+  return data;
 }
 
 export async function sendMessage(chatId: string | number, text: string): Promise<void> {
   await tgFetch("sendMessage", { chat_id: chatId, text, parse_mode: "HTML" });
+}
+
+/**
+ * Send a Telegram message without invoking health-alert hooks.
+ * Used internally by health-alerts to avoid recursion.
+ * Returns true on success.
+ */
+export async function sendMessageRaw(chatId: string | number, text: string): Promise<boolean> {
+  const { ok } = await tgFetchRaw("sendMessage", { chat_id: chatId, text, parse_mode: "HTML" });
+  return ok;
 }
 
 let cachedBotName: string | null = null;

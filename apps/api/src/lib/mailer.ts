@@ -14,13 +14,42 @@ const transporter = process.env.SMTP_HOST
 
 const FROM = process.env.SMTP_FROM || "noreply@asbuh.local";
 
+let onFailure: ((err: unknown) => void) | null = null;
+let onSuccess: (() => void) | null = null;
+export function setSmtpHealthReporters(failure: (err: unknown) => void, success: () => void): void {
+  onFailure = failure;
+  onSuccess = success;
+}
+
+/**
+ * Send an email without invoking health-alert hooks.
+ * Returns true on success. Used internally by health-alerts to avoid recursion.
+ * If SMTP is not configured, returns false (caller should fall back).
+ */
+export async function sendEmailRaw(to: string, subject: string, html: string): Promise<boolean> {
+  if (!transporter) return false;
+  try {
+    await transporter.sendMail({ from: FROM, to, subject, html });
+    return true;
+  } catch (err) {
+    console.error(`[Mailer] sendEmailRaw failed for ${to}:`, err);
+    return false;
+  }
+}
+
 export async function sendEmail(to: string, subject: string, html: string): Promise<void> {
   if (!transporter) {
     console.log(`[Mailer] Email to ${to}:\n  Subject: ${subject}\n  Body: ${html}`);
     return;
   }
-
-  await transporter.sendMail({ from: FROM, to, subject, html });
+  try {
+    await transporter.sendMail({ from: FROM, to, subject, html });
+    onSuccess?.();
+  } catch (err) {
+    console.error(`[Mailer] sendEmail failed for ${to}:`, err);
+    onFailure?.(err);
+    throw err;
+  }
 }
 
 export async function sendPasswordResetEmail(to: string, resetUrl: string): Promise<void> {
@@ -30,22 +59,29 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
     return;
   }
 
-  await transporter.sendMail({
-    from: FROM,
-    to,
-    subject: "Сброс пароля — ASBUH Portal",
-    html: `
-      <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-        <h2 style="color:#6567F1">Сброс пароля</h2>
-        <p>Вы запросили сброс пароля для своей учётной записи.</p>
-        <p>
-          <a href="${resetUrl}"
-             style="display:inline-block;padding:12px 24px;background:#6567F1;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
-            Сбросить пароль
-          </a>
-        </p>
-        <p style="color:#888;font-size:13px">Ссылка действительна 1 час. Если вы не запрашивали сброс — просто проигнорируйте это письмо.</p>
-      </div>
-    `,
-  });
+  try {
+    await transporter.sendMail({
+      from: FROM,
+      to,
+      subject: "Сброс пароля — ASBUH Portal",
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+          <h2 style="color:#6567F1">Сброс пароля</h2>
+          <p>Вы запросили сброс пароля для своей учётной записи.</p>
+          <p>
+            <a href="${resetUrl}"
+               style="display:inline-block;padding:12px 24px;background:#6567F1;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
+              Сбросить пароль
+            </a>
+          </p>
+          <p style="color:#888;font-size:13px">Ссылка действительна 1 час. Если вы не запрашивали сброс — просто проигнорируйте это письмо.</p>
+        </div>
+      `,
+    });
+    onSuccess?.();
+  } catch (err) {
+    console.error(`[Mailer] sendPasswordResetEmail failed for ${to}:`, err);
+    onFailure?.(err);
+    throw err;
+  }
 }
