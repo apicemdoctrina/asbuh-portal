@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { Outlet, NavLink, Link, useNavigate, useLocation } from "react-router";
+import { Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
   LayoutDashboard,
@@ -324,7 +326,15 @@ export default function Layout() {
       {/* Main content */}
       <main className="pt-20 lg:pl-60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Outlet />
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center py-16 text-slate-400">
+                <Loader2 size={24} className="animate-spin" />
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </div>
       </main>
 

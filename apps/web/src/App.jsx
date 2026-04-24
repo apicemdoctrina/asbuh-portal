@@ -1,3 +1,4 @@
+import { lazy } from "react";
 import { BrowserRouter, Routes, Route } from "react-router";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { NotificationProvider } from "./context/NotificationContext.jsx";
@@ -7,29 +8,32 @@ import Layout from "./components/Layout.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 
+// Frequently-hit pages — stay in main bundle
 import OrganizationsPage from "./pages/OrganizationsPage.jsx";
-import OrganizationDetailPage from "./pages/OrganizationDetailPage.jsx";
-import StaffPage from "./pages/StaffPage.jsx";
-import ClientsPage from "./pages/ClientsPage.jsx";
-import UserProfilePage from "./pages/UserProfilePage.jsx";
-import WorkContactsPage from "./pages/WorkContactsPage.jsx";
-import AuditLogPage from "./pages/AuditLogPage.jsx";
-import KnowledgePage from "./pages/KnowledgePage.jsx";
-import ManagementPage from "./pages/ManagementPage.jsx";
-import PaymentsPage from "./pages/PaymentsPage.jsx";
-import MyPaymentsPage from "./pages/MyPaymentsPage.jsx";
 import TasksPage from "./pages/TasksPage.jsx";
+import TicketsPage from "./pages/TicketsPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import InvitePage from "./pages/InvitePage.jsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
-import MessageTemplatesPage from "./pages/MessageTemplatesPage.jsx";
-import KnowledgeArticlePage from "./pages/KnowledgeArticlePage.jsx";
-import TicketsPage from "./pages/TicketsPage.jsx";
-import TicketDetailPage from "./pages/TicketDetailPage.jsx";
-import ReportingPage from "./pages/ReportingPage.jsx";
-import ClientGroupDetailPage from "./pages/ClientGroupDetailPage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
+
+// Heavy / rarely-visited pages — split into async chunks
+const OrganizationDetailPage = lazy(() => import("./pages/OrganizationDetailPage.jsx"));
+const StaffPage = lazy(() => import("./pages/StaffPage.jsx"));
+const ClientsPage = lazy(() => import("./pages/ClientsPage.jsx"));
+const UserProfilePage = lazy(() => import("./pages/UserProfilePage.jsx"));
+const WorkContactsPage = lazy(() => import("./pages/WorkContactsPage.jsx"));
+const AuditLogPage = lazy(() => import("./pages/AuditLogPage.jsx"));
+const KnowledgePage = lazy(() => import("./pages/KnowledgePage.jsx"));
+const KnowledgeArticlePage = lazy(() => import("./pages/KnowledgeArticlePage.jsx"));
+const ManagementPage = lazy(() => import("./pages/ManagementPage.jsx"));
+const PaymentsPage = lazy(() => import("./pages/PaymentsPage.jsx"));
+const MyPaymentsPage = lazy(() => import("./pages/MyPaymentsPage.jsx"));
+const MessageTemplatesPage = lazy(() => import("./pages/MessageTemplatesPage.jsx"));
+const TicketDetailPage = lazy(() => import("./pages/TicketDetailPage.jsx"));
+const ReportingPage = lazy(() => import("./pages/ReportingPage.jsx"));
+const ClientGroupDetailPage = lazy(() => import("./pages/ClientGroupDetailPage.jsx"));
 
 export default function App() {
   return (

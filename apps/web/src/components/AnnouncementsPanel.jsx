@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import { X, Plus, Megaphone, Loader2, Trash2, ChevronUp } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
-import RichTextEditor from "./RichTextEditor.jsx";
+
+const RichTextEditor = lazy(() => import("./RichTextEditor.jsx"));
 
 function stripHtml(html) {
   return html
@@ -177,11 +178,19 @@ export default function AnnouncementsPanel({ onClose, onUnreadChange }) {
                   className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#6567F1]"
                 />
               </div>
-              <RichTextEditor
-                content={form.body}
-                onChange={(html) => setForm((f) => ({ ...f, body: html }))}
-                showImage={false}
-              />
+              <Suspense
+                fallback={
+                  <div className="h-52 border border-slate-200 rounded-lg flex items-center justify-center text-slate-400">
+                    <Loader2 size={20} className="animate-spin" />
+                  </div>
+                }
+              >
+                <RichTextEditor
+                  content={form.body}
+                  onChange={(html) => setForm((f) => ({ ...f, body: html }))}
+                  showImage={false}
+                />
+              </Suspense>
               {error && <p className="text-xs text-red-500">{error}</p>}
               <div className="flex justify-end gap-2">
                 <button
