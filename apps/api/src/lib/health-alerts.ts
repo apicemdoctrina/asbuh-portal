@@ -31,7 +31,7 @@ type AdminTarget = { id: string; email: string; chatId: string | null };
 
 async function getAdmins(): Promise<AdminTarget[]> {
   const users = await prisma.user.findMany({
-    where: { roles: { some: { role: { name: "admin" } } } },
+    where: { userRoles: { some: { role: { name: "admin" } } } },
     include: { telegramBinding: true },
   });
   return users.map((u) => ({
