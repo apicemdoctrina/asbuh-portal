@@ -15,6 +15,7 @@ import {
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import SectionIcon from "../components/SectionIcon.jsx";
+import ClientDashboardPage from "./ClientDashboardPage.jsx";
 
 const STATUS_LABELS = {
   active: "Активный",
@@ -81,6 +82,9 @@ function SkeletonCard() {
 
 export default function DashboardPage() {
   const { user, hasPermission, hasRole } = useAuth();
+  if (hasRole("client")) {
+    return <ClientDashboardPage />;
+  }
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
