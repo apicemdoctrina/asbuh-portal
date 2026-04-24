@@ -194,6 +194,7 @@ router.post("/", authenticate, requirePermission("task", "create"), async (req, 
       assignedToIds,
       recurrenceType,
       recurrenceInterval,
+      visibleToClient,
     } = req.body;
 
     if (!title?.trim()) {
@@ -221,6 +222,12 @@ router.post("/", authenticate, requirePermission("task", "create"), async (req, 
 
     const createdTasks = [];
 
+    // Default visibleToClient: true for REPORTING tasks, false otherwise
+    const resolvedVisibleToClient =
+      typeof visibleToClient === "boolean"
+        ? visibleToClient
+        : (category || "OTHER") === "REPORTING";
+
     for (const orgId of orgIdList) {
       const task = await prisma.task.create({
         data: {
@@ -234,6 +241,7 @@ router.post("/", authenticate, requirePermission("task", "create"), async (req, 
           groupId: groupId ?? null,
           organizationId: orgId || null,
           createdById: req.user.userId,
+          visibleToClient: resolvedVisibleToClient,
           assignees: assigneeIds.length
             ? { create: assigneeIds.map((uid) => ({ userId: uid })) }
             : undefined,
@@ -298,6 +306,7 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
       assignedToIds,
       recurrenceType,
       recurrenceInterval,
+      visibleToClient,
     } = req.body;
 
     const existing = await prisma.task.findUnique({
@@ -326,6 +335,7 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
     if (organizationId !== undefined) data.organizationId = organizationId || null;
     if (recurrenceType !== undefined) data.recurrenceType = recurrenceType || null;
     if (recurrenceInterval !== undefined) data.recurrenceInterval = Number(recurrenceInterval) || 1;
+    if (visibleToClient !== undefined) data.visibleToClient = visibleToClient;
 
     // Replace assignees if provided
     if (assignedToIds !== undefined) {
@@ -339,6 +349,12 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
           data: newIds.map((uid) => ({ taskId: id, userId: uid })),
         });
       }
+    }
+
+    if (existing.status !== "DONE" && data.status === "DONE") {
+      data.completedAt = new Date();
+    } else if (existing.status === "DONE" && data.status && data.status !== "DONE") {
+      data.completedAt = null;
     }
 
     const task = await prisma.task.update({
@@ -369,6 +385,7 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
           recurrenceInterval: task.recurrenceInterval,
           organizationId: task.organizationId,
           createdById: task.createdById,
+          visibleToClient: task.visibleToClient,
         },
       });
       if (task.assignees.length > 0) {
