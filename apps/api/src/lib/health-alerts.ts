@@ -52,21 +52,29 @@ async function deliverToAdmin(
   body: string,
   failed: ChannelKey | null,
 ): Promise<void> {
+  console.log(
+    `[health-alerts] deliver to admin=${admin.email} failed=${failed} state.smtp.down=${state.smtp.down} state.tg.down=${state.telegram.down} chatId=${admin.chatId ?? "null"}`,
+  );
   // Try Telegram first (if not the failed one and not currently down)
   if (failed !== "telegram" && !state.telegram.down && admin.chatId) {
+    console.log(`[health-alerts] trying TG for ${admin.email}`);
     const ok = await sendMessageRaw(admin.chatId, `<b>${title}</b>\n${body}`);
+    console.log(`[health-alerts] TG result=${ok}`);
     if (ok) return;
   }
   // Then SMTP (if not the failed one and not currently down)
   if (failed !== "smtp" && !state.smtp.down) {
+    console.log(`[health-alerts] trying SMTP for ${admin.email}`);
     const ok = await sendEmailRaw(
       admin.email,
       title,
       `<div style="font-family:sans-serif"><h3 style="color:#6567F1">${title}</h3><p>${body}</p></div>`,
     );
+    console.log(`[health-alerts] SMTP result=${ok}`);
     if (ok) return;
   }
   // Last resort — in-app notification
+  console.log(`[health-alerts] fallback to in-app for ${admin.email}`);
   await createNotification(admin.id, "system_alert", title, body, "/admin/health");
 }
 
