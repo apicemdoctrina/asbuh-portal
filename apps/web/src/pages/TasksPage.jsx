@@ -116,6 +116,8 @@ const EMPTY_FORM = {
   organizationIds: [],
   assignedToIds: [],
   recurrence: "",
+  visibleToClient: false,
+  userTouchedVisible: false,
 };
 
 export default function TasksPage() {
@@ -254,7 +256,11 @@ export default function TasksPage() {
 
   function openCreate(prefill = {}) {
     setEditingTask(null);
-    setForm({ ...EMPTY_FORM, ...prefill });
+    const merged = { ...EMPTY_FORM, ...prefill };
+    if (!merged.userTouchedVisible) {
+      merged.visibleToClient = merged.category === "REPORTING";
+    }
+    setForm(merged);
     setFormError(null);
     setShowModal(true);
   }
@@ -272,6 +278,8 @@ export default function TasksPage() {
       addOrganizationIds: [],
       assignedToIds: task.assignees?.map((a) => a.userId) ?? [],
       recurrence: task.recurrenceType ? `${task.recurrenceType}:${task.recurrenceInterval}` : "",
+      visibleToClient: task.visibleToClient ?? false,
+      userTouchedVisible: false,
     });
     setFormError(null);
     setShowModal(true);
@@ -318,6 +326,7 @@ export default function TasksPage() {
         assignedToIds: form.assignedToIds,
         recurrenceType: recurrenceType || null,
         recurrenceInterval: recurrenceInterval ? Number(recurrenceInterval) : 1,
+        visibleToClient: form.visibleToClient,
       };
 
       if (editingTask) {
@@ -732,6 +741,34 @@ export default function TasksPage() {
                   className={INPUT_CLS}
                 />
               </div>
+              <div className="flex items-start gap-2.5 py-0.5">
+                <input
+                  id="visibleToClient"
+                  type="checkbox"
+                  checked={form.visibleToClient}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      visibleToClient: e.target.checked,
+                      userTouchedVisible: true,
+                    }))
+                  }
+                  className="mt-0.5 h-4 w-4 rounded accent-[#6567F1] cursor-pointer"
+                />
+                <div>
+                  <label
+                    htmlFor="visibleToClient"
+                    className="block text-sm font-medium text-slate-700 cursor-pointer"
+                  >
+                    Показывать клиенту в ленте
+                  </label>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    После закрытия задача появится у клиента в разделе «Что мы для вас делаем».
+                    Заголовок задачи будет показан клиенту дословно — например, «Сдана декларация
+                    УСН за Q1».
+                  </p>
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={LABEL_CLS}>Приоритет</label>
@@ -751,7 +788,17 @@ export default function TasksPage() {
                   <label className={LABEL_CLS}>Категория</label>
                   <select
                     value={form.category}
-                    onChange={(e) => setField("category", e.target.value)}
+                    onChange={(e) => {
+                      const newCat = e.target.value;
+                      setForm((f) => ({
+                        ...f,
+                        category: newCat,
+                        visibleToClient:
+                          !editingTask && !f.userTouchedVisible
+                            ? newCat === "REPORTING"
+                            : f.visibleToClient,
+                      }));
+                    }}
                     className={SELECT_CLS}
                   >
                     {Object.entries(TASK_CATEGORY_LABELS).map(([k, v]) => (
