@@ -7,6 +7,7 @@ import { auditFromReq } from "../lib/audit.js";
 import { authLimiter } from "../middleware/rate-limit.js";
 import { authenticate, requireRole, requirePermission } from "../middleware/auth.js";
 import { sendPasswordResetEmail } from "../lib/mailer.js";
+import { sendInviteEmail } from "../lib/invite-email.js";
 import { sendMessage } from "../lib/telegram.js";
 import crypto from "node:crypto";
 
@@ -233,9 +234,15 @@ router.post(
   requirePermission("organization", "edit"),
   async (req, res) => {
     try {
-      const { organizationId, expiresInHours } = req.body;
+      const { organizationId, expiresInHours, email } = req.body;
       if (!organizationId) {
         res.status(400).json({ error: "organizationId is required" });
+        return;
+      }
+
+      const trimmedEmail = typeof email === "string" ? email.trim() : "";
+      if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+        res.status(400).json({ error: "Некорректный email" });
         return;
       }
 
@@ -257,15 +264,43 @@ router.post(
         },
       });
 
+      let emailSent = false;
+      let emailError: string | null = null;
+      if (trimmedEmail) {
+        try {
+          const inviter = await prisma.user.findUnique({
+            where: { id: req.user!.userId },
+            select: { firstName: true, lastName: true },
+          });
+          await sendInviteEmail({
+            to: trimmedEmail,
+            organizationName: org.name,
+            inviteToken: invite.token,
+            expiresAt: invite.expiresAt,
+            invitedByName: inviter ? `${inviter.firstName} ${inviter.lastName}` : null,
+          });
+          emailSent = true;
+        } catch (err) {
+          console.error("Invite email send failed:", err);
+          emailError =
+            "Не удалось отправить письмо. Ссылка работает — отправьте её клиенту вручную.";
+        }
+      }
+
       await auditFromReq(req, {
         action: "invite_created",
         userId: req.user!.userId,
         entity: "invite_token",
         entityId: invite.id,
-        details: { organizationId },
+        details: { organizationId, emailRequested: !!trimmedEmail, emailSent },
       });
 
-      res.status(201).json({ token: invite.token, expiresAt: invite.expiresAt });
+      res.status(201).json({
+        token: invite.token,
+        expiresAt: invite.expiresAt,
+        emailSent,
+        emailError,
+      });
     } catch (err) {
       console.error("Invite create error:", err);
       res.status(500).json({ error: "Internal server error" });

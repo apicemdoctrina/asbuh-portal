@@ -255,6 +255,9 @@ export default function OrganizationDetailPage() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteEmailSent, setInviteEmailSent] = useState(false);
+  const [inviteEmailWarning, setInviteEmailWarning] = useState("");
 
   // Tasks for this org (shared between banner and OrgTasksCard)
   const [orgTasks, setOrgTasks] = useState([]);
@@ -478,11 +481,16 @@ export default function OrganizationDetailPage() {
     setInviteLoading(true);
     setInviteError("");
     setInviteLink("");
+    setInviteEmailSent(false);
+    setInviteEmailWarning("");
     setCopied(false);
     try {
+      const trimmedEmail = inviteEmail.trim();
+      const body = { organizationId: id };
+      if (trimmedEmail) body.email = trimmedEmail;
       const res = await api("/api/auth/invite", {
         method: "POST",
-        body: JSON.stringify({ organizationId: id }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -491,6 +499,8 @@ export default function OrganizationDetailPage() {
       const data = await res.json();
       setInviteLink(`${window.location.origin}/invite/${data.token}`);
       setInviteExpiry(new Date(data.expiresAt).toLocaleString("ru-RU"));
+      setInviteEmailSent(!!data.emailSent);
+      if (data.emailError) setInviteEmailWarning(data.emailError);
     } catch (err) {
       setInviteError(err.message);
     } finally {
@@ -1339,23 +1349,57 @@ export default function OrganizationDetailPage() {
             <h2 className="text-lg font-bold text-slate-900 mb-4">Пригласить клиента</h2>
 
             {!inviteLink && !inviteError && (
-              <div className="text-center">
+              <div>
                 <p className="text-sm text-slate-500 mb-4">
                   Будет сгенерирована ссылка-приглашение для регистрации клиента в организации{" "}
                   <span className="font-semibold text-slate-900">&laquo;{org.name}&raquo;</span>.
                 </p>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Email клиента (необязательно)
+                </label>
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="client@example.com"
+                  className="w-full px-3 py-2 mb-2 border border-slate-200 rounded-lg text-sm focus:border-[#6567F1] focus:ring-2 focus:ring-[#6567F1]/20 outline-none"
+                />
+                <p className="text-xs text-slate-400 mb-4">
+                  Если заполните — клиенту придёт приветственное письмо со ссылкой. Иначе только
+                  скопируете ссылку и отправите сами.
+                </p>
                 <button
                   onClick={handleGenerateInvite}
                   disabled={inviteLoading}
-                  className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
+                  className="w-full px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
                 >
-                  {inviteLoading ? "Генерация..." : "Сгенерировать ссылку"}
+                  {inviteLoading
+                    ? "Генерация..."
+                    : inviteEmail.trim()
+                      ? "Сгенерировать и отправить"
+                      : "Сгенерировать ссылку"}
                 </button>
               </div>
             )}
 
             {inviteLink && (
               <div className="space-y-3">
+                {inviteEmailSent && (
+                  <div className="flex items-center gap-2 p-3 bg-emerald-50 text-emerald-700 rounded-lg text-sm">
+                    <Check size={16} className="shrink-0" />
+                    <span>
+                      Приглашение отправлено на <strong>{inviteEmail.trim()}</strong>
+                    </span>
+                  </div>
+                )}
+                {inviteEmailWarning && (
+                  <div className="p-3 bg-amber-50 text-amber-800 rounded-lg text-sm">
+                    {inviteEmailWarning}
+                  </div>
+                )}
+                <p className="text-xs text-slate-500">
+                  Ссылка-приглашение (можно скопировать и отправить вручную):
+                </p>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
