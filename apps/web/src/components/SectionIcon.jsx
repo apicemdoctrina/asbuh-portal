@@ -1,4 +1,18 @@
-import { Bird, Bug, Cat, Dog, Fish, Rabbit, Squirrel, Turtle, Snail } from "lucide-react";
+import {
+  Bird,
+  Bug,
+  Cat,
+  Dog,
+  Fish,
+  Rabbit,
+  Squirrel,
+  Turtle,
+  Shell,
+  Shrimp,
+  PawPrint,
+  Origami,
+} from "lucide-react";
+import { Butterfly, Cow, Horse } from "@phosphor-icons/react";
 
 export const ANIMAL_ICONS = {
   bird: Bird,
@@ -9,19 +23,31 @@ export const ANIMAL_ICONS = {
   rabbit: Rabbit,
   squirrel: Squirrel,
   turtle: Turtle,
-  snail: Snail,
+  shell: Shell,
+  shrimp: Shrimp,
+  paw: PawPrint,
+  origami: Origami,
+  butterfly: Butterfly,
+  cow: Cow,
+  horse: Horse,
 };
 
 export const ANIMAL_LABELS = {
   bird: "Птица",
-  bug: "Жук",
+  bug: "Божья коровка",
   cat: "Кошка",
   dog: "Собака",
   fish: "Рыба",
   rabbit: "Кролик",
   squirrel: "Белка",
   turtle: "Черепаха",
-  snail: "Улитка",
+  shell: "Ракушка",
+  shrimp: "Креветка",
+  paw: "Лапка",
+  origami: "Журавлик",
+  butterfly: "Бабочка",
+  cow: "Корова",
+  horse: "Лошадь",
 };
 
 /**
