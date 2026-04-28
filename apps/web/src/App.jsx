@@ -1,9 +1,10 @@
 import { lazy } from "react";
-import { BrowserRouter, Routes, Route } from "react-router";
+import { BrowserRouter, Routes, Route, Outlet } from "react-router";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { NotificationProvider } from "./context/NotificationContext.jsx";
 import ToastContainer from "./components/ToastContainer.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
+import ConsentGate from "./components/ConsentGate.jsx";
 import Layout from "./components/Layout.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
@@ -31,6 +32,7 @@ const ManagementPage = lazy(() => import("./pages/ManagementPage.jsx"));
 const PaymentsPage = lazy(() => import("./pages/PaymentsPage.jsx"));
 const MyPaymentsPage = lazy(() => import("./pages/MyPaymentsPage.jsx"));
 const MyDocumentsPage = lazy(() => import("./pages/MyDocumentsPage.jsx"));
+const ConsentPage = lazy(() => import("./pages/ConsentPage.jsx"));
 const MessageTemplatesPage = lazy(() => import("./pages/MessageTemplatesPage.jsx"));
 const TicketDetailPage = lazy(() => import("./pages/TicketDetailPage.jsx"));
 const ReportingPage = lazy(() => import("./pages/ReportingPage.jsx"));
@@ -50,32 +52,41 @@ export default function App() {
             <Route
               element={
                 <ProtectedRoute>
-                  <Layout />
+                  <Outlet />
                 </ProtectedRoute>
               }
             >
-              <Route index element={<DashboardPage />} />
+              <Route path="consent" element={<ConsentPage />} />
+              <Route
+                element={
+                  <ConsentGate>
+                    <Layout />
+                  </ConsentGate>
+                }
+              >
+                <Route index element={<DashboardPage />} />
 
-              <Route path="organizations" element={<OrganizationsPage />} />
-              <Route path="organizations/:id" element={<OrganizationDetailPage />} />
-              <Route path="client-groups/:id" element={<ClientGroupDetailPage />} />
-              <Route path="staff" element={<StaffPage />} />
-              <Route path="clients" element={<ClientsPage />} />
-              <Route path="users/:id" element={<UserProfilePage />} />
-              <Route path="contacts" element={<WorkContactsPage />} />
-              <Route path="knowledge" element={<KnowledgePage />} />
-              <Route path="knowledge/:id" element={<KnowledgeArticlePage />} />
-              <Route path="audit-log" element={<AuditLogPage />} />
-              <Route path="management" element={<ManagementPage />} />
-              <Route path="payments" element={<PaymentsPage />} />
-              <Route path="my-payments" element={<MyPaymentsPage />} />
-              <Route path="my-documents" element={<MyDocumentsPage />} />
-              <Route path="tasks" element={<TasksPage />} />
-              <Route path="tickets" element={<TicketsPage />} />
-              <Route path="tickets/:id" element={<TicketDetailPage />} />
-              <Route path="reporting" element={<ReportingPage />} />
-              <Route path="message-templates" element={<MessageTemplatesPage />} />
-              <Route path="profile" element={<ProfilePage />} />
+                <Route path="organizations" element={<OrganizationsPage />} />
+                <Route path="organizations/:id" element={<OrganizationDetailPage />} />
+                <Route path="client-groups/:id" element={<ClientGroupDetailPage />} />
+                <Route path="staff" element={<StaffPage />} />
+                <Route path="clients" element={<ClientsPage />} />
+                <Route path="users/:id" element={<UserProfilePage />} />
+                <Route path="contacts" element={<WorkContactsPage />} />
+                <Route path="knowledge" element={<KnowledgePage />} />
+                <Route path="knowledge/:id" element={<KnowledgeArticlePage />} />
+                <Route path="audit-log" element={<AuditLogPage />} />
+                <Route path="management" element={<ManagementPage />} />
+                <Route path="payments" element={<PaymentsPage />} />
+                <Route path="my-payments" element={<MyPaymentsPage />} />
+                <Route path="my-documents" element={<MyDocumentsPage />} />
+                <Route path="tasks" element={<TasksPage />} />
+                <Route path="tickets" element={<TicketsPage />} />
+                <Route path="tickets/:id" element={<TicketDetailPage />} />
+                <Route path="reporting" element={<ReportingPage />} />
+                <Route path="message-templates" element={<MessageTemplatesPage />} />
+                <Route path="profile" element={<ProfilePage />} />
+              </Route>
             </Route>
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

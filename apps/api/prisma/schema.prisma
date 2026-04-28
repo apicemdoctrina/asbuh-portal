@@ -57,8 +57,24 @@ model User {
   createdAnnouncements Announcement[]         @relation("AnnouncementAuthor")
   announcementReads    AnnouncementRead[]
   filedReportEntries   ReportEntry[]
+  consents             UserConsent[]
 
   @@map("users")
+}
+
+model UserConsent {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  documentType    String   @map("document_type") // "offer" | "personal_data"
+  documentVersion String   @map("document_version")
+  acceptedAt      DateTime @default(now()) @map("accepted_at")
+  ipAddress       String?  @map("ip_address")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, documentType, documentVersion])
+  @@index([userId])
+  @@map("user_consents")
 }
 
 model Role {
