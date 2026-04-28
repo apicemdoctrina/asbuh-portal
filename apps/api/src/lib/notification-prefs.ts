@@ -121,6 +121,12 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     defaultEnabled: true,
   },
   {
+    type: "email_ticket_closed",
+    label: "Email: вопрос закрыт",
+    group: "misc",
+    defaultEnabled: true,
+  },
+  {
     type: "email_weekly_digest",
     label: "Email: еженедельная сводка по понедельникам",
     group: "misc",

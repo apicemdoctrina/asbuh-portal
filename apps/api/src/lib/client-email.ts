@@ -120,6 +120,54 @@ export async function sendTicketReplyEmail(
   }
 }
 
+export async function sendTicketClosedEmail(
+  userId: string,
+  args: {
+    ticketId: string;
+    ticketNumber: number;
+    subject: string;
+    finalReply: { authorName: string; body: string } | null;
+  },
+): Promise<void> {
+  if (!(await isNotificationEnabled(userId, "email_ticket_closed"))) return;
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+  if (!user) return;
+
+  const url = `${APP_URL}/tickets/${args.ticketId}`;
+  const replyBlock = args.finalReply
+    ? `
+      <div style="margin:16px 0;padding:12px 16px;background:#f8fafc;border-left:3px solid #10b981;border-radius:4px;color:#475569;font-size:14px">
+        <p style="margin:0 0 4px 0;color:#64748b;font-size:12px">${escapeHtml(args.finalReply.authorName)} пишет:</p>
+        <p style="margin:0;white-space:pre-wrap">${escapeHtml(
+          args.finalReply.body.length > 300
+            ? args.finalReply.body.slice(0, 300) + "…"
+            : args.finalReply.body,
+        )}</p>
+      </div>
+    `
+    : `
+      <p style="margin:16px 0;color:#64748b;font-size:14px">
+        Тикет закрыт без дополнительного комментария.
+      </p>
+    `;
+
+  const html = wrap(`
+    <h3 style="margin:0 0 12px 0;color:#1e293b">Вопрос #${args.ticketNumber} закрыт ✓</h3>
+    <p style="margin:0 0 8px 0;color:#475569"><strong>${escapeHtml(args.subject)}</strong></p>
+    ${replyBlock}
+    <p style="margin:16px 0 0 0;color:#64748b;font-size:13px">
+      Если вопрос остался — откройте тикет и нажмите «Переоткрыть» либо напишите новое сообщение.
+    </p>
+    ${ctaButton(url, "Открыть тикет")}
+  `);
+
+  try {
+    await sendEmail(user.email, `Вопрос #${args.ticketNumber} закрыт`, html);
+  } catch (err) {
+    console.error("[client-email] sendTicketClosedEmail failed:", err);
+  }
+}
+
 // ==================== Weekly digest ====================
 
 type DigestSection = {

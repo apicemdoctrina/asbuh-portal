@@ -12,6 +12,7 @@ import { notifyWithTelegram, createNotification } from "../lib/notify.js";
 import {
   sendDocRequestEmail,
   sendTicketReplyEmail,
+  sendTicketClosedEmail,
   getClientUserIdsForOrg,
 } from "../lib/client-email.js";
 
@@ -406,6 +407,42 @@ router.patch(
           `#${ticket.number}: ${parsed.data.status}`,
           `/tickets/${id}`,
         ).catch(console.error);
+      }
+
+      // Email clients of org when ticket is being closed by staff
+      if (parsed.data.status === "CLOSED" && existing.status !== "CLOSED" && !isClientOnly(req)) {
+        const lastStaffMessage = await prisma.ticketMessage.findFirst({
+          where: {
+            ticketId: id,
+            isInternal: false,
+            deletedAt: null,
+            authorId: { not: existing.createdById },
+          },
+          orderBy: { createdAt: "desc" },
+          include: { author: { select: { firstName: true, lastName: true } } },
+        });
+        const finalReply = lastStaffMessage
+          ? {
+              authorName: lastStaffMessage.author
+                ? `${lastStaffMessage.author.firstName} ${lastStaffMessage.author.lastName}`
+                : "Бухгалтер",
+              body: lastStaffMessage.body,
+            }
+          : null;
+        getClientUserIdsForOrg(existing.organizationId)
+          .then((clientIds) =>
+            Promise.all(
+              clientIds.map((uid) =>
+                sendTicketClosedEmail(uid, {
+                  ticketId: id,
+                  ticketNumber: ticket.number,
+                  subject: ticket.subject,
+                  finalReply,
+                }),
+              ),
+            ),
+          )
+          .catch(console.error);
       }
 
       // Notify on escalation
