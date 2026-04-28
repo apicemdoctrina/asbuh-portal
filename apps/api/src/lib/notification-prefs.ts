@@ -106,6 +106,26 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
   // Разное
   { type: "reporting_deadline", label: "Дедлайн отчётности", group: "misc", defaultEnabled: true },
   { type: "announcement", label: "Новое объявление", group: "misc", defaultEnabled: true },
+
+  // Email клиенту (для роли client)
+  {
+    type: "email_doc_request",
+    label: "Email: новый запрос документа",
+    group: "misc",
+    defaultEnabled: true,
+  },
+  {
+    type: "email_ticket_reply",
+    label: "Email: ответ от бухгалтера",
+    group: "misc",
+    defaultEnabled: true,
+  },
+  {
+    type: "email_weekly_digest",
+    label: "Email: еженедельная сводка по понедельникам",
+    group: "misc",
+    defaultEnabled: true,
+  },
 ];
 
 export const GROUP_LABELS: Record<NotificationGroup, string> = {

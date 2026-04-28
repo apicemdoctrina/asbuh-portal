@@ -9,6 +9,11 @@ import prisma from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
 import { authenticate, requirePermission, requireRole } from "../middleware/auth.js";
 import { notifyWithTelegram, createNotification } from "../lib/notify.js";
+import {
+  sendDocRequestEmail,
+  sendTicketReplyEmail,
+  getClientUserIdsForOrg,
+} from "../lib/client-email.js";
 
 const router = Router();
 
@@ -323,6 +328,24 @@ router.post(
         ).catch(console.error);
       }
 
+      // Email to clients of this org when staff creates a document request
+      if (!clientOnly && ticket.type === "DOCUMENT_REQUEST") {
+        getClientUserIdsForOrg(organizationId)
+          .then((clientIds) =>
+            Promise.all(
+              clientIds.map((uid) =>
+                sendDocRequestEmail(uid, {
+                  ticketId: ticket.id,
+                  ticketNumber: ticket.number,
+                  subject,
+                  organizationName: ticket.organization?.name ?? "",
+                }),
+              ),
+            ),
+          )
+          .catch(console.error);
+      }
+
       res.status(201).json(ticket);
     } catch (err) {
       console.error("POST /api/tickets error:", err);
@@ -535,6 +558,25 @@ router.post(
             `/tickets/${id}`,
             `💬 Ответ по обращению #${ticket.number}: ${ticket.subject}`,
           ).catch(console.error);
+
+          // Email to all clients of this org (createdById may not be the client)
+          const author = message.author;
+          const authorName = author ? `${author.firstName} ${author.lastName}` : "Бухгалтер";
+          getClientUserIdsForOrg(ticket.organizationId)
+            .then((clientIds) =>
+              Promise.all(
+                clientIds.map((uid) =>
+                  sendTicketReplyEmail(uid, {
+                    ticketId: id,
+                    ticketNumber: ticket.number,
+                    subject: ticket.subject,
+                    authorName,
+                    bodyPreview: msgBody.trim(),
+                  }),
+                ),
+              ),
+            )
+            .catch(console.error);
         }
       }
 

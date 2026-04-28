@@ -21,6 +21,7 @@ import reportingRouter from "./routes/reporting.js";
 import paymentsRouter from "./routes/payments.js";
 import healthRouter from "./routes/health.js";
 import clientDashboardRouter from "./routes/client-dashboard.js";
+import clientOnboardingRouter from "./routes/client-onboarding.js";
 import { UPLOADS_DIR } from "./lib/upload.js";
 
 const app = express();
@@ -63,6 +64,7 @@ app.use("/api/reporting", reportingRouter);
 app.use("/api/payments", paymentsRouter);
 app.use("/api/admin/health", healthRouter);
 app.use("/api/client/dashboard", clientDashboardRouter);
+app.use("/api/client/onboarding", clientOnboardingRouter);
 
 // Global error handler (Express requires all 4 params for error middleware)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

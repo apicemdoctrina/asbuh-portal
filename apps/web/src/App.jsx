@@ -30,6 +30,7 @@ const KnowledgeArticlePage = lazy(() => import("./pages/KnowledgeArticlePage.jsx
 const ManagementPage = lazy(() => import("./pages/ManagementPage.jsx"));
 const PaymentsPage = lazy(() => import("./pages/PaymentsPage.jsx"));
 const MyPaymentsPage = lazy(() => import("./pages/MyPaymentsPage.jsx"));
+const MyDocumentsPage = lazy(() => import("./pages/MyDocumentsPage.jsx"));
 const MessageTemplatesPage = lazy(() => import("./pages/MessageTemplatesPage.jsx"));
 const TicketDetailPage = lazy(() => import("./pages/TicketDetailPage.jsx"));
 const ReportingPage = lazy(() => import("./pages/ReportingPage.jsx"));
@@ -68,6 +69,7 @@ export default function App() {
               <Route path="management" element={<ManagementPage />} />
               <Route path="payments" element={<PaymentsPage />} />
               <Route path="my-payments" element={<MyPaymentsPage />} />
+              <Route path="my-documents" element={<MyDocumentsPage />} />
               <Route path="tasks" element={<TasksPage />} />
               <Route path="tickets" element={<TicketsPage />} />
               <Route path="tickets/:id" element={<TicketDetailPage />} />

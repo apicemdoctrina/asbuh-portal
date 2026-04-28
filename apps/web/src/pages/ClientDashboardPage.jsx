@@ -3,6 +3,7 @@ import { Loader2 } from "lucide-react";
 import { api } from "../lib/api.js";
 import ClientOrgDashboard from "../components/client/ClientOrgDashboard.jsx";
 import ClientGroupDashboard from "../components/client/ClientGroupDashboard.jsx";
+import OnboardingChecklist from "../components/client/OnboardingChecklist.jsx";
 
 function Skeleton() {
   return (
@@ -69,8 +70,18 @@ export default function ClientDashboardPage() {
   }
 
   if (data.organizations.length === 1) {
-    return <ClientOrgDashboard org={data.organizations[0]} showOrgName />;
+    return (
+      <>
+        <OnboardingChecklist />
+        <ClientOrgDashboard org={data.organizations[0]} showOrgName />
+      </>
+    );
   }
 
-  return <ClientGroupDashboard group={data.group} organizations={data.organizations} />;
+  return (
+    <>
+      <OnboardingChecklist />
+      <ClientGroupDashboard group={data.group} organizations={data.organizations} />
+    </>
+  );
 }

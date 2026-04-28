@@ -21,6 +21,7 @@ import {
   Megaphone,
   Ticket,
   FileSpreadsheet,
+  FolderOpen,
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import NotificationBell from "./NotificationBell.jsx";
@@ -30,6 +31,7 @@ import { api } from "../lib/api.js";
 
 const navItems = [
   { to: "/", label: "Главная", icon: LayoutDashboard, permission: null },
+  { to: "/my-documents", label: "Документы", icon: FolderOpen, role: "client" },
   { to: "/tasks", label: "Задачи", icon: ClipboardList, permission: ["task", "view"] },
   { to: "/tickets", label: "Тикеты", icon: Ticket, permission: ["ticket", "view"] },
   {

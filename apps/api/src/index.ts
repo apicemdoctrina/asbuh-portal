@@ -11,6 +11,7 @@ import { startReportDeadlineNotifier } from "./lib/report-task-generator.js";
 import { startBankAutoSync } from "./routes/payments.js";
 import { startTemporarySectionRevoker } from "./lib/section-revoker.js";
 import { initHealthAlerts } from "./lib/health-alerts.js";
+import { startWeeklyClientDigest } from "./lib/client-digest.js";
 
 const PORT = process.env.PORT || 3001;
 
@@ -62,3 +63,4 @@ startTaskArchiver();
 startReportDeadlineNotifier();
 startBankAutoSync();
 startTemporarySectionRevoker();
+startWeeklyClientDigest();
