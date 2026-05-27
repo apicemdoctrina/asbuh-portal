@@ -372,9 +372,25 @@ async function main() {
     {
       code: "AUSN_CALC",
       name: "АУСН — расчёт",
-      frequency: "QUARTERLY" as const,
+      frequency: "MONTHLY" as const,
       order: 16,
       deadlineDay: 25,
+      deadlineMonthOffset: 1,
+    },
+    {
+      code: "ENP_NOTIF_25",
+      name: "Уведомление ЕНП (до 25-го)",
+      frequency: "MONTHLY" as const,
+      order: 17,
+      deadlineDay: 25,
+      deadlineMonthOffset: 0,
+    },
+    {
+      code: "ENP_NOTIF_3",
+      name: "Уведомление ЕНП (до 3-го)",
+      frequency: "MONTHLY" as const,
+      order: 18,
+      deadlineDay: 3,
       deadlineMonthOffset: 1,
     },
   ];
