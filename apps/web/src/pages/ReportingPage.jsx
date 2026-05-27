@@ -630,17 +630,17 @@ export default function ReportingPage() {
         </div>
       ) : (
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-auto max-h-[calc(100vh-260px)]">
+            <table className="w-full text-sm border-separate border-spacing-0">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="text-left px-4 py-3 font-semibold text-slate-700 sticky left-0 bg-slate-50 z-10 min-w-[200px]">
+                <tr>
+                  <th className="text-left px-4 py-3 font-semibold text-slate-700 sticky top-0 left-0 bg-slate-50 z-30 min-w-[200px] border-b border-slate-200">
                     Организация
                   </th>
                   {data.reportTypes.map((rt) => (
                     <th
                       key={rt.id}
-                      className="text-center px-2 py-3 font-medium text-slate-600 min-w-[100px]"
+                      className="text-center px-2 py-3 font-medium text-slate-600 min-w-[100px] sticky top-0 bg-slate-50 z-20 border-b border-slate-200"
                     >
                       <div className="text-xs leading-tight">{rt.name}</div>
                     </th>
@@ -649,11 +649,8 @@ export default function ReportingPage() {
               </thead>
               <tbody>
                 {filteredOrgs.map((org, idx) => (
-                  <tr
-                    key={org.id}
-                    className={`border-b border-slate-100 ${idx % 2 === 0 ? "bg-white" : "bg-slate-50/50"}`}
-                  >
-                    <td className="px-4 py-2 sticky left-0 z-10 bg-inherit">
+                  <tr key={org.id} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50/50"}>
+                    <td className="px-4 py-2 sticky left-0 z-10 bg-inherit border-b border-slate-100">
                       <div
                         className="font-medium text-slate-900 truncate max-w-[240px]"
                         title={org.name}
@@ -675,7 +672,7 @@ export default function ReportingPage() {
                       const effectiveEntry =
                         entry || (!applicable ? { status: "NOT_APPLICABLE" } : null);
                       return (
-                        <td key={rt.id} className="px-1.5 py-1.5">
+                        <td key={rt.id} className="px-1.5 py-1.5 border-b border-slate-100">
                           <StatusCell
                             entry={effectiveEntry}
                             orgId={org.id}
