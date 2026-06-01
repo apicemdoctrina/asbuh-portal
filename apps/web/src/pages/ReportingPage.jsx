@@ -22,11 +22,26 @@ const FREQUENCY_LABELS = { MONTHLY: "Ежемесячно", QUARTERLY: "Ежек
 const FREQUENCY_OPTIONS = ["QUARTERLY", "MONTHLY", "YEARLY"];
 
 const STATUS_OPTIONS = [
-  { value: "NOT_SUBMITTED", label: "Не сдана", icon: Clock, color: "bg-slate-100 text-slate-500" },
-  { value: "SUBMITTED", label: "Сдана", icon: Check, color: "bg-blue-100 text-blue-700" },
-  { value: "ACCEPTED", label: "Принята", icon: Check, color: "bg-green-100 text-green-700" },
-  { value: "REJECTED", label: "Отклонена", icon: AlertCircle, color: "bg-red-100 text-red-700" },
-  { value: "NOT_APPLICABLE", label: "—", icon: Ban, color: "bg-transparent text-slate-300" },
+  { value: "NOT_SUBMITTED", label: "Не сдана", icon: Clock, color: "bg-muted text-subtle" },
+  {
+    value: "SUBMITTED",
+    label: "Сдана",
+    icon: Check,
+    color: "bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300",
+  },
+  {
+    value: "ACCEPTED",
+    label: "Принята",
+    icon: Check,
+    color: "bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300",
+  },
+  {
+    value: "REJECTED",
+    label: "Отклонена",
+    icon: AlertCircle,
+    color: "bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300",
+  },
+  { value: "NOT_APPLICABLE", label: "—", icon: Ban, color: "bg-transparent text-subtle" },
 ];
 
 const STATUS_MAP = Object.fromEntries(STATUS_OPTIONS.map((s) => [s.value, s]));
@@ -114,7 +129,7 @@ function StatusCell({ entry, orgId, rtId, year, period, canEdit, onUpdate }) {
   if (saving) {
     return (
       <div className="w-full h-full flex items-center justify-center py-1.5">
-        <Loader2 size={14} className="animate-spin text-slate-400" />
+        <Loader2 size={14} className="animate-spin text-subtle" />
       </div>
     );
   }
@@ -122,9 +137,7 @@ function StatusCell({ entry, orgId, rtId, year, period, canEdit, onUpdate }) {
   // Read-only
   if (!canEdit) {
     if (isNA)
-      return (
-        <div className="w-full text-center text-slate-300 text-base font-medium py-1.5">—</div>
-      );
+      return <div className="w-full text-center text-subtle text-base font-medium py-1.5">—</div>;
     const Icon = info.icon;
     return (
       <div
@@ -144,7 +157,7 @@ function StatusCell({ entry, orgId, rtId, year, period, canEdit, onUpdate }) {
       <button
         onClick={() => setOpen((v) => !v)}
         className={`w-full flex items-center justify-center gap-1 text-xs font-medium rounded-md px-1 py-1.5 transition-colors ${
-          isNA ? "text-slate-300 hover:text-slate-400" : `${info.color} hover:opacity-80`
+          isNA ? "text-subtle hover:text-subtle" : `${info.color} hover:opacity-80`
         }`}
       >
         {isNA ? (
@@ -158,7 +171,7 @@ function StatusCell({ entry, orgId, rtId, year, period, canEdit, onUpdate }) {
       </button>
 
       {open && (
-        <div className="absolute z-50 top-full left-1/2 -translate-x-1/2 mt-1 w-40 bg-white rounded-xl shadow-xl border border-slate-200 py-1 animate-in fade-in zoom-in-95 duration-100">
+        <div className="absolute z-50 top-full left-1/2 -translate-x-1/2 mt-1 w-40 bg-surface rounded-xl shadow-xl border border-line py-1 animate-in fade-in zoom-in-95 duration-100">
           {STATUS_OPTIONS.map((opt) => {
             const OptIcon = opt.icon;
             const active = opt.value === status;
@@ -167,7 +180,7 @@ function StatusCell({ entry, orgId, rtId, year, period, canEdit, onUpdate }) {
                 key={opt.value}
                 onClick={() => handleSelect(opt.value)}
                 className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors ${
-                  active ? "bg-slate-50 font-semibold" : "hover:bg-slate-50"
+                  active ? "bg-canvas font-semibold" : "hover:bg-canvas"
                 }`}
               >
                 <span
@@ -175,10 +188,10 @@ function StatusCell({ entry, orgId, rtId, year, period, canEdit, onUpdate }) {
                 >
                   <OptIcon size={12} />
                 </span>
-                <span className="text-slate-700">
+                <span className="text-body">
                   {opt.value === "NOT_APPLICABLE" ? "Не применимо" : opt.label}
                 </span>
-                {active && <Check size={12} className="ml-auto text-[#6567F1]" />}
+                {active && <Check size={12} className="ml-auto text-primary" />}
               </button>
             );
           })}
@@ -242,13 +255,13 @@ function ReportTypesModal({ onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+      <div className="bg-surface rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-          <h2 className="text-lg font-semibold text-slate-900">Типы отчётов</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-line">
+          <h2 className="text-lg font-semibold text-heading">Типы отчётов</h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
           >
             <X size={18} />
           </button>
@@ -257,7 +270,7 @@ function ReportTypesModal({ onClose, onSaved }) {
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
-            <div className="flex items-center justify-center py-16 text-slate-400">
+            <div className="flex items-center justify-center py-16 text-subtle">
               <Loader2 size={24} className="animate-spin" />
             </div>
           ) : (
@@ -265,33 +278,33 @@ function ReportTypesModal({ onClose, onSaved }) {
               {types.map((t) => (
                 <div
                   key={t.id}
-                  className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors"
+                  className="flex items-center gap-3 p-3 rounded-lg border border-line hover:border-line transition-colors"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-slate-900">{t.name}</span>
-                      <span className="text-xs text-slate-400 bg-slate-100 rounded px-1.5 py-0.5">
+                      <span className="font-medium text-heading">{t.name}</span>
+                      <span className="text-xs text-subtle bg-muted rounded px-1.5 py-0.5">
                         {t.code}
                       </span>
                       <span
-                        className={`text-xs px-1.5 py-0.5 rounded ${t.isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-400"}`}
+                        className={`text-xs px-1.5 py-0.5 rounded ${t.isActive ? "bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300" : "bg-muted text-subtle"}`}
                       >
                         {t.isActive ? "Активен" : "Выключен"}
                       </span>
                     </div>
-                    <div className="text-xs text-slate-500 mt-0.5">
+                    <div className="text-xs text-subtle mt-0.5">
                       {FREQUENCY_LABELS[t.frequency]} · Порядок: {t.order}
                     </div>
                   </div>
                   <button
                     onClick={() => setForm({ ...t })}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#6567F1] hover:bg-[#6567F1]/5 transition-colors"
+                    className="p-1.5 rounded-lg text-subtle hover:text-primary hover:bg-primary/5 transition-colors"
                   >
                     <Pencil size={16} />
                   </button>
                   <button
                     onClick={() => handleDelete(t.id)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                    className="p-1.5 rounded-lg text-subtle hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/15 transition-colors"
                   >
                     <Trash2 size={16} />
                   </button>
@@ -302,25 +315,25 @@ function ReportTypesModal({ onClose, onSaved }) {
 
           {/* Add / Edit form */}
           {form !== null && (
-            <div className="mt-4 p-4 rounded-xl border-2 border-[#6567F1]/20 bg-[#6567F1]/5 space-y-3">
-              <h3 className="text-sm font-semibold text-slate-900">
+            <div className="mt-4 p-4 rounded-xl border-2 border-primary/20 bg-primary/5 space-y-3">
+              <h3 className="text-sm font-semibold text-heading">
                 {form.id ? "Редактировать" : "Новый тип"}
               </h3>
               <div className="grid grid-cols-2 gap-3">
                 <input
-                  className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30"
+                  className="border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                   placeholder="Название"
                   value={form.name || ""}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />
                 <input
-                  className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30"
+                  className="border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                   placeholder="Код (уникальный)"
                   value={form.code || ""}
                   onChange={(e) => setForm({ ...form, code: e.target.value })}
                 />
                 <select
-                  className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30"
+                  className="border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                   value={form.frequency || "QUARTERLY"}
                   onChange={(e) => setForm({ ...form, frequency: e.target.value })}
                 >
@@ -332,18 +345,18 @@ function ReportTypesModal({ onClose, onSaved }) {
                 </select>
                 <input
                   type="number"
-                  className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30"
+                  className="border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                   placeholder="Порядок"
                   value={form.order ?? 0}
                   onChange={(e) => setForm({ ...form, order: e.target.value })}
                 />
               </div>
-              <label className="flex items-center gap-2 text-sm text-slate-700">
+              <label className="flex items-center gap-2 text-sm text-body">
                 <input
                   type="checkbox"
                   checked={form.isActive !== false}
                   onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-                  className="rounded border-slate-300"
+                  className="rounded border-line"
                 />
                 Активен
               </label>
@@ -357,7 +370,7 @@ function ReportTypesModal({ onClose, onSaved }) {
                 </button>
                 <button
                   onClick={() => setForm(null)}
-                  className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100 transition-colors"
+                  className="px-4 py-2 rounded-lg text-sm text-body hover:bg-muted transition-colors"
                 >
                   Отмена
                 </button>
@@ -367,7 +380,7 @@ function ReportTypesModal({ onClose, onSaved }) {
         </div>
 
         {/* Footer */}
-        <div className="border-t border-slate-200 px-6 py-3">
+        <div className="border-t border-line px-6 py-3">
           <button
             onClick={() =>
               setForm({
@@ -378,7 +391,7 @@ function ReportTypesModal({ onClose, onSaved }) {
                 isActive: true,
               })
             }
-            className="flex items-center gap-1.5 text-sm text-[#6567F1] font-medium hover:text-[#4547D1] transition-colors"
+            className="flex items-center gap-1.5 text-sm text-primary font-medium hover:text-[#4547D1] transition-colors"
           >
             <Plus size={16} />
             Добавить тип
@@ -504,14 +517,14 @@ export default function ReportingPage() {
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Трекер отчётности</h1>
-          <p className="text-sm text-slate-500 mt-1">Контроль сдачи отчётов по организациям</p>
+          <h1 className="text-2xl font-bold text-heading">Трекер отчётности</h1>
+          <p className="text-sm text-subtle mt-1">Контроль сдачи отчётов по организациям</p>
         </div>
         <div className="flex items-center gap-2">
           {isAdmin && (
             <button
               onClick={() => setShowTypes(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-[#6567F1]/20 text-[#6567F1] text-sm font-medium hover:bg-[#6567F1]/5 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-primary/20 text-primary text-sm font-medium hover:bg-primary/5 transition-colors"
             >
               <Settings size={16} />
               Типы отчётов
@@ -521,18 +534,18 @@ export default function ReportingPage() {
       </div>
 
       {/* Filters bar */}
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-4 mb-6">
+      <div className="bg-surface rounded-2xl shadow-lg border border-line p-4 mb-6">
         <div className="flex flex-wrap items-center gap-4">
           {/* Frequency tabs */}
-          <div className="flex bg-slate-100 rounded-lg p-0.5">
+          <div className="flex bg-muted rounded-lg p-0.5">
             {FREQUENCY_OPTIONS.map((f) => (
               <button
                 key={f}
                 onClick={() => setFrequency(f)}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   frequency === f
-                    ? "bg-white text-[#6567F1] shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
+                    ? "bg-surface text-primary shadow-sm"
+                    : "text-subtle hover:text-body"
                 }`}
               >
                 {FREQUENCY_LABELS[f]}
@@ -544,16 +557,16 @@ export default function ReportingPage() {
           <div className="flex items-center gap-1">
             <button
               onClick={handlePrevPeriod}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
             >
               <ChevronLeft size={18} />
             </button>
-            <div className="px-3 py-1.5 text-sm font-semibold text-slate-900 min-w-[140px] text-center">
+            <div className="px-3 py-1.5 text-sm font-semibold text-heading min-w-[140px] text-center">
               {periodLabel(frequency, period)} {year}
             </div>
             <button
               onClick={handleNextPeriod}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
             >
               <ChevronRight size={18} />
             </button>
@@ -561,7 +574,7 @@ export default function ReportingPage() {
 
           {/* Year quick select */}
           <select
-            className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30"
+            className="border border-line rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             value={year}
             onChange={(e) => setYear(Number(e.target.value))}
           >
@@ -577,7 +590,7 @@ export default function ReportingPage() {
             <select
               value={sectionFilter}
               onChange={(e) => setSectionFilter(e.target.value)}
-              className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30"
+              className="border border-line rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             >
               <option value="">Все участки</option>
               {sections.map((s) => (
@@ -592,16 +605,16 @@ export default function ReportingPage() {
           {/* Stats badges */}
           {stats && (
             <div className="flex items-center gap-2 ml-auto">
-              <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">
+              <span className="text-xs px-2 py-1 rounded-full bg-muted text-body">
                 Всего: {stats.total}
               </span>
-              <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700">
+              <span className="text-xs px-2 py-1 rounded-full bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300">
                 Принято: {stats.accepted}
               </span>
-              <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">
+              <span className="text-xs px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300">
                 Сдано: {stats.submitted}
               </span>
-              <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-700">
+              <span className="text-xs px-2 py-1 rounded-full bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300">
                 Отклонено: {stats.rejected}
               </span>
             </div>
@@ -611,36 +624,36 @@ export default function ReportingPage() {
 
       {/* Matrix table */}
       {loading ? (
-        <div className="flex items-center justify-center py-16 text-slate-400">
+        <div className="flex items-center justify-center py-16 text-subtle">
           <Loader2 size={24} className="animate-spin" />
         </div>
       ) : !data || filteredOrgs.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-12 text-center">
-          <FileSpreadsheet size={48} className="mx-auto text-slate-300 mb-4" />
-          <h3 className="text-lg font-semibold text-slate-700 mb-1">Нет организаций</h3>
-          <p className="text-sm text-slate-500">Для выбранного периода нет доступных организаций</p>
+        <div className="bg-surface rounded-2xl shadow-lg border border-line p-12 text-center">
+          <FileSpreadsheet size={48} className="mx-auto text-subtle mb-4" />
+          <h3 className="text-lg font-semibold text-body mb-1">Нет организаций</h3>
+          <p className="text-sm text-subtle">Для выбранного периода нет доступных организаций</p>
         </div>
       ) : data.reportTypes?.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-12 text-center">
-          <FileSpreadsheet size={48} className="mx-auto text-slate-300 mb-4" />
-          <h3 className="text-lg font-semibold text-slate-700 mb-1">Нет типов отчётов</h3>
-          <p className="text-sm text-slate-500">
+        <div className="bg-surface rounded-2xl shadow-lg border border-line p-12 text-center">
+          <FileSpreadsheet size={48} className="mx-auto text-subtle mb-4" />
+          <h3 className="text-lg font-semibold text-body mb-1">Нет типов отчётов</h3>
+          <p className="text-sm text-subtle">
             Добавьте типы отчётов с частотой &laquo;{FREQUENCY_LABELS[frequency]}&raquo;
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+        <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden">
           <div className="overflow-auto max-h-[calc(100vh-260px)]">
             <table className="w-full text-sm border-separate border-spacing-0">
               <thead>
                 <tr>
-                  <th className="text-left px-4 py-3 font-semibold text-slate-700 sticky top-0 left-0 bg-slate-50 z-30 min-w-[200px] border-b border-slate-200">
+                  <th className="text-left px-4 py-3 font-semibold text-body sticky top-0 left-0 bg-canvas z-30 min-w-[200px] border-b border-line">
                     Организация
                   </th>
                   {data.reportTypes.map((rt) => (
                     <th
                       key={rt.id}
-                      className="text-center px-2 py-3 font-medium text-slate-600 min-w-[100px] sticky top-0 bg-slate-50 z-20 border-b border-slate-200"
+                      className="text-center px-2 py-3 font-medium text-body min-w-[100px] sticky top-0 bg-canvas z-20 border-b border-line"
                     >
                       <div className="text-xs leading-tight">{rt.name}</div>
                     </th>
@@ -649,19 +662,17 @@ export default function ReportingPage() {
               </thead>
               <tbody>
                 {filteredOrgs.map((org, idx) => (
-                  <tr key={org.id} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50/50"}>
-                    <td className="px-4 py-2 sticky left-0 z-10 bg-inherit border-b border-slate-100">
+                  <tr key={org.id} className={idx % 2 === 0 ? "bg-surface" : "bg-canvas/50"}>
+                    <td className="px-4 py-2 sticky left-0 z-10 bg-inherit border-b border-line">
                       <div
-                        className="font-medium text-slate-900 truncate max-w-[240px]"
+                        className="font-medium text-heading truncate max-w-[240px]"
                         title={org.name}
                       >
                         {org.name}
                       </div>
-                      <div className="text-xs text-slate-400 flex items-center gap-2">
+                      <div className="text-xs text-subtle flex items-center gap-2">
                         {org.inn && <span>ИНН {org.inn}</span>}
-                        {org.section && (
-                          <span className="text-[#6567F1]">§{org.section.number}</span>
-                        )}
+                        {org.section && <span className="text-primary">§{org.section.number}</span>}
                       </div>
                     </td>
                     {data.reportTypes.map((rt) => {
@@ -672,7 +683,7 @@ export default function ReportingPage() {
                       const effectiveEntry =
                         entry || (!applicable ? { status: "NOT_APPLICABLE" } : null);
                       return (
-                        <td key={rt.id} className="px-1.5 py-1.5 border-b border-slate-100">
+                        <td key={rt.id} className="px-1.5 py-1.5 border-b border-line">
                           <StatusCell
                             entry={effectiveEntry}
                             orgId={org.id}
