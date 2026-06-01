@@ -46,24 +46,24 @@ const TASK_CATEGORY_LABELS = {
 };
 
 const STATUS_COLORS = {
-  OPEN: "bg-slate-100 text-slate-600",
-  IN_PROGRESS: "bg-blue-100 text-blue-700",
-  DONE: "bg-green-100 text-green-700",
-  CANCELLED: "bg-slate-100 text-slate-400 line-through",
+  OPEN: "bg-muted text-body",
+  IN_PROGRESS: "bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300",
+  DONE: "bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300",
+  CANCELLED: "bg-muted text-subtle line-through",
 };
 
 const PRIORITY_COLORS = {
-  LOW: "bg-slate-100 text-slate-500",
-  MEDIUM: "bg-yellow-100 text-yellow-700",
-  HIGH: "bg-orange-100 text-orange-700",
-  URGENT: "bg-red-100 text-red-700",
+  LOW: "bg-muted text-subtle",
+  MEDIUM: "bg-yellow-100 dark:bg-yellow-500/15 text-yellow-700 dark:text-yellow-300",
+  HIGH: "bg-orange-100 dark:bg-orange-500/15 text-orange-700 dark:text-orange-300",
+  URGENT: "bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300",
 };
 
 const CATEGORY_COLORS = {
-  REPORTING: "bg-purple-100 text-purple-700",
-  DOCUMENTS: "bg-blue-100 text-blue-700",
-  PAYMENT: "bg-green-100 text-green-700",
-  OTHER: "bg-slate-100 text-slate-600",
+  REPORTING: "bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300",
+  DOCUMENTS: "bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300",
+  PAYMENT: "bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300",
+  OTHER: "bg-muted text-body",
 };
 
 // value = "TYPE:interval", e.g. "MONTHLY:1"
@@ -102,9 +102,9 @@ function isOverdue(task) {
 }
 
 const INPUT_CLS =
-  "w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white";
+  "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface";
 const SELECT_CLS = INPUT_CLS;
-const LABEL_CLS = "block text-sm font-medium text-slate-700 mb-1";
+const LABEL_CLS = "block text-sm font-medium text-body mb-1";
 
 const EMPTY_FORM = {
   title: "",
@@ -467,21 +467,21 @@ export default function TasksPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-2xl font-bold text-slate-900">Задачи</h1>
+        <h1 className="text-2xl font-bold text-heading">Задачи</h1>
         <div className="flex items-center gap-2">
           {/* View toggle */}
           {!isArchiveMode && (
-            <div className="flex gap-0.5 bg-slate-100 rounded-lg p-0.5">
+            <div className="flex gap-0.5 bg-muted rounded-lg p-0.5">
               <button
                 onClick={() => setViewMode("list")}
-                className={`p-1.5 rounded-md transition-colors ${viewMode === "list" ? "bg-white shadow text-[#6567F1]" : "text-slate-400 hover:text-slate-600"}`}
+                className={`p-1.5 rounded-md transition-colors ${viewMode === "list" ? "bg-surface shadow text-primary" : "text-subtle hover:text-body"}`}
                 title="Список"
               >
                 <List size={15} />
               </button>
               <button
                 onClick={() => setViewMode("kanban")}
-                className={`p-1.5 rounded-md transition-colors ${viewMode === "kanban" ? "bg-white shadow text-[#6567F1]" : "text-slate-400 hover:text-slate-600"}`}
+                className={`p-1.5 rounded-md transition-colors ${viewMode === "kanban" ? "bg-surface shadow text-primary" : "text-subtle hover:text-body"}`}
                 title="Канбан"
               >
                 <Columns3 size={15} />
@@ -504,7 +504,7 @@ export default function TasksPage() {
       <div className="flex flex-wrap items-center gap-3 mb-5">
         {/* Status tabs — hidden in kanban (columns are the statuses) */}
         {effectiveViewMode === "list" && (
-          <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1">
+          <div className="flex gap-1 bg-surface border border-line rounded-xl p-1">
             {STATUS_TABS.filter(
               (t) => t.key !== "ARCHIVED" || hasRole("admin") || hasRole("supervisor"),
             ).map((t) => (
@@ -512,9 +512,7 @@ export default function TasksPage() {
                 key={t.key}
                 onClick={() => setStatusTab(t.key)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  statusTab === t.key
-                    ? "bg-[#6567F1] text-white"
-                    : "text-slate-500 hover:text-slate-900"
+                  statusTab === t.key ? "bg-primary text-white" : "text-subtle hover:text-heading"
                 }`}
               >
                 {t.label}
@@ -528,7 +526,7 @@ export default function TasksPage() {
               setViewMode("list");
               setStatusTab("ARCHIVED");
             }}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200 bg-white text-slate-500 hover:text-slate-900 transition-colors"
+            className="px-3 py-1.5 rounded-lg text-xs font-medium border border-line bg-surface text-subtle hover:text-heading transition-colors"
           >
             Архив
           </button>
@@ -538,7 +536,7 @@ export default function TasksPage() {
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
-          className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30"
+          className="px-3 py-2 border border-line rounded-lg text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30"
         >
           <option value="">Все категории</option>
           {Object.entries(TASK_CATEGORY_LABELS).map(([k, v]) => (
@@ -554,7 +552,7 @@ export default function TasksPage() {
             <select
               value={assigneeFilter}
               onChange={(e) => setAssigneeFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30"
+              className="px-3 py-2 border border-line rounded-lg text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30"
             >
               <option value="">Все ответственные</option>
               {assigneesFromTasks.map((u) => (
@@ -568,7 +566,7 @@ export default function TasksPage() {
         {/* Date sort */}
         <button
           onClick={() => setDateSort((s) => (s === "desc" ? "asc" : "desc"))}
-          className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-2 border border-line rounded-lg text-sm bg-surface text-body hover:text-heading hover:border-line transition-colors"
         >
           <ArrowUpDown size={14} />
           {dateSort === "desc" ? "Сначала новые" : "Сначала старые"}
@@ -577,11 +575,11 @@ export default function TasksPage() {
 
       {/* Content */}
       {loading ? (
-        <div className="flex items-center justify-center py-16 text-slate-400">
+        <div className="flex items-center justify-center py-16 text-subtle">
           <Loader2 size={24} className="animate-spin" />
         </div>
       ) : error ? (
-        <div className="text-sm text-red-500">{error}</div>
+        <div className="text-sm text-red-500 dark:text-red-400">{error}</div>
       ) : effectiveViewMode === "kanban" ? (
         /* ── Kanban board ── */
         <div
@@ -612,9 +610,9 @@ export default function TasksPage() {
                 >
                   <div className="flex items-center gap-2">
                     <span className={`w-2.5 h-2.5 rounded-full ${col.dot}`} />
-                    <span className="text-sm font-semibold text-slate-700">{col.label}</span>
+                    <span className="text-sm font-semibold text-body">{col.label}</span>
                   </div>
-                  <span className="text-xs font-bold text-slate-400 bg-white/60 rounded-full px-2 py-0.5">
+                  <span className="text-xs font-bold text-subtle bg-surface/60 rounded-full px-2 py-0.5">
                     {colItems.length}
                   </span>
                 </div>
@@ -623,7 +621,7 @@ export default function TasksPage() {
                 <div className="flex-1 flex flex-col gap-2 p-3 overflow-y-auto">
                   {colItems.length === 0 && (
                     <div
-                      className={`flex-1 flex items-center justify-center text-xs text-slate-400 rounded-xl border-2 border-dashed ${isOver ? "border-[#6567F1]/40 bg-[#6567F1]/5" : "border-slate-200"} min-h-[80px] transition-colors`}
+                      className={`flex-1 flex items-center justify-center text-xs text-subtle rounded-xl border-2 border-dashed ${isOver ? "border-primary/40 bg-primary/5" : "border-line"} min-h-[80px] transition-colors`}
                     >
                       {isOver ? "Перетащите сюда" : "Нет задач"}
                     </div>
@@ -672,7 +670,7 @@ export default function TasksPage() {
         </div>
       ) : /* ── List view ── */
       displayItems.length === 0 ? (
-        <div className="text-sm text-slate-400">Нет задач</div>
+        <div className="text-sm text-subtle">Нет задач</div>
       ) : (
         <div className="space-y-1.5">
           {displayItems.map((item) =>
@@ -708,14 +706,14 @@ export default function TasksPage() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg">
-            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-slate-100">
-              <h2 className="text-base font-bold text-slate-900">
+          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-lg">
+            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-line">
+              <h2 className="text-base font-bold text-heading">
                 {editingTask ? "Редактировать задачу" : "Новая задача"}
               </h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
               >
                 <X size={18} />
               </button>
@@ -758,11 +756,11 @@ export default function TasksPage() {
                 <div>
                   <label
                     htmlFor="visibleToClient"
-                    className="block text-sm font-medium text-slate-700 cursor-pointer"
+                    className="block text-sm font-medium text-body cursor-pointer"
                   >
                     Показывать клиенту в ленте
                   </label>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-subtle mt-0.5">
                     После закрытия задача появится у клиента в разделе «Что мы для вас делаем».
                     Заголовок задачи будет показан клиенту дословно — например, «Сдана декларация
                     УСН за Q1».
@@ -854,7 +852,7 @@ export default function TasksPage() {
                       ))}
                     </select>
                     <div className="mt-2">
-                      <label className="block text-xs font-medium text-slate-500 mb-1">
+                      <label className="block text-xs font-medium text-subtle mb-1">
                         Добавить ещё организации (создаст копии задачи)
                       </label>
                       <OrgMultiSelect
@@ -885,14 +883,16 @@ export default function TasksPage() {
               </div>
 
               {formError && (
-                <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{formError}</div>
+                <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
+                  {formError}
+                </div>
               )}
 
               <div className="flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
                 >
                   Отмена
                 </button>
@@ -962,16 +962,16 @@ function GroupedTaskRow({
 
   return (
     <div
-      className={`rounded-xl border overflow-hidden transition-shadow ${expanded ? "shadow-md" : "hover:shadow-md"} ${overdue ? "border-red-200" : "border-slate-200"}`}
+      className={`rounded-xl border overflow-hidden transition-shadow ${expanded ? "shadow-md" : "hover:shadow-md"} ${overdue ? "border-red-200 dark:border-red-500/30" : "border-line"}`}
     >
       {/* Group header row */}
       <div
-        className={`group flex items-center gap-3 bg-white px-3 py-2.5 cursor-pointer select-none ${overdue ? "bg-red-50/30" : ""}`}
+        className={`group flex items-center gap-3 bg-surface px-3 py-2.5 cursor-pointer select-none ${overdue ? "bg-red-50/30 dark:bg-red-500/15" : ""}`}
         onClick={() => setExpanded((e) => !e)}
       >
         <ChevronRight
           size={14}
-          className={`text-slate-400 shrink-0 transition-transform duration-150 ${expanded ? "rotate-90" : ""}`}
+          className={`text-subtle shrink-0 transition-transform duration-150 ${expanded ? "rotate-90" : ""}`}
         />
         <div className={`w-1 h-8 rounded-full shrink-0 ${PRIORITY_BAR[first.priority]}`} />
         <span
@@ -980,20 +980,20 @@ function GroupedTaskRow({
           {TASK_CATEGORY_LABELS[first.category]}
         </span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium leading-tight truncate text-slate-800">{first.title}</p>
+          <p className="text-sm font-medium leading-tight truncate text-heading">{first.title}</p>
           {first.description && (
-            <p className="text-[11px] text-slate-400 leading-snug truncate mt-0.5">
+            <p className="text-[11px] text-subtle leading-snug truncate mt-0.5">
               {first.description}
             </p>
           )}
           <div className="flex items-center gap-2.5 mt-0.5 text-[11px] flex-wrap">
-            <span className="flex items-center gap-0.5 font-medium text-[#6567F1]">
+            <span className="flex items-center gap-0.5 font-medium text-primary">
               <Building2 size={10} />
               {tasks.length} орг. · {doneCount}/{tasks.length} выполнено
             </span>
             {first.dueDate && (
               <span
-                className={`flex items-center gap-0.5 ${overdue ? "text-red-500 font-semibold" : "text-slate-400"}`}
+                className={`flex items-center gap-0.5 ${overdue ? "text-red-500 dark:text-red-400 font-semibold" : "text-subtle"}`}
               >
                 <CalendarDays size={10} />
                 {formatDueDate(first.dueDate)}
@@ -1002,7 +1002,7 @@ function GroupedTaskRow({
             )}
             {first.assignees?.length > 0 && (
               <span
-                className="flex items-center gap-0.5 text-slate-400 truncate max-w-[140px]"
+                className="flex items-center gap-0.5 text-subtle truncate max-w-[140px]"
                 title={first.assignees
                   .map((a) => `${a.user.lastName} ${a.user.firstName}`)
                   .join(", ")}
@@ -1024,7 +1024,7 @@ function GroupedTaskRow({
 
       {/* Sub-rows — one per org */}
       {expanded && (
-        <div className="border-t border-slate-100 divide-y divide-slate-100 bg-slate-50/40">
+        <div className="border-t border-line divide-y divide-line bg-canvas/40">
           {tasks.map((task) => {
             const taskOverdue = isOverdue(task);
             const ce = canEdit(task);
@@ -1033,18 +1033,18 @@ function GroupedTaskRow({
             return (
               <div
                 key={task.id}
-                className={`flex items-center gap-2 pl-10 pr-3 py-2 ${taskOverdue ? "bg-red-50/30" : ""}`}
+                className={`flex items-center gap-2 pl-10 pr-3 py-2 ${taskOverdue ? "bg-red-50/30 dark:bg-red-500/15" : ""}`}
               >
-                <Building2 size={12} className="text-slate-400 shrink-0" />
+                <Building2 size={12} className="text-subtle shrink-0" />
                 <Link
                   to={`/organizations/${task.organization?.id}`}
-                  className="text-sm text-slate-600 hover:text-[#6567F1] transition-colors truncate flex-1 min-w-0"
+                  className="text-sm text-body hover:text-primary transition-colors truncate flex-1 min-w-0"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {task.organization?.name ?? "—"}
                 </Link>
                 {taskOverdue && (
-                  <span className="text-[10px] text-red-500 font-semibold shrink-0">
+                  <span className="text-[10px] text-red-500 dark:text-red-400 font-semibold shrink-0">
                     ⚠ просрочено
                   </span>
                 )}
@@ -1057,7 +1057,7 @@ function GroupedTaskRow({
                         onStatusChange(task, e.target.value);
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      className={`text-[11px] border rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 cursor-pointer font-medium ${STATUS_COLORS[task.status]}`}
+                      className={`text-[11px] border rounded-lg px-2 py-1 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer font-medium ${STATUS_COLORS[task.status]}`}
                     >
                       <option value={task.status}>{TASK_STATUS_LABELS[task.status]}</option>
                       {nextSt.map((s) => (
@@ -1078,7 +1078,7 @@ function GroupedTaskRow({
                       e.stopPropagation();
                       onChecklist(task);
                     }}
-                    className="p-1.5 text-slate-300 hover:text-[#6567F1] transition-colors"
+                    className="p-1.5 text-subtle hover:text-primary transition-colors"
                     title="Чек-лист"
                   >
                     <CheckSquare size={13} />
@@ -1088,13 +1088,13 @@ function GroupedTaskRow({
                       e.stopPropagation();
                       onComment(task);
                     }}
-                    className={`relative p-1.5 transition-colors hover:text-[#6567F1] ${task.hasUnreadComments ? "text-orange-500" : task._count?.comments > 0 ? "text-[#6567F1]" : "text-slate-300"}`}
+                    className={`relative p-1.5 transition-colors hover:text-primary ${task.hasUnreadComments ? "text-orange-500 dark:text-orange-400" : task._count?.comments > 0 ? "text-primary" : "text-subtle"}`}
                     title={`Комментарии${task._count?.comments > 0 ? ` (${task._count.comments})` : ""}${task.hasUnreadComments ? " · новые" : ""}`}
                   >
                     <MessageSquare size={13} />
                     {task._count?.comments > 0 && (
                       <span
-                        className={`absolute -top-0.5 -right-0.5 w-3 h-3 text-white text-[7px] font-bold rounded-full flex items-center justify-center ${task.hasUnreadComments ? "bg-orange-500" : "bg-[#6567F1]"}`}
+                        className={`absolute -top-0.5 -right-0.5 w-3 h-3 text-white text-[7px] font-bold rounded-full flex items-center justify-center ${task.hasUnreadComments ? "bg-orange-500" : "bg-primary"}`}
                       >
                         {task._count.comments > 9 ? "9+" : task._count.comments}
                       </span>
@@ -1106,7 +1106,7 @@ function GroupedTaskRow({
                         e.stopPropagation();
                         onEdit(task);
                       }}
-                      className="p-1.5 text-slate-300 hover:text-[#6567F1] transition-colors"
+                      className="p-1.5 text-subtle hover:text-primary transition-colors"
                       title="Редактировать"
                     >
                       <Pencil size={13} />
@@ -1118,7 +1118,7 @@ function GroupedTaskRow({
                         e.stopPropagation();
                         onDelete(task);
                       }}
-                      className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"
+                      className="p-1.5 text-subtle hover:text-red-500 dark:hover:text-red-400 transition-colors"
                       title="Удалить"
                     >
                       <Trash2 size={13} />
@@ -1138,33 +1138,33 @@ const KANBAN_COLS = [
   {
     key: "OPEN",
     label: "Открытые",
-    cls: "border-slate-200 bg-slate-50/60",
-    overCls: "border-[#6567F1]/40 bg-[#6567F1]/5",
-    headerCls: "bg-slate-100/80",
+    cls: "border-line bg-canvas/60",
+    overCls: "border-primary/40 bg-primary/5",
+    headerCls: "bg-muted/80",
     dot: "bg-slate-400",
   },
   {
     key: "IN_PROGRESS",
     label: "В работе",
-    cls: "border-blue-200 bg-blue-50/40",
-    overCls: "border-blue-400/60 bg-blue-50",
-    headerCls: "bg-blue-100/60",
+    cls: "border-blue-200 dark:border-blue-500/30 bg-blue-50/40 dark:bg-blue-500/15",
+    overCls: "border-blue-400/60 bg-blue-50 dark:bg-blue-500/15",
+    headerCls: "bg-blue-100/60 dark:bg-blue-500/15",
     dot: "bg-blue-400",
   },
   {
     key: "DONE",
     label: "Выполнено",
-    cls: "border-emerald-200 bg-emerald-50/40",
-    overCls: "border-emerald-400/60 bg-emerald-50",
-    headerCls: "bg-emerald-100/60",
+    cls: "border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/40 dark:bg-emerald-500/15",
+    overCls: "border-emerald-400/60 bg-emerald-50 dark:bg-emerald-500/15",
+    headerCls: "bg-emerald-100/60 dark:bg-emerald-500/15",
     dot: "bg-emerald-400",
   },
   {
     key: "CANCELLED",
     label: "Отменено",
-    cls: "border-slate-200 bg-slate-50/30",
-    overCls: "border-slate-400/40 bg-slate-100/40",
-    headerCls: "bg-slate-100/50",
+    cls: "border-line bg-canvas/30",
+    overCls: "border-line/40 bg-muted/40",
+    headerCls: "bg-muted/50",
     dot: "bg-slate-300",
   },
 ];
@@ -1196,16 +1196,16 @@ function KanbanCard({
         isDragging ? "opacity-40 rotate-1 scale-95" : "hover:shadow-md"
       } ${
         isReport
-          ? "bg-gradient-to-br from-purple-50 to-white border-purple-200/60 ring-1 ring-purple-100/50"
+          ? "bg-gradient-to-br from-purple-50 to-white dark:from-purple-500/10 dark:to-surface border-purple-200/60 dark:border-purple-500/30 ring-1 ring-purple-100/50 dark:ring-purple-500/20"
           : overdue
-            ? "bg-white border-red-200"
-            : "bg-white border-slate-200"
+            ? "bg-surface border-red-200 dark:border-red-500/30"
+            : "bg-surface border-line"
       } ${canEdit ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
       {/* Priority + category + recurrence */}
       <div className="flex items-center gap-1.5 mb-2">
         {!isReport && (
-          <span className="text-[10px] text-slate-400 font-medium shrink-0">Приоритет:</span>
+          <span className="text-[10px] text-subtle font-medium shrink-0">Приоритет:</span>
         )}
         {!isReport && (
           <span
@@ -1222,7 +1222,7 @@ function KanbanCard({
         {task.recurrenceType && (
           <RefreshCw
             size={10}
-            className="text-[#6567F1] ml-auto shrink-0"
+            className="text-primary ml-auto shrink-0"
             title={RECURRENCE_LABELS[`${task.recurrenceType}:${task.recurrenceInterval}`]}
           />
         )}
@@ -1230,7 +1230,7 @@ function KanbanCard({
 
       {/* Title */}
       <p
-        className={`text-sm font-medium leading-snug mb-1.5 ${cancelled ? "line-through text-slate-400" : isReport ? "text-purple-900" : "text-slate-800"}`}
+        className={`text-sm font-medium leading-snug mb-1.5 ${cancelled ? "line-through text-subtle" : isReport ? "text-purple-900 dark:text-purple-300" : "text-heading"}`}
       >
         {task.title}
       </p>
@@ -1239,7 +1239,7 @@ function KanbanCard({
       {isReport && checklistTotal > 0 && (
         <div className="mb-2">
           <div className="flex items-center justify-between text-[11px] mb-1">
-            <span className="font-medium text-purple-600 flex items-center gap-1">
+            <span className="font-medium text-purple-600 dark:text-purple-300 flex items-center gap-1">
               <Building2 size={10} />
               {checklistDone}/{checklistTotal} орг.
             </span>
@@ -1247,7 +1247,7 @@ function KanbanCard({
               {Math.round((checklistDone / checklistTotal) * 100)}%
             </span>
           </div>
-          <div className="h-1.5 bg-purple-100 rounded-full overflow-hidden">
+          <div className="h-1.5 bg-purple-100 dark:bg-purple-500/15 rounded-full overflow-hidden">
             <div
               className="h-full bg-purple-500 rounded-full transition-all duration-300"
               style={{ width: `${(checklistDone / checklistTotal) * 100}%` }}
@@ -1258,7 +1258,7 @@ function KanbanCard({
 
       {/* Description */}
       {!isReport && task.description && (
-        <p className="text-[11px] text-slate-400 leading-snug line-clamp-2 mb-1.5">
+        <p className="text-[11px] text-subtle leading-snug line-clamp-2 mb-1.5">
           {task.description}
         </p>
       )}
@@ -1267,7 +1267,7 @@ function KanbanCard({
       {!isReport && task.organization && (
         <Link
           to={`/organizations/${task.organization.id}`}
-          className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-[#6567F1] transition-colors mb-1.5 truncate"
+          className="flex items-center gap-1 text-[11px] text-subtle hover:text-primary transition-colors mb-1.5 truncate"
           onClick={(e) => e.stopPropagation()}
         >
           <Building2 size={10} />
@@ -1277,13 +1277,13 @@ function KanbanCard({
 
       {/* Who assigned + when */}
       {task.createdBy && (
-        <div className="flex items-center gap-1 text-[11px] text-slate-400 mb-2">
+        <div className="flex items-center gap-1 text-[11px] text-subtle mb-2">
           <UserCircle size={10} />
           <span>
             {task.createdBy.lastName} {task.createdBy.firstName}
           </span>
           {task.createdAt && (
-            <span className="text-slate-300">
+            <span className="text-subtle">
               ·{" "}
               {new Date(task.createdAt).toLocaleDateString("ru-RU", {
                 day: "2-digit",
@@ -1298,7 +1298,7 @@ function KanbanCard({
       <div className="flex items-center gap-2 mt-1">
         {task.dueDate && (
           <span
-            className={`flex items-center gap-1 text-[11px] shrink-0 ${overdue ? "text-red-500 font-semibold" : "text-slate-400"}`}
+            className={`flex items-center gap-1 text-[11px] shrink-0 ${overdue ? "text-red-500 dark:text-red-400 font-semibold" : "text-subtle"}`}
           >
             <CalendarDays size={10} />
             {formatDueDate(task.dueDate)}
@@ -1314,14 +1314,14 @@ function KanbanCard({
             {task.assignees.slice(0, 3).map((a) => (
               <div
                 key={a.user.id}
-                className="w-5 h-5 rounded-full bg-[#6567F1]/10 border border-[#6567F1]/20 flex items-center justify-center text-[9px] font-bold text-[#6567F1]"
+                className="w-5 h-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[9px] font-bold text-primary"
               >
                 {a.user.firstName?.[0]}
                 {a.user.lastName?.[0]}
               </div>
             ))}
             {task.assignees.length > 3 && (
-              <div className="w-5 h-5 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[9px] font-bold text-slate-400">
+              <div className="w-5 h-5 rounded-full bg-muted border border-line flex items-center justify-center text-[9px] font-bold text-subtle">
                 +{task.assignees.length - 3}
               </div>
             )}
@@ -1332,7 +1332,7 @@ function KanbanCard({
           {isReport && checklistTotal > 0 ? (
             <button
               onClick={() => onChecklist(task)}
-              className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700 text-[10px] font-semibold hover:bg-purple-200 transition-colors !opacity-100"
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 text-[10px] font-semibold hover:bg-purple-200 transition-colors !opacity-100"
               title="Организации"
             >
               <CheckSquare size={11} />
@@ -1341,7 +1341,7 @@ function KanbanCard({
           ) : (
             <button
               onClick={() => onChecklist(task)}
-              className="relative p-1 text-slate-300 hover:text-[#6567F1] transition-colors"
+              className="relative p-1 text-subtle hover:text-primary transition-colors"
               title="Чек-лист"
             >
               <CheckSquare size={13} />
@@ -1356,13 +1356,13 @@ function KanbanCard({
           )}
           <button
             onClick={() => onComment(task)}
-            className={`relative p-1 transition-colors hover:text-[#6567F1] ${task.hasUnreadComments ? "text-orange-500" : task._count?.comments > 0 ? "text-[#6567F1]" : "text-slate-300"}`}
+            className={`relative p-1 transition-colors hover:text-primary ${task.hasUnreadComments ? "text-orange-500 dark:text-orange-400" : task._count?.comments > 0 ? "text-primary" : "text-subtle"}`}
             title={`Комментарии${task._count?.comments > 0 ? ` (${task._count.comments})` : ""}${task.hasUnreadComments ? " · новые" : ""}`}
           >
             <MessageSquare size={13} />
             {task._count?.comments > 0 && (
               <span
-                className={`absolute -top-0.5 -right-0.5 w-3 h-3 text-white text-[7px] font-bold rounded-full flex items-center justify-center ${task.hasUnreadComments ? "bg-orange-500" : "bg-[#6567F1]"}`}
+                className={`absolute -top-0.5 -right-0.5 w-3 h-3 text-white text-[7px] font-bold rounded-full flex items-center justify-center ${task.hasUnreadComments ? "bg-orange-500" : "bg-primary"}`}
               >
                 {task._count.comments > 9 ? "9+" : task._count.comments}
               </span>
@@ -1371,7 +1371,7 @@ function KanbanCard({
           {canEdit && (
             <button
               onClick={() => onEdit(task)}
-              className="p-1 text-slate-300 hover:text-[#6567F1] transition-colors"
+              className="p-1 text-subtle hover:text-primary transition-colors"
               title="Редактировать"
             >
               <Pencil size={13} />
@@ -1380,7 +1380,7 @@ function KanbanCard({
           {canDelete && (
             <button
               onClick={() => onDelete(task)}
-              className="p-1 text-slate-300 hover:text-red-500 transition-colors"
+              className="p-1 text-subtle hover:text-red-500 dark:hover:text-red-400 transition-colors"
               title="Удалить"
             >
               <Trash2 size={13} />
@@ -1414,15 +1414,15 @@ function KanbanGroupCard({
       draggable={canEdit}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      className={`group bg-white rounded-xl border transition-all select-none ${
+      className={`group bg-surface rounded-xl border transition-all select-none ${
         isDragging ? "opacity-40 rotate-1 scale-95" : "hover:shadow-md"
-      } ${overdue ? "border-red-200" : "border-slate-200"} ${canEdit ? "cursor-grab active:cursor-grabbing" : ""}`}
+      } ${overdue ? "border-red-200 dark:border-red-500/30" : "border-line"} ${canEdit ? "cursor-grab active:cursor-grabbing" : ""}`}
     >
       {/* Card header */}
       <div className="p-3">
         {/* Priority + category */}
         <div className="flex items-center gap-1.5 mb-2">
-          <span className="text-[10px] text-slate-400 font-medium shrink-0">Приоритет:</span>
+          <span className="text-[10px] text-subtle font-medium shrink-0">Приоритет:</span>
           <span
             className={`text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide ${PRIORITY_COLORS[first.priority]}`}
           >
@@ -1434,31 +1434,31 @@ function KanbanGroupCard({
             {TASK_CATEGORY_LABELS[first.category]}
           </span>
           {first.recurrenceType && (
-            <RefreshCw size={10} className="text-[#6567F1] ml-auto shrink-0" />
+            <RefreshCw size={10} className="text-primary ml-auto shrink-0" />
           )}
         </div>
 
         {/* Title */}
-        <p className="text-sm font-medium leading-snug mb-1 text-slate-800">{first.title}</p>
+        <p className="text-sm font-medium leading-snug mb-1 text-heading">{first.title}</p>
 
         {/* Description */}
         {first.description && (
-          <p className="text-[11px] text-slate-400 leading-snug line-clamp-2 mb-1.5">
+          <p className="text-[11px] text-subtle leading-snug line-clamp-2 mb-1.5">
             {first.description}
           </p>
         )}
 
         {/* Group badge + progress */}
         <div className="flex items-center gap-1.5 mb-1.5">
-          <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-[#6567F1]/10 text-[#6567F1] font-semibold">
+          <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
             <Building2 size={9} />
             {tasks.length} орг.
           </span>
-          <span className="text-[10px] text-slate-400">
+          <span className="text-[10px] text-subtle">
             {doneCount}/{tasks.length} выполнено
           </span>
           {/* Progress bar */}
-          <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+          <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
             <div
               className="h-full bg-emerald-400 rounded-full transition-all"
               style={{ width: `${(doneCount / tasks.length) * 100}%` }}
@@ -1469,7 +1469,7 @@ function KanbanGroupCard({
         {/* Due date */}
         {first.dueDate && (
           <div
-            className={`flex items-center gap-1 text-[11px] mb-2 ${overdue ? "text-red-500 font-semibold" : "text-slate-400"}`}
+            className={`flex items-center gap-1 text-[11px] mb-2 ${overdue ? "text-red-500 dark:text-red-400 font-semibold" : "text-subtle"}`}
           >
             <CalendarDays size={10} />
             {formatDueDate(first.dueDate)}
@@ -1484,7 +1484,7 @@ function KanbanGroupCard({
               e.stopPropagation();
               setExpanded((x) => !x);
             }}
-            className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-[#6567F1] transition-colors"
+            className="flex items-center gap-1 text-[11px] text-subtle hover:text-primary transition-colors"
           >
             <ChevronRight
               size={12}
@@ -1496,7 +1496,7 @@ function KanbanGroupCard({
             {canEdit && (
               <button
                 onClick={() => onEdit(first)}
-                className="p-1 text-slate-300 hover:text-[#6567F1] transition-colors"
+                className="p-1 text-subtle hover:text-primary transition-colors"
                 title="Редактировать"
               >
                 <Pencil size={13} />
@@ -1508,25 +1508,25 @@ function KanbanGroupCard({
 
       {/* Expanded org list */}
       {expanded && (
-        <div className="border-t border-slate-100 divide-y divide-slate-100">
+        <div className="border-t border-line divide-y divide-line">
           {tasks.map((task) => {
             const taskOverdue = isOverdue(task);
             return (
               <div
                 key={task.id}
-                className={`flex items-center gap-2 px-3 py-1.5 ${taskOverdue ? "bg-red-50/30" : ""}`}
+                className={`flex items-center gap-2 px-3 py-1.5 ${taskOverdue ? "bg-red-50/30 dark:bg-red-500/15" : ""}`}
               >
-                <Building2 size={10} className="text-slate-400 shrink-0" />
+                <Building2 size={10} className="text-subtle shrink-0" />
                 {task.organization ? (
                   <Link
                     to={`/organizations/${task.organization.id}`}
-                    className="text-[11px] text-slate-600 hover:text-[#6567F1] transition-colors truncate flex-1 min-w-0"
+                    className="text-[11px] text-body hover:text-primary transition-colors truncate flex-1 min-w-0"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {task.organization.name}
                   </Link>
                 ) : (
-                  <span className="text-[11px] text-slate-600 truncate flex-1 min-w-0">—</span>
+                  <span className="text-[11px] text-body truncate flex-1 min-w-0">—</span>
                 )}
                 {canEditTask(task) ? (
                   <select
@@ -1536,7 +1536,7 @@ function KanbanGroupCard({
                       onStatusChange(task, e.target.value);
                     }}
                     onClick={(e) => e.stopPropagation()}
-                    className={`text-[10px] border rounded px-1.5 py-0.5 bg-white focus:outline-none cursor-pointer font-medium shrink-0 ${STATUS_COLORS[task.status]}`}
+                    className={`text-[10px] border rounded px-1.5 py-0.5 bg-surface focus:outline-none cursor-pointer font-medium shrink-0 ${STATUS_COLORS[task.status]}`}
                   >
                     {["OPEN", "IN_PROGRESS", "DONE", "CANCELLED"].map((s) => (
                       <option key={s} value={s}>
@@ -1556,13 +1556,13 @@ function KanbanGroupCard({
                     e.stopPropagation();
                     onComment(task);
                   }}
-                  className={`relative p-1 transition-colors hover:text-[#6567F1] shrink-0 ${task.hasUnreadComments ? "text-orange-500" : task._count?.comments > 0 ? "text-[#6567F1]" : "text-slate-300"}`}
+                  className={`relative p-1 transition-colors hover:text-primary shrink-0 ${task.hasUnreadComments ? "text-orange-500 dark:text-orange-400" : task._count?.comments > 0 ? "text-primary" : "text-subtle"}`}
                   title={`Комментарии${task._count?.comments > 0 ? ` (${task._count.comments})` : ""}${task.hasUnreadComments ? " · новые" : ""}`}
                 >
                   <MessageSquare size={11} />
                   {task._count?.comments > 0 && (
                     <span
-                      className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 text-white text-[6px] font-bold rounded-full flex items-center justify-center ${task.hasUnreadComments ? "bg-orange-500" : "bg-[#6567F1]"}`}
+                      className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 text-white text-[6px] font-bold rounded-full flex items-center justify-center ${task.hasUnreadComments ? "bg-orange-500" : "bg-primary"}`}
                     >
                       {task._count.comments}
                     </span>
@@ -1573,7 +1573,7 @@ function KanbanGroupCard({
                     e.stopPropagation();
                     onDelete(task);
                   }}
-                  className="p-1 text-slate-300 hover:text-red-500 transition-colors shrink-0"
+                  className="p-1 text-subtle hover:text-red-500 dark:hover:text-red-400 transition-colors shrink-0"
                   title="Удалить"
                 >
                   <Trash2 size={11} />
@@ -1615,10 +1615,10 @@ function TaskCard({
     <div
       className={`group flex items-center gap-3 border rounded-xl px-3 py-2.5 transition-shadow hover:shadow-md ${
         isReport
-          ? "bg-gradient-to-r from-purple-50/80 to-white border-purple-200/60 ring-1 ring-purple-100/50"
+          ? "bg-gradient-to-r from-purple-50/80 to-white dark:from-purple-500/10 dark:to-surface border-purple-200/60 dark:border-purple-500/30 ring-1 ring-purple-100/50 dark:ring-purple-500/20"
           : overdue
-            ? "bg-white border-red-200 bg-red-50/30"
-            : "bg-white border-slate-200"
+            ? "bg-surface border-red-200 dark:border-red-500/30 bg-red-50/30 dark:bg-red-500/15"
+            : "bg-surface border-line"
       }`}
     >
       {/* Priority bar */}
@@ -1637,13 +1637,13 @@ function TaskCard({
       {/* Title + meta */}
       <div className="flex-1 min-w-0">
         <p
-          className={`text-sm font-medium leading-tight truncate ${cancelled ? "line-through text-slate-400" : isReport ? "text-purple-900" : "text-slate-800"}`}
+          className={`text-sm font-medium leading-tight truncate ${cancelled ? "line-through text-subtle" : isReport ? "text-purple-900 dark:text-purple-300" : "text-heading"}`}
         >
           {task.title}
         </p>
-        <div className="flex items-center gap-2.5 mt-0.5 text-[11px] text-slate-400 flex-wrap">
+        <div className="flex items-center gap-2.5 mt-0.5 text-[11px] text-subtle flex-wrap">
           {isReport && checklistTotal > 0 && (
-            <span className="flex items-center gap-0.5 font-medium text-purple-600">
+            <span className="flex items-center gap-0.5 font-medium text-purple-600 dark:text-purple-300">
               <Building2 size={10} />
               {checklistDone}/{checklistTotal} орг.
             </span>
@@ -1651,7 +1651,7 @@ function TaskCard({
           {!isReport && task.organization && (
             <Link
               to={`/organizations/${task.organization.id}`}
-              className="flex items-center gap-0.5 hover:text-[#6567F1] transition-colors truncate max-w-[160px]"
+              className="flex items-center gap-0.5 hover:text-primary transition-colors truncate max-w-[160px]"
             >
               <Building2 size={10} />
               <span className="truncate">{task.organization.name}</span>
@@ -1670,7 +1670,7 @@ function TaskCard({
           )}
           {task.dueDate && (
             <span
-              className={`flex items-center gap-0.5 shrink-0 ${overdue ? "text-red-500 font-semibold" : ""}`}
+              className={`flex items-center gap-0.5 shrink-0 ${overdue ? "text-red-500 dark:text-red-400 font-semibold" : ""}`}
             >
               <CalendarDays size={10} />
               {formatDueDate(task.dueDate)}
@@ -1679,7 +1679,7 @@ function TaskCard({
           )}
           {task.recurrenceType && (
             <span
-              className="flex items-center gap-0.5 text-[#6567F1] shrink-0"
+              className="flex items-center gap-0.5 text-primary shrink-0"
               title={RECURRENCE_LABELS[`${task.recurrenceType}:${task.recurrenceInterval}`]}
             >
               <RefreshCw size={10} />
@@ -1695,7 +1695,7 @@ function TaskCard({
           <select
             value={task.status}
             onChange={(e) => onStatusChange(task, e.target.value)}
-            className={`text-[11px] border rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 cursor-pointer font-medium ${STATUS_COLORS[task.status]}`}
+            className={`text-[11px] border rounded-lg px-2 py-1 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer font-medium ${STATUS_COLORS[task.status]}`}
           >
             <option value={task.status}>{TASK_STATUS_LABELS[task.status]}</option>
             {nextStatuses.map((s) => (
@@ -1715,7 +1715,7 @@ function TaskCard({
         {isReport && checklistTotal > 0 ? (
           <button
             onClick={() => onChecklist(task)}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-100 text-purple-700 text-[11px] font-semibold hover:bg-purple-200 transition-colors"
+            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 text-[11px] font-semibold hover:bg-purple-200 transition-colors"
             title="Организации"
           >
             <CheckSquare size={12} />
@@ -1724,7 +1724,7 @@ function TaskCard({
         ) : (
           <button
             onClick={() => onChecklist(task)}
-            className="relative p-1.5 text-slate-300 hover:text-[#6567F1] transition-colors"
+            className="relative p-1.5 text-subtle hover:text-primary transition-colors"
             title="Чек-лист"
           >
             <CheckSquare size={14} />
@@ -1740,13 +1740,13 @@ function TaskCard({
 
         <button
           onClick={() => onComment(task)}
-          className={`relative p-1.5 transition-colors hover:text-[#6567F1] ${task.hasUnreadComments ? "text-orange-500" : task._count?.comments > 0 ? "text-[#6567F1]" : "text-slate-300"}`}
+          className={`relative p-1.5 transition-colors hover:text-primary ${task.hasUnreadComments ? "text-orange-500 dark:text-orange-400" : task._count?.comments > 0 ? "text-primary" : "text-subtle"}`}
           title={`Комментарии${task._count?.comments > 0 ? ` (${task._count.comments})` : ""}${task.hasUnreadComments ? " · новые" : ""}`}
         >
           <MessageSquare size={14} />
           {task._count?.comments > 0 && (
             <span
-              className={`absolute -top-0.5 -right-0.5 w-3.5 h-3.5 text-white text-[8px] font-bold rounded-full flex items-center justify-center leading-none ${task.hasUnreadComments ? "bg-orange-500" : "bg-[#6567F1]"}`}
+              className={`absolute -top-0.5 -right-0.5 w-3.5 h-3.5 text-white text-[8px] font-bold rounded-full flex items-center justify-center leading-none ${task.hasUnreadComments ? "bg-orange-500" : "bg-primary"}`}
             >
               {task._count.comments > 9 ? "9+" : task._count.comments}
             </span>
@@ -1756,7 +1756,7 @@ function TaskCard({
         {canEdit && (
           <button
             onClick={() => onEdit(task)}
-            className="p-1.5 text-slate-300 hover:text-[#6567F1] transition-colors opacity-0 group-hover:opacity-100"
+            className="p-1.5 text-subtle hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
             title="Редактировать"
           >
             <Pencil size={14} />
@@ -1765,7 +1765,7 @@ function TaskCard({
         {canDelete && (
           <button
             onClick={() => onDelete(task)}
-            className="p-1.5 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+            className="p-1.5 text-subtle hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
             title="Удалить"
           >
             <Trash2 size={14} />
@@ -1803,26 +1803,26 @@ function OrgMultiSelect({ options, value, onChange }) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Поиск по названию или ИНН..."
-          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+          className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
         />
         {value.length > 0 && (
           <button
             type="button"
             onClick={() => onChange([])}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-red-500 transition-colors"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-subtle hover:text-red-500 dark:hover:text-red-400 transition-colors"
           >
             Снять все ({value.length})
           </button>
         )}
       </div>
-      <div className="border border-slate-200 rounded-lg overflow-y-auto max-h-28">
+      <div className="border border-line rounded-lg overflow-y-auto max-h-28">
         {filtered.length === 0 ? (
-          <div className="px-3 py-2 text-sm text-slate-400">Не найдено</div>
+          <div className="px-3 py-2 text-sm text-subtle">Не найдено</div>
         ) : (
           filtered.map((o) => (
             <label
               key={o.id}
-              className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-100 last:border-0"
+              className="flex items-center gap-2 px-3 py-2 hover:bg-canvas cursor-pointer text-sm border-b border-line last:border-0"
             >
               <input
                 type="checkbox"
@@ -1830,8 +1830,8 @@ function OrgMultiSelect({ options, value, onChange }) {
                 onChange={() => toggle(o.id)}
                 className="accent-[#6567F1] shrink-0"
               />
-              <span className="text-slate-800 flex-1 min-w-0 truncate">{o.name}</span>
-              {o.inn && <span className="text-slate-400 text-xs shrink-0">{o.inn}</span>}
+              <span className="text-heading flex-1 min-w-0 truncate">{o.name}</span>
+              {o.inn && <span className="text-subtle text-xs shrink-0">{o.inn}</span>}
             </label>
           ))
         )}
@@ -1866,22 +1866,22 @@ function AssigneeMultiSelect({ options, value, onChange }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-left bg-white focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] flex items-center justify-between"
+        className="w-full px-3 py-2 border border-line rounded-lg text-sm text-left bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary flex items-center justify-between"
       >
-        <span className={selectedLabels ? "text-slate-900" : "text-slate-400"}>
+        <span className={selectedLabels ? "text-heading" : "text-subtle"}>
           {selectedLabels || "Не назначено"}
         </span>
-        <span className="text-slate-400 text-xs">▾</span>
+        <span className="text-subtle text-xs">▾</span>
       </button>
       {open && (
-        <div className="absolute z-50 w-full bottom-full mb-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+        <div className="absolute z-50 w-full bottom-full mb-1 bg-surface border border-line rounded-lg shadow-lg max-h-48 overflow-y-auto">
           {options.length === 0 ? (
-            <div className="px-3 py-2 text-sm text-slate-400">Нет сотрудников</div>
+            <div className="px-3 py-2 text-sm text-subtle">Нет сотрудников</div>
           ) : (
             options.map((u) => (
               <label
                 key={u.id}
-                className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 cursor-pointer text-sm"
+                className="flex items-center gap-2 px-3 py-2 hover:bg-canvas cursor-pointer text-sm"
               >
                 <input
                   type="checkbox"

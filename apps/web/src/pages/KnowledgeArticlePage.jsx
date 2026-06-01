@@ -62,7 +62,7 @@ export default function KnowledgeArticlePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16 text-slate-400">
+      <div className="flex items-center justify-center py-16 text-subtle">
         <Loader2 size={24} className="animate-spin" />
       </div>
     );
@@ -73,12 +73,12 @@ export default function KnowledgeArticlePage() {
       <div className="max-w-3xl mx-auto px-4 py-8">
         <Link
           to="/knowledge"
-          className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-[#6567F1] mb-4"
+          className="inline-flex items-center gap-1 text-sm text-subtle hover:text-primary mb-4"
         >
           <ArrowLeft size={16} />
           Назад к базе знаний
         </Link>
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-12 text-center text-slate-400">
+        <div className="bg-surface rounded-2xl shadow-lg border border-line p-12 text-center text-subtle">
           {error || "Материал не найден"}
         </div>
       </div>
@@ -92,7 +92,7 @@ export default function KnowledgeArticlePage() {
       {/* Back link */}
       <Link
         to="/knowledge"
-        className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-[#6567F1] mb-6 transition-colors"
+        className="inline-flex items-center gap-1 text-sm text-subtle hover:text-primary mb-6 transition-colors"
       >
         <ArrowLeft size={16} />
         База знаний
@@ -112,34 +112,33 @@ export default function KnowledgeArticlePage() {
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-3">
-          <span className="bg-[#6567F1]/10 text-[#6567F1] px-3 py-1 rounded-full text-xs font-medium">
+          <span className="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-medium">
             {TYPE_LABELS[item.type]}
           </span>
           <span
             className={`px-3 py-1 rounded-full text-xs font-medium ${
-              item.audience === "STAFF" ? "bg-blue-50 text-blue-600" : "bg-green-50 text-green-600"
+              item.audience === "STAFF"
+                ? "bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300"
+                : "bg-green-50 dark:bg-green-500/15 text-green-600 dark:text-green-300"
             }`}
           >
             {AUDIENCE_LABELS[item.audience]}
           </span>
         </div>
-        <h1 className="text-2xl font-bold text-slate-900 mb-2">{item.title}</h1>
-        {item.description && <p className="text-slate-500">{item.description}</p>}
+        <h1 className="text-2xl font-bold text-heading mb-2">{item.title}</h1>
+        {item.description && <p className="text-subtle">{item.description}</p>}
         {/* Tags */}
         {item.tags?.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-3">
             {item.tags.map((tag) => (
-              <span
-                key={tag}
-                className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full text-xs"
-              >
+              <span key={tag} className="bg-muted text-body px-2.5 py-1 rounded-full text-xs">
                 {tag}
               </span>
             ))}
           </div>
         )}
         {/* Meta */}
-        <div className="flex items-center gap-4 mt-4 text-xs text-slate-400">
+        <div className="flex items-center gap-4 mt-4 text-xs text-subtle">
           {item.createdBy && (
             <span>
               {item.createdBy.firstName} {item.createdBy.lastName}
@@ -151,7 +150,7 @@ export default function KnowledgeArticlePage() {
 
       {/* VIDEO embed */}
       {item.type === "VIDEO" && embedUrl && (
-        <div className="aspect-video rounded-xl overflow-hidden bg-slate-100 mb-6">
+        <div className="aspect-video rounded-xl overflow-hidden bg-muted mb-6">
           <iframe src={embedUrl} className="w-full h-full" allowFullScreen title={item.title} />
         </div>
       )}
@@ -162,7 +161,7 @@ export default function KnowledgeArticlePage() {
           href={item.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 text-[#6567F1] hover:text-[#5557E1] text-sm font-medium mb-6"
+          className="inline-flex items-center gap-2 text-primary hover:text-[#5557E1] text-sm font-medium mb-6"
         >
           <ExternalLink size={16} />
           Открыть видео
@@ -173,7 +172,7 @@ export default function KnowledgeArticlePage() {
       {item.type === "FILE" && item.originalName && (
         <button
           onClick={handleDownload}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 transition-colors mb-6"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border-2 border-primary/20 text-primary hover:bg-primary/5 transition-colors mb-6"
         >
           <Download size={16} />
           Скачать: {item.originalName}
@@ -182,9 +181,9 @@ export default function KnowledgeArticlePage() {
 
       {/* ARTICLE content */}
       {item.type === "ARTICLE" && item.content && (
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 sm:p-8">
+        <div className="bg-surface rounded-2xl shadow-lg border border-line p-6 sm:p-8">
           <div
-            className="tiptap-content text-slate-700"
+            className="tiptap-content text-body"
             dangerouslySetInnerHTML={{ __html: item.content }}
           />
         </div>

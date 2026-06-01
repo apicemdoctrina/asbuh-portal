@@ -13,15 +13,33 @@ function stripHtml(html) {
 }
 
 const TYPE_META = {
-  FEATURE: { label: "Новое", color: "bg-emerald-100 text-emerald-700" },
-  FIX: { label: "Исправление", color: "bg-blue-100 text-blue-700" },
-  CHANGE: { label: "Изменение", color: "bg-amber-100 text-amber-700" },
-  REMOVAL: { label: "Удалено", color: "bg-red-100 text-red-700" },
+  FEATURE: {
+    label: "Новое",
+    color: "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+  },
+  FIX: {
+    label: "Исправление",
+    color: "bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300",
+  },
+  CHANGE: {
+    label: "Изменение",
+    color: "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  },
+  REMOVAL: {
+    label: "Удалено",
+    color: "bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300",
+  },
 };
 
 const AUDIENCE_META = {
-  STAFF: { label: "Сотрудники", color: "bg-violet-100 text-violet-700" },
-  CLIENT: { label: "Клиенты", color: "bg-sky-100 text-sky-700" },
+  STAFF: {
+    label: "Сотрудники",
+    color: "bg-violet-100 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300",
+  },
+  CLIENT: {
+    label: "Клиенты",
+    color: "bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300",
+  },
 };
 
 function formatDate(iso) {
@@ -105,31 +123,28 @@ export default function AnnouncementsPanel({ onClose, onUnreadChange }) {
       <div className="absolute inset-0 bg-black/20" onClick={onClose} />
 
       {/* Panel */}
-      <div className="relative z-10 w-full max-w-md bg-white shadow-2xl flex flex-col h-full">
+      <div className="relative z-10 w-full max-w-md bg-surface shadow-2xl flex flex-col h-full">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 flex-shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-line flex-shrink-0">
           <div className="flex items-center gap-2">
-            <Megaphone size={20} className="text-[#6567F1]" />
-            <h2 className="text-base font-semibold text-slate-900">Обновления сервиса</h2>
+            <Megaphone size={20} className="text-primary" />
+            <h2 className="text-base font-semibold text-heading">Обновления сервиса</h2>
             {unreadCount > 0 && (
-              <span className="bg-[#6567F1] text-white text-xs font-bold px-2 py-0.5 rounded-full">
+              <span className="bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">
                 {unreadCount}
               </span>
             )}
           </div>
           <div className="flex items-center gap-2">
             {unreadCount > 0 && (
-              <button
-                onClick={handleMarkAllRead}
-                className="text-xs text-[#6567F1] hover:underline"
-              >
+              <button onClick={handleMarkAllRead} className="text-xs text-primary hover:underline">
                 Отметить все
               </button>
             )}
             {isAdmin && (
               <button
                 onClick={() => setShowForm((v) => !v)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-[#6567F1] hover:bg-[#6567F1]/5 transition-colors"
+                className="p-1.5 rounded-lg text-subtle hover:text-primary hover:bg-primary/5 transition-colors"
                 title="Создать анонс"
               >
                 {showForm ? <ChevronUp size={18} /> : <Plus size={18} />}
@@ -137,7 +152,7 @@ export default function AnnouncementsPanel({ onClose, onUnreadChange }) {
             )}
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
             >
               <X size={18} />
             </button>
@@ -148,14 +163,14 @@ export default function AnnouncementsPanel({ onClose, onUnreadChange }) {
         {isAdmin && showForm && (
           <form
             onSubmit={handleSubmit}
-            className="px-5 py-4 border-b border-slate-200 bg-slate-50 flex-shrink-0"
+            className="px-5 py-4 border-b border-line bg-canvas flex-shrink-0"
           >
             <div className="flex flex-col gap-3">
               <div className="flex gap-2">
                 <select
                   value={form.type}
                   onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
-                  className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-700 focus:outline-none focus:border-[#6567F1]"
+                  className="text-sm border border-line rounded-lg px-3 py-2 bg-surface text-body focus:outline-none focus:border-primary"
                 >
                   {Object.entries(TYPE_META).map(([k, v]) => (
                     <option key={k} value={k}>
@@ -166,7 +181,7 @@ export default function AnnouncementsPanel({ onClose, onUnreadChange }) {
                 <select
                   value={form.audience}
                   onChange={(e) => setForm((f) => ({ ...f, audience: e.target.value }))}
-                  className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-700 focus:outline-none focus:border-[#6567F1]"
+                  className="text-sm border border-line rounded-lg px-3 py-2 bg-surface text-body focus:outline-none focus:border-primary"
                 >
                   <option value="STAFF">Сотрудники</option>
                   <option value="CLIENT">Клиенты</option>
@@ -175,12 +190,12 @@ export default function AnnouncementsPanel({ onClose, onUnreadChange }) {
                   value={form.title}
                   onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                   placeholder="Заголовок"
-                  className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#6567F1]"
+                  className="flex-1 text-sm border border-line rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
                 />
               </div>
               <Suspense
                 fallback={
-                  <div className="h-52 border border-slate-200 rounded-lg flex items-center justify-center text-slate-400">
+                  <div className="h-52 border border-line rounded-lg flex items-center justify-center text-subtle">
                     <Loader2 size={20} className="animate-spin" />
                   </div>
                 }
@@ -191,12 +206,12 @@ export default function AnnouncementsPanel({ onClose, onUnreadChange }) {
                   showImage={false}
                 />
               </Suspense>
-              {error && <p className="text-xs text-red-500">{error}</p>}
+              {error && <p className="text-xs text-red-500 dark:text-red-400">{error}</p>}
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShowForm(false)}
-                  className="text-sm px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
+                  className="text-sm px-3 py-1.5 rounded-lg text-body hover:bg-muted transition-colors"
                 >
                   Отмена
                 </button>
@@ -215,22 +230,22 @@ export default function AnnouncementsPanel({ onClose, onUnreadChange }) {
         {/* List */}
         <div className="flex-1 overflow-y-auto">
           {loading ? (
-            <div className="flex items-center justify-center py-16 text-slate-400">
+            <div className="flex items-center justify-center py-16 text-subtle">
               <Loader2 size={24} className="animate-spin" />
             </div>
           ) : items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">
+            <div className="flex flex-col items-center justify-center py-16 text-subtle gap-2">
               <Megaphone size={32} className="opacity-30" />
               <p className="text-sm">Нет анонсов</p>
             </div>
           ) : (
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-line">
               {items.map((item) => {
                 const meta = TYPE_META[item.type] ?? TYPE_META.FEATURE;
                 return (
                   <div
                     key={item.id}
-                    className={`px-5 py-4 transition-colors ${item.isRead ? "" : "bg-[#6567F1]/3"}`}
+                    className={`px-5 py-4 transition-colors ${item.isRead ? "" : "bg-primary/3"}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
@@ -248,24 +263,24 @@ export default function AnnouncementsPanel({ onClose, onUnreadChange }) {
                             </span>
                           )}
                           {!item.isRead && (
-                            <span className="w-2 h-2 rounded-full bg-[#6567F1] flex-shrink-0" />
+                            <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
                           )}
                         </div>
-                        <p className="text-sm font-semibold text-slate-800 leading-snug">
+                        <p className="text-sm font-semibold text-heading leading-snug">
                           {item.title}
                         </p>
                         <div
-                          className="tiptap-content text-sm text-slate-600 mt-1"
+                          className="tiptap-content text-sm text-body mt-1"
                           dangerouslySetInnerHTML={{ __html: item.body }}
                         />
-                        <p className="text-xs text-slate-400 mt-2">
+                        <p className="text-xs text-subtle mt-2">
                           {formatDate(item.publishedAt)} · {item.author}
                         </p>
                       </div>
                       {isAdmin && (
                         <button
                           onClick={() => handleDelete(item.id)}
-                          className="p-1 rounded text-slate-300 hover:text-red-400 hover:bg-red-50 transition-colors flex-shrink-0 mt-0.5"
+                          className="p-1 rounded text-subtle hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/15 transition-colors flex-shrink-0 mt-0.5"
                         >
                           <Trash2 size={14} />
                         </button>

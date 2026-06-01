@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router";
 import { useAuth } from "../context/AuthContext.jsx";
+import ThemeToggle from "../components/ThemeToggle.jsx";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -32,25 +33,28 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-slate-200 p-8">
+    <div className="relative min-h-screen bg-canvas flex items-center justify-center px-4">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+      <div className="w-full max-w-md bg-surface rounded-2xl shadow-lg border border-line p-8">
         <div className="text-center mb-8">
           <img src="/logo.png" alt="ASBUH AUTOPILOT" className="h-12 w-auto mx-auto mb-3" />
-          <h1 className="text-3xl font-bold text-slate-900">
-            ASBUH <span className="text-[#6567F1]">AUTOPILOT</span>
+          <h1 className="text-3xl font-bold text-heading">
+            ASBUH <span className="text-primary">AUTOPILOT</span>
           </h1>
-          <p className="text-slate-500 mt-2">Вход в портал</p>
+          <p className="text-subtle mt-2">Вход в портал</p>
         </div>
 
         {passwordReset && (
-          <div className="mb-4 px-4 py-3 bg-emerald-50 text-emerald-700 rounded-lg text-sm text-center">
+          <div className="mb-4 px-4 py-3 bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 rounded-lg text-sm text-center">
             Пароль успешно изменён. Войдите с новым паролем.
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="email" className="block text-sm font-medium text-body mb-1">
               Email
             </label>
             <input
@@ -60,16 +64,16 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#6567F1]/40 focus:border-[#6567F1]"
+              className="w-full rounded-lg border border-line px-4 py-3 text-heading focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
             />
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label htmlFor="password" className="block text-sm font-medium text-slate-700">
+              <label htmlFor="password" className="block text-sm font-medium text-body">
                 Пароль
               </label>
-              <Link to="/forgot-password" className="text-xs text-[#6567F1] hover:underline">
+              <Link to="/forgot-password" className="text-xs text-primary hover:underline">
                 Забыли пароль?
               </Link>
             </div>
@@ -80,12 +84,14 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#6567F1]/40 focus:border-[#6567F1]"
+              className="w-full rounded-lg border border-line px-4 py-3 text-heading focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
             />
           </div>
 
           {error && (
-            <div className="text-red-600 text-sm bg-red-50 rounded-lg px-4 py-2">{error}</div>
+            <div className="text-red-600 dark:text-red-300 text-sm bg-red-50 dark:bg-red-500/15 rounded-lg px-4 py-2">
+              {error}
+            </div>
           )}
 
           <button

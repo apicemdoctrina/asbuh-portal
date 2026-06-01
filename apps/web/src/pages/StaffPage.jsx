@@ -56,17 +56,17 @@ const ACCOUNTANT_TYPE_LABELS = {
 };
 
 const ROLE_AVATAR_COLORS = {
-  admin: "bg-[#6567F1] text-white",
+  admin: "bg-primary text-white",
   supervisor: "bg-purple-500 text-white",
   manager: "bg-sky-500 text-white",
   accountant: "bg-emerald-500 text-white",
 };
 
 const ROLE_BADGE_COLORS = {
-  admin: "bg-[#6567F1]/10 text-[#6567F1]",
-  supervisor: "bg-purple-100 text-purple-700",
-  manager: "bg-sky-100 text-sky-700",
-  accountant: "bg-emerald-100 text-emerald-700",
+  admin: "bg-primary/10 text-primary",
+  supervisor: "bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300",
+  manager: "bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300",
+  accountant: "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
 };
 
 function getInitials(firstName, lastName) {
@@ -158,7 +158,7 @@ export default function StaffPage() {
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Сотрудники</h1>
+        <h1 className="text-2xl font-bold text-heading">Сотрудники</h1>
         {isAdmin && (
           <button
             onClick={() => setShowCreateModal(true)}
@@ -172,19 +172,19 @@ export default function StaffPage() {
 
       {/* Search */}
       <div className="relative mb-5">
-        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-subtle" />
         <input
           type="text"
           placeholder="Поиск по имени..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/20 focus:border-[#6567F1] bg-white"
+          className="w-full pl-10 pr-4 py-2.5 border border-line rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-surface"
         />
       </div>
 
       {/* KPI legend */}
       {!loading && users.length > 0 && (
-        <div className="flex items-center gap-4 mb-3 px-1 text-xs text-slate-400">
+        <div className="flex items-center gap-4 mb-3 px-1 text-xs text-subtle">
           <span className="flex items-center gap-1">
             <ListTodo size={11} /> Активные
           </span>
@@ -202,11 +202,11 @@ export default function StaffPage() {
 
       {/* Cards */}
       {loading ? (
-        <div className="flex items-center justify-center py-16 text-slate-400">
+        <div className="flex items-center justify-center py-16 text-subtle">
           <Loader2 size={24} className="animate-spin" />
         </div>
       ) : users.length === 0 ? (
-        <div className="text-center py-16 text-slate-400 text-sm">
+        <div className="text-center py-16 text-subtle text-sm">
           {search ? "Ничего не найдено" : "Нет сотрудников"}
         </div>
       ) : (
@@ -221,7 +221,7 @@ export default function StaffPage() {
             return (
               <div
                 key={u.id}
-                className={`group bg-white border border-slate-200 rounded-2xl px-5 py-4 flex items-center gap-4 hover:border-[#6567F1]/25 hover:shadow-md transition-all duration-200 ${!u.isActive ? "opacity-55" : ""}`}
+                className={`group bg-surface border border-line rounded-2xl px-5 py-4 flex items-center gap-4 hover:border-primary/25 hover:shadow-md transition-all duration-200 ${!u.isActive ? "opacity-55" : ""}`}
               >
                 {/* Avatar */}
                 <div
@@ -232,12 +232,9 @@ export default function StaffPage() {
 
                 {/* Identity */}
                 <div className="w-44 shrink-0 min-w-0">
-                  <div className="font-semibold text-slate-900 text-sm leading-tight truncate">
+                  <div className="font-semibold text-heading text-sm leading-tight truncate">
                     {isAdmin ? (
-                      <Link
-                        to={`/users/${u.id}`}
-                        className="hover:text-[#6567F1] transition-colors"
-                      >
+                      <Link to={`/users/${u.id}`} className="hover:text-primary transition-colors">
                         {u.lastName} {u.firstName}
                       </Link>
                     ) : (
@@ -250,21 +247,21 @@ export default function StaffPage() {
                       .map((r) => (
                         <span
                           key={r}
-                          className={`px-1.5 py-0.5 rounded-md text-xs font-medium ${ROLE_BADGE_COLORS[r] ?? "bg-slate-100 text-slate-600"}`}
+                          className={`px-1.5 py-0.5 rounded-md text-xs font-medium ${ROLE_BADGE_COLORS[r] ?? "bg-muted text-body"}`}
                         >
                           {ROLE_LABELS[r] || r}
                         </span>
                       ))}
                     {u.roles.includes("accountant") && u.accountantType && (
                       <span
-                        className="px-1.5 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-600 border border-emerald-200"
+                        className="px-1.5 py-0.5 rounded-md text-xs font-medium bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30"
                         title="Тип бухгалтера"
                       >
                         {ACCOUNTANT_TYPE_LABELS[u.accountantType]}
                       </span>
                     )}
                     {!u.isActive && (
-                      <span className="px-1.5 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-400">
+                      <span className="px-1.5 py-0.5 rounded-md text-xs font-medium bg-muted text-subtle">
                         Неактивен
                       </span>
                     )}
@@ -277,14 +274,14 @@ export default function StaffPage() {
                     u.sections.map((s) => (
                       <span
                         key={s.id}
-                        className="flex items-center gap-1 bg-slate-50 border border-slate-200 text-slate-500 px-2 py-0.5 rounded-lg text-xs font-medium whitespace-nowrap"
+                        className="flex items-center gap-1 bg-canvas border border-line text-subtle px-2 py-0.5 rounded-lg text-xs font-medium whitespace-nowrap"
                         title={s.name ? `${s.name} (№${s.number})` : `Участок №${s.number}`}
                       >
                         <SectionIcon section={s} size={12} className="shrink-0" />№{s.number}
                       </span>
                     ))
                   ) : (
-                    <span className="text-slate-300 text-xs">—</span>
+                    <span className="text-subtle text-xs">—</span>
                   )}
                 </div>
 
@@ -292,13 +289,13 @@ export default function StaffPage() {
                 {canManageCompensation && (
                   <div className="flex flex-col items-end w-24 shrink-0 text-xs leading-tight">
                     <span
-                      className={`font-semibold ${u.salary != null ? "text-slate-700" : "text-slate-300"}`}
+                      className={`font-semibold ${u.salary != null ? "text-body" : "text-subtle"}`}
                       title="Зарплата"
                     >
                       {formatMoney(u.salary)} ₽
                     </span>
                     <span
-                      className={`${u.tax != null ? "text-slate-400" : "text-slate-300"}`}
+                      className={`${u.tax != null ? "text-subtle" : "text-subtle"}`}
                       title="Налог"
                     >
                       +{formatMoney(u.tax)} ₽
@@ -314,62 +311,62 @@ export default function StaffPage() {
                       <span
                         className={`text-sm font-bold leading-none ${
                           w.openTasks > 10
-                            ? "text-red-600"
+                            ? "text-red-600 dark:text-red-300"
                             : w.openTasks > 5
-                              ? "text-amber-500"
-                              : "text-emerald-600"
+                              ? "text-amber-500 dark:text-amber-400"
+                              : "text-emerald-600 dark:text-emerald-300"
                         }`}
                       >
                         {w.openTasks}
                       </span>
                     ) : (
-                      <span className="text-slate-300 text-sm font-bold">—</span>
+                      <span className="text-subtle text-sm font-bold">—</span>
                     )}
-                    <ListTodo size={13} className="text-slate-300 mt-0.5" />
+                    <ListTodo size={13} className="text-subtle mt-0.5" />
                   </div>
 
-                  <div className="w-px h-6 bg-slate-100" />
+                  <div className="w-px h-6 bg-muted" />
 
                   {/* Overdue */}
                   <div className="flex flex-col items-center w-10">
                     {w != null ? (
                       <span
-                        className={`text-sm font-bold leading-none ${w.overdueTasks > 0 ? "text-red-600" : "text-slate-300"}`}
+                        className={`text-sm font-bold leading-none ${w.overdueTasks > 0 ? "text-red-600 dark:text-red-300" : "text-subtle"}`}
                       >
                         {w.overdueTasks}
                       </span>
                     ) : (
-                      <span className="text-slate-300 text-sm font-bold">—</span>
+                      <span className="text-subtle text-sm font-bold">—</span>
                     )}
-                    <AlertCircle size={13} className="text-slate-300 mt-0.5" />
+                    <AlertCircle size={13} className="text-subtle mt-0.5" />
                   </div>
 
-                  <div className="w-px h-6 bg-slate-100" />
+                  <div className="w-px h-6 bg-muted" />
 
                   {/* Done 30d */}
                   <div className="flex flex-col items-center w-10">
                     {w != null ? (
-                      <span className="text-sm font-bold leading-none text-slate-600">
+                      <span className="text-sm font-bold leading-none text-body">
                         {w.doneLast30d}
                       </span>
                     ) : (
-                      <span className="text-slate-300 text-sm font-bold">—</span>
+                      <span className="text-subtle text-sm font-bold">—</span>
                     )}
-                    <CheckCircle2 size={13} className="text-slate-300 mt-0.5" />
+                    <CheckCircle2 size={13} className="text-subtle mt-0.5" />
                   </div>
 
-                  <div className="w-px h-6 bg-slate-100" />
+                  <div className="w-px h-6 bg-muted" />
 
                   {/* Avg time */}
                   <div className="flex flex-col items-center w-12">
                     {w?.avgCompletionDays != null ? (
-                      <span className="text-sm font-bold leading-none text-slate-600">
+                      <span className="text-sm font-bold leading-none text-body">
                         {w.avgCompletionDays}д
                       </span>
                     ) : (
-                      <span className="text-slate-300 text-sm font-bold">—</span>
+                      <span className="text-subtle text-sm font-bold">—</span>
                     )}
-                    <Clock size={13} className="text-slate-300 mt-0.5" />
+                    <Clock size={13} className="text-subtle mt-0.5" />
                   </div>
                 </div>
 
@@ -381,7 +378,7 @@ export default function StaffPage() {
                         className={`w-2 h-2 rounded-full shrink-0 ${online ? "bg-emerald-500" : "bg-slate-300"}`}
                       />
                       <span
-                        className={`text-xs font-medium truncate ${online ? "text-emerald-600" : "text-slate-400"}`}
+                        className={`text-xs font-medium truncate ${online ? "text-emerald-600 dark:text-emerald-300" : "text-subtle"}`}
                       >
                         {formatLastSeen(u.lastSeenAt)}
                       </span>
@@ -395,7 +392,7 @@ export default function StaffPage() {
                     {canManageCompensation && (
                       <button
                         onClick={() => setCompUser(u)}
-                        className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                        className="p-1.5 text-subtle hover:text-emerald-600 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/15 rounded-lg transition-colors"
                         title="Зарплата и налог"
                       >
                         <Wallet size={15} />
@@ -404,7 +401,7 @@ export default function StaffPage() {
                     {isAdmin && (
                       <button
                         onClick={() => setEditingUser(u)}
-                        className="p-1.5 text-slate-400 hover:text-[#6567F1] hover:bg-[#6567F1]/8 rounded-lg transition-colors"
+                        className="p-1.5 text-subtle hover:text-primary hover:bg-primary/8 rounded-lg transition-colors"
                         title="Редактировать"
                       >
                         <Pencil size={15} />
@@ -413,7 +410,7 @@ export default function StaffPage() {
                     {isAdmin && canDelete(u) && (
                       <button
                         onClick={() => handleDelete(u)}
-                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-1.5 text-subtle hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/15 rounded-lg transition-colors"
                         title={u.isActive ? "Деактивировать" : "Удалить навсегда"}
                       >
                         <Trash2 size={15} />
@@ -498,52 +495,54 @@ function CompensationModal({ user: target, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+      <div className="bg-surface rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Зарплата и налог</h2>
-            <p className="text-sm text-slate-500 mt-0.5">
+            <h2 className="text-lg font-bold text-heading">Зарплата и налог</h2>
+            <p className="text-sm text-subtle mt-0.5">
               {target.lastName} {target.firstName}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
           >
             <X size={20} />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Зарплата, ₽</label>
+            <label className="block text-sm font-medium text-body mb-1">Зарплата, ₽</label>
             <input
               type="text"
               inputMode="decimal"
               value={salary}
               onChange={(e) => setSalary(e.target.value)}
               placeholder="0"
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Налог, ₽</label>
+            <label className="block text-sm font-medium text-body mb-1">Налог, ₽</label>
             <input
               type="text"
               inputMode="decimal"
               value={tax}
               onChange={(e) => setTax(e.target.value)}
               placeholder="0"
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
           {error && (
-            <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>
+            <div className="text-sm text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-500/15 px-3 py-2 rounded-lg">
+              {error}
+            </div>
           )}
           <div className="flex justify-end gap-3 pt-1">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-body hover:text-heading transition-colors"
             >
               Отмена
             </button>
@@ -616,12 +615,12 @@ function CreateStaffModal({ onClose, onCreated }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
+      <div className="bg-surface rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-slate-900">Новый сотрудник</h2>
+          <h2 className="text-lg font-bold text-heading">Новый сотрудник</h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
           >
             <X size={20} />
           </button>
@@ -629,44 +628,44 @@ function CreateStaffModal({ onClose, onCreated }) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Фамилия *</label>
+            <label className="block text-sm font-medium text-body mb-1">Фамилия *</label>
             <input
               type="text"
               value={form.lastName}
               onChange={(e) => setField("lastName", e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Имя *</label>
+            <label className="block text-sm font-medium text-body mb-1">Имя *</label>
             <input
               type="text"
               value={form.firstName}
               onChange={(e) => setField("firstName", e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Email *</label>
+            <label className="block text-sm font-medium text-body mb-1">Email *</label>
             <input
               type="email"
               value={form.email}
               onChange={(e) => setField("email", e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Пароль *</label>
+            <label className="block text-sm font-medium text-body mb-1">Пароль *</label>
             <input
               type="password"
               value={form.password}
               onChange={(e) => setField("password", e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               placeholder="Минимум 8 символов"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Роль *</label>
+            <label className="block text-sm font-medium text-body mb-2">Роль *</label>
             <div className="flex flex-wrap gap-3">
               {ASSIGNABLE_ROLES.map((r) => (
                 <label key={r} className="flex items-center gap-2 cursor-pointer">
@@ -675,23 +674,25 @@ function CreateStaffModal({ onClose, onCreated }) {
                     name="role"
                     checked={form.role === r}
                     onChange={() => setField("role", r)}
-                    className="w-4 h-4 border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                    className="w-4 h-4 border-line text-primary focus:ring-primary/30"
                   />
-                  <span className="text-sm text-slate-700">{ROLE_LABELS[r]}</span>
+                  <span className="text-sm text-body">{ROLE_LABELS[r]}</span>
                 </label>
               ))}
             </div>
           </div>
 
           {error && (
-            <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>
+            <div className="text-sm text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-500/15 px-3 py-2 rounded-lg">
+              {error}
+            </div>
           )}
 
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-body hover:text-heading transition-colors"
             >
               Отмена
             </button>
@@ -814,12 +815,12 @@ function EditStaffModal({ user: target, currentUserId, onClose, onUpdated }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
+      <div className="bg-surface rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-slate-900">Редактировать сотрудника</h2>
+          <h2 className="text-lg font-bold text-heading">Редактировать сотрудника</h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
           >
             <X size={20} />
           </button>
@@ -827,34 +828,34 @@ function EditStaffModal({ user: target, currentUserId, onClose, onUpdated }) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Фамилия *</label>
+            <label className="block text-sm font-medium text-body mb-1">Фамилия *</label>
             <input
               type="text"
               value={form.lastName}
               onChange={(e) => setField("lastName", e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Имя *</label>
+            <label className="block text-sm font-medium text-body mb-1">Имя *</label>
             <input
               type="text"
               value={form.firstName}
               onChange={(e) => setField("firstName", e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Email *</label>
+            <label className="block text-sm font-medium text-body mb-1">Email *</label>
             <input
               type="email"
               value={form.email}
               onChange={(e) => setField("email", e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Роль</label>
+            <label className="block text-sm font-medium text-body mb-2">Роль</label>
             <div className="flex flex-wrap gap-3">
               {ASSIGNABLE_ROLES.map((r) => (
                 <label
@@ -867,18 +868,16 @@ function EditStaffModal({ user: target, currentUserId, onClose, onUpdated }) {
                     checked={form.role === r}
                     onChange={() => setField("role", r)}
                     disabled={rolesDisabled}
-                    className="w-4 h-4 border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                    className="w-4 h-4 border-line text-primary focus:ring-primary/30"
                   />
-                  <span className="text-sm text-slate-700">{ROLE_LABELS[r]}</span>
+                  <span className="text-sm text-body">{ROLE_LABELS[r]}</span>
                 </label>
               ))}
             </div>
           </div>
           {form.role === "accountant" && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Тип бухгалтера
-              </label>
+              <label className="block text-sm font-medium text-body mb-2">Тип бухгалтера</label>
               <div className="flex flex-wrap gap-3">
                 {Object.entries(ACCOUNTANT_TYPE_LABELS).map(([code, label]) => (
                   <label key={code} className="flex items-center gap-2 cursor-pointer">
@@ -887,9 +886,9 @@ function EditStaffModal({ user: target, currentUserId, onClose, onUpdated }) {
                       name="accountantType"
                       checked={form.accountantType === code}
                       onChange={() => setField("accountantType", code)}
-                      className="w-4 h-4 border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                      className="w-4 h-4 border-line text-primary focus:ring-primary/30"
                     />
-                    <span className="text-sm text-slate-700">{label}</span>
+                    <span className="text-sm text-body">{label}</span>
                   </label>
                 ))}
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -898,9 +897,9 @@ function EditStaffModal({ user: target, currentUserId, onClose, onUpdated }) {
                     name="accountantType"
                     checked={!form.accountantType}
                     onChange={() => setField("accountantType", "")}
-                    className="w-4 h-4 border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                    className="w-4 h-4 border-line text-primary focus:ring-primary/30"
                   />
-                  <span className="text-sm text-slate-400">Не задан</span>
+                  <span className="text-sm text-subtle">Не задан</span>
                 </label>
               </div>
             </div>
@@ -914,18 +913,20 @@ function EditStaffModal({ user: target, currentUserId, onClose, onUpdated }) {
                 checked={form.isActive}
                 onChange={(e) => setField("isActive", e.target.checked)}
                 disabled={rolesDisabled || isSelf}
-                className="w-4 h-4 rounded border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                className="w-4 h-4 rounded border-line text-primary focus:ring-primary/30"
               />
-              <span className="text-sm font-medium text-slate-700">Активен</span>
+              <span className="text-sm font-medium text-body">Активен</span>
             </label>
           </div>
 
           {error && (
-            <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>
+            <div className="text-sm text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-500/15 px-3 py-2 rounded-lg">
+              {error}
+            </div>
           )}
 
           {/* Password reset block */}
-          <div className="border-t border-slate-100 pt-4">
+          <div className="border-t border-line pt-4">
             {!showPasswordBlock ? (
               <button
                 type="button"
@@ -933,21 +934,21 @@ function EditStaffModal({ user: target, currentUserId, onClose, onUpdated }) {
                   setShowPasswordBlock(true);
                   setPasswordSuccess(false);
                 }}
-                className="flex items-center gap-2 text-sm text-slate-500 hover:text-[#6567F1] transition-colors"
+                className="flex items-center gap-2 text-sm text-subtle hover:text-primary transition-colors"
               >
                 <KeyRound size={14} />
                 Сменить пароль
               </button>
             ) : (
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-slate-700">Новый пароль</label>
+                <label className="block text-sm font-medium text-body">Новый пароль</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Минимум 8 символов"
-                    className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                    className="flex-1 px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                   <button
                     type="button"
@@ -968,16 +969,20 @@ function EditStaffModal({ user: target, currentUserId, onClose, onUpdated }) {
                       setNewPassword("");
                       setPasswordError("");
                     }}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                    className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
                   >
                     <X size={16} />
                   </button>
                 </div>
-                {passwordError && <div className="text-sm text-red-600">{passwordError}</div>}
+                {passwordError && (
+                  <div className="text-sm text-red-600 dark:text-red-300">{passwordError}</div>
+                )}
               </div>
             )}
             {passwordSuccess && (
-              <div className="text-sm text-green-600 mt-1">Пароль успешно изменён</div>
+              <div className="text-sm text-green-600 dark:text-green-300 mt-1">
+                Пароль успешно изменён
+              </div>
             )}
           </div>
 
@@ -985,7 +990,7 @@ function EditStaffModal({ user: target, currentUserId, onClose, onUpdated }) {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-body hover:text-heading transition-colors"
             >
               Отмена
             </button>

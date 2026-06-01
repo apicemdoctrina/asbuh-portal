@@ -64,7 +64,7 @@ export default function SectionIcon({ section, size = 16, className = "", showNu
 
   if (!Icon) {
     return (
-      <span className={`text-xs font-medium text-slate-500 ${className}`}>
+      <span className={`text-xs font-medium text-subtle ${className}`}>
         №{section?.number ?? "?"}
       </span>
     );
@@ -73,7 +73,7 @@ export default function SectionIcon({ section, size = 16, className = "", showNu
   return (
     <span className={`inline-flex items-center gap-1 ${className}`} title={label}>
       <Icon size={size} />
-      {showNumber && <span className="text-xs font-medium text-slate-500">№{section.number}</span>}
+      {showNumber && <span className="text-xs font-medium text-subtle">№{section.number}</span>}
     </span>
   );
 }

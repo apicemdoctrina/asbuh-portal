@@ -76,15 +76,13 @@ export default function RichTextEditor({ content, onChange, showImage = true }) 
 
   const btnClass = (active) =>
     `p-1.5 rounded transition-colors ${
-      active
-        ? "bg-[#6567F1]/15 text-[#6567F1]"
-        : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+      active ? "bg-primary/15 text-primary" : "text-subtle hover:bg-muted hover:text-body"
     }`;
 
   return (
     <div>
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-0.5 p-1.5 border border-slate-200 border-b-0 rounded-t-lg bg-slate-50">
+      <div className="flex flex-wrap items-center gap-0.5 p-1.5 border border-line border-b-0 rounded-t-lg bg-canvas">
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleBold().run()}
@@ -101,7 +99,7 @@ export default function RichTextEditor({ content, onChange, showImage = true }) 
         >
           <Italic size={16} />
         </button>
-        <div className="w-px h-5 bg-slate-200 mx-1" />
+        <div className="w-px h-5 bg-line mx-1" />
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
@@ -118,7 +116,7 @@ export default function RichTextEditor({ content, onChange, showImage = true }) 
         >
           <Heading3 size={16} />
         </button>
-        <div className="w-px h-5 bg-slate-200 mx-1" />
+        <div className="w-px h-5 bg-line mx-1" />
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -143,7 +141,7 @@ export default function RichTextEditor({ content, onChange, showImage = true }) 
         >
           <Quote size={16} />
         </button>
-        <div className="w-px h-5 bg-slate-200 mx-1" />
+        <div className="w-px h-5 bg-line mx-1" />
         <button
           type="button"
           onClick={addLink}
@@ -171,7 +169,7 @@ export default function RichTextEditor({ content, onChange, showImage = true }) 
             />
           </>
         )}
-        <div className="w-px h-5 bg-slate-200 mx-1" />
+        <div className="w-px h-5 bg-line mx-1" />
         <button
           type="button"
           onClick={() => editor.chain().focus().undo().run()}

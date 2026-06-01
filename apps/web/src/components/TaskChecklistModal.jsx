@@ -104,16 +104,16 @@ export default function TaskChecklistModal({ task, onClose, onUpdate }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg flex flex-col max-h-[80vh]">
+      <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-lg flex flex-col max-h-[80vh]">
         {/* Header */}
-        <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-slate-100">
+        <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-line">
           <div className="min-w-0 pr-4">
-            <h2 className="text-base font-bold text-slate-900">Чек-лист</h2>
-            <p className="text-xs text-slate-400 mt-0.5 truncate">{task.title}</p>
+            <h2 className="text-base font-bold text-heading">Чек-лист</h2>
+            <p className="text-xs text-subtle mt-0.5 truncate">{task.title}</p>
           </div>
           <button
             onClick={onClose}
-            className="shrink-0 text-slate-400 hover:text-slate-700 transition-colors"
+            className="shrink-0 text-subtle hover:text-body transition-colors"
           >
             <X size={20} />
           </button>
@@ -122,13 +122,13 @@ export default function TaskChecklistModal({ task, onClose, onUpdate }) {
         {/* Progress */}
         {total > 0 && (
           <div className="px-6 pt-4 pb-2">
-            <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5">
+            <div className="flex items-center justify-between text-xs text-subtle mb-1.5">
               <span>
                 {doneCount} из {total} выполнено
               </span>
               <span className="font-medium tabular-nums">{pct}%</span>
             </div>
-            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-2 bg-muted rounded-full overflow-hidden">
               <div
                 className="h-full bg-emerald-500 rounded-full transition-all duration-300"
                 style={{ width: `${pct}%` }}
@@ -140,23 +140,23 @@ export default function TaskChecklistModal({ task, onClose, onUpdate }) {
         {/* Items */}
         <div className="flex-1 overflow-y-auto px-6 py-3 space-y-1 min-h-0">
           {loading ? (
-            <p className="text-sm text-slate-400 py-4 text-center">Загрузка...</p>
+            <p className="text-sm text-subtle py-4 text-center">Загрузка...</p>
           ) : items.length === 0 ? (
-            <p className="text-sm text-slate-400 py-4 text-center">
+            <p className="text-sm text-subtle py-4 text-center">
               Пока нет пунктов. Добавьте первый.
             </p>
           ) : (
             items.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center gap-3 group py-1.5 rounded-lg hover:bg-slate-50 px-1 -mx-1"
+                className="flex items-center gap-3 group py-1.5 rounded-lg hover:bg-canvas px-1 -mx-1"
               >
                 <button
                   onClick={() => handleToggle(item)}
                   className={`w-5 h-5 shrink-0 rounded border-2 flex items-center justify-center transition-colors ${
                     item.done
                       ? "bg-emerald-500 border-emerald-500 text-white"
-                      : "border-slate-300 hover:border-[#6567F1]"
+                      : "border-line hover:border-primary"
                   }`}
                 >
                   {item.done && (
@@ -173,14 +173,14 @@ export default function TaskChecklistModal({ task, onClose, onUpdate }) {
                 </button>
                 <span
                   className={`flex-1 text-sm ${
-                    item.done ? "line-through text-slate-400" : "text-slate-700"
+                    item.done ? "line-through text-subtle" : "text-body"
                   }`}
                 >
                   {item.text}
                 </span>
                 {item.dueDate && (
                   <span
-                    className={`text-xs tabular-nums ${isOverdue(item) ? "text-red-500 font-medium" : "text-slate-400"}`}
+                    className={`text-xs tabular-nums ${isOverdue(item) ? "text-red-500 dark:text-red-400 font-medium" : "text-subtle"}`}
                   >
                     {formatDate(item.dueDate)}
                   </span>
@@ -195,7 +195,7 @@ export default function TaskChecklistModal({ task, onClose, onUpdate }) {
                 />
                 <button
                   onClick={() => handleDelete(item)}
-                  className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-500 transition-all"
+                  className="opacity-0 group-hover:opacity-100 p-1 text-subtle hover:text-red-500 dark:hover:text-red-400 transition-all"
                 >
                   <Trash2 size={13} />
                 </button>
@@ -205,7 +205,7 @@ export default function TaskChecklistModal({ task, onClose, onUpdate }) {
         </div>
 
         {/* Add input */}
-        <div className="px-6 pb-5 pt-3 border-t border-slate-100 flex gap-2">
+        <div className="px-6 pb-5 pt-3 border-t border-line flex gap-2">
           <input
             ref={inputRef}
             type="text"
@@ -213,14 +213,14 @@ export default function TaskChecklistModal({ task, onClose, onUpdate }) {
             onChange={(e) => setNewText(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Новый пункт… (Enter — добавить)"
-            className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+            className="flex-1 px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           />
           <input
             type="date"
             value={newDueDate}
             onChange={(e) => setNewDueDate(e.target.value)}
             onKeyDown={(e) => e.preventDefault()}
-            className="shrink-0 w-9 h-9 p-1.5 border border-slate-200 rounded-lg text-transparent hover:border-[#6567F1] focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-datetime-edit]:hidden"
+            className="shrink-0 w-9 h-9 p-1.5 border border-line rounded-lg text-transparent hover:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-datetime-edit]:hidden"
             title={newDueDate ? `Срок: ${formatDate(newDueDate)}` : "Установить срок"}
           />
           <button

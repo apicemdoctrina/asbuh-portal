@@ -1,5 +1,6 @@
 import { lazy } from "react";
 import { BrowserRouter, Routes, Route, Outlet } from "react-router";
+import { ThemeProvider } from "./context/ThemeContext.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { NotificationProvider } from "./context/NotificationContext.jsx";
 import ToastContainer from "./components/ToastContainer.jsx";
@@ -40,58 +41,60 @@ const ClientGroupDetailPage = lazy(() => import("./pages/ClientGroupDetailPage.j
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <NotificationProvider>
-          <ToastContainer />
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/invite/:token" element={<InvitePage />} />
-            <Route
-              element={
-                <ProtectedRoute>
-                  <Outlet />
-                </ProtectedRoute>
-              }
-            >
-              <Route path="consent" element={<ConsentPage />} />
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <NotificationProvider>
+            <ToastContainer />
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/invite/:token" element={<InvitePage />} />
               <Route
                 element={
-                  <ConsentGate>
-                    <Layout />
-                  </ConsentGate>
+                  <ProtectedRoute>
+                    <Outlet />
+                  </ProtectedRoute>
                 }
               >
-                <Route index element={<DashboardPage />} />
+                <Route path="consent" element={<ConsentPage />} />
+                <Route
+                  element={
+                    <ConsentGate>
+                      <Layout />
+                    </ConsentGate>
+                  }
+                >
+                  <Route index element={<DashboardPage />} />
 
-                <Route path="organizations" element={<OrganizationsPage />} />
-                <Route path="organizations/:id" element={<OrganizationDetailPage />} />
-                <Route path="client-groups/:id" element={<ClientGroupDetailPage />} />
-                <Route path="staff" element={<StaffPage />} />
-                <Route path="clients" element={<ClientsPage />} />
-                <Route path="users/:id" element={<UserProfilePage />} />
-                <Route path="contacts" element={<WorkContactsPage />} />
-                <Route path="knowledge" element={<KnowledgePage />} />
-                <Route path="knowledge/:id" element={<KnowledgeArticlePage />} />
-                <Route path="audit-log" element={<AuditLogPage />} />
-                <Route path="management" element={<ManagementPage />} />
-                <Route path="payments" element={<PaymentsPage />} />
-                <Route path="my-payments" element={<MyPaymentsPage />} />
-                <Route path="my-documents" element={<MyDocumentsPage />} />
-                <Route path="tasks" element={<TasksPage />} />
-                <Route path="tickets" element={<TicketsPage />} />
-                <Route path="tickets/:id" element={<TicketDetailPage />} />
-                <Route path="reporting" element={<ReportingPage />} />
-                <Route path="message-templates" element={<MessageTemplatesPage />} />
-                <Route path="profile" element={<ProfilePage />} />
+                  <Route path="organizations" element={<OrganizationsPage />} />
+                  <Route path="organizations/:id" element={<OrganizationDetailPage />} />
+                  <Route path="client-groups/:id" element={<ClientGroupDetailPage />} />
+                  <Route path="staff" element={<StaffPage />} />
+                  <Route path="clients" element={<ClientsPage />} />
+                  <Route path="users/:id" element={<UserProfilePage />} />
+                  <Route path="contacts" element={<WorkContactsPage />} />
+                  <Route path="knowledge" element={<KnowledgePage />} />
+                  <Route path="knowledge/:id" element={<KnowledgeArticlePage />} />
+                  <Route path="audit-log" element={<AuditLogPage />} />
+                  <Route path="management" element={<ManagementPage />} />
+                  <Route path="payments" element={<PaymentsPage />} />
+                  <Route path="my-payments" element={<MyPaymentsPage />} />
+                  <Route path="my-documents" element={<MyDocumentsPage />} />
+                  <Route path="tasks" element={<TasksPage />} />
+                  <Route path="tickets" element={<TicketsPage />} />
+                  <Route path="tickets/:id" element={<TicketDetailPage />} />
+                  <Route path="reporting" element={<ReportingPage />} />
+                  <Route path="message-templates" element={<MessageTemplatesPage />} />
+                  <Route path="profile" element={<ProfilePage />} />
+                </Route>
               </Route>
-            </Route>
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </NotificationProvider>
-      </AuthProvider>
-    </BrowserRouter>
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </NotificationProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }

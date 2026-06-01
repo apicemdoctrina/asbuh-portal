@@ -104,7 +104,7 @@ export default function KnowledgePage() {
   return (
     <div className="relative">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">
+        <h1 className="text-2xl font-bold text-heading">
           {isClient ? "Материалы" : "База знаний"}
         </h1>
         {canCreate && (
@@ -124,19 +124,19 @@ export default function KnowledgePage() {
       {/* Search + Filters */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-1">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
           <input
             type="text"
             placeholder="Поиск по названию или описанию..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+            className="w-full pl-10 pr-4 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           />
         </div>
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
-          className="px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
+          className="px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
         >
           <option value="">Все типы</option>
           <option value="ARTICLE">Статья</option>
@@ -147,7 +147,7 @@ export default function KnowledgePage() {
           <select
             value={audienceFilter}
             onChange={(e) => setAudienceFilter(e.target.value)}
-            className="px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
+            className="px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
           >
             <option value="">Вся аудитория</option>
             <option value="STAFF">Сотрудники</option>
@@ -157,7 +157,7 @@ export default function KnowledgePage() {
         <select
           value={tagFilter}
           onChange={(e) => setTagFilter(e.target.value)}
-          className="px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
+          className="px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
         >
           <option value="">Все теги</option>
           {[...new Set([...PRESET_TAGS, ...allTags])].map((t) => (
@@ -170,11 +170,11 @@ export default function KnowledgePage() {
 
       {/* Card Grid */}
       {loading ? (
-        <div className="flex items-center justify-center py-12 text-slate-400">
+        <div className="flex items-center justify-center py-12 text-subtle">
           <Loader2 size={24} className="animate-spin" />
         </div>
       ) : items.length === 0 ? (
-        <div className="text-center py-12 text-slate-400 text-sm">
+        <div className="text-center py-12 text-subtle text-sm">
           {search || typeFilter || audienceFilter || tagFilter
             ? "Ничего не найдено"
             : "Нет материалов"}
@@ -189,7 +189,7 @@ export default function KnowledgePage() {
                 <div
                   key={item.id}
                   onClick={() => navigate(`/knowledge/${item.id}`)}
-                  className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all group"
+                  className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden cursor-pointer hover:shadow-xl hover:-translate-y-0.5 transition-all group"
                 >
                   {/* Cover image or fallback */}
                   <div
@@ -207,7 +207,7 @@ export default function KnowledgePage() {
                       </div>
                     )}
                     {/* Type badge overlay */}
-                    <span className="absolute top-3 left-3 inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm text-slate-700 px-2.5 py-1 rounded-full text-xs font-medium shadow-sm">
+                    <span className="absolute top-3 left-3 inline-flex items-center gap-1 bg-surface/90 backdrop-blur-sm text-body px-2.5 py-1 rounded-full text-xs font-medium shadow-sm">
                       <Icon size={12} />
                       {TYPE_LABELS[item.type]}
                     </span>
@@ -216,8 +216,8 @@ export default function KnowledgePage() {
                       <span
                         className={`absolute top-3 right-3 px-2 py-0.5 rounded-full text-xs font-medium shadow-sm ${
                           item.audience === "STAFF"
-                            ? "bg-blue-100/90 text-blue-700"
-                            : "bg-green-100/90 text-green-700"
+                            ? "bg-blue-100/90 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300"
+                            : "bg-green-100/90 dark:bg-green-500/15 text-green-700 dark:text-green-300"
                         }`}
                       >
                         {AUDIENCE_LABELS[item.audience]}
@@ -227,11 +227,11 @@ export default function KnowledgePage() {
 
                   {/* Card body */}
                   <div className="p-4">
-                    <h3 className="font-semibold text-slate-900 mb-1.5 line-clamp-2 group-hover:text-[#6567F1] transition-colors">
+                    <h3 className="font-semibold text-heading mb-1.5 line-clamp-2 group-hover:text-primary transition-colors">
                       {item.title}
                     </h3>
                     {item.description && (
-                      <p className="text-sm text-slate-500 mb-3 line-clamp-2">{item.description}</p>
+                      <p className="text-sm text-subtle mb-3 line-clamp-2">{item.description}</p>
                     )}
 
                     {/* Tags */}
@@ -240,20 +240,20 @@ export default function KnowledgePage() {
                         {item.tags.slice(0, 3).map((tag) => (
                           <span
                             key={tag}
-                            className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs"
+                            className="bg-muted text-body px-2 py-0.5 rounded text-xs"
                           >
                             {tag}
                           </span>
                         ))}
                         {item.tags.length > 3 && (
-                          <span className="text-slate-400 text-xs">+{item.tags.length - 3}</span>
+                          <span className="text-subtle text-xs">+{item.tags.length - 3}</span>
                         )}
                       </div>
                     )}
 
                     {/* Footer: author + date + actions */}
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                      <div className="text-xs text-slate-400">
+                    <div className="flex items-center justify-between pt-2 border-t border-line">
+                      <div className="text-xs text-subtle">
                         {new Date(item.createdAt).toLocaleDateString("ru-RU")}
                       </div>
                       {(canEdit || canDelete) && (
@@ -265,7 +265,7 @@ export default function KnowledgePage() {
                                 setEditingItem(item);
                                 setShowModal(true);
                               }}
-                              className="p-1.5 text-slate-400 hover:text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg transition-colors"
+                              className="p-1.5 text-subtle hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
                               title="Редактировать"
                             >
                               <Pencil size={14} />
@@ -274,7 +274,7 @@ export default function KnowledgePage() {
                           {canDelete && (
                             <button
                               onClick={(e) => handleDelete(e, item)}
-                              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                              className="p-1.5 text-subtle hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/15 rounded-lg transition-colors"
                               title="Удалить"
                             >
                               <Trash2 size={14} />
@@ -289,7 +289,7 @@ export default function KnowledgePage() {
             })}
           </div>
           {total > items.length && (
-            <div className="mt-4 text-center text-xs text-slate-400">
+            <div className="mt-4 text-center text-xs text-subtle">
               Показано {items.length} из {total}
             </div>
           )}
@@ -421,14 +421,14 @@ function KnowledgeModal({ item, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto">
+      <div className="bg-surface rounded-2xl shadow-xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-slate-900">
+          <h2 className="text-lg font-bold text-heading">
             {isEdit ? "Редактировать" : "Новый материал"}
           </h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
           >
             <X size={20} />
           </button>
@@ -437,23 +437,23 @@ function KnowledgeModal({ item, onClose, onSaved }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Title */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Название *</label>
+            <label className="block text-sm font-medium text-body mb-1">Название *</label>
             <input
               type="text"
               value={form.title}
               onChange={(e) => setField("title", e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
 
           {/* Type + Audience */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Тип *</label>
+              <label className="block text-sm font-medium text-body mb-1">Тип *</label>
               <select
                 value={form.type}
                 onChange={(e) => setField("type", e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
               >
                 <option value="ARTICLE">Статья</option>
                 <option value="VIDEO">Видео</option>
@@ -461,11 +461,11 @@ function KnowledgeModal({ item, onClose, onSaved }) {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Аудитория *</label>
+              <label className="block text-sm font-medium text-body mb-1">Аудитория *</label>
               <select
                 value={form.audience}
                 onChange={(e) => setField("audience", e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
               >
                 <option value="STAFF">Сотрудники</option>
                 <option value="CLIENT">Клиенты</option>
@@ -475,7 +475,7 @@ function KnowledgeModal({ item, onClose, onSaved }) {
 
           {/* Cover image */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Обложка</label>
+            <label className="block text-sm font-medium text-body mb-1">Обложка</label>
             {coverPreview && (
               <div className="relative mb-2 rounded-lg overflow-hidden h-32">
                 <img src={coverPreview} alt="" className="w-full h-full object-cover" />
@@ -492,9 +492,9 @@ function KnowledgeModal({ item, onClose, onSaved }) {
               </div>
             )}
             {!coverPreview && (
-              <label className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-slate-200 rounded-lg cursor-pointer hover:border-[#6567F1]/30 hover:bg-[#6567F1]/5 transition-colors">
-                <ImagePlus size={18} className="text-slate-400" />
-                <span className="text-sm text-slate-500">Загрузить обложку</span>
+              <label className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-line rounded-lg cursor-pointer hover:border-primary/30 hover:bg-primary/5 transition-colors">
+                <ImagePlus size={18} className="text-subtle" />
+                <span className="text-sm text-subtle">Загрузить обложку</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -507,14 +507,14 @@ function KnowledgeModal({ item, onClose, onSaved }) {
 
           {/* Tags */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Теги</label>
+            <label className="block text-sm font-medium text-body mb-1">Теги</label>
             <div className="flex flex-wrap gap-1.5 mb-2">
               {PRESET_TAGS.filter((t) => !form.tags.includes(t)).map((t) => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => addTag(t)}
-                  className="px-2.5 py-1 rounded-full text-xs font-medium border border-slate-200 text-slate-500 hover:border-[#6567F1] hover:text-[#6567F1] transition-colors"
+                  className="px-2.5 py-1 rounded-full text-xs font-medium border border-line text-subtle hover:border-primary hover:text-primary transition-colors"
                 >
                   + {t}
                 </button>
@@ -524,10 +524,14 @@ function KnowledgeModal({ item, onClose, onSaved }) {
               {form.tags.map((t) => (
                 <span
                   key={t}
-                  className="inline-flex items-center gap-1 bg-[#6567F1]/10 text-[#6567F1] px-2.5 py-1 rounded-full text-xs font-medium"
+                  className="inline-flex items-center gap-1 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-medium"
                 >
                   {t}
-                  <button type="button" onClick={() => removeTag(t)} className="hover:text-red-500">
+                  <button
+                    type="button"
+                    onClick={() => removeTag(t)}
+                    className="hover:text-red-500 dark:hover:text-red-400"
+                  >
                     <X size={12} />
                   </button>
                 </span>
@@ -539,31 +543,29 @@ function KnowledgeModal({ item, onClose, onSaved }) {
               onChange={(e) => setTagInput(e.target.value)}
               onKeyDown={handleTagKeyDown}
               placeholder="Свой тег (Enter для добавления)"
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
 
           {/* Description (short, for all types) */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Краткое описание
-            </label>
+            <label className="block text-sm font-medium text-body mb-1">Краткое описание</label>
             <textarea
               value={form.description}
               onChange={(e) => setField("description", e.target.value)}
               rows={2}
               placeholder="Отображается на карточке..."
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] resize-none"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
             />
           </div>
 
           {/* Rich text editor for ARTICLE */}
           {form.type === "ARTICLE" && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Текст статьи</label>
+              <label className="block text-sm font-medium text-body mb-1">Текст статьи</label>
               <Suspense
                 fallback={
-                  <div className="h-52 border border-slate-200 rounded-lg flex items-center justify-center text-slate-400">
+                  <div className="h-52 border border-line rounded-lg flex items-center justify-center text-subtle">
                     <Loader2 size={20} className="animate-spin" />
                   </div>
                 }
@@ -579,15 +581,13 @@ function KnowledgeModal({ item, onClose, onSaved }) {
           {/* URL for VIDEO */}
           {form.type === "VIDEO" && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Ссылка на видео *
-              </label>
+              <label className="block text-sm font-medium text-body mb-1">Ссылка на видео *</label>
               <input
                 type="url"
                 value={form.url}
                 onChange={(e) => setField("url", e.target.value)}
                 placeholder="https://youtube.com/..."
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               />
             </div>
           )}
@@ -595,29 +595,31 @@ function KnowledgeModal({ item, onClose, onSaved }) {
           {/* File upload for FILE */}
           {form.type === "FILE" && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-body mb-1">
                 Файл {!isEdit && "*"}
               </label>
               <input
                 type="file"
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
-                className="w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-[#6567F1]/10 file:text-[#6567F1] hover:file:bg-[#6567F1]/20"
+                className="w-full text-sm text-body file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
               />
               {isEdit && item?.originalName && !file && (
-                <p className="mt-1 text-xs text-slate-400">Текущий файл: {item.originalName}</p>
+                <p className="mt-1 text-xs text-subtle">Текущий файл: {item.originalName}</p>
               )}
             </div>
           )}
 
           {error && (
-            <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>
+            <div className="text-sm text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-500/15 px-3 py-2 rounded-lg">
+              {error}
+            </div>
           )}
 
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-body hover:text-heading transition-colors"
             >
               Отмена
             </button>

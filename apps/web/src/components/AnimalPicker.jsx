@@ -17,8 +17,8 @@ export default function AnimalPicker({ value, onChange, usedAnimals = [] }) {
         className={`w-9 h-9 rounded-lg border-2 flex items-center justify-center text-xs font-medium transition-colors
           ${
             !value
-              ? "border-[#6567F1] bg-[#6567F1]/10 text-[#6567F1]"
-              : "border-slate-200 text-slate-400 hover:border-slate-300"
+              ? "border-primary bg-primary/10 text-primary"
+              : "border-line text-subtle hover:border-line"
           }`}
         title="Без иконки"
       >
@@ -38,10 +38,10 @@ export default function AnimalPicker({ value, onChange, usedAnimals = [] }) {
             className={`w-9 h-9 rounded-lg border-2 flex items-center justify-center transition-colors
               ${
                 isSelected
-                  ? "border-[#6567F1] bg-[#6567F1]/10 text-[#6567F1]"
+                  ? "border-primary bg-primary/10 text-primary"
                   : isUsed
-                    ? "border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed"
-                    : "border-slate-200 text-slate-500 hover:border-[#6567F1]/40 hover:text-[#6567F1]"
+                    ? "border-line bg-canvas text-subtle cursor-not-allowed"
+                    : "border-line text-subtle hover:border-primary/40 hover:text-primary"
               }`}
           >
             <Icon size={18} />

@@ -60,7 +60,7 @@ export default function WorkContactsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Рабочие контакты</h1>
+        <h1 className="text-2xl font-bold text-heading">Рабочие контакты</h1>
         {canCreate && (
           <button
             onClick={() => {
@@ -77,31 +77,31 @@ export default function WorkContactsPage() {
 
       {/* Search */}
       <div className="relative mb-6">
-        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
         <input
           type="text"
           placeholder="Поиск по имени или должности..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+          className="w-full pl-10 pr-4 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
         />
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+      <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center py-12 text-slate-400">
+          <div className="flex items-center justify-center py-12 text-subtle">
             <Loader2 size={24} className="animate-spin" />
           </div>
         ) : contacts.length === 0 ? (
-          <div className="text-center py-12 text-slate-400 text-sm">
+          <div className="text-center py-12 text-subtle text-sm">
             {search ? "Ничего не найдено" : "Нет контактов"}
           </div>
         ) : (
           <>
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 text-left text-slate-500">
+                <tr className="border-b border-line text-left text-subtle">
                   <th className="px-6 py-3 font-medium">Имя</th>
                   <th className="px-6 py-3 font-medium">Должность</th>
                   <th className="px-6 py-3 font-medium">Телефон</th>
@@ -111,11 +111,11 @@ export default function WorkContactsPage() {
               </thead>
               <tbody>
                 {contacts.map((c) => (
-                  <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                    <td className="px-6 py-3 font-medium text-slate-900">{c.name}</td>
-                    <td className="px-6 py-3 text-slate-600">{c.position || "—"}</td>
-                    <td className="px-6 py-3 text-slate-600">{c.phone || "—"}</td>
-                    <td className="px-6 py-3 text-slate-500 hidden md:table-cell">
+                  <tr key={c.id} className="border-b border-line hover:bg-canvas/50">
+                    <td className="px-6 py-3 font-medium text-heading">{c.name}</td>
+                    <td className="px-6 py-3 text-body">{c.position || "—"}</td>
+                    <td className="px-6 py-3 text-body">{c.phone || "—"}</td>
+                    <td className="px-6 py-3 text-subtle hidden md:table-cell">
                       {c.comment || "—"}
                     </td>
                     {(canEdit || canDelete) && (
@@ -127,7 +127,7 @@ export default function WorkContactsPage() {
                                 setEditingContact(c);
                                 setShowModal(true);
                               }}
-                              className="p-1.5 text-slate-400 hover:text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg transition-colors"
+                              className="p-1.5 text-subtle hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
                               title="Редактировать"
                             >
                               <Pencil size={16} />
@@ -136,7 +136,7 @@ export default function WorkContactsPage() {
                           {canDelete && (
                             <button
                               onClick={() => handleDelete(c)}
-                              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                              className="p-1.5 text-subtle hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/15 rounded-lg transition-colors"
                               title="Удалить"
                             >
                               <Trash2 size={16} />
@@ -150,7 +150,7 @@ export default function WorkContactsPage() {
               </tbody>
             </table>
             {total > contacts.length && (
-              <div className="px-6 py-3 text-xs text-slate-400 border-t border-slate-100">
+              <div className="px-6 py-3 text-xs text-subtle border-t border-line">
                 Показано {contacts.length} из {total}
               </div>
             )}
@@ -227,14 +227,14 @@ function ContactModal({ contact, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
+      <div className="bg-surface rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-slate-900">
+          <h2 className="text-lg font-bold text-heading">
             {isEdit ? "Редактировать контакт" : "Новый контакт"}
           </h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
           >
             <X size={20} />
           </button>
@@ -242,51 +242,53 @@ function ContactModal({ contact, onClose, onSaved }) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Имя *</label>
+            <label className="block text-sm font-medium text-body mb-1">Имя *</label>
             <input
               type="text"
               value={form.name}
               onChange={(e) => setField("name", e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Должность</label>
+            <label className="block text-sm font-medium text-body mb-1">Должность</label>
             <input
               type="text"
               value={form.position}
               onChange={(e) => setField("position", e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Телефон</label>
+            <label className="block text-sm font-medium text-body mb-1">Телефон</label>
             <input
               type="text"
               value={form.phone}
               onChange={(e) => setField("phone", e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Комментарий</label>
+            <label className="block text-sm font-medium text-body mb-1">Комментарий</label>
             <textarea
               value={form.comment}
               onChange={(e) => setField("comment", e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] resize-none"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
             />
           </div>
 
           {error && (
-            <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>
+            <div className="text-sm text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-500/15 px-3 py-2 rounded-lg">
+              {error}
+            </div>
           )}
 
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-body hover:text-heading transition-colors"
             >
               Отмена
             </button>

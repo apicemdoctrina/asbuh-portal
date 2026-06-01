@@ -22,10 +22,19 @@ function fmtDate(val) {
 }
 
 const STATUS_BADGE = {
-  AUTO: { label: "Авто", cls: "bg-green-100 text-green-700" },
-  MANUAL: { label: "Вручную", cls: "bg-blue-100 text-blue-700" },
-  UNMATCHED: { label: "Не привязана", cls: "bg-amber-100 text-amber-700" },
-  IGNORED: { label: "Игнор", cls: "bg-slate-100 text-slate-500" },
+  AUTO: {
+    label: "Авто",
+    cls: "bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300",
+  },
+  MANUAL: {
+    label: "Вручную",
+    cls: "bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300",
+  },
+  UNMATCHED: {
+    label: "Не привязана",
+    cls: "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  },
+  IGNORED: { label: "Игнор", cls: "bg-muted text-subtle" },
 };
 
 /**
@@ -104,23 +113,23 @@ export default function OrgTransactionsCard({
   const totalAmount = transactions.reduce((s, t) => s + Number(t.amount || 0), 0);
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
-      <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+    <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden">
+      <div className="px-6 py-4 border-b border-line flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <DollarSign size={16} className="text-[#6567F1]" />
-          <h2 className="text-base font-bold text-slate-900">Банковские транзакции</h2>
-          {total > 0 && <span className="text-xs text-slate-400 ml-1">({total})</span>}
+          <DollarSign size={16} className="text-primary" />
+          <h2 className="text-base font-bold text-heading">Банковские транзакции</h2>
+          {total > 0 && <span className="text-xs text-subtle ml-1">({total})</span>}
         </div>
         <div className="flex items-center gap-3">
           {total > 0 && (
-            <div className="text-sm text-slate-500">
+            <div className="text-sm text-subtle">
               Итого на странице:{" "}
-              <span className="font-semibold text-slate-700">{fmtMoney(totalAmount)}</span>
+              <span className="font-semibold text-body">{fmtMoney(totalAmount)}</span>
             </div>
           )}
           <button
             onClick={() => setShowAddForm((v) => !v)}
-            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-[#6567F1] border border-[#6567F1]/20 rounded-lg hover:bg-[#6567F1]/5 transition-colors"
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary border border-primary/20 rounded-lg hover:bg-primary/5 transition-colors"
           >
             <Plus size={14} />
             Добавить
@@ -133,26 +142,26 @@ export default function OrgTransactionsCard({
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center py-12 text-slate-400">
+        <div className="flex items-center justify-center py-12 text-subtle">
           <Loader2 size={24} className="animate-spin" />
         </div>
       ) : transactions.length === 0 ? (
-        <div className="text-sm text-slate-400 text-center py-8">Транзакций нет</div>
+        <div className="text-sm text-subtle text-center py-8">Транзакций нет</div>
       ) : (
         <>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/50">
-                  <th className="text-left px-4 py-3 font-medium text-slate-500">Дата</th>
-                  <th className="text-right px-4 py-3 font-medium text-slate-500">Сумма</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-500">Плательщик</th>
+                <tr className="border-b border-line bg-canvas/50">
+                  <th className="text-left px-4 py-3 font-medium text-subtle">Дата</th>
+                  <th className="text-right px-4 py-3 font-medium text-subtle">Сумма</th>
+                  <th className="text-left px-4 py-3 font-medium text-subtle">Плательщик</th>
                   {showOrgName && (
-                    <th className="text-left px-4 py-3 font-medium text-slate-500">Организация</th>
+                    <th className="text-left px-4 py-3 font-medium text-subtle">Организация</th>
                   )}
-                  <th className="text-left px-4 py-3 font-medium text-slate-500">Назначение</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-500">Статус</th>
-                  <th className="text-right px-4 py-3 font-medium text-slate-500"></th>
+                  <th className="text-left px-4 py-3 font-medium text-subtle">Назначение</th>
+                  <th className="text-left px-4 py-3 font-medium text-subtle">Статус</th>
+                  <th className="text-right px-4 py-3 font-medium text-subtle"></th>
                 </tr>
               </thead>
               <tbody>
@@ -161,28 +170,26 @@ export default function OrgTransactionsCard({
                   return (
                     <tr
                       key={tx.id}
-                      className={`border-b border-slate-50 hover:bg-slate-50/50 ${tx.matchStatus === "IGNORED" ? "opacity-50" : ""}`}
+                      className={`border-b border-line hover:bg-canvas/50 ${tx.matchStatus === "IGNORED" ? "opacity-50" : ""}`}
                     >
-                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
-                        {fmtDate(tx.date)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-medium text-green-600 whitespace-nowrap">
+                      <td className="px-4 py-3 text-body whitespace-nowrap">{fmtDate(tx.date)}</td>
+                      <td className="px-4 py-3 text-right font-medium text-green-600 dark:text-green-300 whitespace-nowrap">
                         {fmtMoney(tx.amount)}
                       </td>
                       <td
-                        className="px-4 py-3 text-slate-700 max-w-[200px] truncate"
+                        className="px-4 py-3 text-body max-w-[200px] truncate"
                         title={tx.payerName || ""}
                       >
                         {tx.payerName || "—"}
                         {tx.payerInn && (
-                          <span className="text-slate-400 ml-1 text-xs">ИНН {tx.payerInn}</span>
+                          <span className="text-subtle ml-1 text-xs">ИНН {tx.payerInn}</span>
                         )}
                       </td>
                       {showOrgName && (
-                        <td className="px-4 py-3 text-slate-600">{tx.organization?.name || "—"}</td>
+                        <td className="px-4 py-3 text-body">{tx.organization?.name || "—"}</td>
                       )}
                       <td
-                        className="px-4 py-3 text-slate-500 max-w-[250px] truncate"
+                        className="px-4 py-3 text-subtle max-w-[250px] truncate"
                         title={tx.purpose || ""}
                       >
                         {tx.purpose || "—"}
@@ -194,7 +201,7 @@ export default function OrgTransactionsCard({
                           {badge.label}
                         </span>
                         {tx.isManual && (
-                          <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                          <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300">
                             Ручная
                           </span>
                         )}
@@ -205,7 +212,7 @@ export default function OrgTransactionsCard({
                             <button
                               onClick={() => handleDeleteManual(tx.id)}
                               title="Удалить"
-                              className="inline-flex items-center gap-1 px-2 py-1 text-xs text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              className="inline-flex items-center gap-1 px-2 py-1 text-xs text-subtle hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/15 rounded-lg transition-colors"
                             >
                               <Trash2 size={13} />
                             </button>
@@ -214,7 +221,7 @@ export default function OrgTransactionsCard({
                             <button
                               onClick={() => handleUnignore(tx.id)}
                               title="Вернуть в учёт"
-                              className="inline-flex items-center gap-1 px-2 py-1 text-xs text-slate-500 hover:text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg transition-colors"
+                              className="inline-flex items-center gap-1 px-2 py-1 text-xs text-subtle hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
                             >
                               <RotateCcw size={13} />
                               Вернуть
@@ -223,7 +230,7 @@ export default function OrgTransactionsCard({
                             <button
                               onClick={() => handleIgnore(tx.id)}
                               title="Не учитывать"
-                              className="inline-flex items-center gap-1 px-2 py-1 text-xs text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                              className="inline-flex items-center gap-1 px-2 py-1 text-xs text-subtle hover:text-amber-600 dark:hover:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-500/15 rounded-lg transition-colors"
                             >
                               <EyeOff size={13} />
                               Игнорировать
@@ -239,22 +246,22 @@ export default function OrgTransactionsCard({
           </div>
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-              <span className="text-xs text-slate-400">
+            <div className="flex items-center justify-between px-4 py-3 border-t border-line">
+              <span className="text-xs text-subtle">
                 Стр. {page} из {totalPages}
               </span>
               <div className="flex gap-1">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page <= 1}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                  className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted disabled:opacity-30"
                 >
                   <ChevronLeft size={16} />
                 </button>
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page >= totalPages}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                  className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted disabled:opacity-30"
                 >
                   <ChevronRight size={16} />
                 </button>
@@ -286,23 +293,20 @@ function ManualTxForm({ onSubmit, onCancel }) {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="px-6 py-4 bg-slate-50 border-b border-slate-200 space-y-3"
-    >
+    <form onSubmit={handleSubmit} className="px-6 py-4 bg-canvas border-b border-line space-y-3">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div>
-          <label className="block text-xs font-medium text-slate-500 mb-1">Дата</label>
+          <label className="block text-xs font-medium text-subtle mb-1">Дата</label>
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
             required
-            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+            className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-500 mb-1">Сумма</label>
+          <label className="block text-xs font-medium text-subtle mb-1">Сумма</label>
           <input
             type="number"
             step="0.01"
@@ -310,27 +314,27 @@ function ManualTxForm({ onSubmit, onCancel }) {
             onChange={(e) => setAmount(e.target.value)}
             placeholder="0.00"
             required
-            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+            className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-500 mb-1">Плательщик</label>
+          <label className="block text-xs font-medium text-subtle mb-1">Плательщик</label>
           <input
             type="text"
             value={payerName}
             onChange={(e) => setPayerName(e.target.value)}
             placeholder="Наличные, карта..."
-            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+            className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-500 mb-1">Назначение</label>
+          <label className="block text-xs font-medium text-subtle mb-1">Назначение</label>
           <input
             type="text"
             value={purpose}
             onChange={(e) => setPurpose(e.target.value)}
             placeholder="Оплата за..."
-            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+            className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           />
         </div>
       </div>
@@ -346,7 +350,7 @@ function ManualTxForm({ onSubmit, onCancel }) {
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg"
+          className="px-4 py-2 text-sm text-body hover:bg-muted rounded-lg"
         >
           Отмена
         </button>

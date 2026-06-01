@@ -96,7 +96,7 @@ export default function MessageTemplatesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16 text-slate-400">
+      <div className="flex items-center justify-center py-16 text-subtle">
         <Loader2 size={24} className="animate-spin" />
       </div>
     );
@@ -107,8 +107,8 @@ export default function MessageTemplatesPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Шаблоны сообщений</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-2xl font-bold text-heading">Шаблоны сообщений</h1>
+          <p className="text-sm text-subtle mt-1">
             Шаблоны для быстрой отправки email и Telegram-сообщений клиентам
           </p>
         </div>
@@ -125,13 +125,13 @@ export default function MessageTemplatesPage() {
 
       {/* Templates list */}
       {templates.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-12 text-center">
-          <FileText size={48} className="mx-auto text-slate-300 mb-4" />
-          <p className="text-slate-500">Шаблонов пока нет</p>
+        <div className="bg-surface rounded-2xl shadow-lg border border-line p-12 text-center">
+          <FileText size={48} className="mx-auto text-subtle mb-4" />
+          <p className="text-subtle">Шаблонов пока нет</p>
           {canCreate && (
             <button
               onClick={openCreate}
-              className="mt-4 text-[#6567F1] hover:text-[#5557E1] text-sm font-medium"
+              className="mt-4 text-primary hover:text-[#5557E1] text-sm font-medium"
             >
               Создать первый шаблон
             </button>
@@ -142,26 +142,23 @@ export default function MessageTemplatesPage() {
           {templates.map((t) => {
             const Icon = CHANNEL_ICONS[t.channel] || Mail;
             return (
-              <div
-                key={t.id}
-                className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5"
-              >
+              <div key={t.id} className="bg-surface rounded-2xl shadow-lg border border-line p-5">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3 min-w-0">
-                    <div className="mt-0.5 p-2 bg-[#6567F1]/10 rounded-lg">
-                      <Icon size={18} className="text-[#6567F1]" />
+                    <div className="mt-0.5 p-2 bg-primary/10 rounded-lg">
+                      <Icon size={18} className="text-primary" />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="font-semibold text-slate-900">{t.name}</h3>
+                      <h3 className="font-semibold text-heading">{t.name}</h3>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="bg-[#6567F1]/10 text-[#6567F1] px-2 py-0.5 rounded-full text-xs font-medium">
+                        <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs font-medium">
                           {CHANNEL_LABELS[t.channel]}
                         </span>
                         {t.subject && (
-                          <span className="text-xs text-slate-400 truncate">Тема: {t.subject}</span>
+                          <span className="text-xs text-subtle truncate">Тема: {t.subject}</span>
                         )}
                       </div>
-                      <p className="text-sm text-slate-500 mt-2 line-clamp-2 whitespace-pre-line">
+                      <p className="text-sm text-subtle mt-2 line-clamp-2 whitespace-pre-line">
                         {t.body}
                       </p>
                     </div>
@@ -170,7 +167,7 @@ export default function MessageTemplatesPage() {
                     {canEdit && (
                       <button
                         onClick={() => openEdit(t)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                        className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
                       >
                         <Pencil size={16} />
                       </button>
@@ -178,7 +175,7 @@ export default function MessageTemplatesPage() {
                     {canDelete && (
                       <button
                         onClick={() => handleDelete(t.id)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        className="p-1.5 rounded-lg text-subtle hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/15 transition-colors"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -194,35 +191,35 @@ export default function MessageTemplatesPage() {
       {/* Create/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-5 border-b border-slate-200">
-              <h2 className="text-lg font-semibold text-slate-900">
+          <div className="bg-surface rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b border-line">
+              <h2 className="text-lg font-semibold text-heading">
                 {editing ? "Редактировать шаблон" : "Новый шаблон"}
               </h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
               >
                 <X size={18} />
               </button>
             </div>
             <div className="p-5 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Название</label>
+                <label className="block text-sm font-medium text-body mb-1">Название</label>
                 <input
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="Запрос документов"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Канал</label>
+                <label className="block text-sm font-medium text-body mb-1">Канал</label>
                 <select
                   value={form.channel}
                   onChange={(e) => setForm({ ...form, channel: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 >
                   <option value="EMAIL">Email</option>
                   <option value="TELEGRAM">Telegram</option>
@@ -230,39 +227,35 @@ export default function MessageTemplatesPage() {
               </div>
               {form.channel === "EMAIL" && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Тема письма
-                  </label>
+                  <label className="block text-sm font-medium text-body mb-1">Тема письма</label>
                   <input
                     type="text"
                     value={form.subject}
                     onChange={(e) => setForm({ ...form, subject: e.target.value })}
                     placeholder="Запрос документов — {{orgName}}"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                    className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                 </div>
               )}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Текст сообщения
-                </label>
+                <label className="block text-sm font-medium text-body mb-1">Текст сообщения</label>
                 <textarea
                   value={form.body}
                   onChange={(e) => setForm({ ...form, body: e.target.value })}
                   rows={6}
                   placeholder="Здравствуйте, {{contactPerson}}!&#10;&#10;Просим предоставить документы..."
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] resize-y"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-y"
                 />
               </div>
-              <div className="bg-slate-50 rounded-lg p-3">
-                <p className="text-xs font-medium text-slate-500 mb-1.5">Доступные переменные:</p>
+              <div className="bg-canvas rounded-lg p-3">
+                <p className="text-xs font-medium text-subtle mb-1.5">Доступные переменные:</p>
                 <div className="flex flex-wrap gap-1.5">
                   {PLACEHOLDER_HELP.map((p) => (
                     <button
                       key={p.key}
                       type="button"
                       onClick={() => setForm({ ...form, body: form.body + `{{${p.key}}}` })}
-                      className="text-xs bg-white border border-slate-200 px-2 py-1 rounded-md hover:bg-[#6567F1]/5 hover:border-[#6567F1]/20 transition-colors"
+                      className="text-xs bg-surface border border-line px-2 py-1 rounded-md hover:bg-primary/5 hover:border-primary/20 transition-colors"
                       title={p.desc}
                     >
                       {`{{${p.key}}}`}
@@ -271,10 +264,10 @@ export default function MessageTemplatesPage() {
                 </div>
               </div>
             </div>
-            <div className="flex items-center justify-end gap-3 p-5 border-t border-slate-200">
+            <div className="flex items-center justify-end gap-3 p-5 border-t border-line">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-body hover:text-heading transition-colors"
               >
                 Отмена
               </button>

@@ -75,10 +75,13 @@ const fmtShort = (n) => {
 const ROLE_LABELS = { admin: "Администратор", manager: "Менеджер", accountant: "Бухгалтер" };
 
 function MarginBadge({ margin }) {
-  if (margin >= 40) return <span className="text-emerald-600 font-semibold">{margin}%</span>;
-  if (margin >= 20) return <span className="text-amber-600 font-semibold">{margin}%</span>;
-  if (margin > 0) return <span className="text-red-500 font-semibold">{margin}%</span>;
-  return <span className="text-red-600 font-bold">{margin}%</span>;
+  if (margin >= 40)
+    return <span className="text-emerald-600 dark:text-emerald-300 font-semibold">{margin}%</span>;
+  if (margin >= 20)
+    return <span className="text-amber-600 dark:text-amber-300 font-semibold">{margin}%</span>;
+  if (margin > 0)
+    return <span className="text-red-500 dark:text-red-400 font-semibold">{margin}%</span>;
+  return <span className="text-red-600 dark:text-red-300 font-bold">{margin}%</span>;
 }
 
 function calcGrowth(current, prev) {
@@ -88,10 +91,19 @@ function calcGrowth(current, prev) {
 
 const tooltipStyle = {
   borderRadius: 8,
-  border: "1px solid #e2e8f0",
+  border: "1px solid var(--color-line)",
+  backgroundColor: "var(--color-surface)",
+  color: "var(--color-heading)",
   fontSize: 12,
-  boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
+  boxShadow: "0 6px 16px -4px rgba(0,0,0,0.35)",
 };
+const tooltipLabelStyle = { color: "var(--color-body)" };
+const tooltipItemStyle = { color: "var(--color-heading)" };
+
+// Theme-agnostic chart accents (resolve as SVG attributes, so no CSS vars here):
+// faint neutral grid + a soft primary "glow" cursor behind the hovered bar.
+const chartGridStroke = "rgba(148,163,184,0.25)";
+const chartCursorFill = { fill: "rgba(101,103,241,0.12)" };
 
 // ─── GrowthBadge ──────────────────────────────────────────────────────────────
 
@@ -101,13 +113,13 @@ function GrowthBadge({ pct, absolute }) {
   const isPositive = pct > 0;
   if (isZero)
     return (
-      <span className="text-xs text-slate-400 mt-0.5 flex items-center gap-0.5">
+      <span className="text-xs text-subtle mt-0.5 flex items-center gap-0.5">
         <Minus size={10} /> 0%
       </span>
     );
   return (
     <span
-      className={`text-xs mt-0.5 flex items-center gap-0.5 font-medium ${isPositive ? "text-emerald-600" : "text-red-500"}`}
+      className={`text-xs mt-0.5 flex items-center gap-0.5 font-medium ${isPositive ? "text-emerald-600 dark:text-emerald-300" : "text-red-500 dark:text-red-400"}`}
     >
       {isPositive ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
       {isPositive ? "+" : ""}
@@ -120,18 +132,22 @@ function GrowthBadge({ pct, absolute }) {
 
 function KpiCard({ icon: Icon, label, value, sub, positive, growth, absoluteGrowth }) {
   const color =
-    positive === undefined ? "text-[#6567F1]" : positive ? "text-emerald-600" : "text-red-500";
+    positive === undefined
+      ? "text-primary"
+      : positive
+        ? "text-emerald-600 dark:text-emerald-300"
+        : "text-red-500 dark:text-red-400";
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
+    <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm text-slate-500">{label}</span>
-        <div className={`p-2 rounded-lg bg-slate-50 ${color}`}>
+        <span className="text-sm text-subtle">{label}</span>
+        <div className={`p-2 rounded-lg bg-canvas ${color}`}>
           <Icon size={18} />
         </div>
       </div>
       <div className={`text-xl font-bold leading-tight ${color}`}>{value}</div>
       <GrowthBadge pct={growth} absolute={absoluteGrowth} />
-      {sub && <div className="text-xs text-slate-400 mt-1">{sub}</div>}
+      {sub && <div className="text-xs text-subtle mt-1">{sub}</div>}
     </div>
   );
 }
@@ -174,14 +190,14 @@ function ExpenseRow({ expense, onDelete, onUpdate }) {
     return (
       <div className="flex items-center gap-2 py-1.5 flex-wrap">
         <input
-          className="flex-1 min-w-24 text-sm border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#6567F1]"
+          className="flex-1 min-w-24 text-sm border border-line rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Название"
           autoFocus
         />
         <input
-          className="w-24 text-sm border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#6567F1]"
+          className="w-24 text-sm border border-line rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           type="number"
@@ -190,7 +206,7 @@ function ExpenseRow({ expense, onDelete, onUpdate }) {
         {isOneTime && (
           <input
             type="date"
-            className="w-32 text-sm border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#6567F1]"
+            className="w-32 text-sm border border-line rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary"
             value={editDate}
             onChange={(e) => setEditDate(e.target.value)}
           />
@@ -198,13 +214,13 @@ function ExpenseRow({ expense, onDelete, onUpdate }) {
         <button
           onClick={save}
           disabled={saving}
-          className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
+          className="p-1 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/15 rounded"
         >
           <Check size={15} />
         </button>
         <button
           onClick={cancel}
-          className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors"
+          className="p-1 text-subtle hover:text-body hover:bg-muted rounded transition-colors"
         >
           <XIcon size={15} />
         </button>
@@ -215,25 +231,25 @@ function ExpenseRow({ expense, onDelete, onUpdate }) {
   return (
     <div className="flex items-center justify-between py-1.5 group">
       <div className="flex flex-col min-w-0 mr-2">
-        <span className="text-sm text-slate-700 truncate">{expense.name}</span>
+        <span className="text-sm text-body truncate">{expense.name}</span>
         {isOneTime && expense.date && (
-          <span className="text-xs text-slate-400">
+          <span className="text-xs text-subtle">
             {new Date(expense.date).toLocaleDateString("ru-RU")}
           </span>
         )}
       </div>
       <div className="flex items-center gap-1 shrink-0">
-        <span className="text-sm font-medium text-slate-900">{fmt(Number(expense.amount))}</span>
+        <span className="text-sm font-medium text-heading">{fmt(Number(expense.amount))}</span>
         <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 ml-1 transition-opacity">
           <button
             onClick={() => setEditing(true)}
-            className="p-1 text-slate-400 hover:text-[#6567F1] rounded"
+            className="p-1 text-subtle hover:text-primary rounded"
           >
             <Pencil size={13} />
           </button>
           <button
             onClick={() => onDelete(expense.id)}
-            className="p-1 text-slate-400 hover:text-red-500 rounded"
+            className="p-1 text-subtle hover:text-red-500 dark:hover:text-red-400 rounded"
           >
             <Trash2 size={13} />
           </button>
@@ -274,20 +290,20 @@ function ExpensesBlock({ title, type, expenses, onAdd, onDelete, onUpdate }) {
 
   return (
     <div className="flex-1 min-w-0">
-      <h3 className="text-sm font-semibold text-slate-700 mb-2">{title}</h3>
+      <h3 className="text-sm font-semibold text-body mb-2">{title}</h3>
       {expenses.length > 0 ? (
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-line">
           {expenses.map((e) => (
             <ExpenseRow key={e.id} expense={e} onDelete={onDelete} onUpdate={onUpdate} />
           ))}
         </div>
       ) : (
-        !adding && <p className="text-sm text-slate-400 py-2">Нет расходов</p>
+        !adding && <p className="text-sm text-subtle py-2">Нет расходов</p>
       )}
       {adding ? (
         <div className="mt-2 space-y-2">
           <input
-            className="w-full text-sm border border-slate-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#6567F1]"
+            className="w-full text-sm border border-line rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="Название расхода"
@@ -295,7 +311,7 @@ function ExpensesBlock({ title, type, expenses, onAdd, onDelete, onUpdate }) {
           />
           <div className="flex gap-2">
             <input
-              className="flex-1 text-sm border border-slate-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#6567F1]"
+              className="flex-1 text-sm border border-line rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
               value={newAmount}
               onChange={(e) => setNewAmount(e.target.value)}
               placeholder="Сумма, ₽"
@@ -304,7 +320,7 @@ function ExpensesBlock({ title, type, expenses, onAdd, onDelete, onUpdate }) {
             />
             {type === "ONE_TIME" && (
               <input
-                className="flex-1 text-sm border border-slate-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#6567F1]"
+                className="flex-1 text-sm border border-line rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
                 value={newDate}
                 onChange={(e) => setNewDate(e.target.value)}
                 type="date"
@@ -315,7 +331,7 @@ function ExpensesBlock({ title, type, expenses, onAdd, onDelete, onUpdate }) {
             <button
               onClick={handleAdd}
               disabled={saving || !newName.trim() || !newAmount}
-              className="flex-1 text-sm py-1.5 bg-[#6567F1]/10 text-[#6567F1] rounded hover:bg-[#6567F1]/20 disabled:opacity-50"
+              className="flex-1 text-sm py-1.5 bg-primary/10 text-primary rounded hover:bg-primary/20 disabled:opacity-50"
             >
               {saving ? "Сохранение..." : "Добавить"}
             </button>
@@ -326,7 +342,7 @@ function ExpensesBlock({ title, type, expenses, onAdd, onDelete, onUpdate }) {
                 setNewAmount("");
                 setNewDate("");
               }}
-              className="px-3 text-sm text-slate-500 hover:text-slate-700"
+              className="px-3 text-sm text-subtle hover:text-body"
             >
               Отмена
             </button>
@@ -335,14 +351,14 @@ function ExpensesBlock({ title, type, expenses, onAdd, onDelete, onUpdate }) {
       ) : (
         <button
           onClick={() => setAdding(true)}
-          className="mt-2 flex items-center gap-1 text-sm text-[#6567F1]/60 hover:text-[#6567F1]"
+          className="mt-2 flex items-center gap-1 text-sm text-primary/60 hover:text-primary"
         >
           <Plus size={14} /> Добавить
         </button>
       )}
-      <div className="mt-3 pt-2 border-t border-slate-200 flex justify-between items-center">
-        <span className="text-xs text-slate-500">Итого:</span>
-        <span className="text-sm font-semibold text-slate-800">{fmt(total)}</span>
+      <div className="mt-3 pt-2 border-t border-line flex justify-between items-center">
+        <span className="text-xs text-subtle">Итого:</span>
+        <span className="text-sm font-semibold text-heading">{fmt(total)}</span>
       </div>
     </div>
   );
@@ -385,14 +401,14 @@ function IncomeRow({ income, onDelete, onUpdate }) {
     return (
       <div className="flex items-center gap-2 py-1.5 flex-wrap">
         <input
-          className="flex-1 min-w-24 text-sm border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+          className="flex-1 min-w-24 text-sm border border-line rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-500"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Название"
           autoFocus
         />
         <input
-          className="w-24 text-sm border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+          className="w-24 text-sm border border-line rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-500"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           type="number"
@@ -400,20 +416,20 @@ function IncomeRow({ income, onDelete, onUpdate }) {
         />
         <input
           type="date"
-          className="w-32 text-sm border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+          className="w-32 text-sm border border-line rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-500"
           value={editDate}
           onChange={(e) => setEditDate(e.target.value)}
         />
         <button
           onClick={save}
           disabled={saving}
-          className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
+          className="p-1 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/15 rounded"
         >
           <Check size={15} />
         </button>
         <button
           onClick={cancel}
-          className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors"
+          className="p-1 text-subtle hover:text-body hover:bg-muted rounded transition-colors"
         >
           <XIcon size={15} />
         </button>
@@ -424,25 +440,27 @@ function IncomeRow({ income, onDelete, onUpdate }) {
   return (
     <div className="flex items-center justify-between py-1.5 group">
       <div className="flex flex-col min-w-0 mr-2">
-        <span className="text-sm text-slate-700 truncate">{income.name}</span>
+        <span className="text-sm text-body truncate">{income.name}</span>
         {income.date && (
-          <span className="text-xs text-slate-400">
+          <span className="text-xs text-subtle">
             {new Date(income.date).toLocaleDateString("ru-RU")}
           </span>
         )}
       </div>
       <div className="flex items-center gap-1 shrink-0">
-        <span className="text-sm font-medium text-emerald-600">{fmt(Number(income.amount))}</span>
+        <span className="text-sm font-medium text-emerald-600 dark:text-emerald-300">
+          {fmt(Number(income.amount))}
+        </span>
         <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 ml-1 transition-opacity">
           <button
             onClick={() => setEditing(true)}
-            className="p-1 text-slate-400 hover:text-emerald-600 rounded"
+            className="p-1 text-subtle hover:text-emerald-600 dark:hover:text-emerald-300 rounded"
           >
             <Pencil size={13} />
           </button>
           <button
             onClick={() => onDelete(income.id)}
-            className="p-1 text-slate-400 hover:text-red-500 rounded"
+            className="p-1 text-subtle hover:text-red-500 dark:hover:text-red-400 rounded"
           >
             <Trash2 size={13} />
           </button>
@@ -482,20 +500,20 @@ function IncomeBlock({ incomes, onAdd, onDelete, onUpdate }) {
 
   return (
     <div className="flex-1 min-w-0">
-      <h3 className="text-sm font-semibold text-slate-700 mb-2">Разовые доходы</h3>
+      <h3 className="text-sm font-semibold text-body mb-2">Разовые доходы</h3>
       {incomes.length > 0 ? (
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-line">
           {incomes.map((i) => (
             <IncomeRow key={i.id} income={i} onDelete={onDelete} onUpdate={onUpdate} />
           ))}
         </div>
       ) : (
-        !adding && <p className="text-sm text-slate-400 py-2">Нет доходов</p>
+        !adding && <p className="text-sm text-subtle py-2">Нет доходов</p>
       )}
       {adding ? (
         <div className="mt-2 space-y-2">
           <input
-            className="w-full text-sm border border-slate-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            className="w-full text-sm border border-line rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="Название дохода"
@@ -503,7 +521,7 @@ function IncomeBlock({ incomes, onAdd, onDelete, onUpdate }) {
           />
           <div className="flex gap-2">
             <input
-              className="flex-1 text-sm border border-slate-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="flex-1 text-sm border border-line rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               value={newAmount}
               onChange={(e) => setNewAmount(e.target.value)}
               placeholder="Сумма, ₽"
@@ -512,7 +530,7 @@ function IncomeBlock({ incomes, onAdd, onDelete, onUpdate }) {
             />
             <input
               type="date"
-              className="flex-1 text-sm border border-slate-300 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="flex-1 text-sm border border-line rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               value={newDate}
               onChange={(e) => setNewDate(e.target.value)}
             />
@@ -521,7 +539,7 @@ function IncomeBlock({ incomes, onAdd, onDelete, onUpdate }) {
             <button
               onClick={handleAdd}
               disabled={saving || !newName.trim() || !newAmount}
-              className="flex-1 text-sm py-1.5 bg-emerald-50 text-emerald-600 rounded hover:bg-emerald-100 disabled:opacity-50"
+              className="flex-1 text-sm py-1.5 bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 rounded hover:bg-emerald-100 dark:hover:bg-emerald-500/15 disabled:opacity-50"
             >
               {saving ? "Сохранение..." : "Добавить"}
             </button>
@@ -532,7 +550,7 @@ function IncomeBlock({ incomes, onAdd, onDelete, onUpdate }) {
                 setNewAmount("");
                 setNewDate("");
               }}
-              className="px-3 text-sm text-slate-500 hover:text-slate-700"
+              className="px-3 text-sm text-subtle hover:text-body"
             >
               Отмена
             </button>
@@ -541,14 +559,16 @@ function IncomeBlock({ incomes, onAdd, onDelete, onUpdate }) {
       ) : (
         <button
           onClick={() => setAdding(true)}
-          className="mt-2 flex items-center gap-1 text-sm text-emerald-600/60 hover:text-emerald-600"
+          className="mt-2 flex items-center gap-1 text-sm text-emerald-600/60 dark:text-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-300"
         >
           <Plus size={14} /> Добавить
         </button>
       )}
-      <div className="mt-3 pt-2 border-t border-slate-200 flex justify-between items-center">
-        <span className="text-xs text-slate-500">Итого:</span>
-        <span className="text-sm font-semibold text-emerald-600">{fmt(total)}</span>
+      <div className="mt-3 pt-2 border-t border-line flex justify-between items-center">
+        <span className="text-xs text-subtle">Итого:</span>
+        <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-300">
+          {fmt(total)}
+        </span>
       </div>
     </div>
   );
@@ -717,18 +737,18 @@ function SectionsBlock({ sections, onRefresh }) {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
-      <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+    <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden">
+      <div className="px-6 py-4 border-b border-line flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Map size={16} className="text-slate-400" />
-          <h2 className="text-base font-semibold text-slate-900">Участки</h2>
-          <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+          <Map size={16} className="text-subtle" />
+          <h2 className="text-base font-semibold text-heading">Участки</h2>
+          <span className="text-xs text-subtle bg-muted px-2 py-0.5 rounded-full">
             {sections.length}
           </span>
         </div>
         <button
           onClick={() => setCreating((v) => !v)}
-          className="flex items-center gap-1.5 text-sm text-[#6567F1] hover:bg-[#6567F1]/5 px-3 py-1.5 rounded-lg transition-colors"
+          className="flex items-center gap-1.5 text-sm text-primary hover:bg-primary/5 px-3 py-1.5 rounded-lg transition-colors"
         >
           <Plus size={14} />
           Добавить
@@ -737,30 +757,30 @@ function SectionsBlock({ sections, onRefresh }) {
 
       {/* Create form */}
       {creating && (
-        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-end gap-3">
+        <div className="px-6 py-4 border-b border-line bg-canvas/50 flex flex-wrap items-end gap-3">
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Номер *</label>
+            <label className="block text-xs text-subtle mb-1">Номер *</label>
             <input
               type="number"
               value={newNumber}
               onChange={(e) => setNewNumber(e.target.value)}
-              className="w-20 px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/20 focus:border-[#6567F1]"
+              className="w-20 px-3 py-1.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               placeholder="1"
               autoFocus
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Название</label>
+            <label className="block text-xs text-subtle mb-1">Название</label>
             <input
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              className="w-48 px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/20 focus:border-[#6567F1]"
+              className="w-48 px-3 py-1.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               placeholder="Необязательно"
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Иконка</label>
+            <label className="block text-xs text-subtle mb-1">Иконка</label>
             <AnimalPicker
               value={newAnimal}
               onChange={setNewAnimal}
@@ -771,7 +791,7 @@ function SectionsBlock({ sections, onRefresh }) {
             <button
               onClick={handleCreate}
               disabled={createSaving || !newNumber}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6567F1] text-white text-sm rounded-lg hover:bg-[#5557E1] disabled:opacity-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-sm rounded-lg hover:bg-[#5557E1] disabled:opacity-50 transition-colors"
             >
               {createSaving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
               Создать
@@ -781,19 +801,21 @@ function SectionsBlock({ sections, onRefresh }) {
                 setCreating(false);
                 setCreateError("");
               }}
-              className="px-3 py-1.5 text-sm text-slate-500 hover:text-slate-700 transition-colors"
+              className="px-3 py-1.5 text-sm text-subtle hover:text-body transition-colors"
             >
               Отмена
             </button>
           </div>
-          {createError && <p className="w-full text-xs text-red-600">{createError}</p>}
+          {createError && (
+            <p className="w-full text-xs text-red-600 dark:text-red-300">{createError}</p>
+          )}
         </div>
       )}
 
       {sections.length === 0 ? (
-        <div className="px-6 py-8 text-center text-slate-400 text-sm">Нет участков</div>
+        <div className="px-6 py-8 text-center text-subtle text-sm">Нет участков</div>
       ) : (
-        <div className="divide-y divide-slate-50">
+        <div className="divide-y divide-line">
           {sections.map((s) => {
             const isExpanded = expandedId === s.id;
             const isEditing = editingId === s.id;
@@ -801,21 +823,21 @@ function SectionsBlock({ sections, onRefresh }) {
             return (
               <div key={s.id}>
                 {/* Section row */}
-                <div className="px-6 py-3.5 flex items-center gap-3 hover:bg-slate-50/50 transition-colors">
+                <div className="px-6 py-3.5 flex items-center gap-3 hover:bg-canvas/50 transition-colors">
                   {isEditing ? (
                     <div className="flex items-center gap-2 flex-1 flex-wrap">
                       <input
                         type="number"
                         value={editNumber}
                         onChange={(e) => setEditNumber(e.target.value)}
-                        className="w-16 px-2 py-1 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#6567F1]"
+                        className="w-16 px-2 py-1 border border-line rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                         autoFocus
                       />
                       <input
                         type="text"
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
-                        className="w-48 px-2 py-1 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#6567F1]"
+                        className="w-48 px-2 py-1 border border-line rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                         placeholder="Название"
                       />
                       <AnimalPicker
@@ -828,7 +850,7 @@ function SectionsBlock({ sections, onRefresh }) {
                       <button
                         onClick={() => saveEdit(s.id)}
                         disabled={editSaving}
-                        className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                        className="p-1.5 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/15 rounded-lg transition-colors"
                       >
                         {editSaving ? (
                           <Loader2 size={14} className="animate-spin" />
@@ -838,7 +860,7 @@ function SectionsBlock({ sections, onRefresh }) {
                       </button>
                       <button
                         onClick={() => setEditingId(null)}
-                        className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                        className="p-1.5 text-subtle hover:text-body hover:bg-muted rounded-lg transition-colors"
                       >
                         <XIcon size={14} />
                       </button>
@@ -846,37 +868,37 @@ function SectionsBlock({ sections, onRefresh }) {
                   ) : (
                     <>
                       <div className="flex items-center gap-3 flex-1 min-w-0 flex-wrap">
-                        <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                          <SectionIcon section={s} size={15} className="text-[#6567F1] shrink-0" />№
+                        <span className="text-sm font-semibold text-heading flex items-center gap-2">
+                          <SectionIcon section={s} size={15} className="text-primary shrink-0" />№
                           {s.number}
                           {s.name ? ` — ${s.name}` : ""}
                         </span>
-                        <span className="flex items-center gap-1 text-xs text-slate-500">
+                        <span className="flex items-center gap-1 text-xs text-subtle">
                           <Users size={11} />
                           {s._count.members} чел.
                         </span>
-                        <span className="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                        <span className="flex items-center gap-1.5 text-xs text-subtle bg-muted px-2 py-0.5 rounded-full">
                           {s._count.organizations} орг.
                           {s.formCounts?.IP > 0 && (
-                            <span className="text-sky-600 font-medium">{s.formCounts.IP} ИП</span>
+                            <span className="text-sky-600 dark:text-sky-300 font-medium">
+                              {s.formCounts.IP} ИП
+                            </span>
                           )}
                           {s.formCounts?.OOO > 0 && (
-                            <span className="text-[#6567F1] font-medium">
-                              {s.formCounts.OOO} ООО
-                            </span>
+                            <span className="text-primary font-medium">{s.formCounts.OOO} ООО</span>
                           )}
                         </span>
                       </div>
                       <button
                         onClick={() => startEdit(s)}
-                        className="p-1.5 text-slate-300 hover:text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg transition-colors"
+                        className="p-1.5 text-subtle hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
                         title="Редактировать"
                       >
                         <Pencil size={13} />
                       </button>
                       <button
                         onClick={() => toggleExpand(s.id)}
-                        className="flex items-center gap-1 text-xs text-slate-400 hover:text-[#6567F1] px-2 py-1.5 rounded-lg hover:bg-[#6567F1]/5 transition-colors"
+                        className="flex items-center gap-1 text-xs text-subtle hover:text-primary px-2 py-1.5 rounded-lg hover:bg-primary/5 transition-colors"
                       >
                         {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                         {isExpanded ? "Свернуть" : "Состав"}
@@ -887,9 +909,9 @@ function SectionsBlock({ sections, onRefresh }) {
 
                 {/* Expanded members panel */}
                 {isExpanded && (
-                  <div className="px-6 pb-4 bg-slate-50/40 border-t border-slate-100">
+                  <div className="px-6 pb-4 bg-canvas/40 border-t border-line">
                     {detailLoading ? (
-                      <div className="flex items-center justify-center py-4 text-slate-400">
+                      <div className="flex items-center justify-center py-4 text-subtle">
                         <Loader2 size={16} className="animate-spin" />
                       </div>
                     ) : (
@@ -897,7 +919,7 @@ function SectionsBlock({ sections, onRefresh }) {
                         {/* Members list */}
                         <div className="pt-3 space-y-1.5 mb-3">
                           {detail?.members?.length === 0 && (
-                            <p className="text-xs text-slate-400 py-1">Нет сотрудников</p>
+                            <p className="text-xs text-subtle py-1">Нет сотрудников</p>
                           )}
                           {detail?.members?.map((m) => (
                             <div
@@ -905,22 +927,22 @@ function SectionsBlock({ sections, onRefresh }) {
                               className="flex items-center justify-between gap-2 group"
                             >
                               <div className="flex items-center gap-2 min-w-0">
-                                <div className="w-6 h-6 rounded-lg bg-[#6567F1]/10 flex items-center justify-center shrink-0">
-                                  <span className="text-[10px] font-bold text-[#6567F1]">
+                                <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                  <span className="text-[10px] font-bold text-primary">
                                     {(m.user.lastName?.[0] ?? "").toUpperCase()}
                                     {(m.user.firstName?.[0] ?? "").toUpperCase()}
                                   </span>
                                 </div>
-                                <span className="text-sm text-slate-700 truncate">
+                                <span className="text-sm text-body truncate">
                                   {m.user.lastName} {m.user.firstName}
                                 </span>
-                                <span className="text-xs text-slate-400 shrink-0">
+                                <span className="text-xs text-subtle shrink-0">
                                   {SECTION_ROLE_LABELS[m.role] ?? m.role}
                                 </span>
                               </div>
                               <button
                                 onClick={() => handleRemoveMember(m.user.id)}
-                                className="flex items-center gap-1 px-2 py-1 text-xs text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                className="flex items-center gap-1 px-2 py-1 text-xs text-subtle hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/15 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                                 title="Удалить с участка"
                               >
                                 <UserMinus size={14} />
@@ -931,27 +953,27 @@ function SectionsBlock({ sections, onRefresh }) {
                         </div>
 
                         {/* Add member form */}
-                        <div className="pt-3 border-t border-slate-200 space-y-2">
+                        <div className="pt-3 border-t border-line space-y-2">
                           <div className="relative">
                             <Search
                               size={13}
-                              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-subtle"
                             />
                             <input
                               type="text"
                               value={addSearch}
                               onChange={(e) => setAddSearch(e.target.value)}
                               placeholder="Поиск по имени..."
-                              className="w-full pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/20 focus:border-[#6567F1] bg-white"
+                              className="w-full pl-8 pr-3 py-1.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-surface"
                             />
                           </div>
-                          <div className="border border-slate-200 rounded-lg overflow-hidden h-36 overflow-y-auto bg-white">
+                          <div className="border border-line rounded-lg overflow-hidden h-36 overflow-y-auto bg-surface">
                             {loadingUsers ? (
-                              <div className="flex items-center justify-center h-full text-slate-400">
+                              <div className="flex items-center justify-center h-full text-subtle">
                                 <Loader2 size={16} className="animate-spin" />
                               </div>
                             ) : allUsers.length === 0 ? (
-                              <div className="flex items-center justify-center h-full text-xs text-slate-400">
+                              <div className="flex items-center justify-center h-full text-xs text-subtle">
                                 Все сотрудники уже добавлены
                               </div>
                             ) : (
@@ -964,7 +986,7 @@ function SectionsBlock({ sections, onRefresh }) {
                                     u.email.toLowerCase().includes(q),
                                 );
                                 return filtered.length === 0 ? (
-                                  <div className="flex items-center justify-center h-full text-xs text-slate-400">
+                                  <div className="flex items-center justify-center h-full text-xs text-subtle">
                                     Не найдено
                                   </div>
                                 ) : (
@@ -975,18 +997,16 @@ function SectionsBlock({ sections, onRefresh }) {
                                       onClick={() =>
                                         setSelectedUser(selectedUser?.id === u.id ? null : u)
                                       }
-                                      className={`w-full text-left px-3 py-2 text-sm transition-colors border-b border-slate-50 last:border-0 ${
+                                      className={`w-full text-left px-3 py-2 text-sm transition-colors border-b border-line last:border-0 ${
                                         selectedUser?.id === u.id
-                                          ? "bg-[#6567F1]/10 text-[#6567F1] font-medium"
-                                          : "hover:bg-slate-50 text-slate-700"
+                                          ? "bg-primary/10 text-primary font-medium"
+                                          : "hover:bg-canvas text-body"
                                       }`}
                                     >
                                       <span className="font-medium">
                                         {u.lastName} {u.firstName}
                                       </span>
-                                      <span className="block text-xs text-slate-400">
-                                        {u.email}
-                                      </span>
+                                      <span className="block text-xs text-subtle">{u.email}</span>
                                     </button>
                                   ))
                                 );
@@ -997,7 +1017,7 @@ function SectionsBlock({ sections, onRefresh }) {
                             <button
                               onClick={handleAddMember}
                               disabled={addSaving || !selectedUser}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6567F1] text-white text-sm rounded-lg hover:bg-[#5557E1] disabled:opacity-50 transition-colors"
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-sm rounded-lg hover:bg-[#5557E1] disabled:opacity-50 transition-colors"
                             >
                               {addSaving ? (
                                 <Loader2 size={13} className="animate-spin" />
@@ -1007,7 +1027,9 @@ function SectionsBlock({ sections, onRefresh }) {
                               Добавить
                             </button>
                           </div>
-                          {addError && <p className="text-xs text-red-600">{addError}</p>}
+                          {addError && (
+                            <p className="text-xs text-red-600 dark:text-red-300">{addError}</p>
+                          )}
                         </div>
                       </>
                     )}
@@ -1162,13 +1184,11 @@ export default function ManagementPage() {
 
   if (loading)
     return (
-      <div className="flex items-center justify-center h-64 text-slate-400 text-sm">
-        Загрузка...
-      </div>
+      <div className="flex items-center justify-center h-64 text-subtle text-sm">Загрузка...</div>
     );
   if (error)
     return (
-      <div className="flex items-center gap-2 text-red-500 p-4 text-sm">
+      <div className="flex items-center gap-2 text-red-500 dark:text-red-400 p-4 text-sm">
         <AlertCircle size={18} />
         {error}
       </div>
@@ -1216,9 +1236,9 @@ export default function ManagementPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Управление</h1>
+          <h1 className="text-2xl font-bold text-heading">Управление</h1>
           {prevSnap && (
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-subtle mt-0.5">
               Сравнение с {MONTHS_RU[prevSnap.month - 1]} {prevSnap.year}
             </p>
           )}
@@ -1301,10 +1321,10 @@ export default function ManagementPage() {
 
       {/* Payment destinations */}
       {dashboard.byPaymentDest && (
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
+        <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
           <div className="flex items-center gap-2 mb-4">
-            <Wallet size={18} className="text-[#6567F1]" />
-            <h2 className="text-base font-semibold text-slate-900">Куда поступают платежи</h2>
+            <Wallet size={18} className="text-primary" />
+            <h2 className="text-base font-semibold text-heading">Куда поступают платежи</h2>
           </div>
           <div className="grid grid-cols-3 gap-4">
             {[
@@ -1312,8 +1332,8 @@ export default function ManagementPage() {
                 key: "BANK_TOCHKA",
                 label: "Банк (Точка)",
                 icon: Banknote,
-                color: "text-emerald-600",
-                bg: "bg-emerald-50",
+                color: "text-emerald-600 dark:text-emerald-300",
+                bg: "bg-emerald-50 dark:bg-emerald-500/15",
                 ring: "hover:ring-emerald-300",
                 link: "/payments",
               },
@@ -1321,8 +1341,8 @@ export default function ManagementPage() {
                 key: "CARD",
                 label: "Карта",
                 icon: CreditCard,
-                color: "text-blue-600",
-                bg: "bg-blue-50",
+                color: "text-blue-600 dark:text-blue-300",
+                bg: "bg-blue-50 dark:bg-blue-500/15",
                 ring: "hover:ring-blue-300",
                 link: "/payments?tab=cashcard",
               },
@@ -1330,8 +1350,8 @@ export default function ManagementPage() {
                 key: "CASH",
                 label: "Наличные",
                 icon: DollarSign,
-                color: "text-amber-600",
-                bg: "bg-amber-50",
+                color: "text-amber-600 dark:text-amber-300",
+                bg: "bg-amber-50 dark:bg-amber-500/15",
                 ring: "hover:ring-amber-300",
                 link: "/payments?tab=cashcard",
               },
@@ -1347,12 +1367,12 @@ export default function ManagementPage() {
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <Icon size={16} className={color} />
-                    <span className="text-sm font-medium text-slate-700">{label}</span>
+                    <span className="text-sm font-medium text-body">{label}</span>
                   </div>
                   <div className={`text-lg font-bold ${color}`}>
                     {revenue.toLocaleString("ru-RU")} ₽
                   </div>
-                  <div className="text-xs text-slate-500 mt-1">{count} орг.</div>
+                  <div className="text-xs text-subtle mt-1">{count} орг.</div>
                 </div>
               );
             })}
@@ -1362,27 +1382,28 @@ export default function ManagementPage() {
 
       {/* Debt block */}
       {dashboard.debt.total > 0 && (
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
+        <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
           <div className="flex items-center gap-2 mb-4">
-            <AlertCircle size={18} className="text-red-500" />
-            <h2 className="text-base font-semibold text-slate-900">
-              Долг клиентов: <span className="text-red-500">{fmt(dashboard.debt.total)}</span>
+            <AlertCircle size={18} className="text-red-500 dark:text-red-400" />
+            <h2 className="text-base font-semibold text-heading">
+              Долг клиентов:{" "}
+              <span className="text-red-500 dark:text-red-400">{fmt(dashboard.debt.total)}</span>
             </h2>
           </div>
           {dashboard.debt.topDebtors.length > 0 && (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs text-slate-500 border-b border-slate-100">
+                  <tr className="text-left text-xs text-subtle border-b border-line">
                     <th className="pb-2 font-medium">Организация</th>
                     <th className="pb-2 font-medium text-right">Долг</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-line">
                   {dashboard.debt.topDebtors.map((d) => (
                     <tr key={d.id}>
-                      <td className="py-2 text-slate-700">{d.name}</td>
-                      <td className="py-2 text-right font-medium text-red-500">
+                      <td className="py-2 text-body">{d.name}</td>
+                      <td className="py-2 text-right font-medium text-red-500 dark:text-red-400">
                         {fmt(d.debtAmount)}
                       </td>
                     </tr>
@@ -1397,16 +1418,16 @@ export default function ManagementPage() {
       {/* Charts row — current period */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Revenue dynamics (historical) */}
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
-          <h2 className="text-base font-semibold text-slate-900 mb-4">Динамика выручки</h2>
+        <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
+          <h2 className="text-base font-semibold text-heading mb-4">Динамика выручки</h2>
           {histData.length === 0 ? (
-            <div className="h-48 flex items-center justify-center text-slate-400 text-sm">
+            <div className="h-48 flex items-center justify-center text-subtle text-sm">
               Данные появятся после первого сохранения снимка
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={histData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
                 <XAxis
                   dataKey="label"
                   tick={{ fontSize: 11, fill: "#94a3b8" }}
@@ -1423,7 +1444,9 @@ export default function ManagementPage() {
                 <Tooltip
                   formatter={(v) => [fmt(v), "Выручка"]}
                   contentStyle={tooltipStyle}
-                  cursor={{ fill: "#f8fafc" }}
+                  labelStyle={tooltipLabelStyle}
+                  itemStyle={tooltipItemStyle}
+                  cursor={chartCursorFill}
                 />
                 <Bar dataKey="revenue" fill="#6567F1" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -1432,12 +1455,12 @@ export default function ManagementPage() {
         </div>
 
         {/* By org form */}
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
-          <h2 className="text-base font-semibold text-slate-900 mb-4">
+        <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
+          <h2 className="text-base font-semibold text-heading mb-4">
             Структура по форме организации
           </h2>
           {orgFormChartData.length === 0 ? (
-            <div className="h-48 flex items-center justify-center text-slate-400 text-sm">
+            <div className="h-48 flex items-center justify-center text-subtle text-sm">
               Нет данных
             </div>
           ) : (
@@ -1447,7 +1470,7 @@ export default function ManagementPage() {
                 layout="vertical"
                 margin={{ top: 4, right: 10, left: 4, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} horizontal={false} />
                 <XAxis
                   type="number"
                   tick={{ fontSize: 11, fill: "#94a3b8" }}
@@ -1469,7 +1492,9 @@ export default function ManagementPage() {
                     "Выручка",
                   ]}
                   contentStyle={tooltipStyle}
-                  cursor={{ fill: "#f8fafc" }}
+                  labelStyle={tooltipLabelStyle}
+                  itemStyle={tooltipItemStyle}
+                  cursor={chartCursorFill}
                 />
                 <Bar dataKey="revenue" fill="#5557E1" radius={[0, 4, 4, 0]} />
               </BarChart>
@@ -1481,16 +1506,16 @@ export default function ManagementPage() {
       {/* ── Historical analytics ─────────────────────────────────────────────── */}
       {hasHistory && (
         <div className="space-y-4">
-          <h2 className="text-lg font-bold text-slate-900 border-t border-slate-200 pt-4">
+          <h2 className="text-lg font-bold text-heading border-t border-line pt-4">
             История показателей
           </h2>
 
           {/* Chart 1: Revenue & Profit comparison */}
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
-            <h3 className="text-sm font-semibold text-slate-700 mb-4">Выручка и прибыль</h3>
+          <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
+            <h3 className="text-sm font-semibold text-body mb-4">Выручка и прибыль</h3>
             <ResponsiveContainer width="100%" height={220}>
               <ComposedChart data={histData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
                 <XAxis
                   dataKey="label"
                   tick={{ fontSize: 11, fill: "#94a3b8" }}
@@ -1507,7 +1532,9 @@ export default function ManagementPage() {
                 <Tooltip
                   formatter={(v, name) => [fmt(v), name === "revenue" ? "Выручка" : "Прибыль"]}
                   contentStyle={tooltipStyle}
-                  cursor={{ fill: "#f8fafc" }}
+                  labelStyle={tooltipLabelStyle}
+                  itemStyle={tooltipItemStyle}
+                  cursor={chartCursorFill}
                 />
                 <Legend
                   formatter={(v) => (v === "revenue" ? "Выручка" : "Прибыль")}
@@ -1529,13 +1556,11 @@ export default function ManagementPage() {
           {/* Charts row 2: Revenue vs Payroll | Margin */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Revenue vs Payroll */}
-            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
-              <h3 className="text-sm font-semibold text-slate-700 mb-4">
-                Выручка vs ФОТ vs Расходы
-              </h3>
+            <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
+              <h3 className="text-sm font-semibold text-body mb-4">Выручка vs ФОТ vs Расходы</h3>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={histData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
                   <XAxis
                     dataKey="label"
                     tick={{ fontSize: 11, fill: "#94a3b8" }}
@@ -1555,7 +1580,9 @@ export default function ManagementPage() {
                       name === "revenue" ? "Выручка" : name === "payroll" ? "ФОТ" : "Пост. расходы",
                     ]}
                     contentStyle={tooltipStyle}
-                    cursor={{ fill: "#f8fafc" }}
+                    labelStyle={tooltipLabelStyle}
+                    itemStyle={tooltipItemStyle}
+                    cursor={chartCursorFill}
                   />
                   <Legend
                     formatter={(v) =>
@@ -1572,11 +1599,11 @@ export default function ManagementPage() {
             </div>
 
             {/* Margin % */}
-            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
-              <h3 className="text-sm font-semibold text-slate-700 mb-4">Маржинальность %</h3>
+            <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
+              <h3 className="text-sm font-semibold text-body mb-4">Маржинальность %</h3>
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={histData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
                   <XAxis
                     dataKey="label"
                     tick={{ fontSize: 11, fill: "#94a3b8" }}
@@ -1593,6 +1620,8 @@ export default function ManagementPage() {
                   <Tooltip
                     formatter={(v) => [`${Number(v).toFixed(1)}%`, "Маржа"]}
                     contentStyle={tooltipStyle}
+                    labelStyle={tooltipLabelStyle}
+                    itemStyle={tooltipItemStyle}
                   />
                   <Line
                     dataKey="margin"
@@ -1607,11 +1636,11 @@ export default function ManagementPage() {
           </div>
 
           {/* Chart 3: Client count */}
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
-            <h3 className="text-sm font-semibold text-slate-700 mb-4">Клиентская база</h3>
+          <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
+            <h3 className="text-sm font-semibold text-body mb-4">Клиентская база</h3>
             <ResponsiveContainer width="100%" height={180}>
               <ComposedChart data={histData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
                 <XAxis
                   dataKey="label"
                   tick={{ fontSize: 11, fill: "#94a3b8" }}
@@ -1631,7 +1660,9 @@ export default function ManagementPage() {
                     name === "orgCount" ? "Активных клиентов" : "Новых за месяц",
                   ]}
                   contentStyle={tooltipStyle}
-                  cursor={{ fill: "#f8fafc" }}
+                  labelStyle={tooltipLabelStyle}
+                  itemStyle={tooltipItemStyle}
+                  cursor={chartCursorFill}
                 />
                 <Legend
                   formatter={(v) => (v === "orgCount" ? "Активных клиентов" : "Новых за месяц")}
@@ -1651,12 +1682,12 @@ export default function ManagementPage() {
           </div>
 
           {/* History table */}
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
-            <h3 className="text-sm font-semibold text-slate-700 mb-4">Таблица истории</h3>
+          <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
+            <h3 className="text-sm font-semibold text-body mb-4">Таблица истории</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs text-slate-500 border-b border-slate-100">
+                  <tr className="text-left text-xs text-subtle border-b border-line">
                     <th className="pb-2 font-medium pr-4">Период</th>
                     <th className="pb-2 font-medium text-right pr-4">Выручка</th>
                     <th className="pb-2 font-medium text-right pr-4">ФОТ</th>
@@ -1667,36 +1698,36 @@ export default function ManagementPage() {
                     <th className="pb-2 font-medium text-right">Новых</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-line">
                   {[...snapshots].reverse().map((s) => {
                     const gross = Number(s.grossProfit);
                     const isPos = gross >= 0;
                     return (
-                      <tr key={s.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-2.5 pr-4 text-slate-700 font-medium whitespace-nowrap">
+                      <tr key={s.id} className="hover:bg-canvas transition-colors">
+                        <td className="py-2.5 pr-4 text-body font-medium whitespace-nowrap">
                           {MONTHS_RU[s.month - 1]} {s.year}
                         </td>
-                        <td className="py-2.5 pr-4 text-right text-slate-900">
+                        <td className="py-2.5 pr-4 text-right text-heading">
                           {fmt(Number(s.totalRevenue))}
                         </td>
-                        <td className="py-2.5 pr-4 text-right text-amber-600">
+                        <td className="py-2.5 pr-4 text-right text-amber-600 dark:text-amber-300">
                           {fmt(Number(s.payrollTotal))}
                         </td>
                         <td className="py-2.5 pr-4 text-right text-red-400">
                           {fmt(Number(s.recurringExpenses))}
                         </td>
                         <td
-                          className={`py-2.5 pr-4 text-right font-medium ${isPos ? "text-emerald-600" : "text-red-500"}`}
+                          className={`py-2.5 pr-4 text-right font-medium ${isPos ? "text-emerald-600 dark:text-emerald-300" : "text-red-500 dark:text-red-400"}`}
                         >
                           {fmt(gross)}
                         </td>
                         <td
-                          className={`py-2.5 pr-4 text-right ${isPos ? "text-emerald-600" : "text-red-500"}`}
+                          className={`py-2.5 pr-4 text-right ${isPos ? "text-emerald-600 dark:text-emerald-300" : "text-red-500 dark:text-red-400"}`}
                         >
                           {Number(s.margin).toFixed(1)}%
                         </td>
-                        <td className="py-2.5 pr-4 text-right text-slate-600">{s.orgCount}</td>
-                        <td className="py-2.5 text-right text-[#6567F1]">+{s.clientsNew}</td>
+                        <td className="py-2.5 pr-4 text-right text-body">{s.orgCount}</td>
+                        <td className="py-2.5 text-right text-primary">+{s.clientsNew}</td>
                       </tr>
                     );
                   })}
@@ -1709,16 +1740,14 @@ export default function ManagementPage() {
 
       {/* Section profitability */}
       {sectionProfitability.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2">
-            <Map size={16} className="text-slate-400" />
-            <h2 className="text-base font-semibold text-slate-900">Маржинальность участков</h2>
-            <span className="text-xs text-slate-400 ml-1">
-              Выручка vs ФОТ (активные организации)
-            </span>
+        <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden">
+          <div className="px-6 py-4 border-b border-line flex items-center gap-2">
+            <Map size={16} className="text-subtle" />
+            <h2 className="text-base font-semibold text-heading">Маржинальность участков</h2>
+            <span className="text-xs text-subtle ml-1">Выручка vs ФОТ (активные организации)</span>
           </div>
           {/* Visual bars */}
-          <div className="px-6 py-4 space-y-3 border-b border-slate-100">
+          <div className="px-6 py-4 space-y-3 border-b border-line">
             {sectionProfitability.map((s) => {
               const maxRev = Math.max(...sectionProfitability.map((x) => x.revenue), 1);
               const revPct = (s.revenue / maxRev) * 100;
@@ -1726,7 +1755,7 @@ export default function ManagementPage() {
               return (
                 <div key={s.sectionId}>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium text-slate-700">
+                    <span className="text-sm font-medium text-body">
                       №{s.number}
                       {s.name ? ` — ${s.name}` : ""}
                     </span>
@@ -1734,24 +1763,24 @@ export default function ManagementPage() {
                   </div>
                   <div className="flex-1 space-y-0.5">
                     <div className="flex items-center gap-2">
-                      <div className="h-2.5 bg-[#6567F1]/20 rounded-full overflow-hidden flex-1">
+                      <div className="h-2.5 bg-primary/20 rounded-full overflow-hidden flex-1">
                         <div
-                          className="h-full bg-[#6567F1] rounded-full"
+                          className="h-full bg-primary rounded-full"
                           style={{ width: `${revPct}%` }}
                         />
                       </div>
-                      <span className="text-xs text-slate-500 w-24 text-right tabular-nums">
+                      <span className="text-xs text-subtle w-24 text-right tabular-nums">
                         {fmt(s.revenue)}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="h-2.5 bg-red-100 rounded-full overflow-hidden flex-1">
+                      <div className="h-2.5 bg-red-100 dark:bg-red-500/15 rounded-full overflow-hidden flex-1">
                         <div
                           className="h-full bg-red-400 rounded-full"
                           style={{ width: `${payPct}%` }}
                         />
                       </div>
-                      <span className="text-xs text-slate-500 w-24 text-right tabular-nums">
+                      <span className="text-xs text-subtle w-24 text-right tabular-nums">
                         {fmt(s.payroll)}
                       </span>
                     </div>
@@ -1759,9 +1788,9 @@ export default function ManagementPage() {
                 </div>
               );
             })}
-            <div className="flex items-center gap-4 pt-2 text-xs text-slate-400">
+            <div className="flex items-center gap-4 pt-2 text-xs text-subtle">
               <span className="flex items-center gap-1.5">
-                <span className="w-3 h-2 rounded bg-[#6567F1]" /> Выручка
+                <span className="w-3 h-2 rounded bg-primary" /> Выручка
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="w-3 h-2 rounded bg-red-400" /> ФОТ
@@ -1772,35 +1801,41 @@ export default function ManagementPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/50">
-                  <th className="text-left px-4 py-3 font-medium text-slate-500">Участок</th>
-                  <th className="text-center px-4 py-3 font-medium text-slate-500">Орг-ций</th>
-                  <th className="text-right px-4 py-3 font-medium text-slate-500">Выручка</th>
-                  <th className="text-right px-4 py-3 font-medium text-slate-500 hidden sm:table-cell">
+                <tr className="border-b border-line bg-canvas/50">
+                  <th className="text-left px-4 py-3 font-medium text-subtle">Участок</th>
+                  <th className="text-center px-4 py-3 font-medium text-subtle">Орг-ций</th>
+                  <th className="text-right px-4 py-3 font-medium text-subtle">Выручка</th>
+                  <th className="text-right px-4 py-3 font-medium text-subtle hidden sm:table-cell">
                     ФОТ
                   </th>
-                  <th className="text-right px-4 py-3 font-medium text-slate-500 hidden md:table-cell">
+                  <th className="text-right px-4 py-3 font-medium text-subtle hidden md:table-cell">
                     Прибыль
                   </th>
-                  <th className="text-center px-4 py-3 font-medium text-slate-500">Маржа</th>
+                  <th className="text-center px-4 py-3 font-medium text-subtle">Маржа</th>
                 </tr>
               </thead>
               <tbody>
                 {sectionProfitability.map((s) => (
-                  <tr key={s.sectionId} className="border-b border-slate-50 hover:bg-slate-50/50">
-                    <td className="px-4 py-3 font-medium text-slate-900">
+                  <tr key={s.sectionId} className="border-b border-line hover:bg-canvas/50">
+                    <td className="px-4 py-3 font-medium text-heading">
                       №{s.number}
                       {s.name ? ` — ${s.name}` : ""}
                     </td>
-                    <td className="px-4 py-3 text-center text-slate-600">{s.orgCount}</td>
-                    <td className="px-4 py-3 text-right text-slate-900 font-medium tabular-nums">
+                    <td className="px-4 py-3 text-center text-body">{s.orgCount}</td>
+                    <td className="px-4 py-3 text-right text-heading font-medium tabular-nums">
                       {fmt(s.revenue)}
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-600 tabular-nums hidden sm:table-cell">
+                    <td className="px-4 py-3 text-right text-body tabular-nums hidden sm:table-cell">
                       {fmt(s.payroll)}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums hidden md:table-cell">
-                      <span className={s.profit >= 0 ? "text-emerald-600" : "text-red-600"}>
+                      <span
+                        className={
+                          s.profit >= 0
+                            ? "text-emerald-600 dark:text-emerald-300"
+                            : "text-red-600 dark:text-red-300"
+                        }
+                      >
                         {s.profit >= 0 ? "+" : ""}
                         {fmt(s.profit)}
                       </span>
@@ -1810,15 +1845,15 @@ export default function ManagementPage() {
                     </td>
                   </tr>
                 ))}
-                <tr className="bg-slate-50 font-semibold">
-                  <td className="px-4 py-3 text-slate-700">Итого</td>
-                  <td className="px-4 py-3 text-center text-slate-700">
+                <tr className="bg-canvas font-semibold">
+                  <td className="px-4 py-3 text-body">Итого</td>
+                  <td className="px-4 py-3 text-center text-body">
                     {sectionProfitability.reduce((s, x) => s + x.orgCount, 0)}
                   </td>
-                  <td className="px-4 py-3 text-right text-slate-900 tabular-nums">
+                  <td className="px-4 py-3 text-right text-heading tabular-nums">
                     {fmt(sectionProfitability.reduce((s, x) => s + x.revenue, 0))}
                   </td>
-                  <td className="px-4 py-3 text-right text-slate-700 tabular-nums hidden sm:table-cell">
+                  <td className="px-4 py-3 text-right text-body tabular-nums hidden sm:table-cell">
                     {fmt(sectionProfitability.reduce((s, x) => s + x.payroll, 0))}
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums hidden md:table-cell">
@@ -1827,7 +1862,13 @@ export default function ManagementPage() {
                         sectionProfitability.reduce((s, x) => s + x.revenue, 0) -
                         sectionProfitability.reduce((s, x) => s + x.payroll, 0);
                       return (
-                        <span className={total >= 0 ? "text-emerald-600" : "text-red-600"}>
+                        <span
+                          className={
+                            total >= 0
+                              ? "text-emerald-600 dark:text-emerald-300"
+                              : "text-red-600 dark:text-red-300"
+                          }
+                        >
                           {total >= 0 ? "+" : ""}
                           {fmt(total)}
                         </span>
@@ -1853,8 +1894,8 @@ export default function ManagementPage() {
       )}
 
       {/* Expenses & Incomes */}
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
-        <h2 className="text-base font-semibold text-slate-900 mb-5">Расходы и доходы</h2>
+      <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
+        <h2 className="text-base font-semibold text-heading mb-5">Расходы и доходы</h2>
         <div className="flex gap-8 flex-col sm:flex-row">
           <ExpensesBlock
             title="Постоянные расходы"
@@ -1864,7 +1905,7 @@ export default function ManagementPage() {
             onDelete={handleDeleteExpense}
             onUpdate={handleUpdateExpense}
           />
-          <div className="hidden sm:block w-px bg-slate-100 self-stretch" />
+          <div className="hidden sm:block w-px bg-muted self-stretch" />
           <ExpensesBlock
             title="Разовые расходы"
             type="ONE_TIME"
@@ -1873,7 +1914,7 @@ export default function ManagementPage() {
             onDelete={handleDeleteExpense}
             onUpdate={handleUpdateExpense}
           />
-          <div className="hidden sm:block w-px bg-slate-100 self-stretch" />
+          <div className="hidden sm:block w-px bg-muted self-stretch" />
           <IncomeBlock
             incomes={incomes}
             onAdd={handleAddIncome}
@@ -1885,22 +1926,22 @@ export default function ManagementPage() {
 
       {/* Staff by role */}
       {dashboard.staff.byRole.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
-          <h2 className="text-base font-semibold text-slate-900 mb-4">Персонал по ролям</h2>
+        <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
+          <h2 className="text-base font-semibold text-heading mb-4">Персонал по ролям</h2>
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs text-slate-500 border-b border-slate-100">
+              <tr className="text-left text-xs text-subtle border-b border-line">
                 <th className="pb-2 font-medium">Роль</th>
                 <th className="pb-2 font-medium text-right">Кол-во</th>
                 <th className="pb-2 font-medium text-right">ФОТ</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-line">
               {dashboard.staff.byRole.map((r) => (
                 <tr key={r.role}>
-                  <td className="py-2.5 text-slate-700">{ROLE_LABELS[r.role] ?? r.role}</td>
-                  <td className="py-2.5 text-right text-slate-600">{r.count}</td>
-                  <td className="py-2.5 text-right font-medium text-slate-800">{fmt(r.payroll)}</td>
+                  <td className="py-2.5 text-body">{ROLE_LABELS[r.role] ?? r.role}</td>
+                  <td className="py-2.5 text-right text-body">{r.count}</td>
+                  <td className="py-2.5 text-right font-medium text-heading">{fmt(r.payroll)}</td>
                 </tr>
               ))}
             </tbody>

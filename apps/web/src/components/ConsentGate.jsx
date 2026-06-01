@@ -36,8 +36,8 @@ export default function ConsentGate({ children }) {
 
   if (state.loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="text-[#6567F1] animate-spin" size={28} />
+      <div className="min-h-screen flex items-center justify-center bg-canvas">
+        <Loader2 className="text-primary animate-spin" size={28} />
       </div>
     );
   }

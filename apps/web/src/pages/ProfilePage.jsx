@@ -246,24 +246,24 @@ export default function ProfilePage() {
   }
 
   const inputClass =
-    "w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] transition-colors";
+    "w-full px-4 py-2.5 rounded-xl border border-line bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors";
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-slate-900">Профиль</h1>
+      <h1 className="text-2xl font-bold text-heading">Профиль</h1>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Avatar card */}
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 flex flex-col items-center gap-4">
+        <div className="bg-surface rounded-2xl shadow-lg border border-line p-6 flex flex-col items-center gap-4">
           <div className="relative group">
             {avatarUrl ? (
               <img
                 src={avatarUrl}
                 alt="Аватар"
-                className="w-24 h-24 rounded-full object-cover border-2 border-slate-200"
+                className="w-24 h-24 rounded-full object-cover border-2 border-line"
               />
             ) : (
-              <div className="w-24 h-24 rounded-full bg-[#6567F1]/10 flex items-center justify-center text-[#6567F1] text-2xl font-bold">
+              <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center text-primary text-2xl font-bold">
                 {initials}
               </div>
             )}
@@ -287,17 +287,17 @@ export default function ProfilePage() {
             type="button"
             onClick={() => fileRef.current?.click()}
             disabled={avatarUploading}
-            className="text-sm text-[#6567F1] hover:text-[#5557E1] font-medium transition-colors"
+            className="text-sm text-primary hover:text-[#5557E1] font-medium transition-colors"
           >
             {avatarUploading ? "Загрузка..." : "Изменить фото"}
           </button>
           <div className="text-center">
-            <p className="font-semibold text-slate-900">
+            <p className="font-semibold text-heading">
               {user?.firstName} {user?.lastName}
             </p>
-            <p className="text-sm text-slate-500">{user?.email}</p>
+            <p className="text-sm text-subtle">{user?.email}</p>
             {user?.roles?.length > 0 && (
-              <span className="inline-block mt-2 bg-[#6567F1]/10 text-[#6567F1] px-3 py-1 rounded-full text-xs font-medium">
+              <span className="inline-block mt-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-medium">
                 {user.roles[0]}
               </span>
             )}
@@ -305,12 +305,12 @@ export default function ProfilePage() {
         </div>
 
         {/* Personal data card */}
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 lg:col-span-2">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">Личные данные</h2>
+        <div className="bg-surface rounded-2xl shadow-lg border border-line p-6 lg:col-span-2">
+          <h2 className="text-lg font-semibold text-heading mb-4">Личные данные</h2>
           <form onSubmit={handleProfileSave} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Фамилия</label>
+                <label className="block text-sm font-medium text-body mb-1">Фамилия</label>
                 <input
                   type="text"
                   value={lastName}
@@ -320,7 +320,7 @@ export default function ProfilePage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Имя</label>
+                <label className="block text-sm font-medium text-body mb-1">Имя</label>
                 <input
                   type="text"
                   value={firstName}
@@ -331,7 +331,7 @@ export default function ProfilePage() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+              <label className="block text-sm font-medium text-body mb-1">Email</label>
               <input
                 type="email"
                 value={email}
@@ -342,7 +342,7 @@ export default function ProfilePage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-body mb-1">
                   <Phone size={14} className="inline mr-1 -mt-0.5" />
                   Телефон
                 </label>
@@ -355,7 +355,7 @@ export default function ProfilePage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-body mb-1">
                   <Calendar size={14} className="inline mr-1 -mt-0.5" />
                   Дата рождения
                 </label>
@@ -369,7 +369,7 @@ export default function ProfilePage() {
             </div>
             {profileMsg && (
               <p
-                className={`text-sm ${profileMsg.type === "error" ? "text-red-600" : "text-green-600"}`}
+                className={`text-sm ${profileMsg.type === "error" ? "text-red-600 dark:text-red-300" : "text-green-600 dark:text-green-300"}`}
               >
                 {profileMsg.text}
               </p>
@@ -387,19 +387,19 @@ export default function ProfilePage() {
       </div>
 
       {/* Telegram card */}
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+      <div className="bg-surface rounded-2xl shadow-lg border border-line p-6">
+        <h2 className="text-lg font-semibold text-heading mb-4 flex items-center gap-2">
           <Send size={20} className="text-[#229ED9]" />
           Telegram-уведомления
         </h2>
 
         {tgStatus === null ? (
-          <p className="text-sm text-slate-400 flex items-center gap-2">
+          <p className="text-sm text-subtle flex items-center gap-2">
             <Loader2 size={14} className="animate-spin" /> Загрузка...
           </p>
         ) : tgStatus.connected ? (
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-green-600">
+            <div className="flex items-center gap-2 text-green-600 dark:text-green-300">
               <CheckCircle size={18} />
               <span className="text-sm font-medium">
                 Подключён{tgStatus.username ? ` (@${tgStatus.username})` : ""}
@@ -407,14 +407,14 @@ export default function ProfilePage() {
             </div>
             <button
               onClick={handleTgDisconnect}
-              className="text-sm text-red-500 hover:text-red-700 transition-colors"
+              className="text-sm text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
             >
               Отключить
             </button>
           </div>
         ) : tgStatus.pending ? (
           <div className="space-y-3 max-w-md">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-body">
               Напишите боту{" "}
               <a
                 href={`https://t.me/${tgStatus.botName}`}
@@ -426,37 +426,37 @@ export default function ProfilePage() {
               </a>{" "}
               следующую команду:
             </p>
-            <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
-              <span className="font-mono font-bold text-slate-900 tracking-widest flex-1">
+            <div className="flex items-center gap-3 bg-canvas border border-line rounded-xl px-4 py-3">
+              <span className="font-mono font-bold text-heading tracking-widest flex-1">
                 /start {tgStatus.code}
               </span>
               <button
                 onClick={() => handleTgCopy(`/start ${tgStatus.code}`)}
                 title="Скопировать"
-                className="text-slate-400 hover:text-slate-700 transition-colors"
+                className="text-subtle hover:text-body transition-colors"
               >
                 {tgCopied ? (
-                  <CheckCircle size={16} className="text-green-500" />
+                  <CheckCircle size={16} className="text-green-500 dark:text-green-400" />
                 ) : (
                   <Copy size={16} />
                 )}
               </button>
             </div>
-            <p className="text-xs text-slate-500 flex items-center gap-1.5">
+            <p className="text-xs text-subtle flex items-center gap-1.5">
               <Loader2 size={12} className="animate-spin" />
               Ожидаем подключение... Код действителен 10 минут.
             </p>
             <button
               onClick={handleTgConnect}
               disabled={tgConnecting}
-              className="text-xs text-[#6567F1] hover:text-[#5557E1] font-medium transition-colors disabled:opacity-50"
+              className="text-xs text-primary hover:text-[#5557E1] font-medium transition-colors disabled:opacity-50"
             >
               Обновить код
             </button>
           </div>
         ) : (
           <div className="space-y-3 max-w-md">
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-subtle">
               Подключите Telegram, чтобы каждое утро получать дайджест актуальных задач.
             </p>
             <button
@@ -472,36 +472,34 @@ export default function ProfilePage() {
       </div>
 
       {/* Notification preferences card */}
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+      <div className="bg-surface rounded-2xl shadow-lg border border-line p-6">
         <button
           type="button"
           onClick={() => setNotifExpanded((v) => !v)}
           className="w-full flex items-center justify-between text-left"
         >
           <div>
-            <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-              <Bell size={20} className="text-[#6567F1]" />
+            <h2 className="text-lg font-semibold text-heading flex items-center gap-2">
+              <Bell size={20} className="text-primary" />
               Уведомления
             </h2>
             {!notifExpanded && (
-              <p className="text-sm text-slate-500 mt-1">
-                Нажмите, чтобы настроить типы уведомлений
-              </p>
+              <p className="text-sm text-subtle mt-1">Нажмите, чтобы настроить типы уведомлений</p>
             )}
           </div>
           <ChevronDown
             size={20}
-            className={`text-slate-400 transition-transform ${notifExpanded ? "rotate-180" : ""}`}
+            className={`text-subtle transition-transform ${notifExpanded ? "rotate-180" : ""}`}
           />
         </button>
         {notifExpanded && (
-          <p className="text-sm text-slate-500 mt-2 mb-4">
+          <p className="text-sm text-subtle mt-2 mb-4">
             Отключение снимает и in-app, и Telegram-уведомления по этому типу.
           </p>
         )}
         {notifExpanded &&
           (notifPrefs === null ? (
-            <p className="text-sm text-slate-400 flex items-center gap-2">
+            <p className="text-sm text-subtle flex items-center gap-2">
               <Loader2 size={14} className="animate-spin" /> Загрузка...
             </p>
           ) : (
@@ -511,7 +509,7 @@ export default function ProfilePage() {
                 if (typesInGroup.length === 0) return null;
                 return (
                   <div key={groupId}>
-                    <h3 className="text-sm font-semibold text-slate-700 mb-2">{groupLabel}</h3>
+                    <h3 className="text-sm font-semibold text-body mb-2">{groupLabel}</h3>
                     <div className="space-y-1.5 pl-1">
                       {typesInGroup.map((t) => {
                         const enabled = notifPrefs.preferences[t.type];
@@ -519,19 +517,17 @@ export default function ProfilePage() {
                         return (
                           <label
                             key={t.type}
-                            className="flex items-center gap-3 py-1 cursor-pointer text-sm text-slate-700 hover:text-slate-900"
+                            className="flex items-center gap-3 py-1 cursor-pointer text-sm text-body hover:text-heading"
                           >
                             <input
                               type="checkbox"
                               checked={enabled}
                               disabled={saving}
                               onChange={(e) => toggleNotifPref(t.type, e.target.checked)}
-                              className="w-4 h-4 rounded border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                              className="w-4 h-4 rounded border-line text-primary focus:ring-primary/30"
                             />
                             <span className="flex-1">{t.label}</span>
-                            {saving && (
-                              <Loader2 size={12} className="animate-spin text-slate-400" />
-                            )}
+                            {saving && <Loader2 size={12} className="animate-spin text-subtle" />}
                           </label>
                         );
                       })}
@@ -544,14 +540,14 @@ export default function ProfilePage() {
       </div>
 
       {/* Change password card */}
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-          <Lock size={20} className="text-slate-400" />
+      <div className="bg-surface rounded-2xl shadow-lg border border-line p-6">
+        <h2 className="text-lg font-semibold text-heading mb-4 flex items-center gap-2">
+          <Lock size={20} className="text-subtle" />
           Смена пароля
         </h2>
         <form onSubmit={handlePasswordChange} className="space-y-4 max-w-md">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Текущий пароль</label>
+            <label className="block text-sm font-medium text-body mb-1">Текущий пароль</label>
             <div className="relative">
               <input
                 type={showCurrent ? "text" : "password"}
@@ -563,14 +559,14 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => setShowCurrent(!showCurrent)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle hover:text-body"
               >
                 {showCurrent ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Новый пароль</label>
+            <label className="block text-sm font-medium text-body mb-1">Новый пароль</label>
             <div className="relative">
               <input
                 type={showNew ? "text" : "password"}
@@ -583,16 +579,14 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => setShowNew(!showNew)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle hover:text-body"
               >
                 {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Подтверждение пароля
-            </label>
+            <label className="block text-sm font-medium text-body mb-1">Подтверждение пароля</label>
             <input
               type="password"
               value={confirmPassword}
@@ -602,11 +596,13 @@ export default function ProfilePage() {
               minLength={8}
             />
             {confirmPassword && newPassword !== confirmPassword && (
-              <p className="text-xs text-red-500 mt-1">Пароли не совпадают</p>
+              <p className="text-xs text-red-500 dark:text-red-400 mt-1">Пароли не совпадают</p>
             )}
           </div>
           {pwMsg && (
-            <p className={`text-sm ${pwMsg.type === "error" ? "text-red-600" : "text-green-600"}`}>
+            <p
+              className={`text-sm ${pwMsg.type === "error" ? "text-red-600 dark:text-red-300" : "text-green-600 dark:text-green-300"}`}
+            >
               {pwMsg.text}
             </p>
           )}

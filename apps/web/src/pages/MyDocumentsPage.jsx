@@ -41,7 +41,7 @@ export default function MyDocumentsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16 text-slate-400">
+      <div className="flex items-center justify-center py-16 text-subtle">
         <Loader2 size={24} className="animate-spin" />
       </div>
     );
@@ -49,7 +49,7 @@ export default function MyDocumentsPage() {
 
   if (error) {
     return (
-      <div className="bg-red-50 text-red-700 rounded-lg p-4 flex items-center justify-between">
+      <div className="bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg p-4 flex items-center justify-between">
         <span>{error}</span>
         <button onClick={load} className="text-sm font-semibold underline">
           Попробовать снова
@@ -72,8 +72,8 @@ export default function MyDocumentsPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Запросы документов</h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <h1 className="text-2xl font-bold text-heading">Запросы документов</h1>
+        <p className="text-sm text-subtle mt-1">
           Что от вас ждут — список открытых запросов от ваших бухгалтеров.
         </p>
       </div>
@@ -85,8 +85,8 @@ export default function MyDocumentsPage() {
           {orgGroups.map((g, i) => (
             <div key={i}>
               {orgGroups.length > 1 && (
-                <h2 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-                  <Building2 size={16} className="text-slate-400" />
+                <h2 className="text-sm font-semibold text-body mb-3 flex items-center gap-2">
+                  <Building2 size={16} className="text-subtle" />
                   {g.name}
                 </h2>
               )}
@@ -111,12 +111,12 @@ export default function MyDocumentsPage() {
 
 function EmptyState() {
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-10 text-center">
-      <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4">
+    <div className="bg-surface rounded-2xl shadow-lg border border-line p-10 text-center">
+      <div className="w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 flex items-center justify-center mx-auto mb-4">
         <CheckCircle2 size={32} />
       </div>
-      <h2 className="text-lg font-semibold text-slate-900">Все документы загружены</h2>
-      <p className="mt-2 text-sm text-slate-500">
+      <h2 className="text-lg font-semibold text-heading">Все документы загружены</h2>
+      <p className="mt-2 text-sm text-subtle">
         Открытых запросов нет. Если бухгалтер запросит новый документ — он появится здесь.
       </p>
     </div>
@@ -170,21 +170,21 @@ function DocumentRequestCard({ ticket, isUploading, setUploading, onUploaded }) 
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+    <div className="bg-surface rounded-2xl shadow-sm border border-line overflow-hidden">
       <div className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1.5">
               <StatusBadge status={ticket.status} />
               {ageDays >= 3 && (
-                <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/15 px-2 py-0.5 rounded-full">
                   <Clock size={10} /> {ageDays} дн. назад
                 </span>
               )}
             </div>
-            <h3 className="text-base font-semibold text-slate-900">{ticket.subject}</h3>
+            <h3 className="text-base font-semibold text-heading">{ticket.subject}</h3>
             {ticket.assignedTo && (
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-subtle mt-1">
                 Запросил: {ticket.assignedTo.firstName} {ticket.assignedTo.lastName}
               </p>
             )}
@@ -202,7 +202,7 @@ function DocumentRequestCard({ ticket, isUploading, setUploading, onUploaded }) 
             )}
             <Link
               to={`/tickets/${ticket.id}`}
-              className="text-xs font-medium text-[#6567F1] hover:text-[#5557E1] text-center"
+              className="text-xs font-medium text-primary hover:text-[#5557E1] text-center"
             >
               Открыть тикет
             </Link>
@@ -211,10 +211,7 @@ function DocumentRequestCard({ ticket, isUploading, setUploading, onUploaded }) 
       </div>
 
       {showForm && (
-        <form
-          onSubmit={handleSubmit}
-          className="border-t border-slate-200 bg-slate-50/50 p-5 space-y-3"
-        >
+        <form onSubmit={handleSubmit} className="border-t border-line bg-canvas/50 p-5 space-y-3">
           <FilePicker files={files} onChange={setFiles} disabled={isUploading} />
           <textarea
             value={comment}
@@ -222,10 +219,10 @@ function DocumentRequestCard({ ticket, isUploading, setUploading, onUploaded }) 
             placeholder="Комментарий (необязательно)"
             rows={2}
             disabled={isUploading}
-            className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:border-[#6567F1] focus:ring-2 focus:ring-[#6567F1]/20 outline-none resize-none disabled:opacity-60"
+            className="w-full px-3 py-2 text-sm rounded-lg border border-line focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none resize-none disabled:opacity-60"
           />
           {submitError && (
-            <p className="text-xs text-red-600 flex items-center gap-1">
+            <p className="text-xs text-red-600 dark:text-red-300 flex items-center gap-1">
               <AlertCircle size={12} /> {submitError}
             </p>
           )}
@@ -234,7 +231,7 @@ function DocumentRequestCard({ ticket, isUploading, setUploading, onUploaded }) 
               type="button"
               onClick={reset}
               disabled={isUploading}
-              className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-200 transition-colors"
+              className="px-4 py-2 rounded-lg text-sm font-medium text-body hover:bg-line transition-colors"
             >
               Отмена
             </button>
@@ -266,7 +263,7 @@ function FilePicker({ files, onChange, disabled }) {
   return (
     <div>
       <label
-        className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-dashed border-slate-300 hover:border-[#6567F1] cursor-pointer text-sm text-slate-600 transition-colors ${
+        className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-dashed border-line hover:border-primary cursor-pointer text-sm text-body transition-colors ${
           disabled ? "opacity-50 pointer-events-none" : ""
         }`}
       >
@@ -286,13 +283,13 @@ function FilePicker({ files, onChange, disabled }) {
           {files.map((f, i) => (
             <li
               key={i}
-              className="flex items-center justify-between text-xs bg-white border border-slate-200 rounded-lg px-2 py-1.5"
+              className="flex items-center justify-between text-xs bg-surface border border-line rounded-lg px-2 py-1.5"
             >
               <span className="truncate">{f.name}</span>
               <button
                 type="button"
                 onClick={() => removeAt(i)}
-                className="shrink-0 ml-2 text-slate-400 hover:text-slate-600"
+                className="shrink-0 ml-2 text-subtle hover:text-body"
               >
                 <X size={12} />
               </button>
@@ -306,10 +303,16 @@ function FilePicker({ files, onChange, disabled }) {
 
 function StatusBadge({ status }) {
   const map = {
-    NEW: { label: "Новый запрос", cls: "bg-blue-50 text-blue-700" },
-    WAITING_CLIENT: { label: "Ждём от вас", cls: "bg-amber-50 text-amber-700" },
+    NEW: {
+      label: "Новый запрос",
+      cls: "bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300",
+    },
+    WAITING_CLIENT: {
+      label: "Ждём от вас",
+      cls: "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300",
+    },
   };
-  const s = map[status] || { label: status, cls: "bg-slate-100 text-slate-600" };
+  const s = map[status] || { label: status, cls: "bg-muted text-body" };
   return (
     <span
       className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full ${s.cls}`}

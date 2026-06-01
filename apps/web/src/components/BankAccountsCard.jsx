@@ -3,19 +3,43 @@ import { api } from "../lib/api.js";
 import { Plus, Pencil, Trash2, X, Eye, EyeOff } from "lucide-react";
 
 const BANKS = [
-  { name: "Сбербанк", bg: "bg-green-100", text: "text-green-700" },
-  { name: "БСПБ", bg: "bg-rose-100", text: "text-rose-700" },
-  { name: "ВТБ", bg: "bg-blue-100", text: "text-blue-700" },
-  { name: "ЭТБ", bg: "bg-cyan-100", text: "text-cyan-700" },
-  { name: "Альфа", bg: "bg-red-100", text: "text-red-700" },
-  { name: "Т-Банк", bg: "bg-yellow-100", text: "text-yellow-700" },
-  { name: "ПСБ", bg: "bg-indigo-100", text: "text-indigo-700" },
-  { name: "Точка", bg: "bg-orange-100", text: "text-orange-700" },
-  { name: "РСБ", bg: "bg-teal-100", text: "text-teal-700" },
-  { name: "Открытие", bg: "bg-sky-100", text: "text-sky-700" },
-  { name: "ГазПромБанк", bg: "bg-slate-200", text: "text-slate-700" },
-  { name: "Локо", bg: "bg-purple-100", text: "text-purple-700" },
-  { name: "Авангард", bg: "bg-amber-100", text: "text-amber-700" },
+  {
+    name: "Сбербанк",
+    bg: "bg-green-100 dark:bg-green-500/15",
+    text: "text-green-700 dark:text-green-300",
+  },
+  { name: "БСПБ", bg: "bg-rose-100 dark:bg-rose-500/15", text: "text-rose-700 dark:text-rose-300" },
+  { name: "ВТБ", bg: "bg-blue-100 dark:bg-blue-500/15", text: "text-blue-700 dark:text-blue-300" },
+  { name: "ЭТБ", bg: "bg-cyan-100 dark:bg-cyan-500/15", text: "text-cyan-700 dark:text-cyan-300" },
+  { name: "Альфа", bg: "bg-red-100 dark:bg-red-500/15", text: "text-red-700 dark:text-red-300" },
+  {
+    name: "Т-Банк",
+    bg: "bg-yellow-100 dark:bg-yellow-500/15",
+    text: "text-yellow-700 dark:text-yellow-300",
+  },
+  {
+    name: "ПСБ",
+    bg: "bg-indigo-100 dark:bg-indigo-500/15",
+    text: "text-indigo-700 dark:text-indigo-300",
+  },
+  {
+    name: "Точка",
+    bg: "bg-orange-100 dark:bg-orange-500/15",
+    text: "text-orange-700 dark:text-orange-300",
+  },
+  { name: "РСБ", bg: "bg-teal-100 dark:bg-teal-500/15", text: "text-teal-700 dark:text-teal-300" },
+  { name: "Открытие", bg: "bg-sky-100 dark:bg-sky-500/15", text: "text-sky-700 dark:text-sky-300" },
+  { name: "ГазПромБанк", bg: "bg-line", text: "text-body" },
+  {
+    name: "Локо",
+    bg: "bg-purple-100 dark:bg-purple-500/15",
+    text: "text-purple-700 dark:text-purple-300",
+  },
+  {
+    name: "Авангард",
+    bg: "bg-amber-100 dark:bg-amber-500/15",
+    text: "text-amber-700 dark:text-amber-300",
+  },
 ];
 
 const BANK_STYLE = Object.fromEntries(BANKS.map((b) => [b.name, { bg: b.bg, text: b.text }]));
@@ -23,7 +47,7 @@ const BANK_STYLE = Object.fromEntries(BANKS.map((b) => [b.name, { bg: b.bg, text
 function bankBadgeCls(name) {
   const s = BANK_STYLE[name];
   if (s) return `${s.bg} ${s.text}`;
-  return "bg-slate-100 text-slate-600";
+  return "bg-muted text-body";
 }
 
 const SECRET_DISPLAY_DURATION = 30_000;
@@ -176,13 +200,13 @@ export default function BankAccountsCard({
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+    <div className="bg-surface rounded-2xl shadow-lg border border-line p-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-slate-900">Банковские счета</h2>
+        <h2 className="text-lg font-bold text-heading">Банковские счета</h2>
         {canEdit && (
           <button
             onClick={openAdd}
-            className="inline-flex items-center gap-1 text-sm text-[#6567F1] hover:text-[#5557E1] font-medium"
+            className="inline-flex items-center gap-1 text-sm text-primary hover:text-[#5557E1] font-medium"
           >
             <Plus size={16} /> Добавить
           </button>
@@ -190,7 +214,7 @@ export default function BankAccountsCard({
       </div>
 
       {bankAccounts.length === 0 ? (
-        <p className="text-sm text-slate-400">Нет банковских счетов</p>
+        <p className="text-sm text-subtle">Нет банковских счетов</p>
       ) : (
         <div className="space-y-2">
           {bankAccounts.map((acc) => {
@@ -201,9 +225,9 @@ export default function BankAccountsCard({
             return (
               <div
                 key={acc.id}
-                className="flex items-center justify-between bg-slate-50 rounded-lg p-3"
+                className="flex items-center justify-between bg-canvas rounded-lg p-3"
               >
-                <div className="text-sm text-slate-600 space-y-0.5">
+                <div className="text-sm text-body space-y-0.5">
                   <p>
                     <span
                       className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${bankBadgeCls(acc.bankName)}`}
@@ -221,13 +245,13 @@ export default function BankAccountsCard({
                       Пароль: <span className="font-mono">{displayPassword}</span>
                     </p>
                   )}
-                  {acc.comment && <p className="text-slate-400">{acc.comment}</p>}
+                  {acc.comment && <p className="text-subtle">{acc.comment}</p>}
                 </div>
                 <div className="flex items-center gap-2 ml-4 shrink-0">
                   {canViewSecrets && (acc.login != null || acc.password != null) && (
                     <button
                       onClick={() => handleRevealSecrets(acc.id)}
-                      className="text-slate-400 hover:text-[#6567F1] transition-colors"
+                      className="text-subtle hover:text-primary transition-colors"
                       title={isRevealed ? "Скрыть" : "Показать секреты"}
                     >
                       {isRevealed ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -237,13 +261,13 @@ export default function BankAccountsCard({
                     <>
                       <button
                         onClick={() => openEdit(acc)}
-                        className="text-slate-400 hover:text-[#6567F1] transition-colors"
+                        className="text-subtle hover:text-primary transition-colors"
                       >
                         <Pencil size={16} />
                       </button>
                       <button
                         onClick={() => handleDelete(acc.id)}
-                        className="text-slate-400 hover:text-red-500 transition-colors"
+                        className="text-subtle hover:text-red-500 dark:hover:text-red-400 transition-colors"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -258,22 +282,19 @@ export default function BankAccountsCard({
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md mx-4 p-6">
+          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-md mx-4 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-slate-900">
+              <h2 className="text-lg font-bold text-heading">
                 {editingAccount ? "Редактировать счёт" : "Новый банковский счёт"}
               </h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
+              <button onClick={() => setShowModal(false)} className="text-subtle hover:text-body">
                 <X size={20} />
               </button>
             </div>
 
             <div className="flex flex-col gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Банк *</label>
+                <label className="block text-sm font-medium text-body mb-2">Банк *</label>
                 <div className="flex flex-wrap gap-2">
                   {BANKS.map((b) => (
                     <button
@@ -294,48 +315,50 @@ export default function BankAccountsCard({
               {showLogin && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Логин</label>
+                    <label className="block text-sm font-medium text-body mb-1">Логин</label>
                     <input
                       type="text"
                       value={login}
                       onChange={(e) => setLogin(e.target.value)}
                       placeholder={editingAccount ? "Оставьте пустым, чтобы не менять" : ""}
                       autoComplete="off"
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                      className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Пароль</label>
+                    <label className="block text-sm font-medium text-body mb-1">Пароль</label>
                     <input
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder={editingAccount ? "Оставьте пустым, чтобы не менять" : ""}
                       autoComplete="new-password"
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                      className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                     />
                   </div>
                 </>
               )}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Комментарий</label>
+                <label className="block text-sm font-medium text-body mb-1">Комментарий</label>
                 <input
                   type="text"
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 />
               </div>
 
               {formError && (
-                <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{formError}</div>
+                <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
+                  {formError}
+                </div>
               )}
 
               <div className="flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
                 >
                   Отмена
                 </button>

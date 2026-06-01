@@ -46,10 +46,10 @@ export default function ResetPasswordPage() {
 
   if (!token) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-canvas flex items-center justify-center px-4">
         <div className="text-center space-y-3">
-          <p className="text-slate-700">Недействительная ссылка для сброса пароля.</p>
-          <Link to="/forgot-password" className="text-sm text-[#6567F1] hover:underline">
+          <p className="text-body">Недействительная ссылка для сброса пароля.</p>
+          <Link to="/forgot-password" className="text-sm text-primary hover:underline">
             Запросить новую ссылку
           </Link>
         </div>
@@ -58,18 +58,18 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-slate-200 p-8">
+    <div className="min-h-screen bg-canvas flex items-center justify-center px-4">
+      <div className="w-full max-w-md bg-surface rounded-2xl shadow-lg border border-line p-8">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-slate-900">
-            ASBUH <span className="text-[#6567F1]">AUTOPILOT</span>
+          <h1 className="text-3xl font-bold text-heading">
+            ASBUH <span className="text-primary">AUTOPILOT</span>
           </h1>
-          <p className="text-slate-500 mt-2">Новый пароль</p>
+          <p className="text-subtle mt-2">Новый пароль</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-body mb-1">
               Новый пароль
             </label>
             <input
@@ -80,13 +80,13 @@ export default function ResetPasswordPage() {
               minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#6567F1]/40 focus:border-[#6567F1]"
+              className="w-full rounded-lg border border-line px-4 py-3 text-heading focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
               placeholder="Минимум 8 символов"
             />
           </div>
 
           <div>
-            <label htmlFor="confirm" className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="confirm" className="block text-sm font-medium text-body mb-1">
               Повторите пароль
             </label>
             <input
@@ -95,12 +95,14 @@ export default function ResetPasswordPage() {
               required
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#6567F1]/40 focus:border-[#6567F1]"
+              className="w-full rounded-lg border border-line px-4 py-3 text-heading focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
             />
           </div>
 
           {error && (
-            <div className="text-red-600 text-sm bg-red-50 rounded-lg px-4 py-2">{error}</div>
+            <div className="text-red-600 dark:text-red-300 text-sm bg-red-50 dark:bg-red-500/15 rounded-lg px-4 py-2">
+              {error}
+            </div>
           )}
 
           <button

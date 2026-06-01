@@ -3,12 +3,37 @@ import { api, getAccessToken } from "../lib/api.js";
 import { Plus, Download, Trash2, X, FileText, Upload, History, ChevronUp } from "lucide-react";
 
 const DOCUMENT_TYPES = [
-  { value: "CONTRACT", label: "Договор", bg: "bg-blue-100", text: "text-blue-700" },
-  { value: "ACT", label: "Акт", bg: "bg-green-100", text: "text-green-700" },
-  { value: "INVOICE", label: "Счёт", bg: "bg-amber-100", text: "text-amber-700" },
-  { value: "REPORT", label: "Отчёт", bg: "bg-purple-100", text: "text-purple-700" },
-  { value: "WAYBILL", label: "Накладная", bg: "bg-orange-100", text: "text-orange-700" },
-  { value: "OTHER", label: "Прочее", bg: "bg-slate-100", text: "text-slate-600" },
+  {
+    value: "CONTRACT",
+    label: "Договор",
+    bg: "bg-blue-100 dark:bg-blue-500/15",
+    text: "text-blue-700 dark:text-blue-300",
+  },
+  {
+    value: "ACT",
+    label: "Акт",
+    bg: "bg-green-100 dark:bg-green-500/15",
+    text: "text-green-700 dark:text-green-300",
+  },
+  {
+    value: "INVOICE",
+    label: "Счёт",
+    bg: "bg-amber-100 dark:bg-amber-500/15",
+    text: "text-amber-700 dark:text-amber-300",
+  },
+  {
+    value: "REPORT",
+    label: "Отчёт",
+    bg: "bg-purple-100 dark:bg-purple-500/15",
+    text: "text-purple-700 dark:text-purple-300",
+  },
+  {
+    value: "WAYBILL",
+    label: "Накладная",
+    bg: "bg-orange-100 dark:bg-orange-500/15",
+    text: "text-orange-700 dark:text-orange-300",
+  },
+  { value: "OTHER", label: "Прочее", bg: "bg-muted", text: "text-body" },
 ];
 
 const TYPE_MAP = Object.fromEntries(DOCUMENT_TYPES.map((t) => [t.value, t]));
@@ -265,13 +290,13 @@ export default function DocumentsCard({
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+    <div className="bg-surface rounded-2xl shadow-lg border border-line p-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-slate-900">Документы</h2>
+        <h2 className="text-lg font-bold text-heading">Документы</h2>
         {canCreate && (
           <button
             onClick={openUpload}
-            className="inline-flex items-center gap-1 text-sm text-[#6567F1] hover:text-[#5557E1] font-medium"
+            className="inline-flex items-center gap-1 text-sm text-primary hover:text-[#5557E1] font-medium"
           >
             <Plus size={16} /> Загрузить
           </button>
@@ -286,12 +311,12 @@ export default function DocumentsCard({
               placeholder="Поиск по имени..."
               value={filterSearch}
               onChange={(e) => setFilterSearch(e.target.value)}
-              className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             >
               <option value="">Все типы</option>
               {DOCUMENT_TYPES.map((t) => (
@@ -305,7 +330,7 @@ export default function DocumentsCard({
             <select
               value={filterPeriodMonth}
               onChange={(e) => setFilterPeriodMonth(e.target.value)}
-              className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             >
               <option value="">Месяц</option>
               {MONTH_NAMES.map((m, i) => (
@@ -317,7 +342,7 @@ export default function DocumentsCard({
             <select
               value={filterPeriodYear}
               onChange={(e) => setFilterPeriodYear(e.target.value)}
-              className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             >
               <option value="">Год</option>
               {PERIOD_YEARS.map((y) => (
@@ -331,21 +356,21 @@ export default function DocumentsCard({
               value={filterDateFrom}
               onChange={(e) => setFilterDateFrom(e.target.value)}
               title="Дата документа от"
-              className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
             <input
               type="date"
               value={filterDateTo}
               onChange={(e) => setFilterDateTo(e.target.value)}
               title="Дата документа до"
-              className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
           {hasActiveFilters && (
             <div>
               <button
                 onClick={resetFilters}
-                className="text-sm text-[#6567F1] hover:text-[#5557E1] font-medium"
+                className="text-sm text-primary hover:text-[#5557E1] font-medium"
               >
                 Сбросить фильтры
               </button>
@@ -355,14 +380,11 @@ export default function DocumentsCard({
       )}
 
       {documents.length === 0 ? (
-        <p className="text-sm text-slate-400">Нет документов</p>
+        <p className="text-sm text-subtle">Нет документов</p>
       ) : filteredDocuments.length === 0 ? (
-        <div className="text-sm text-slate-400 space-y-2">
+        <div className="text-sm text-subtle space-y-2">
           <p>Документы не найдены</p>
-          <button
-            onClick={resetFilters}
-            className="text-[#6567F1] hover:text-[#5557E1] font-medium"
-          >
+          <button onClick={resetFilters} className="text-primary hover:text-[#5557E1] font-medium">
             Сбросить фильтры
           </button>
         </div>
@@ -370,8 +392,8 @@ export default function DocumentsCard({
         <div className="space-y-2">
           {filteredDocuments.map((doc) => (
             <div key={doc.id}>
-              <div className="flex items-center justify-between bg-slate-50 rounded-lg p-3">
-                <div className="text-sm text-slate-600 space-y-0.5 min-w-0 flex-1">
+              <div className="flex items-center justify-between bg-canvas rounded-lg p-3">
+                <div className="text-sm text-body space-y-0.5 min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span
                       className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${typeBadge(doc.type)}`}
@@ -379,14 +401,14 @@ export default function DocumentsCard({
                       {typeLabel(doc.type)}
                     </span>
                     {doc.version > 1 && (
-                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-[#6567F1]/10 text-[#6567F1]">
+                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
                         v{doc.version}
                       </span>
                     )}
-                    <span className="font-medium text-slate-900 truncate">{doc.originalName}</span>
-                    <span className="text-slate-400 text-xs">{formatSize(doc.size)}</span>
+                    <span className="font-medium text-heading truncate">{doc.originalName}</span>
+                    <span className="text-subtle text-xs">{formatSize(doc.size)}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <div className="flex items-center gap-2 text-xs text-subtle">
                     {doc.uploadedBy && (
                       <span>
                         {doc.uploadedBy.lastName} {doc.uploadedBy.firstName}
@@ -400,13 +422,13 @@ export default function DocumentsCard({
                       </span>
                     )}
                   </div>
-                  {doc.comment && <p className="text-slate-400 text-xs">{doc.comment}</p>}
+                  {doc.comment && <p className="text-subtle text-xs">{doc.comment}</p>}
                 </div>
                 <div className="flex items-center gap-2 ml-4 shrink-0">
                   {doc.version > 1 && (
                     <button
                       onClick={() => toggleHistory(doc)}
-                      className="text-slate-400 hover:text-[#6567F1] transition-colors"
+                      className="text-subtle hover:text-primary transition-colors"
                       title="История версий"
                     >
                       {historyMap[doc.id] !== undefined ? (
@@ -419,7 +441,7 @@ export default function DocumentsCard({
                   {canCreate && (
                     <button
                       onClick={() => openVersionUpload(doc)}
-                      className="text-slate-400 hover:text-[#6567F1] transition-colors"
+                      className="text-subtle hover:text-primary transition-colors"
                       title="Загрузить новую версию"
                     >
                       <Upload size={16} />
@@ -427,7 +449,7 @@ export default function DocumentsCard({
                   )}
                   <button
                     onClick={() => handleDownload(doc.id, doc.originalName)}
-                    className="text-slate-400 hover:text-[#6567F1] transition-colors"
+                    className="text-subtle hover:text-primary transition-colors"
                     title="Скачать"
                   >
                     <Download size={16} />
@@ -435,7 +457,7 @@ export default function DocumentsCard({
                   {canDelete && (
                     <button
                       onClick={() => handleDelete(doc.id)}
-                      className="text-slate-400 hover:text-red-500 transition-colors"
+                      className="text-subtle hover:text-red-500 dark:hover:text-red-400 transition-colors"
                       title="Удалить"
                     >
                       <Trash2 size={16} />
@@ -446,39 +468,39 @@ export default function DocumentsCard({
 
               {/* History panel */}
               {historyMap[doc.id] !== undefined && (
-                <div className="mt-1 ml-3 border-l-2 border-[#6567F1]/20 pl-3 space-y-1">
+                <div className="mt-1 ml-3 border-l-2 border-primary/20 pl-3 space-y-1">
                   {historyMap[doc.id] === null ? (
-                    <p className="text-xs text-slate-400 py-1">Загрузка...</p>
+                    <p className="text-xs text-subtle py-1">Загрузка...</p>
                   ) : (
                     historyMap[doc.id].map((v) => (
                       <div
                         key={v.id}
-                        className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2 text-xs"
+                        className="flex items-center justify-between bg-canvas rounded-lg px-3 py-2 text-xs"
                       >
-                        <div className="flex items-center gap-2 min-w-0 flex-1 text-slate-600">
-                          <span className="font-medium text-[#6567F1] shrink-0">v{v.version}</span>
-                          <span className="truncate text-slate-800">{v.originalName}</span>
-                          <span className="text-slate-400 shrink-0">{formatSize(v.size)}</span>
-                          <span className="text-slate-400 shrink-0">{formatDate(v.createdAt)}</span>
+                        <div className="flex items-center gap-2 min-w-0 flex-1 text-body">
+                          <span className="font-medium text-primary shrink-0">v{v.version}</span>
+                          <span className="truncate text-heading">{v.originalName}</span>
+                          <span className="text-subtle shrink-0">{formatSize(v.size)}</span>
+                          <span className="text-subtle shrink-0">{formatDate(v.createdAt)}</span>
                           {v.documentDate && (
-                            <span className="text-slate-400 shrink-0">
+                            <span className="text-subtle shrink-0">
                               • {formatDate(v.documentDate)}
                             </span>
                           )}
                           {v.periodMonth && v.periodYear && (
-                            <span className="text-slate-400 shrink-0">
+                            <span className="text-subtle shrink-0">
                               • {MONTH_NAMES[v.periodMonth - 1]} {v.periodYear}
                             </span>
                           )}
                           {v.uploadedBy && (
-                            <span className="text-slate-400 shrink-0">
+                            <span className="text-subtle shrink-0">
                               {v.uploadedBy.lastName} {v.uploadedBy.firstName}
                             </span>
                           )}
                         </div>
                         <button
                           onClick={() => handleDownload(v.id, v.originalName)}
-                          className="ml-2 text-slate-400 hover:text-[#6567F1] transition-colors shrink-0"
+                          className="ml-2 text-subtle hover:text-primary transition-colors shrink-0"
                           title="Скачать"
                         >
                           <Download size={14} />
@@ -496,12 +518,12 @@ export default function DocumentsCard({
       {/* Upload new document modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md mx-4 p-6">
+          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-md mx-4 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-slate-900">Загрузить документ</h2>
+              <h2 className="text-lg font-bold text-heading">Загрузить документ</h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
               >
                 <X size={20} />
               </button>
@@ -509,9 +531,7 @@ export default function DocumentsCard({
 
             <div className="flex flex-col gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Тип документа *
-                </label>
+                <label className="block text-sm font-medium text-body mb-2">Тип документа *</label>
                 <div className="flex flex-wrap gap-2">
                   {DOCUMENT_TYPES.map((t) => (
                     <button
@@ -531,10 +551,10 @@ export default function DocumentsCard({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Файл *</label>
-                <label className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg text-sm cursor-pointer hover:bg-slate-50 transition-colors">
-                  <FileText size={16} className="text-slate-400 shrink-0" />
-                  <span className={`truncate ${file ? "text-slate-900" : "text-slate-400"}`}>
+                <label className="block text-sm font-medium text-body mb-1">Файл *</label>
+                <label className="flex items-center gap-2 px-3 py-2 border border-line rounded-lg text-sm cursor-pointer hover:bg-canvas transition-colors">
+                  <FileText size={16} className="text-subtle shrink-0" />
+                  <span className={`truncate ${file ? "text-heading" : "text-subtle"}`}>
                     {file ? file.name : "Выберите файл..."}
                   </span>
                   <input
@@ -544,42 +564,38 @@ export default function DocumentsCard({
                     className="hidden"
                   />
                 </label>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-subtle mt-1">
                   PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, TXT, CSV. Макс. 10 МБ.
                 </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Комментарий</label>
+                <label className="block text-sm font-medium text-body mb-1">Комментарий</label>
                 <input
                   type="text"
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Дата документа
-                </label>
+                <label className="block text-sm font-medium text-body mb-1">Дата документа</label>
                 <input
                   type="date"
                   value={docDate}
                   onChange={(e) => setDocDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Отчётный период
-                </label>
+                <label className="block text-sm font-medium text-body mb-1">Отчётный период</label>
                 <div className="flex gap-2">
                   <select
                     value={periodMonth}
                     onChange={(e) => setPeriodMonth(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                    className="flex-1 px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   >
                     <option value="">Месяц</option>
                     {MONTH_NAMES.map((m, i) => (
@@ -591,7 +607,7 @@ export default function DocumentsCard({
                   <select
                     value={periodYear}
                     onChange={(e) => setPeriodYear(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                    className="flex-1 px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   >
                     <option value="">Год</option>
                     {PERIOD_YEARS.map((y) => (
@@ -604,14 +620,16 @@ export default function DocumentsCard({
               </div>
 
               {formError && (
-                <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{formError}</div>
+                <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
+                  {formError}
+                </div>
               )}
 
               <div className="flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
                 >
                   Отмена
                 </button>
@@ -632,17 +650,17 @@ export default function DocumentsCard({
       {/* Upload new version modal */}
       {versionTargetDoc && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md mx-4 p-6">
+          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-md mx-4 p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Новая версия</h2>
-                <p className="text-xs text-slate-400 mt-0.5 truncate max-w-xs">
+                <h2 className="text-lg font-bold text-heading">Новая версия</h2>
+                <p className="text-xs text-subtle mt-0.5 truncate max-w-xs">
                   {versionTargetDoc.originalName}
                 </p>
               </div>
               <button
                 onClick={() => setVersionTargetDoc(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
               >
                 <X size={20} />
               </button>
@@ -650,10 +668,10 @@ export default function DocumentsCard({
 
             <div className="flex flex-col gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Файл *</label>
-                <label className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg text-sm cursor-pointer hover:bg-slate-50 transition-colors">
-                  <FileText size={16} className="text-slate-400 shrink-0" />
-                  <span className={`truncate ${versionFile ? "text-slate-900" : "text-slate-400"}`}>
+                <label className="block text-sm font-medium text-body mb-1">Файл *</label>
+                <label className="flex items-center gap-2 px-3 py-2 border border-line rounded-lg text-sm cursor-pointer hover:bg-canvas transition-colors">
+                  <FileText size={16} className="text-subtle shrink-0" />
+                  <span className={`truncate ${versionFile ? "text-heading" : "text-subtle"}`}>
                     {versionFile ? versionFile.name : "Выберите файл..."}
                   </span>
                   <input
@@ -663,32 +681,28 @@ export default function DocumentsCard({
                     className="hidden"
                   />
                 </label>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-subtle mt-1">
                   PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, TXT, CSV. Макс. 10 МБ.
                 </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Дата документа
-                </label>
+                <label className="block text-sm font-medium text-body mb-1">Дата документа</label>
                 <input
                   type="date"
                   value={versionDocDate}
                   onChange={(e) => setVersionDocDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Отчётный период
-                </label>
+                <label className="block text-sm font-medium text-body mb-1">Отчётный период</label>
                 <div className="flex gap-2">
                   <select
                     value={versionPeriodMonth}
                     onChange={(e) => setVersionPeriodMonth(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                    className="flex-1 px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   >
                     <option value="">Месяц</option>
                     {MONTH_NAMES.map((m, i) => (
@@ -700,7 +714,7 @@ export default function DocumentsCard({
                   <select
                     value={versionPeriodYear}
                     onChange={(e) => setVersionPeriodYear(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                    className="flex-1 px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   >
                     <option value="">Год</option>
                     {PERIOD_YEARS.map((y) => (
@@ -713,14 +727,16 @@ export default function DocumentsCard({
               </div>
 
               {versionError && (
-                <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{versionError}</div>
+                <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
+                  {versionError}
+                </div>
               )}
 
               <div className="flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setVersionTargetDoc(null)}
-                  className="px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
                 >
                   Отмена
                 </button>

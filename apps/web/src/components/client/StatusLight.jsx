@@ -11,19 +11,19 @@ import {
 const STYLES = {
   ok: {
     gradient: "from-emerald-500 to-emerald-600",
-    iconBg: "bg-white/20",
+    iconBg: "bg-surface/20",
     Icon: CheckCircle2,
     title: "Полёт нормальный",
   },
   action_required: {
     gradient: "from-amber-500 to-amber-600",
-    iconBg: "bg-white/20",
+    iconBg: "bg-surface/20",
     Icon: AlertTriangle,
     title: "Требуется ваше действие",
   },
   overdue: {
     gradient: "from-red-500 to-red-600",
-    iconBg: "bg-white/20",
+    iconBg: "bg-surface/20",
     Icon: AlertCircle,
     title: "Есть просрочка",
   },
@@ -80,7 +80,7 @@ export default function StatusLight({ status, actions = [], summary, orgName }) 
       </div>
 
       {showActions && (
-        <div className="mt-4 bg-white/15 rounded-xl p-3 flex flex-col gap-2">
+        <div className="mt-4 bg-surface/15 rounded-xl p-3 flex flex-col gap-2">
           {actions.map((a, i) => {
             const Icon = ACTION_ICON[a.type] ?? AlertCircle;
             return (
@@ -91,7 +91,7 @@ export default function StatusLight({ status, actions = [], summary, orgName }) 
                 </div>
                 <Link
                   to={a.link}
-                  className="bg-white text-slate-900 text-xs font-bold px-3 py-1.5 rounded-md hover:bg-slate-100 transition-colors"
+                  className="bg-surface text-heading text-xs font-bold px-3 py-1.5 rounded-md hover:bg-muted transition-colors"
                 >
                   {ACTION_CTA[a.type] ?? "Открыть"}
                 </Link>

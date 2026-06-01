@@ -30,10 +30,10 @@ const MATCH_STATUS_LABELS = {
   IGNORED: "Игнорируется",
 };
 const MATCH_STATUS_COLORS = {
-  UNMATCHED: "bg-amber-100 text-amber-700",
-  AUTO: "bg-green-100 text-green-700",
-  MANUAL: "bg-blue-100 text-blue-700",
-  IGNORED: "bg-slate-100 text-slate-500",
+  UNMATCHED: "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  AUTO: "bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300",
+  MANUAL: "bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300",
+  IGNORED: "bg-muted text-subtle",
 };
 
 const MONTHS = [
@@ -132,7 +132,7 @@ function TransactionsTab({ onOrgClick }) {
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
         <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
           <input
             type="text"
             placeholder="Поиск по плательщику, ИНН, назначению..."
@@ -141,18 +141,18 @@ function TransactionsTab({ onOrgClick }) {
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="w-full sm:w-80 pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+            className="w-full sm:w-80 pl-9 pr-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           />
         </div>
         <div className="relative">
-          <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
           <select
             value={matchFilter}
             onChange={(e) => {
               setMatchFilter(e.target.value);
               setPage(1);
             }}
-            className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
+            className="pl-9 pr-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
           >
             <option value="">Все статусы</option>
             {Object.entries(MATCH_STATUS_LABELS).map(([k, v]) => (
@@ -165,51 +165,51 @@ function TransactionsTab({ onOrgClick }) {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-16 text-slate-400">
+        <div className="flex items-center justify-center py-16 text-subtle">
           <Loader2 size={24} className="animate-spin" />
         </div>
       ) : transactions.length === 0 ? (
-        <div className="text-slate-400 text-sm py-8 text-center">Транзакции не найдены</div>
+        <div className="text-subtle text-sm py-8 text-center">Транзакции не найдены</div>
       ) : (
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden overflow-x-auto">
+        <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/50">
-                <th className="text-left px-4 py-3 font-medium text-slate-500 w-[100px]">Дата</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-500 w-[100px]">Сумма</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-500 min-w-[220px]">
+              <tr className="border-b border-line bg-canvas/50">
+                <th className="text-left px-4 py-3 font-medium text-subtle w-[100px]">Дата</th>
+                <th className="text-left px-4 py-3 font-medium text-subtle w-[100px]">Сумма</th>
+                <th className="text-left px-4 py-3 font-medium text-subtle min-w-[220px]">
                   Плательщик
                 </th>
-                <th className="text-left px-4 py-3 font-medium text-slate-500 w-[120px]">ИНН</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-500 min-w-[280px]">
+                <th className="text-left px-4 py-3 font-medium text-subtle w-[120px]">ИНН</th>
+                <th className="text-left px-4 py-3 font-medium text-subtle min-w-[280px]">
                   Назначение
                 </th>
-                <th className="text-left px-4 py-3 font-medium text-slate-500 min-w-[180px]">
+                <th className="text-left px-4 py-3 font-medium text-subtle min-w-[180px]">
                   Организация
                 </th>
-                <th className="text-left px-4 py-3 font-medium text-slate-500 w-[100px]">Статус</th>
+                <th className="text-left px-4 py-3 font-medium text-subtle w-[100px]">Статус</th>
                 <th className="px-4 py-3 w-[60px]"></th>
               </tr>
             </thead>
             <tbody>
               {transactions.map((tx) => (
-                <tr key={tx.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+                <tr key={tx.id} className="border-b border-line hover:bg-canvas/50">
                   <td className="px-4 py-3 whitespace-nowrap">
                     {new Date(tx.date).toLocaleDateString("ru-RU")}
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap font-medium text-green-600">
+                  <td className="px-4 py-3 whitespace-nowrap font-medium text-green-600 dark:text-green-300">
                     +{fmt(tx.amount)}
                   </td>
                   <td className="px-4 py-3">{tx.payerName || "—"}</td>
                   <td className="px-4 py-3 whitespace-nowrap">{tx.payerInn || "—"}</td>
-                  <td className="px-4 py-3 text-slate-500">{tx.purpose || "—"}</td>
+                  <td className="px-4 py-3 text-subtle">{tx.purpose || "—"}</td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     {matchingId === tx.id ? (
                       <div className="flex items-center gap-1">
                         <select
                           value={matchOrgId}
                           onChange={(e) => setMatchOrgId(e.target.value)}
-                          className="px-2 py-1 border border-slate-200 rounded text-xs bg-white max-w-[180px]"
+                          className="px-2 py-1 border border-line rounded text-xs bg-surface max-w-[180px]"
                           autoFocus
                         >
                           <option value="">Выбрать...</option>
@@ -221,7 +221,7 @@ function TransactionsTab({ onOrgClick }) {
                         </select>
                         <button
                           onClick={() => handleMatch(tx.id)}
-                          className="p-1 text-green-600 hover:bg-green-50 rounded"
+                          className="p-1 text-green-600 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-500/15 rounded"
                         >
                           <Check size={14} />
                         </button>
@@ -230,7 +230,7 @@ function TransactionsTab({ onOrgClick }) {
                             setMatchingId(null);
                             setMatchOrgId("");
                           }}
-                          className="p-1 text-slate-400 hover:bg-slate-100 rounded"
+                          className="p-1 text-subtle hover:bg-muted rounded"
                         >
                           <XIcon size={14} />
                         </button>
@@ -238,12 +238,12 @@ function TransactionsTab({ onOrgClick }) {
                     ) : tx.organization ? (
                       <button
                         onClick={() => onOrgClick(tx.organization.id)}
-                        className="text-[#6567F1] text-xs hover:underline text-left"
+                        className="text-primary text-xs hover:underline text-left"
                       >
                         {tx.organization.name}
                       </button>
                     ) : (
-                      <span className="text-slate-400 text-xs">—</span>
+                      <span className="text-subtle text-xs">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -262,14 +262,14 @@ function TransactionsTab({ onOrgClick }) {
                               setMatchingId(tx.id);
                               setMatchOrgId("");
                             }}
-                            className="p-1 text-[#6567F1] hover:bg-[#6567F1]/10 rounded"
+                            className="p-1 text-primary hover:bg-primary/10 rounded"
                             title="Привязать"
                           >
                             <Link2 size={14} />
                           </button>
                           <button
                             onClick={() => handleIgnore(tx.id)}
-                            className="p-1 text-slate-400 hover:bg-slate-100 rounded"
+                            className="p-1 text-subtle hover:bg-muted rounded"
                             title="Игнорировать"
                           >
                             <EyeOff size={14} />
@@ -279,7 +279,7 @@ function TransactionsTab({ onOrgClick }) {
                       {(tx.matchStatus === "AUTO" || tx.matchStatus === "MANUAL") && (
                         <button
                           onClick={() => handleUnmatch(tx.id)}
-                          className="p-1 text-red-400 hover:bg-red-50 rounded"
+                          className="p-1 text-red-400 hover:bg-red-50 dark:hover:bg-red-500/15 rounded"
                           title="Отвязать"
                         >
                           <XIcon size={14} />
@@ -296,24 +296,24 @@ function TransactionsTab({ onOrgClick }) {
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-slate-500">
+          <span className="text-sm text-subtle">
             {(page - 1) * limit + 1}–{Math.min(page * limit, total)} из {total}
           </span>
           <div className="flex items-center gap-2">
             <button
               disabled={page <= 1}
               onClick={() => setPage(page - 1)}
-              className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+              className="p-2 rounded-lg border border-line text-body hover:bg-canvas disabled:opacity-40"
             >
               <ChevronLeft size={16} />
             </button>
-            <span className="text-sm text-slate-600">
+            <span className="text-sm text-body">
               {page} / {totalPages}
             </span>
             <button
               disabled={page >= totalPages}
               onClick={() => setPage(page + 1)}
-              className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+              className="p-2 rounded-lg border border-line text-body hover:bg-canvas disabled:opacity-40"
             >
               <ChevronRight size={16} />
             </button>
@@ -356,9 +356,12 @@ function NoteCell({ orgId, initialNote }) {
             }
           }}
           autoFocus
-          className="px-2 py-1 border border-slate-200 rounded text-xs w-full min-w-[120px] focus:outline-none focus:ring-1 focus:ring-[#6567F1]/30"
+          className="px-2 py-1 border border-line rounded text-xs w-full min-w-[120px] focus:outline-none focus:ring-1 focus:ring-primary/30"
         />
-        <button onClick={handleSave} className="text-green-600 hover:text-green-700">
+        <button
+          onClick={handleSave}
+          className="text-green-600 dark:text-green-300 hover:text-green-700 dark:hover:text-green-300"
+        >
           <Check size={14} />
         </button>
         <button
@@ -366,7 +369,7 @@ function NoteCell({ orgId, initialNote }) {
             setNote(saved);
             setEditing(false);
           }}
-          className="text-slate-400 hover:text-slate-600"
+          className="text-subtle hover:text-body"
         >
           <XIcon size={14} />
         </button>
@@ -377,11 +380,11 @@ function NoteCell({ orgId, initialNote }) {
   return (
     <button
       onClick={() => setEditing(true)}
-      className="flex items-center gap-1 text-xs text-slate-400 hover:text-[#6567F1] transition-colors max-w-[200px] text-left"
+      className="flex items-center gap-1 text-xs text-subtle hover:text-primary transition-colors max-w-[200px] text-left"
       title={saved || "Добавить примечание"}
     >
       {saved ? (
-        <span className="text-slate-500 truncate">{saved}</span>
+        <span className="text-subtle truncate">{saved}</span>
       ) : (
         <>
           <MessageSquare size={12} />
@@ -515,7 +518,7 @@ function ReconciliationTab() {
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+              className="px-3 py-2 border border-line rounded-lg text-sm bg-surface"
             >
               <option value="all">Все ({results.length})</option>
               <option value="debtors">Должники ({summary.debtorCount})</option>
@@ -524,7 +527,7 @@ function ReconciliationTab() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+              className="px-3 py-2 border border-line rounded-lg text-sm bg-surface"
             >
               <option value="debt">Сначала с долгом</option>
               <option value="alpha">По алфавиту</option>
@@ -533,7 +536,7 @@ function ReconciliationTab() {
               <select
                 value={sectionFilter}
                 onChange={(e) => setSectionFilter(e.target.value)}
-                className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+                className="px-3 py-2 border border-line rounded-lg text-sm bg-surface"
               >
                 <option value="">Все участки</option>
                 {sections.map(([id, name]) => (
@@ -545,47 +548,47 @@ function ReconciliationTab() {
             )}
           </>
         )}
-        {done && (
-          <span className="text-xs text-slate-400">Расчёт с 01.01.2025 по текущий месяц</span>
-        )}
+        {done && <span className="text-xs text-subtle">Расчёт с 01.01.2025 по текущий месяц</span>}
       </div>
 
       {done && (
         <>
           {/* Summary cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+            <div className="bg-surface rounded-xl border border-line p-4">
+              <div className="flex items-center gap-2 text-sm text-subtle mb-1">
                 <DollarSign size={14} />
                 Ожидалось
               </div>
-              <div className="text-lg font-bold text-slate-900">{fmt(summary.expected)}</div>
+              <div className="text-lg font-bold text-heading">{fmt(summary.expected)}</div>
             </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+            <div className="bg-surface rounded-xl border border-line p-4">
+              <div className="flex items-center gap-2 text-sm text-subtle mb-1">
                 <TrendingUp size={14} />
                 Поступило
               </div>
-              <div className="text-lg font-bold text-green-600">{fmt(summary.received)}</div>
+              <div className="text-lg font-bold text-green-600 dark:text-green-300">
+                {fmt(summary.received)}
+              </div>
             </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+            <div className="bg-surface rounded-xl border border-line p-4">
+              <div className="flex items-center gap-2 text-sm text-subtle mb-1">
                 <AlertCircle size={14} />
                 Задолженность
               </div>
               <div
-                className={`text-lg font-bold ${summary.debt > 0 ? "text-red-600" : "text-slate-900"}`}
+                className={`text-lg font-bold ${summary.debt > 0 ? "text-red-600 dark:text-red-300" : "text-heading"}`}
               >
                 {fmt(summary.debt)}
               </div>
             </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+            <div className="bg-surface rounded-xl border border-line p-4">
+              <div className="flex items-center gap-2 text-sm text-subtle mb-1">
                 <AlertCircle size={14} />
                 Должников
               </div>
               <div
-                className={`text-lg font-bold ${summary.debtorCount > 0 ? "text-red-600" : "text-slate-900"}`}
+                className={`text-lg font-bold ${summary.debtorCount > 0 ? "text-red-600 dark:text-red-300" : "text-heading"}`}
               >
                 {summary.debtorCount}
               </div>
@@ -594,17 +597,17 @@ function ReconciliationTab() {
 
           {/* Results table */}
           {filtered.length === 0 ? (
-            <div className="text-slate-400 text-sm py-8 text-center">Нет данных</div>
+            <div className="text-subtle text-sm py-8 text-center">Нет данных</div>
           ) : (
-            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden overflow-x-auto">
+            <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/50">
-                    <th className="text-left px-4 py-3 font-medium text-slate-500">Организация</th>
-                    <th className="text-right px-4 py-3 font-medium text-slate-500">Ожидалось</th>
-                    <th className="text-right px-4 py-3 font-medium text-slate-500">Поступило</th>
-                    <th className="text-right px-4 py-3 font-medium text-slate-500">Баланс</th>
-                    <th className="text-left px-4 py-3 font-medium text-slate-500">Примечание</th>
+                  <tr className="border-b border-line bg-canvas/50">
+                    <th className="text-left px-4 py-3 font-medium text-subtle">Организация</th>
+                    <th className="text-right px-4 py-3 font-medium text-subtle">Ожидалось</th>
+                    <th className="text-right px-4 py-3 font-medium text-subtle">Поступило</th>
+                    <th className="text-right px-4 py-3 font-medium text-subtle">Баланс</th>
+                    <th className="text-left px-4 py-3 font-medium text-subtle">Примечание</th>
                     <th className="px-4 py-3 w-[50px]"></th>
                   </tr>
                 </thead>
@@ -622,24 +625,24 @@ function ReconciliationTab() {
                         {isGroupStart && (
                           <tr
                             key={`gh-${r.groupId}`}
-                            className="bg-amber-50/80 border-b border-amber-200"
+                            className="bg-amber-50/80 dark:bg-amber-500/15 border-b border-amber-200 dark:border-amber-500/30"
                           >
-                            <td className="px-4 py-2 text-xs font-semibold text-amber-700">
+                            <td className="px-4 py-2 text-xs font-semibold text-amber-700 dark:text-amber-300">
                               <Link to={`/client-groups/${r.groupId}`} className="hover:underline">
                                 {r.groupName || "Группа"}
                               </Link>
-                              <span className="ml-2 text-amber-500 font-normal">
+                              <span className="ml-2 text-amber-500 dark:text-amber-400 font-normal">
                                 {filtered.filter((x) => x.groupId === r.groupId).length} орг.
                               </span>
                             </td>
-                            <td className="px-4 py-2 text-right text-xs font-semibold text-amber-700">
+                            <td className="px-4 py-2 text-right text-xs font-semibold text-amber-700 dark:text-amber-300">
                               {fmt(r.groupExpected)}
                             </td>
-                            <td className="px-4 py-2 text-right text-xs font-semibold text-green-700">
+                            <td className="px-4 py-2 text-right text-xs font-semibold text-green-700 dark:text-green-300">
                               {fmt(r.groupReceived)}
                             </td>
                             <td
-                              className={`px-4 py-2 text-right text-xs font-semibold ${(r.groupExpected ?? 0) !== (r.groupReceived ?? 0) ? ((r.groupDebt ?? 0) > 0 ? "text-red-600" : "text-blue-600") : "text-amber-700"}`}
+                              className={`px-4 py-2 text-right text-xs font-semibold ${(r.groupExpected ?? 0) !== (r.groupReceived ?? 0) ? ((r.groupDebt ?? 0) > 0 ? "text-red-600 dark:text-red-300" : "text-blue-600 dark:text-blue-300") : "text-amber-700 dark:text-amber-300"}`}
                             >
                               {(() => {
                                 const diff = (r.groupExpected ?? 0) - (r.groupReceived ?? 0);
@@ -654,7 +657,7 @@ function ReconciliationTab() {
                                 <button
                                   onClick={() => handleWriteOff(null, r.groupId)}
                                   disabled={writingOff === r.groupId}
-                                  className="p-1 text-slate-400 hover:text-[#6567F1] hover:bg-[#6567F1]/10 rounded transition-colors"
+                                  className="p-1 text-subtle hover:text-primary hover:bg-primary/10 rounded transition-colors"
                                   title="Взаимозачёт"
                                 >
                                   <Scale size={14} />
@@ -665,19 +668,19 @@ function ReconciliationTab() {
                         )}
                         <tr
                           key={r.orgId}
-                          className={`border-b hover:bg-slate-50/50 ${isInGroup ? "bg-amber-50/30 border-amber-100" : "border-slate-50"} ${isGroupEnd ? "border-b-2 border-b-amber-200" : ""}`}
+                          className={`border-b hover:bg-canvas/50 ${isInGroup ? "bg-amber-50/30 dark:bg-amber-500/15 border-amber-100 dark:border-amber-500/30" : "border-line"} ${isGroupEnd ? "border-b-2 border-b-amber-200" : ""}`}
                         >
                           <td className={`py-3 ${isInGroup ? "pl-8 pr-4" : "px-4"}`}>
                             <Link
                               to={`/organizations/${r.orgId}`}
-                              className="font-medium text-[#6567F1] hover:underline"
+                              className="font-medium text-primary hover:underline"
                             >
                               {r.orgName}
                             </Link>
                           </td>
                           <td className="px-4 py-3 text-right">
                             {isInGroup ? (
-                              <span className="text-slate-400">{fmt(r.expected)}</span>
+                              <span className="text-subtle">{fmt(r.expected)}</span>
                             ) : (
                               fmt(r.expected)
                             )}
@@ -689,19 +692,25 @@ function ReconciliationTab() {
                             </>
                           ) : (
                             <>
-                              <td className="px-4 py-3 text-right text-green-600 font-medium">
+                              <td className="px-4 py-3 text-right text-green-600 dark:text-green-300 font-medium">
                                 {fmt(r.received)}
                               </td>
                               <td className="px-4 py-3 text-right font-medium">
                                 {(() => {
                                   const diff = r.expected - r.received;
                                   if (diff > 0)
-                                    return <span className="text-red-600">{fmt(diff)}</span>;
+                                    return (
+                                      <span className="text-red-600 dark:text-red-300">
+                                        {fmt(diff)}
+                                      </span>
+                                    );
                                   if (diff < 0)
                                     return (
-                                      <span className="text-blue-600">+{fmt(Math.abs(diff))}</span>
+                                      <span className="text-blue-600 dark:text-blue-300">
+                                        +{fmt(Math.abs(diff))}
+                                      </span>
                                     );
-                                  return <span className="text-slate-400">—</span>;
+                                  return <span className="text-subtle">—</span>;
                                 })()}
                               </td>
                             </>
@@ -714,7 +723,7 @@ function ReconciliationTab() {
                               <button
                                 onClick={() => handleWriteOff(r.orgId, null)}
                                 disabled={writingOff === r.orgId}
-                                className="p-1 text-slate-400 hover:text-[#6567F1] hover:bg-[#6567F1]/10 rounded transition-colors"
+                                className="p-1 text-subtle hover:text-primary hover:bg-primary/10 rounded transition-colors"
                                 title="Взаимозачёт"
                               >
                                 <Scale size={14} />
@@ -733,7 +742,7 @@ function ReconciliationTab() {
       )}
 
       {!done && !reconciling && (
-        <div className="text-slate-400 text-sm py-8 text-center">
+        <div className="text-subtle text-sm py-8 text-center">
           Нажмите «Пересчитать» для сверки всех оплат с 01.01.2025
         </div>
       )}
@@ -765,19 +774,19 @@ function SummaryTab() {
         <select
           value={period}
           onChange={(e) => setPeriod(e.target.value)}
-          className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+          className="px-3 py-2 border border-line rounded-lg text-sm bg-surface"
         >
           <option value="all">Весь период</option>
           <option value="2025">2025</option>
           <option value="2026">2026</option>
         </select>
-        <div className="text-sm text-slate-500">
-          Итого за период: <span className="font-bold text-slate-900">{fmt(totalAll)}</span>
+        <div className="text-sm text-subtle">
+          Итого за период: <span className="font-bold text-heading">{fmt(totalAll)}</span>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-16 text-slate-400">
+        <div className="flex items-center justify-center py-16 text-subtle">
           <Loader2 size={24} className="animate-spin" />
         </div>
       ) : (
@@ -785,17 +794,17 @@ function SummaryTab() {
           {data.map((m) => (
             <div
               key={`${m.year || ""}-${m.month}`}
-              className={`bg-white rounded-xl border p-4 ${m.total > 0 ? "border-green-200" : "border-slate-200"}`}
+              className={`bg-surface rounded-xl border p-4 ${m.total > 0 ? "border-green-200 dark:border-green-500/30" : "border-line"}`}
             >
-              <div className="text-sm text-slate-500 mb-1">
+              <div className="text-sm text-subtle mb-1">
                 {m.year ? `${MONTHS[m.month]} ${m.year}` : MONTHS[m.month]}
               </div>
               <div
-                className={`text-lg font-bold ${m.total > 0 ? "text-green-600" : "text-slate-300"}`}
+                className={`text-lg font-bold ${m.total > 0 ? "text-green-600 dark:text-green-300" : "text-subtle"}`}
               >
                 {m.total > 0 ? fmt(m.total) : "—"}
               </div>
-              <div className="text-xs text-slate-400 mt-1">
+              <div className="text-xs text-subtle mt-1">
                 {m.count > 0 ? `${m.count} платежей` : "нет платежей"}
               </div>
             </div>
@@ -810,8 +819,8 @@ function SummaryTab() {
 
 const DEST_LABELS = { CARD: "Карта", CASH: "Наличные" };
 const DEST_COLORS = {
-  CARD: "bg-blue-100 text-blue-700",
-  CASH: "bg-emerald-100 text-emerald-700",
+  CARD: "bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300",
+  CASH: "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
 };
 
 function CashCardTab() {
@@ -936,7 +945,7 @@ function CashCardTab() {
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+              className="px-3 py-2 border border-line rounded-lg text-sm bg-surface"
             >
               <option value="all">Все ({results.length})</option>
               <option value="debtors">Должники ({summary.debtorCount})</option>
@@ -945,7 +954,7 @@ function CashCardTab() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+              className="px-3 py-2 border border-line rounded-lg text-sm bg-surface"
             >
               <option value="debt">Сначала с долгом</option>
               <option value="alpha">По алфавиту</option>
@@ -954,7 +963,7 @@ function CashCardTab() {
               <select
                 value={sectionFilter}
                 onChange={(e) => setSectionFilter(e.target.value)}
-                className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+                className="px-3 py-2 border border-line rounded-lg text-sm bg-surface"
               >
                 <option value="">Все участки</option>
                 {sections.map(([id, name]) => (
@@ -971,38 +980,40 @@ function CashCardTab() {
       {done && (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+            <div className="bg-surface rounded-xl border border-line p-4">
+              <div className="flex items-center gap-2 text-sm text-subtle mb-1">
                 <DollarSign size={14} />
                 Ожидалось
               </div>
-              <div className="text-lg font-bold text-slate-900">{fmt(summary.expected)}</div>
+              <div className="text-lg font-bold text-heading">{fmt(summary.expected)}</div>
             </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+            <div className="bg-surface rounded-xl border border-line p-4">
+              <div className="flex items-center gap-2 text-sm text-subtle mb-1">
                 <TrendingUp size={14} />
                 Поступило
               </div>
-              <div className="text-lg font-bold text-green-600">{fmt(summary.received)}</div>
+              <div className="text-lg font-bold text-green-600 dark:text-green-300">
+                {fmt(summary.received)}
+              </div>
             </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+            <div className="bg-surface rounded-xl border border-line p-4">
+              <div className="flex items-center gap-2 text-sm text-subtle mb-1">
                 <AlertCircle size={14} />
                 Задолженность
               </div>
               <div
-                className={`text-lg font-bold ${summary.debt > 0 ? "text-red-600" : "text-slate-900"}`}
+                className={`text-lg font-bold ${summary.debt > 0 ? "text-red-600 dark:text-red-300" : "text-heading"}`}
               >
                 {fmt(summary.debt)}
               </div>
             </div>
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
+            <div className="bg-surface rounded-xl border border-line p-4">
+              <div className="flex items-center gap-2 text-sm text-subtle mb-1">
                 <AlertCircle size={14} />
                 Должников
               </div>
               <div
-                className={`text-lg font-bold ${summary.debtorCount > 0 ? "text-red-600" : "text-slate-900"}`}
+                className={`text-lg font-bold ${summary.debtorCount > 0 ? "text-red-600 dark:text-red-300" : "text-heading"}`}
               >
                 {summary.debtorCount}
               </div>
@@ -1010,53 +1021,58 @@ function CashCardTab() {
           </div>
 
           {filtered.length === 0 ? (
-            <div className="text-slate-400 text-sm py-8 text-center">Нет данных</div>
+            <div className="text-subtle text-sm py-8 text-center">Нет данных</div>
           ) : (
-            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden overflow-x-auto">
+            <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/50">
-                    <th className="text-left px-4 py-3 font-medium text-slate-500">Организация</th>
-                    <th className="text-left px-4 py-3 font-medium text-slate-500 w-[90px]">
-                      Способ
-                    </th>
-                    <th className="text-right px-4 py-3 font-medium text-slate-500">Ожидалось</th>
-                    <th className="text-right px-4 py-3 font-medium text-slate-500">Поступило</th>
-                    <th className="text-right px-4 py-3 font-medium text-slate-500">Баланс</th>
-                    <th className="text-left px-4 py-3 font-medium text-slate-500">Примечание</th>
+                  <tr className="border-b border-line bg-canvas/50">
+                    <th className="text-left px-4 py-3 font-medium text-subtle">Организация</th>
+                    <th className="text-left px-4 py-3 font-medium text-subtle w-[90px]">Способ</th>
+                    <th className="text-right px-4 py-3 font-medium text-subtle">Ожидалось</th>
+                    <th className="text-right px-4 py-3 font-medium text-subtle">Поступило</th>
+                    <th className="text-right px-4 py-3 font-medium text-subtle">Баланс</th>
+                    <th className="text-left px-4 py-3 font-medium text-subtle">Примечание</th>
                     <th className="px-4 py-3 w-[100px]"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((r) => (
                     <Fragment key={r.orgId}>
-                      <tr className="border-b border-slate-50 hover:bg-slate-50/50">
+                      <tr className="border-b border-line hover:bg-canvas/50">
                         <td className="px-4 py-3">
                           <Link
                             to={`/organizations/${r.orgId}`}
-                            className="font-medium text-[#6567F1] hover:underline"
+                            className="font-medium text-primary hover:underline"
                           >
                             {r.orgName}
                           </Link>
                         </td>
                         <td className="px-4 py-3">
                           <span
-                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${DEST_COLORS[r.paymentDestination] || "bg-slate-100 text-slate-500"}`}
+                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${DEST_COLORS[r.paymentDestination] || "bg-muted text-subtle"}`}
                           >
                             {DEST_LABELS[r.paymentDestination] || r.paymentDestination}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">{fmt(r.expected)}</td>
-                        <td className="px-4 py-3 text-right text-green-600 font-medium">
+                        <td className="px-4 py-3 text-right text-green-600 dark:text-green-300 font-medium">
                           {fmt(r.received)}
                         </td>
                         <td className="px-4 py-3 text-right font-medium">
                           {(() => {
                             const diff = r.expected - r.received;
-                            if (diff > 0) return <span className="text-red-600">{fmt(diff)}</span>;
+                            if (diff > 0)
+                              return (
+                                <span className="text-red-600 dark:text-red-300">{fmt(diff)}</span>
+                              );
                             if (diff < 0)
-                              return <span className="text-blue-600">+{fmt(Math.abs(diff))}</span>;
-                            return <span className="text-slate-400">—</span>;
+                              return (
+                                <span className="text-blue-600 dark:text-blue-300">
+                                  +{fmt(Math.abs(diff))}
+                                </span>
+                              );
+                            return <span className="text-subtle">—</span>;
                           })()}
                         </td>
                         <td className="px-4 py-3">
@@ -1068,7 +1084,7 @@ function CashCardTab() {
                               <button
                                 onClick={() => handleWriteOff(r.orgId)}
                                 disabled={writingOff === r.orgId}
-                                className="p-1 text-slate-400 hover:text-[#6567F1] hover:bg-[#6567F1]/10 rounded transition-colors"
+                                className="p-1 text-subtle hover:text-primary hover:bg-primary/10 rounded transition-colors"
                                 title="Взаимозачёт"
                               >
                                 <Scale size={14} />
@@ -1083,7 +1099,7 @@ function CashCardTab() {
                                   note: "",
                                 });
                               }}
-                              className="p-1 text-[#6567F1] hover:bg-[#6567F1]/10 rounded"
+                              className="p-1 text-primary hover:bg-primary/10 rounded"
                               title="Внести оплату"
                             >
                               <Plus size={16} />
@@ -1092,7 +1108,7 @@ function CashCardTab() {
                         </td>
                       </tr>
                       {adding === r.orgId && (
-                        <tr className="border-b border-slate-100 bg-slate-50/80">
+                        <tr className="border-b border-line bg-canvas/80">
                           <td colSpan={7} className="px-4 py-3">
                             <div className="flex items-center gap-3 flex-wrap">
                               <input
@@ -1100,21 +1116,21 @@ function CashCardTab() {
                                 placeholder="Сумма"
                                 value={addForm.amount}
                                 onChange={(e) => setAddForm({ ...addForm, amount: e.target.value })}
-                                className="w-32 px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                                className="w-32 px-3 py-1.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                                 autoFocus
                               />
                               <input
                                 type="date"
                                 value={addForm.date}
                                 onChange={(e) => setAddForm({ ...addForm, date: e.target.value })}
-                                className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                                className="px-3 py-1.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                               />
                               <input
                                 type="text"
                                 placeholder="Комментарий (необязательно)"
                                 value={addForm.note}
                                 onChange={(e) => setAddForm({ ...addForm, note: e.target.value })}
-                                className="w-48 px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                                className="w-48 px-3 py-1.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                               />
                               <button
                                 onClick={() => handleAddPayment(r.orgId)}
@@ -1126,7 +1142,7 @@ function CashCardTab() {
                               </button>
                               <button
                                 onClick={() => setAdding(null)}
-                                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg"
+                                className="p-1.5 text-subtle hover:text-body hover:bg-muted rounded-lg"
                               >
                                 <XIcon size={14} />
                               </button>
@@ -1144,7 +1160,7 @@ function CashCardTab() {
       )}
 
       {!done && !loading && (
-        <div className="text-slate-400 text-sm py-8 text-center">
+        <div className="text-subtle text-sm py-8 text-center">
           Нажмите «Пересчитать» для сверки оплат наличными и картой с 01.01.2026
         </div>
       )}
@@ -1252,14 +1268,14 @@ export default function PaymentsPage() {
   }
 
   if (!hasRole("admin") && !hasRole("supervisor")) {
-    return <div className="text-slate-400 text-center py-16">Нет доступа</div>;
+    return <div className="text-subtle text-center py-16">Нет доступа</div>;
   }
 
   // Standalone cash/card page — no bank UI, no tabs
   if (searchParams.get("tab") === "cashcard") {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-slate-900">Оплаты картой и наличными</h1>
+        <h1 className="text-2xl font-bold text-heading">Оплаты картой и наличными</h1>
         <CashCardTab />
       </div>
     );
@@ -1275,9 +1291,9 @@ export default function PaymentsPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Поступления</h1>
+          <h1 className="text-2xl font-bold text-heading">Поступления</h1>
           {accounts.length > 0 && (
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="text-sm text-subtle mt-1">
               Счёт: {accounts[0].accountNumber}
               {accounts[0].lastSyncAt && (
                 <span className="ml-2">
@@ -1292,7 +1308,7 @@ export default function PaymentsPage() {
           {accounts.length === 0 && (
             <button
               onClick={() => setShowSetup(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] rounded-lg text-sm font-medium hover:bg-[#6567F1]/5"
+              className="inline-flex items-center gap-2 px-4 py-2 border-2 border-primary/20 text-primary rounded-lg text-sm font-medium hover:bg-primary/5"
             >
               Подключить счёт
             </button>
@@ -1300,7 +1316,7 @@ export default function PaymentsPage() {
           <select
             value={syncPeriod}
             onChange={(e) => setSyncPeriod(e.target.value)}
-            className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"
+            className="px-3 py-2 border border-line rounded-lg text-sm bg-surface"
           >
             <option value="all">Весь период</option>
             <option value="2025">2025</option>
@@ -1327,14 +1343,14 @@ export default function PaymentsPage() {
 
       {/* Sync result banner */}
       {syncResult && (
-        <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 flex items-center justify-between">
-          <span className="text-sm text-green-700">
+        <div className="bg-green-50 dark:bg-green-500/15 border border-green-200 dark:border-green-500/30 rounded-lg px-4 py-3 flex items-center justify-between">
+          <span className="text-sm text-green-700 dark:text-green-300">
             Импортировано: <b>{syncResult.imported}</b>, пропущено: <b>{syncResult.skipped}</b>,
             сопоставлено: <b>{syncResult.matched}</b>
           </span>
           <button
             onClick={() => setSyncResult(null)}
-            className="p-1 text-green-400 hover:text-green-600"
+            className="p-1 text-green-400 hover:text-green-600 dark:hover:text-green-300"
           >
             <XIcon size={14} />
           </button>
@@ -1344,15 +1360,15 @@ export default function PaymentsPage() {
       {/* Setup modal */}
       {showSetup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4">
+          <div className="bg-surface rounded-2xl shadow-xl p-6 w-full max-w-md mx-4">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-slate-900">Подключение счёта Точка</h2>
+              <h2 className="text-lg font-bold text-heading">Подключение счёта Точка</h2>
               <button
                 onClick={() => {
                   setShowSetup(false);
                   setTochkaAccounts(null);
                 }}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
               >
                 <XIcon size={18} />
               </button>
@@ -1360,7 +1376,7 @@ export default function PaymentsPage() {
 
             {!tochkaAccounts ? (
               <div className="space-y-4">
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-body">
                   Нажмите кнопку чтобы загрузить список счетов из API Точки.
                 </p>
                 <button
@@ -1377,18 +1393,18 @@ export default function PaymentsPage() {
                 </button>
               </div>
             ) : tochkaAccounts.length === 0 ? (
-              <p className="text-sm text-slate-500">Счетов не найдено. Проверьте JWT-токен.</p>
+              <p className="text-sm text-subtle">Счетов не найдено. Проверьте JWT-токен.</p>
             ) : (
               <div className="space-y-2">
-                <p className="text-sm text-slate-600 mb-3">Выберите счёт для подключения:</p>
+                <p className="text-sm text-body mb-3">Выберите счёт для подключения:</p>
                 {tochkaAccounts.map((acc) => (
                   <button
                     key={acc.accountId}
                     onClick={() => handleAddAccount(acc)}
-                    className="w-full text-left p-3 border border-slate-200 rounded-lg hover:border-[#6567F1] hover:bg-[#6567F1]/5 transition-colors"
+                    className="w-full text-left p-3 border border-line rounded-lg hover:border-primary hover:bg-primary/5 transition-colors"
                   >
-                    <div className="font-medium text-sm text-slate-900">{acc.name}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">
+                    <div className="font-medium text-sm text-heading">{acc.name}</div>
+                    <div className="text-xs text-subtle mt-0.5">
                       {acc.accountId} · {acc.currency} · {acc.status}
                     </div>
                   </button>
@@ -1400,15 +1416,13 @@ export default function PaymentsPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 rounded-lg p-1 w-fit">
+      <div className="flex gap-1 bg-muted rounded-lg p-1 w-fit">
         {tabs.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => setTab(key)}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              tab === key
-                ? "bg-white text-[#6567F1] shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
+              tab === key ? "bg-surface text-primary shadow-sm" : "text-body hover:text-heading"
             }`}
           >
             <Icon size={15} />

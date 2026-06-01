@@ -64,11 +64,11 @@ export default function OnboardingChecklist() {
 
   return (
     <>
-      <div className="bg-gradient-to-br from-[#6567F1]/5 to-[#5557E1]/5 rounded-2xl border border-[#6567F1]/20 p-5 mb-6">
+      <div className="bg-gradient-to-br from-[#6567F1]/5 to-[#5557E1]/5 rounded-2xl border border-primary/20 p-5 mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-base font-semibold text-slate-900">Добро пожаловать в ASBUH</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <h3 className="text-base font-semibold text-heading">Добро пожаловать в ASBUH</h3>
+            <p className="text-xs text-subtle mt-0.5">
               {doneCount} из {steps.length} шагов готово
             </p>
           </div>
@@ -76,7 +76,7 @@ export default function OnboardingChecklist() {
             {steps.map((s) => (
               <span
                 key={s.key}
-                className={`w-2 h-2 rounded-full ${s.done ? "bg-[#6567F1]" : "bg-slate-300"}`}
+                className={`w-2 h-2 rounded-full ${s.done ? "bg-primary" : "bg-slate-300"}`}
               />
             ))}
           </div>
@@ -88,21 +88,23 @@ export default function OnboardingChecklist() {
             return (
               <div
                 key={s.key}
-                className={`bg-white rounded-xl border p-4 ${
-                  s.done ? "border-emerald-200" : "border-slate-200"
+                className={`bg-surface rounded-xl border p-4 ${
+                  s.done ? "border-emerald-200 dark:border-emerald-500/30" : "border-line"
                 }`}
               >
                 <div className="flex items-start gap-3">
                   <div
                     className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
-                      s.done ? "bg-emerald-50 text-emerald-600" : "bg-[#6567F1]/10 text-[#6567F1]"
+                      s.done
+                        ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300"
+                        : "bg-primary/10 text-primary"
                     }`}
                   >
                     {s.done ? <Check size={16} /> : <Icon size={16} />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900">{s.title}</p>
-                    <p className="text-xs text-slate-500 mt-1">{s.desc}</p>
+                    <p className="text-sm font-medium text-heading">{s.title}</p>
+                    <p className="text-xs text-subtle mt-1">{s.desc}</p>
                   </div>
                 </div>
                 {!s.done && (
@@ -111,7 +113,7 @@ export default function OnboardingChecklist() {
                       <Link
                         to={s.cta.to}
                         onClick={s.onClickCta}
-                        className="inline-flex items-center text-xs font-semibold text-[#6567F1] hover:text-[#5557E1]"
+                        className="inline-flex items-center text-xs font-semibold text-primary hover:text-[#5557E1]"
                       >
                         {s.cta.label} →
                       </Link>
@@ -119,14 +121,18 @@ export default function OnboardingChecklist() {
                       <button
                         type="button"
                         onClick={s.action}
-                        className="inline-flex items-center text-xs font-semibold text-[#6567F1] hover:text-[#5557E1]"
+                        className="inline-flex items-center text-xs font-semibold text-primary hover:text-[#5557E1]"
                       >
                         {s.ctaLabel} →
                       </button>
                     )}
                   </div>
                 )}
-                {s.done && <p className="mt-3 text-xs font-medium text-emerald-600">Готово</p>}
+                {s.done && (
+                  <p className="mt-3 text-xs font-medium text-emerald-600 dark:text-emerald-300">
+                    Готово
+                  </p>
+                )}
               </div>
             );
           })}
@@ -153,15 +159,15 @@ function ManagersModal({ managers, onClose }) {
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-lg w-full max-h-[80vh] overflow-y-auto"
+        className="bg-surface rounded-2xl shadow-xl border border-line max-w-lg w-full max-h-[80vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-5 border-b border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900">Ваша команда ASBUH</h3>
+        <div className="flex items-center justify-between p-5 border-b border-line">
+          <h3 className="text-lg font-semibold text-heading">Ваша команда ASBUH</h3>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
           >
             <X size={18} />
           </button>
@@ -169,9 +175,9 @@ function ManagersModal({ managers, onClose }) {
 
         <div className="p-5 space-y-3">
           {managers.length === 0 ? (
-            <p className="text-sm text-slate-500 text-center py-4">
+            <p className="text-sm text-subtle text-center py-4">
               Команда пока не назначена. Свяжитесь с поддержкой:{" "}
-              <a href="mailto:info@asbuh.com" className="text-[#6567F1] font-medium">
+              <a href="mailto:info@asbuh.com" className="text-primary font-medium">
                 info@asbuh.com
               </a>
             </p>
@@ -198,36 +204,36 @@ function ManagerCard({ m }) {
   const roleLabel = m.sectionRole === "manager" ? "Менеджер" : "Бухгалтер";
   const initials = `${m.firstName.charAt(0)}${m.lastName.charAt(0)}`.toUpperCase();
   return (
-    <div className="flex gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50/50">
+    <div className="flex gap-3 p-3 rounded-xl border border-line bg-canvas/50">
       <div className="shrink-0">
         {m.avatarPath ? (
           <img
             src={m.avatarPath}
             alt=""
-            className="w-12 h-12 rounded-full object-cover border border-slate-200"
+            className="w-12 h-12 rounded-full object-cover border border-line"
           />
         ) : (
-          <div className="w-12 h-12 rounded-full bg-[#6567F1]/10 text-[#6567F1] font-semibold flex items-center justify-center">
+          <div className="w-12 h-12 rounded-full bg-primary/10 text-primary font-semibold flex items-center justify-center">
             {initials}
           </div>
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-slate-900">
+        <p className="text-sm font-semibold text-heading">
           {m.firstName} {m.lastName}
         </p>
-        <p className="text-xs text-slate-500 mt-0.5">{roleLabel}</p>
+        <p className="text-xs text-subtle mt-0.5">{roleLabel}</p>
         <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
           <a
             href={`mailto:${m.email}`}
-            className="inline-flex items-center gap-1 text-slate-600 hover:text-[#6567F1]"
+            className="inline-flex items-center gap-1 text-body hover:text-primary"
           >
             <Mail size={12} /> {m.email}
           </a>
           {m.phone && (
             <a
               href={`tel:${m.phone}`}
-              className="inline-flex items-center gap-1 text-slate-600 hover:text-[#6567F1]"
+              className="inline-flex items-center gap-1 text-body hover:text-primary"
             >
               <Phone size={12} /> {m.phone}
             </a>
@@ -237,7 +243,7 @@ function ManagerCard({ m }) {
               href={`https://t.me/${m.telegramUsername}`}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 text-slate-600 hover:text-[#6567F1]"
+              className="inline-flex items-center gap-1 text-body hover:text-primary"
             >
               <Send size={12} /> @{m.telegramUsername}
             </a>

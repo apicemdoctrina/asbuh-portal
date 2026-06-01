@@ -2,15 +2,15 @@ import { formatRelative } from "./relativeTime.js";
 
 const DOT_COLOR = {
   task_done: "bg-emerald-500",
-  ticket_status: "bg-[#6567F1]",
+  ticket_status: "bg-primary",
 };
 
 export default function ActivityFeed({ feed }) {
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
-      <div className="font-semibold text-slate-700 text-sm mb-4">Что мы для вас делаем</div>
+    <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
+      <div className="font-semibold text-body text-sm mb-4">Что мы для вас делаем</div>
       {feed.length === 0 ? (
-        <div className="text-sm text-slate-400 py-6 text-center">
+        <div className="text-sm text-subtle py-6 text-center">
           Скоро здесь появится история действий бухгалтера по вашей компании.
         </div>
       ) : (
@@ -21,8 +21,8 @@ export default function ActivityFeed({ feed }) {
                 className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${DOT_COLOR[item.kind] ?? "bg-slate-300"}`}
               />
               <div>
-                <div className="text-sm font-medium text-slate-900">{item.title}</div>
-                <div className="text-xs text-slate-400">
+                <div className="text-sm font-medium text-heading">{item.title}</div>
+                <div className="text-xs text-subtle">
                   {formatRelative(item.at)}
                   {item.actor ? ` · ${item.actor}` : ""}
                 </div>

@@ -7,7 +7,7 @@ import OnboardingChecklist from "../components/client/OnboardingChecklist.jsx";
 
 function Skeleton() {
   return (
-    <div className="flex items-center justify-center py-16 text-slate-400">
+    <div className="flex items-center justify-center py-16 text-subtle">
       <Loader2 size={24} className="animate-spin" />
     </div>
   );
@@ -47,7 +47,7 @@ export default function ClientDashboardPage() {
 
   if (error) {
     return (
-      <div className="bg-red-50 text-red-700 rounded-lg p-4 flex items-center justify-between">
+      <div className="bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg p-4 flex items-center justify-between">
         <span>{error}</span>
         <button onClick={load} className="text-sm font-semibold underline">
           Попробовать снова
@@ -58,11 +58,11 @@ export default function ClientDashboardPage() {
 
   if (!data || data.organizations.length === 0) {
     return (
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-8 text-center">
-        <h2 className="text-lg font-semibold text-slate-900">
+      <div className="bg-surface rounded-2xl shadow-lg border border-line p-8 text-center">
+        <h2 className="text-lg font-semibold text-heading">
           Аккаунт ещё не привязан к организации
         </h2>
-        <p className="mt-2 text-sm text-slate-500">
+        <p className="mt-2 text-sm text-subtle">
           Свяжитесь с менеджером, чтобы получить доступ к дашборду компании.
         </p>
       </div>

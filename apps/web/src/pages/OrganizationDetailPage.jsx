@@ -74,21 +74,21 @@ const ROLE_LABELS = {
 const ORG_FORM_LABELS = { OOO: "ООО", IP: "ИП", NKO: "НКО", AO: "АО", PAO: "ПАО" };
 const ARCHIVED_STATUSES = ["left", "closed", "ceased"];
 const STATUS_BADGE_COLORS = {
-  active: "bg-green-100 text-green-700",
-  new: "bg-blue-100 text-blue-700",
-  liquidating: "bg-amber-100 text-amber-700",
-  left: "bg-slate-100 text-slate-500",
-  closed: "bg-slate-100 text-slate-500",
-  not_paying: "bg-red-100 text-red-700",
-  ceased: "bg-slate-100 text-slate-500",
-  own: "bg-purple-100 text-purple-700",
+  active: "bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300",
+  new: "bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300",
+  liquidating: "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  left: "bg-muted text-subtle",
+  closed: "bg-muted text-subtle",
+  not_paying: "bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300",
+  ceased: "bg-muted text-subtle",
+  own: "bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300",
   blacklisted: "bg-slate-900 text-white",
 };
 
 const INPUT_CLS =
-  "w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]";
-const SELECT_CLS = `${INPUT_CLS} bg-white`;
-const LABEL_CLS = "block text-sm font-medium text-slate-700 mb-1";
+  "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary";
+const SELECT_CLS = `${INPUT_CLS} bg-surface`;
+const LABEL_CLS = "block text-sm font-medium text-body mb-1";
 
 function toIntOrNull(v) {
   const n = parseInt(v, 10);
@@ -114,11 +114,11 @@ function Field({ label, value }) {
   const empty = value == null || value === "" || value === "—";
   return (
     <div className="min-w-0">
-      <dt className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide leading-none">
+      <dt className="text-[11px] font-semibold text-subtle uppercase tracking-wide leading-none">
         {label}
       </dt>
-      <dd className="text-sm text-slate-700 mt-1 leading-snug break-words">
-        {empty ? <span className="text-slate-300">—</span> : value}
+      <dd className="text-sm text-body mt-1 leading-snug break-words">
+        {empty ? <span className="text-subtle">—</span> : value}
       </dd>
     </div>
   );
@@ -156,20 +156,20 @@ function PriceHistoryAddForm({ orgId, onAdded }) {
   }
 
   return (
-    <form onSubmit={handleAdd} className="pt-2 border-t border-slate-200 mt-2 space-y-2">
+    <form onSubmit={handleAdd} className="pt-2 border-t border-line mt-2 space-y-2">
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="block text-[10px] font-medium text-slate-400 mb-0.5">Дата</label>
+          <label className="block text-[10px] font-medium text-subtle mb-0.5">Дата</label>
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+            className="w-full px-2.5 py-1.5 border border-line rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             required
           />
         </div>
         <div>
-          <label className="block text-[10px] font-medium text-slate-400 mb-0.5">Сумма ₽</label>
+          <label className="block text-[10px] font-medium text-subtle mb-0.5">Сумма ₽</label>
           <input
             type="number"
             step="1"
@@ -177,12 +177,12 @@ function PriceHistoryAddForm({ orgId, onAdded }) {
             placeholder="10 000"
             value={price}
             onChange={(e) => setPrice(e.target.value)}
-            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+            className="w-full px-2.5 py-1.5 border border-line rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             required
           />
         </div>
       </div>
-      {error && <div className="text-xs text-red-500">{error}</div>}
+      {error && <div className="text-xs text-red-500 dark:text-red-400">{error}</div>}
       <button
         type="submit"
         disabled={saving || !price || !date}
@@ -542,15 +542,15 @@ export default function OrganizationDetailPage() {
 
   if (loading)
     return (
-      <div className="flex items-center justify-center py-24 text-slate-400">
+      <div className="flex items-center justify-center py-24 text-subtle">
         <Loader2 size={28} className="animate-spin" />
       </div>
     );
   if (error)
     return (
-      <div className="text-red-600 text-sm">
+      <div className="text-red-600 dark:text-red-300 text-sm">
         {error}{" "}
-        <Link to="/organizations" className="text-[#6567F1] hover:underline">
+        <Link to="/organizations" className="text-primary hover:underline">
           Назад
         </Link>
       </div>
@@ -565,7 +565,7 @@ export default function OrganizationDetailPage() {
     <>
       <Link
         to="/organizations"
-        className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-[#6567F1] mb-3"
+        className="inline-flex items-center gap-1 text-sm text-subtle hover:text-primary mb-3"
       >
         <ArrowLeft size={15} /> Все организации
       </Link>
@@ -573,20 +573,20 @@ export default function OrganizationDetailPage() {
       {/* ── Header ── */}
       <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
         <div className="flex items-center gap-2.5 flex-wrap min-w-0">
-          <h1 className="text-xl font-bold text-slate-900 leading-tight">{org.name}</h1>
+          <h1 className="text-xl font-bold text-heading leading-tight">{org.name}</h1>
           {org.form && (
-            <span className="shrink-0 px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs font-semibold">
+            <span className="shrink-0 px-2 py-0.5 bg-muted text-body rounded text-xs font-semibold">
               {ORG_FORM_LABELS[org.form] || org.form}
             </span>
           )}
           <span
-            className={`shrink-0 px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE_COLORS[org.status] || "bg-slate-100 text-slate-500"}`}
+            className={`shrink-0 px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE_COLORS[org.status] || "bg-muted text-subtle"}`}
           >
             {STATUS_LABELS[org.status] || org.status}
           </span>
           {saveMsg && (
             <span
-              className={`text-sm font-medium ${saveMsg === "Сохранено" ? "text-green-600" : "text-red-600"}`}
+              className={`text-sm font-medium ${saveMsg === "Сохранено" ? "text-green-600 dark:text-green-300" : "text-red-600 dark:text-red-300"}`}
             >
               {saveMsg}
             </span>
@@ -601,7 +601,7 @@ export default function OrganizationDetailPage() {
                 setInviteError("");
                 setCopied(false);
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg text-sm font-medium transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-line text-body hover:bg-canvas rounded-lg text-sm font-medium transition-colors"
             >
               <Link2 size={14} /> Пригласить
             </button>
@@ -621,7 +621,7 @@ export default function OrganizationDetailPage() {
           {isAdmin && !editing && (
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-sm font-medium transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/15 rounded-lg text-sm font-medium transition-colors"
             >
               <Trash2 size={14} /> Удалить
             </button>
@@ -631,7 +631,7 @@ export default function OrganizationDetailPage() {
 
       {/* ── Important comment ── */}
       {org.importantComment && (
-        <div className="mb-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-900">
+        <div className="mb-3 px-4 py-2.5 bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 rounded-xl text-sm text-amber-900 dark:text-amber-300">
           <span className="font-semibold">⚠ Важно:</span> {org.importantComment}
         </div>
       )}
@@ -643,8 +643,8 @@ export default function OrganizationDetailPage() {
         /* ══════════════════ EDIT MODE ══════════════════ */
         <form onSubmit={handleSave} className="space-y-4">
           {/* Основная информация */}
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-            <h2 className="text-base font-bold text-slate-900 mb-4">Основная информация</h2>
+          <div className="bg-surface rounded-2xl shadow-lg border border-line p-6">
+            <h2 className="text-base font-bold text-heading mb-4">Основная информация</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <label className={LABEL_CLS}>Название *</label>
@@ -763,12 +763,12 @@ export default function OrganizationDetailPage() {
               )}
               {!ARCHIVED_STATUSES.includes(form.status) && (
                 <div className="flex items-end">
-                  <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer pb-2">
+                  <label className="flex items-center gap-2 text-sm text-body cursor-pointer pb-2">
                     <input
                       type="checkbox"
                       checked={form.hasCashRegister}
                       onChange={(e) => setField("hasCashRegister", e.target.checked)}
-                      className="w-4 h-4 rounded border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                      className="w-4 h-4 rounded border-line text-primary focus:ring-primary/30"
                     />
                     Касса
                   </label>
@@ -783,13 +783,13 @@ export default function OrganizationDetailPage() {
                   {Object.entries(TAX_SYSTEM_LABELS).map(([key, label]) => (
                     <label
                       key={key}
-                      className="flex items-center gap-1.5 text-sm text-slate-700 cursor-pointer"
+                      className="flex items-center gap-1.5 text-sm text-body cursor-pointer"
                     >
                       <input
                         type="checkbox"
                         checked={form.taxSystems.includes(key)}
                         onChange={() => toggleTaxSystem(key)}
-                        className="w-4 h-4 rounded border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                        className="w-4 h-4 rounded border-line text-primary focus:ring-primary/30"
                       />
                       {label}
                     </label>
@@ -825,8 +825,8 @@ export default function OrganizationDetailPage() {
           {/* Реквизиты + Бухгалтерия + Финансы — скрыты для архивных статусов */}
           {!ARCHIVED_STATUSES.includes(form.status) && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-                <h2 className="text-base font-bold text-slate-900 mb-4">Реквизиты</h2>
+              <div className="bg-surface rounded-2xl shadow-lg border border-line p-6">
+                <h2 className="text-base font-bold text-heading mb-4">Реквизиты</h2>
                 <div className="space-y-3">
                   <div>
                     <label className={LABEL_CLS}>Р/С</label>
@@ -869,8 +869,8 @@ export default function OrganizationDetailPage() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-                <h2 className="text-base font-bold text-slate-900 mb-4">Бухгалтерия</h2>
+              <div className="bg-surface rounded-2xl shadow-lg border border-line p-6">
+                <h2 className="text-base font-bold text-heading mb-4">Бухгалтерия</h2>
                 <div className="space-y-3">
                   <div>
                     <label className={LABEL_CLS}>ЭЦП</label>
@@ -929,8 +929,8 @@ export default function OrganizationDetailPage() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-                <h2 className="text-base font-bold text-slate-900 mb-4">Финансы</h2>
+              <div className="bg-surface rounded-2xl shadow-lg border border-line p-6">
+                <h2 className="text-base font-bold text-heading mb-4">Финансы</h2>
                 <div className="space-y-3">
                   <div>
                     <label className={LABEL_CLS}>Ежемесячный платёж</label>
@@ -1009,7 +1009,7 @@ export default function OrganizationDetailPage() {
                 populateForm(org);
                 setEditing(false);
               }}
-              className="inline-flex items-center gap-2 px-4 py-2 border-2 border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg text-sm font-medium transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 border-2 border-line text-body hover:bg-canvas rounded-lg text-sm font-medium transition-colors"
             >
               <X size={16} />
               Отмена
@@ -1018,8 +1018,8 @@ export default function OrganizationDetailPage() {
         </form>
       ) : /* ══════════════════ READ MODE ══════════════════ */
       ARCHIVED_STATUSES.includes(org.status) ? (
-        <div className="mb-4 bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-          <div className="mb-4 px-4 py-2.5 bg-slate-100 border border-slate-300 rounded-xl text-sm text-slate-600 font-medium">
+        <div className="mb-4 bg-surface rounded-2xl shadow-lg border border-line p-6">
+          <div className="mb-4 px-4 py-2.5 bg-muted border border-line rounded-xl text-sm text-body font-medium">
             Организация в архиве — {STATUS_LABELS[org.status]}
           </div>
           <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
@@ -1034,10 +1034,10 @@ export default function OrganizationDetailPage() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
           {/* ── Left: all org data in one card ── */}
-          <div className="lg:col-span-2 bg-white rounded-2xl shadow-lg border border-slate-200 divide-y divide-slate-100">
+          <div className="lg:col-span-2 bg-surface rounded-2xl shadow-lg border border-line divide-y divide-line">
             {/* Основные сведения */}
             <div className="p-5">
-              <h3 className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-3">
+              <h3 className="text-[11px] font-semibold text-subtle uppercase tracking-widest mb-3">
                 Основные сведения
               </h3>
               <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
@@ -1054,13 +1054,13 @@ export default function OrganizationDetailPage() {
                 />
                 {org.clientGroup ? (
                   <div>
-                    <dt className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
+                    <dt className="text-[11px] font-medium text-subtle uppercase tracking-wider">
                       Группа клиента
                     </dt>
                     <dd className="mt-0.5 text-sm">
                       <Link
                         to={`/client-groups/${org.clientGroup.id}`}
-                        className="text-[#6567F1] hover:underline font-medium"
+                        className="text-primary hover:underline font-medium"
                       >
                         {org.clientGroup.name}
                       </Link>
@@ -1093,7 +1093,7 @@ export default function OrganizationDetailPage() {
 
             {/* Бухгалтерия */}
             <div className="p-5">
-              <h3 className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-3">
+              <h3 className="text-[11px] font-semibold text-subtle uppercase tracking-widest mb-3">
                 Бухгалтерия
               </h3>
               <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
@@ -1112,44 +1112,42 @@ export default function OrganizationDetailPage() {
 
             {/* Финансы */}
             <div className="p-5">
-              <h3 className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-3">
+              <h3 className="text-[11px] font-semibold text-subtle uppercase tracking-widest mb-3">
                 Финансы
               </h3>
               <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
                 <div className="min-w-0">
-                  <dt className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide leading-none">
+                  <dt className="text-[11px] font-semibold text-subtle uppercase tracking-wide leading-none">
                     Ежемес. платёж
                   </dt>
-                  <dd className="text-sm text-slate-700 mt-1 leading-snug">
+                  <dd className="text-sm text-body mt-1 leading-snug">
                     {org.monthlyPayment ? (
                       formatCurrency(org.monthlyPayment)
                     ) : (
-                      <span className="text-slate-300">—</span>
+                      <span className="text-subtle">—</span>
                     )}
                     {(org.priceHistory?.length > 0 || canEdit) && (
                       <button
                         onClick={() => setPriceHistoryOpen((v) => !v)}
-                        className="ml-2 text-xs text-[#6567F1] hover:underline"
+                        className="ml-2 text-xs text-primary hover:underline"
                       >
                         история{org.priceHistory?.length ? ` · ${org.priceHistory.length}` : ""}
                       </button>
                     )}
                   </dd>
                   {priceHistoryOpen && (
-                    <div className="mt-2 bg-slate-50 rounded-lg border border-slate-200 p-2 text-xs space-y-1">
+                    <div className="mt-2 bg-canvas rounded-lg border border-line p-2 text-xs space-y-1">
                       {(org.priceHistory || []).length > 0 &&
                         [...org.priceHistory].reverse().map((h) => (
                           <div key={h.id} className="flex items-center justify-between gap-3">
-                            <span className="text-slate-500">
+                            <span className="text-subtle">
                               с {new Date(h.effectiveFrom).toLocaleDateString("ru-RU")}
                             </span>
-                            <span className="font-medium text-slate-700">
-                              {formatCurrency(h.price)}
-                            </span>
+                            <span className="font-medium text-body">{formatCurrency(h.price)}</span>
                             {canEdit && (
                               <button
                                 onClick={() => handleDeletePriceEntry(h.id)}
-                                className="text-slate-300 hover:text-red-500 transition-colors"
+                                className="text-subtle hover:text-red-500 dark:hover:text-red-400 transition-colors"
                                 title="Удалить"
                               >
                                 ×
@@ -1197,7 +1195,7 @@ export default function OrganizationDetailPage() {
             {/* Реквизиты (only if any filled) */}
             {hasRequisites && (
               <div className="p-5">
-                <h3 className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-3">
+                <h3 className="text-[11px] font-semibold text-subtle uppercase tracking-widest mb-3">
                   Реквизиты
                 </h3>
                 <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
@@ -1216,13 +1214,13 @@ export default function OrganizationDetailPage() {
             {!hasRole("client") && <OrgCompletenessCard org={org} />}
 
             {/* Members */}
-            <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
+            <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-slate-700">Участники</h3>
+                <h3 className="text-sm font-semibold text-body">Участники</h3>
                 {hasRole("admin") && (
                   <button
                     onClick={openAddMember}
-                    className="inline-flex items-center gap-1 text-xs text-[#6567F1] hover:text-[#5557E1] font-medium"
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:text-[#5557E1] font-medium"
                   >
                     <UserPlus size={13} /> Добавить
                   </button>
@@ -1230,24 +1228,24 @@ export default function OrganizationDetailPage() {
               </div>
 
               {org.members?.length === 0 ? (
-                <p className="text-xs text-slate-400">Нет участников</p>
+                <p className="text-xs text-subtle">Нет участников</p>
               ) : (
                 <div className="space-y-2.5">
                   {org.members?.map((m) => (
                     <div key={m.id} className="flex items-start justify-between group">
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-900 leading-tight">
+                        <p className="text-sm font-medium text-heading leading-tight">
                           {m.user.lastName} {m.user.firstName}
                         </p>
-                        <p className="text-xs text-slate-400 truncate mt-0.5">{m.user.email}</p>
-                        <span className="inline-block mt-1 bg-[#6567F1]/10 text-[#6567F1] px-1.5 py-0.5 rounded-full text-[11px] font-medium">
+                        <p className="text-xs text-subtle truncate mt-0.5">{m.user.email}</p>
+                        <span className="inline-block mt-1 bg-primary/10 text-primary px-1.5 py-0.5 rounded-full text-[11px] font-medium">
                           {ROLE_LABELS[m.role] ?? m.role}
                         </span>
                       </div>
                       {hasRole("admin") && (
                         <button
                           onClick={() => handleRemoveMember(m.user.id)}
-                          className="ml-2 mt-0.5 shrink-0 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                          className="ml-2 mt-0.5 shrink-0 text-subtle hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -1345,16 +1343,16 @@ export default function OrganizationDetailPage() {
       {/* ── Invite Client Modal ── */}
       {showInvite && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md mx-4 p-6">
-            <h2 className="text-lg font-bold text-slate-900 mb-4">Пригласить клиента</h2>
+          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-md mx-4 p-6">
+            <h2 className="text-lg font-bold text-heading mb-4">Пригласить клиента</h2>
 
             {!inviteLink && !inviteError && (
               <div>
-                <p className="text-sm text-slate-500 mb-4">
+                <p className="text-sm text-subtle mb-4">
                   Будет сгенерирована ссылка-приглашение для регистрации клиента в организации{" "}
-                  <span className="font-semibold text-slate-900">&laquo;{org.name}&raquo;</span>.
+                  <span className="font-semibold text-heading">&laquo;{org.name}&raquo;</span>.
                 </p>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-body mb-1">
                   Email клиента (необязательно)
                 </label>
                 <input
@@ -1362,9 +1360,9 @@ export default function OrganizationDetailPage() {
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
                   placeholder="client@example.com"
-                  className="w-full px-3 py-2 mb-2 border border-slate-200 rounded-lg text-sm focus:border-[#6567F1] focus:ring-2 focus:ring-[#6567F1]/20 outline-none"
+                  className="w-full px-3 py-2 mb-2 border border-line rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
                 />
-                <p className="text-xs text-slate-400 mb-4">
+                <p className="text-xs text-subtle mb-4">
                   Если заполните — клиенту придёт приветственное письмо со ссылкой. Иначе только
                   скопируете ссылку и отправите сами.
                 </p>
@@ -1385,7 +1383,7 @@ export default function OrganizationDetailPage() {
             {inviteLink && (
               <div className="space-y-3">
                 {inviteEmailSent && (
-                  <div className="flex items-center gap-2 p-3 bg-emerald-50 text-emerald-700 rounded-lg text-sm">
+                  <div className="flex items-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 rounded-lg text-sm">
                     <Check size={16} className="shrink-0" />
                     <span>
                       Приглашение отправлено на <strong>{inviteEmail.trim()}</strong>
@@ -1393,11 +1391,11 @@ export default function OrganizationDetailPage() {
                   </div>
                 )}
                 {inviteEmailWarning && (
-                  <div className="p-3 bg-amber-50 text-amber-800 rounded-lg text-sm">
+                  <div className="p-3 bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 rounded-lg text-sm">
                     {inviteEmailWarning}
                   </div>
                 )}
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-subtle">
                   Ссылка-приглашение (можно скопировать и отправить вручную):
                 </p>
                 <div className="flex items-center gap-2">
@@ -1405,28 +1403,30 @@ export default function OrganizationDetailPage() {
                     type="text"
                     readOnly
                     value={inviteLink}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-700"
+                    className="w-full px-3 py-2 border border-line rounded-lg text-sm bg-canvas text-body"
                   />
                   <button
                     onClick={handleCopyInvite}
-                    className="shrink-0 inline-flex items-center gap-1 px-3 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+                    className="shrink-0 inline-flex items-center gap-1 px-3 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
                   >
                     {copied ? <Check size={16} /> : <Copy size={16} />}
                     {copied ? "Скопировано" : "Копировать"}
                   </button>
                 </div>
-                <p className="text-xs text-slate-400">Действительна до: {inviteExpiry}</p>
+                <p className="text-xs text-subtle">Действительна до: {inviteExpiry}</p>
               </div>
             )}
 
             {inviteError && (
-              <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{inviteError}</div>
+              <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
+                {inviteError}
+              </div>
             )}
 
             <div className="flex justify-end mt-4">
               <button
                 onClick={() => setShowInvite(false)}
-                className="px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+                className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
               >
                 Закрыть
               </button>
@@ -1438,20 +1438,18 @@ export default function OrganizationDetailPage() {
       {/* ── Add Member Modal ── */}
       {showAddMember && hasRole("admin") && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md mx-4 p-6">
-            <h2 className="text-lg font-bold text-slate-900 mb-4">Добавить участника</h2>
+          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-md mx-4 p-6">
+            <h2 className="text-lg font-bold text-heading mb-4">Добавить участника</h2>
             <form onSubmit={handleAddMember} className="flex flex-col gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Пользователь *
-                </label>
+                <label className="block text-sm font-medium text-body mb-1">Пользователь *</label>
                 <select
                   value={selectedUser?.id || ""}
                   onChange={(e) =>
                     setSelectedUser(allUsers.find((u) => u.id === e.target.value) || null)
                   }
                   autoFocus
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
                 >
                   <option value="">Выберите пользователя...</option>
                   {allUsers.map((u) => (
@@ -1461,17 +1459,19 @@ export default function OrganizationDetailPage() {
                   ))}
                 </select>
                 {allUsers.length === 0 && (
-                  <p className="text-xs text-slate-400 mt-1">Загрузка пользователей...</p>
+                  <p className="text-xs text-subtle mt-1">Загрузка пользователей...</p>
                 )}
               </div>
               {memberError && (
-                <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{memberError}</div>
+                <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
+                  {memberError}
+                </div>
               )}
               <div className="flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setShowAddMember(false)}
-                  className="px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
                 >
                   Отмена
                 </button>
@@ -1493,19 +1493,21 @@ export default function OrganizationDetailPage() {
       {/* ── Delete confirmation modal ── */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4">
-            <h3 className="text-lg font-bold text-slate-900 mb-2">Удалить организацию?</h3>
-            <p className="text-sm text-slate-600 mb-1">
+          <div className="bg-surface rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4">
+            <h3 className="text-lg font-bold text-heading mb-2">Удалить организацию?</h3>
+            <p className="text-sm text-body mb-1">
               Организация <span className="font-semibold">{org.name}</span> будет удалена
               безвозвратно вместе со всеми данными: документами, банковскими счетами, контактами и
               системными доступами.
             </p>
-            <p className="text-sm text-red-600 font-medium mb-5">Это действие нельзя отменить.</p>
+            <p className="text-sm text-red-600 dark:text-red-300 font-medium mb-5">
+              Это действие нельзя отменить.
+            </p>
             <div className="flex items-center justify-end gap-2">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
                 disabled={deleting}
-                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-body hover:bg-muted rounded-lg transition-colors"
               >
                 Отмена
               </button>
@@ -1545,10 +1547,10 @@ export default function OrganizationDetailPage() {
 
 // ── Open tasks banner shown at the top of the org card ──
 const BANNER_PRIORITY_COLORS = {
-  LOW: "bg-slate-100 text-slate-500",
-  MEDIUM: "bg-yellow-100 text-yellow-700",
-  HIGH: "bg-orange-100 text-orange-700",
-  URGENT: "bg-red-100 text-red-700",
+  LOW: "bg-muted text-subtle",
+  MEDIUM: "bg-yellow-100 dark:bg-yellow-500/15 text-yellow-700 dark:text-yellow-300",
+  HIGH: "bg-orange-100 dark:bg-orange-500/15 text-orange-700 dark:text-orange-300",
+  URGENT: "bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300",
 };
 const BANNER_PRIORITY_LABELS = {
   LOW: "Низкий",
@@ -1558,8 +1560,8 @@ const BANNER_PRIORITY_LABELS = {
 };
 const BANNER_STATUS_LABELS = { OPEN: "Открыта", IN_PROGRESS: "В работе" };
 const BANNER_STATUS_COLORS = {
-  OPEN: "bg-slate-100 text-slate-600",
-  IN_PROGRESS: "bg-blue-100 text-blue-700",
+  OPEN: "bg-muted text-body",
+  IN_PROGRESS: "bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300",
 };
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1586,24 +1588,24 @@ function OrgTicketsCard({ organizationId }) {
     REOPENED: "Переоткрыт",
   };
   const statusColor = {
-    NEW: "bg-blue-100 text-blue-700",
-    IN_PROGRESS: "bg-yellow-100 text-yellow-700",
-    WAITING_CLIENT: "bg-orange-100 text-orange-700",
-    CLOSED: "bg-green-100 text-green-700",
-    ESCALATED: "bg-red-100 text-red-700",
-    ON_HOLD: "bg-slate-100 text-slate-600",
-    REOPENED: "bg-purple-100 text-purple-700",
+    NEW: "bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300",
+    IN_PROGRESS: "bg-yellow-100 dark:bg-yellow-500/15 text-yellow-700 dark:text-yellow-300",
+    WAITING_CLIENT: "bg-orange-100 dark:bg-orange-500/15 text-orange-700 dark:text-orange-300",
+    CLOSED: "bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300",
+    ESCALATED: "bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300",
+    ON_HOLD: "bg-muted text-body",
+    REOPENED: "bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300",
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+    <div className="bg-surface rounded-2xl shadow-lg border border-line p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold text-slate-900">Тикеты</h3>
+        <h3 className="text-lg font-bold text-heading">Тикеты</h3>
         <div className="flex items-center gap-2">
           {tickets.length > 0 && (
             <Link
               to={`/tickets?organizationId=${organizationId}`}
-              className="text-sm text-[#6567F1] hover:underline"
+              className="text-sm text-primary hover:underline"
             >
               Все тикеты
             </Link>
@@ -1611,7 +1613,7 @@ function OrgTicketsCard({ organizationId }) {
           {hasPermission("ticket", "create") && (
             <Link
               to={`/tickets?create=true&orgId=${organizationId}`}
-              className="text-sm text-[#6567F1] hover:underline"
+              className="text-sm text-primary hover:underline"
             >
               + Создать
             </Link>
@@ -1619,25 +1621,25 @@ function OrgTicketsCard({ organizationId }) {
         </div>
       </div>
       {loading ? (
-        <div className="flex items-center justify-center py-4 text-slate-400">
+        <div className="flex items-center justify-center py-4 text-subtle">
           <Loader2 size={20} className="animate-spin" />
         </div>
       ) : tickets.length === 0 ? (
-        <p className="text-sm text-slate-400">Нет тикетов</p>
+        <p className="text-sm text-subtle">Нет тикетов</p>
       ) : (
         <div className="space-y-2">
           {tickets.map((t) => (
             <Link
               key={t.id}
               to={`/tickets/${t.id}`}
-              className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-slate-50 transition-colors"
+              className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-canvas transition-colors"
             >
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs text-slate-400 font-mono">#{t.number}</span>
-                <span className="text-sm text-slate-900 truncate">{t.subject}</span>
+                <span className="text-xs text-subtle font-mono">#{t.number}</span>
+                <span className="text-sm text-heading truncate">{t.subject}</span>
               </div>
               <span
-                className={`text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${statusColor[t.status] || "bg-slate-100 text-slate-600"}`}
+                className={`text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${statusColor[t.status] || "bg-muted text-body"}`}
               >
                 {statusLabel[t.status] || t.status}
               </span>
@@ -1654,12 +1656,10 @@ function OrgOpenTasksBanner({ tasks, onComment }) {
   if (!open.length) return null;
 
   return (
-    <div className="mb-3 bg-[#6567F1]/5 border border-[#6567F1]/20 rounded-xl p-4">
+    <div className="mb-3 bg-primary/5 border border-primary/20 rounded-xl p-4">
       <div className="flex items-center gap-2 mb-3">
-        <ClipboardList size={15} className="text-[#6567F1] shrink-0" />
-        <span className="text-sm font-semibold text-[#6567F1]">
-          Открытые задачи — {open.length}
-        </span>
+        <ClipboardList size={15} className="text-primary shrink-0" />
+        <span className="text-sm font-semibold text-primary">Открытые задачи — {open.length}</span>
       </div>
       <div className="space-y-2">
         {open.map((task) => {
@@ -1680,10 +1680,10 @@ function OrgOpenTasksBanner({ tasks, onComment }) {
               >
                 {BANNER_PRIORITY_LABELS[task.priority]}
               </span>
-              <span className="flex-1 text-slate-800 font-medium truncate">{task.title}</span>
+              <span className="flex-1 text-heading font-medium truncate">{task.title}</span>
               {task.dueDate && (
                 <span
-                  className={`shrink-0 flex items-center gap-1 text-xs ${overdue ? "text-red-600 font-semibold" : "text-slate-400"}`}
+                  className={`shrink-0 flex items-center gap-1 text-xs ${overdue ? "text-red-600 dark:text-red-300 font-semibold" : "text-subtle"}`}
                 >
                   <CalendarDays size={11} />
                   {new Date(task.dueDate).toLocaleDateString("ru-RU")}
@@ -1692,12 +1692,12 @@ function OrgOpenTasksBanner({ tasks, onComment }) {
               )}
               <button
                 onClick={() => onComment(task)}
-                className="shrink-0 relative p-1 text-slate-400 hover:text-[#6567F1] transition-colors"
+                className="shrink-0 relative p-1 text-subtle hover:text-primary transition-colors"
                 title="Комментарии"
               >
                 <MessageSquare size={13} />
                 {task._count?.comments > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-[#6567F1] text-white text-[7px] font-bold rounded-full flex items-center justify-center leading-none">
+                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-primary text-white text-[7px] font-bold rounded-full flex items-center justify-center leading-none">
                     {task._count.comments > 9 ? "9+" : task._count.comments}
                   </span>
                 )}
@@ -1730,21 +1730,21 @@ const TASK_CATEGORY_LABELS = {
   OTHER: "Прочее",
 };
 const TASK_STATUS_COLORS = {
-  OPEN: "bg-slate-100 text-slate-600",
-  IN_PROGRESS: "bg-blue-100 text-blue-700",
-  DONE: "bg-green-100 text-green-700",
-  CANCELLED: "bg-slate-100 text-slate-400",
+  OPEN: "bg-muted text-body",
+  IN_PROGRESS: "bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300",
+  DONE: "bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300",
+  CANCELLED: "bg-muted text-subtle",
 };
 const TASK_PRIORITY_COLORS = {
-  LOW: "bg-slate-100 text-slate-500",
-  MEDIUM: "bg-yellow-100 text-yellow-700",
-  HIGH: "bg-orange-100 text-orange-700",
-  URGENT: "bg-red-100 text-red-700",
+  LOW: "bg-muted text-subtle",
+  MEDIUM: "bg-yellow-100 dark:bg-yellow-500/15 text-yellow-700 dark:text-yellow-300",
+  HIGH: "bg-orange-100 dark:bg-orange-500/15 text-orange-700 dark:text-orange-300",
+  URGENT: "bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300",
 };
 
 const TASK_INPUT_CLS =
-  "w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white";
-const TASK_LABEL_CLS = "block text-sm font-medium text-slate-700 mb-1";
+  "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface";
+const TASK_LABEL_CLS = "block text-sm font-medium text-body mb-1";
 const TASK_EMPTY_FORM = {
   title: "",
   description: "",
@@ -1914,21 +1914,21 @@ function OrgTasksCard({
 
   return (
     <>
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
+      <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-slate-700">Задачи</h3>
+          <h3 className="text-sm font-semibold text-body">Задачи</h3>
           {canCreate && (
             <div className="flex items-center gap-3">
               <button
                 onClick={openGenerateModal}
-                className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-[#6567F1] font-medium transition-colors"
+                className="inline-flex items-center gap-1 text-xs text-subtle hover:text-primary font-medium transition-colors"
                 title="Сгенерировать стандартные задачи по параметрам организации"
               >
                 <RefreshCw size={12} /> Сгенерировать
               </button>
               <button
                 onClick={openCreate}
-                className="inline-flex items-center gap-1 text-xs text-[#6567F1] hover:text-[#5557E1] font-medium"
+                className="inline-flex items-center gap-1 text-xs text-primary hover:text-[#5557E1] font-medium"
               >
                 <Plus size={13} /> Добавить
               </button>
@@ -1937,9 +1937,9 @@ function OrgTasksCard({
         </div>
 
         {loading ? (
-          <p className="text-xs text-slate-400">Загрузка...</p>
+          <p className="text-xs text-subtle">Загрузка...</p>
         ) : tasks.length === 0 ? (
-          <p className="text-xs text-slate-400">Нет задач</p>
+          <p className="text-xs text-subtle">Нет задач</p>
         ) : (
           <div className="space-y-2">
             {tasks.map((task) => {
@@ -1947,7 +1947,7 @@ function OrgTasksCard({
               return (
                 <div
                   key={task.id}
-                  className="flex items-start gap-2 py-2 border-b border-slate-100 last:border-0"
+                  className="flex items-start gap-2 py-2 border-b border-line last:border-0"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap gap-1 mb-0.5">
@@ -1963,11 +1963,11 @@ function OrgTasksCard({
                       </span>
                     </div>
                     <p
-                      className={`text-sm font-medium leading-snug ${task.status === "CANCELLED" ? "line-through text-slate-400" : "text-slate-900"}`}
+                      className={`text-sm font-medium leading-snug ${task.status === "CANCELLED" ? "line-through text-subtle" : "text-heading"}`}
                     >
                       {task.title}
                     </p>
-                    <div className="flex flex-wrap items-center gap-3 mt-0.5 text-xs text-slate-400">
+                    <div className="flex flex-wrap items-center gap-3 mt-0.5 text-xs text-subtle">
                       {task.assignees?.length > 0 && (
                         <span className="flex items-center gap-1">
                           <User size={11} />
@@ -1978,7 +1978,7 @@ function OrgTasksCard({
                       )}
                       {task.dueDate && (
                         <span
-                          className={`flex items-center gap-1 ${overdue ? "text-red-500 font-medium" : ""}`}
+                          className={`flex items-center gap-1 ${overdue ? "text-red-500 dark:text-red-400 font-medium" : ""}`}
                         >
                           <CalendarDays size={11} />
                           {new Date(task.dueDate).toLocaleDateString("ru-RU")}
@@ -1992,7 +1992,7 @@ function OrgTasksCard({
                       <select
                         value={task.status}
                         onChange={(e) => handleStatusChange(task, e.target.value)}
-                        className="text-[10px] border border-slate-200 rounded-lg px-1.5 py-1 bg-white focus:outline-none cursor-pointer"
+                        className="text-[10px] border border-line rounded-lg px-1.5 py-1 bg-surface focus:outline-none cursor-pointer"
                       >
                         {Object.entries(TASK_STATUS_LABELS).map(([k, v]) => (
                           <option key={k} value={k}>
@@ -2003,12 +2003,12 @@ function OrgTasksCard({
                     )}
                     <button
                       onClick={() => onComment(task)}
-                      className="relative p-1 text-slate-300 hover:text-[#6567F1] transition-colors"
+                      className="relative p-1 text-subtle hover:text-primary transition-colors"
                       title="Комментарии"
                     >
                       <MessageSquare size={13} />
                       {task._count?.comments > 0 && (
-                        <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-[#6567F1] text-white text-[7px] font-bold rounded-full flex items-center justify-center leading-none">
+                        <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-primary text-white text-[7px] font-bold rounded-full flex items-center justify-center leading-none">
                           {task._count.comments > 9 ? "9+" : task._count.comments}
                         </span>
                       )}
@@ -2016,7 +2016,7 @@ function OrgTasksCard({
                     {canEditTask(task) && (
                       <button
                         onClick={() => openEdit(task)}
-                        className="p-1 text-slate-300 hover:text-[#6567F1] transition-colors"
+                        className="p-1 text-subtle hover:text-primary transition-colors"
                       >
                         <Pencil size={13} />
                       </button>
@@ -2024,7 +2024,7 @@ function OrgTasksCard({
                     {canDeleteTask(task) && (
                       <button
                         onClick={() => handleDelete(task)}
-                        className="p-1 text-slate-300 hover:text-red-500 transition-colors"
+                        className="p-1 text-subtle hover:text-red-500 dark:hover:text-red-400 transition-colors"
                       >
                         <Trash2 size={13} />
                       </button>
@@ -2040,14 +2040,14 @@ function OrgTasksCard({
       {/* Task modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg">
-            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
-              <h2 className="text-lg font-bold text-slate-900">
+          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-lg">
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-line">
+              <h2 className="text-lg font-bold text-heading">
                 {editingTask ? "Редактировать задачу" : "Новая задача"}
               </h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
               >
                 <X size={20} />
               </button>
@@ -2120,13 +2120,15 @@ function OrgTasksCard({
                 />
               </div>
               {formError && (
-                <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{formError}</div>
+                <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
+                  {formError}
+                </div>
               )}
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
                 >
                   Отмена
                 </button>
@@ -2147,15 +2149,15 @@ function OrgTasksCard({
       {/* Generate tasks preview modal */}
       {showGenerate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg flex flex-col max-h-[85vh]">
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-100">
+          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-lg flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-line">
               <div>
-                <h2 className="text-base font-bold text-slate-900">Сгенерировать задачи</h2>
-                <p className="text-xs text-slate-400 mt-0.5">На основе параметров организации</p>
+                <h2 className="text-base font-bold text-heading">Сгенерировать задачи</h2>
+                <p className="text-xs text-subtle mt-0.5">На основе параметров организации</p>
               </div>
               <button
                 onClick={() => setShowGenerate(false)}
-                className="text-slate-400 hover:text-slate-700 transition-colors"
+                className="text-subtle hover:text-body transition-colors"
               >
                 <X size={20} />
               </button>
@@ -2165,18 +2167,20 @@ function OrgTasksCard({
               {previewLoading ? (
                 <div className="space-y-2">
                   {[...Array(5)].map((_, i) => (
-                    <div key={i} className="h-10 bg-slate-100 rounded-lg animate-pulse" />
+                    <div key={i} className="h-10 bg-muted rounded-lg animate-pulse" />
                   ))}
                 </div>
               ) : generateResult ? (
                 <div className="text-center py-6">
-                  <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <CheckSquare size={22} className="text-emerald-600" />
+                  <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-500/15 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <CheckSquare size={22} className="text-emerald-600 dark:text-emerald-300" />
                   </div>
-                  <p className="text-base font-semibold text-slate-900">Готово!</p>
-                  <p className="text-sm text-slate-500 mt-1">
+                  <p className="text-base font-semibold text-heading">Готово!</p>
+                  <p className="text-sm text-subtle mt-1">
                     Создано задач:{" "}
-                    <span className="font-medium text-emerald-600">{generateResult.generated}</span>
+                    <span className="font-medium text-emerald-600 dark:text-emerald-300">
+                      {generateResult.generated}
+                    </span>
                     {generateResult.skipped > 0 && (
                       <>
                         , пропущено (уже существуют):{" "}
@@ -2186,7 +2190,7 @@ function OrgTasksCard({
                   </p>
                 </div>
               ) : preview.length === 0 ? (
-                <p className="text-sm text-slate-400 text-center py-6">
+                <p className="text-sm text-subtle text-center py-6">
                   Нет параметров для генерации задач. Заполните карточку организации (система Н/О,
                   тип обслуживания, ЭЦП).
                 </p>
@@ -2197,30 +2201,28 @@ function OrgTasksCard({
                       key={i}
                       className={`flex items-start gap-3 p-3 rounded-xl border ${
                         t.alreadyExists
-                          ? "bg-slate-50 border-slate-100 opacity-50"
-                          : "bg-white border-slate-200"
+                          ? "bg-canvas border-line opacity-50"
+                          : "bg-surface border-line"
                       }`}
                     >
                       <div className="flex-1 min-w-0">
                         <p
-                          className={`text-sm font-medium ${t.alreadyExists ? "line-through text-slate-400" : "text-slate-800"}`}
+                          className={`text-sm font-medium ${t.alreadyExists ? "line-through text-subtle" : "text-heading"}`}
                         >
                           {t.title}
                         </p>
                         {t.description && (
-                          <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">
-                            {t.description}
-                          </p>
+                          <p className="text-xs text-subtle mt-0.5 line-clamp-1">{t.description}</p>
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
                         {t.recurrenceType && (
-                          <span className="text-[10px] text-[#6567F1] bg-[#6567F1]/10 px-1.5 py-0.5 rounded-full">
+                          <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
                             ↺
                           </span>
                         )}
                         {t.alreadyExists && (
-                          <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
+                          <span className="text-[10px] text-subtle bg-muted px-1.5 py-0.5 rounded-full">
                             есть
                           </span>
                         )}
@@ -2232,10 +2234,10 @@ function OrgTasksCard({
             </div>
 
             {!generateResult && (
-              <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+              <div className="px-6 py-4 border-t border-line flex justify-end gap-3">
                 <button
                   onClick={() => setShowGenerate(false)}
-                  className="px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
                 >
                   Отмена
                 </button>
@@ -2252,7 +2254,7 @@ function OrgTasksCard({
               </div>
             )}
             {generateResult && (
-              <div className="px-6 py-4 border-t border-slate-100 flex justify-end">
+              <div className="px-6 py-4 border-t border-line flex justify-end">
                 <button
                   onClick={() => setShowGenerate(false)}
                   className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] text-white rounded-lg text-sm font-medium"
@@ -2294,22 +2296,22 @@ function OrgAssigneeMultiSelect({ options, value, onChange }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-left bg-white focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] flex items-center justify-between"
+        className="w-full px-3 py-2 border border-line rounded-lg text-sm text-left bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary flex items-center justify-between"
       >
-        <span className={selectedLabels ? "text-slate-900" : "text-slate-400"}>
+        <span className={selectedLabels ? "text-heading" : "text-subtle"}>
           {selectedLabels || "Не назначено"}
         </span>
-        <span className="text-slate-400 text-xs">▾</span>
+        <span className="text-subtle text-xs">▾</span>
       </button>
       {open && (
-        <div className="absolute z-50 w-full bottom-full mb-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+        <div className="absolute z-50 w-full bottom-full mb-1 bg-surface border border-line rounded-lg shadow-lg max-h-48 overflow-y-auto">
           {options.length === 0 ? (
-            <div className="px-3 py-2 text-sm text-slate-400">Нет сотрудников</div>
+            <div className="px-3 py-2 text-sm text-subtle">Нет сотрудников</div>
           ) : (
             options.map((u) => (
               <label
                 key={u.id}
-                className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 cursor-pointer text-sm"
+                className="flex items-center gap-2 px-3 py-2 hover:bg-canvas cursor-pointer text-sm"
               >
                 <input
                   type="checkbox"

@@ -75,35 +75,35 @@ export default function ClientsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Клиенты</h1>
+        <h1 className="text-2xl font-bold text-heading">Клиенты</h1>
       </div>
 
       {/* Search */}
       <div className="relative mb-6">
-        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
         <input
           type="text"
           placeholder="Поиск по имени или email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+          className="w-full pl-10 pr-4 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
         />
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+      <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center py-12 text-slate-400">
+          <div className="flex items-center justify-center py-12 text-subtle">
             <Loader2 size={24} className="animate-spin" />
           </div>
         ) : clients.length === 0 ? (
-          <div className="text-center py-12 text-slate-400 text-sm">
+          <div className="text-center py-12 text-subtle text-sm">
             {search ? "Ничего не найдено" : "Нет клиентов"}
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-100 text-left text-slate-500">
+              <tr className="border-b border-line text-left text-subtle">
                 <th className="px-6 py-3 font-medium">Имя</th>
                 <th className="px-6 py-3 font-medium">Email</th>
                 <th className="px-6 py-3 font-medium">Организации</th>
@@ -115,14 +115,11 @@ export default function ClientsPage() {
               {clients.map((c) => (
                 <tr
                   key={c.id}
-                  className={`border-b border-slate-50 hover:bg-slate-50/50 ${!c.isActive ? "opacity-50" : ""}`}
+                  className={`border-b border-line hover:bg-canvas/50 ${!c.isActive ? "opacity-50" : ""}`}
                 >
-                  <td className="px-6 py-3 font-medium text-slate-900">
+                  <td className="px-6 py-3 font-medium text-heading">
                     {isAdmin ? (
-                      <Link
-                        to={`/users/${c.id}`}
-                        className="hover:text-[#6567F1] transition-colors"
-                      >
+                      <Link to={`/users/${c.id}`} className="hover:text-primary transition-colors">
                         {c.lastName} {c.firstName}
                       </Link>
                     ) : (
@@ -131,7 +128,7 @@ export default function ClientsPage() {
                       </>
                     )}
                   </td>
-                  <td className="px-6 py-3 text-slate-600">{c.email}</td>
+                  <td className="px-6 py-3 text-body">{c.email}</td>
                   <td className="px-6 py-3">
                     {c.organizations?.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
@@ -139,14 +136,14 @@ export default function ClientsPage() {
                           <Link
                             key={org.id}
                             to={`/organizations/${org.id}`}
-                            className="bg-[#6567F1]/10 text-[#6567F1] px-2 py-0.5 rounded-full text-xs font-medium hover:bg-[#6567F1]/20 transition-colors"
+                            className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs font-medium hover:bg-primary/20 transition-colors"
                           >
                             {org.name}
                           </Link>
                         ))}
                       </div>
                     ) : (
-                      <span className="text-slate-400">—</span>
+                      <span className="text-subtle">—</span>
                     )}
                   </td>
                   <td className="px-6 py-3">
@@ -156,13 +153,13 @@ export default function ClientsPage() {
                           className={`inline-block w-2 h-2 rounded-full ${isOnline(c.lastSeenAt) ? "bg-green-500" : "bg-slate-300"}`}
                         />
                         <span
-                          className={`text-xs font-medium ${isOnline(c.lastSeenAt) ? "text-green-600" : "text-slate-500"}`}
+                          className={`text-xs font-medium ${isOnline(c.lastSeenAt) ? "text-green-600 dark:text-green-300" : "text-subtle"}`}
                         >
                           {formatLastSeen(c.lastSeenAt)}
                         </span>
                       </div>
                     ) : (
-                      <span className="text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full text-xs font-medium">
+                      <span className="text-subtle bg-muted px-2 py-0.5 rounded-full text-xs font-medium">
                         Неактивен
                       </span>
                     )}
@@ -172,14 +169,14 @@ export default function ClientsPage() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => setEditingClient(c)}
-                          className="p-1.5 text-slate-400 hover:text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg transition-colors"
+                          className="p-1.5 text-subtle hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
                           title="Редактировать"
                         >
                           <Pencil size={16} />
                         </button>
                         <button
                           onClick={() => handleDelete(c)}
-                          className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-1.5 text-subtle hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/15 rounded-lg transition-colors"
                           title={c.isActive ? "Деактивировать" : "Удалить навсегда"}
                         >
                           <Trash2 size={16} />
@@ -291,12 +288,12 @@ function EditClientModal({ client, onClose, onUpdated }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
+      <div className="bg-surface rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-slate-900">Редактировать клиента</h2>
+          <h2 className="text-lg font-bold text-heading">Редактировать клиента</h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
           >
             <X size={20} />
           </button>
@@ -304,30 +301,30 @@ function EditClientModal({ client, onClose, onUpdated }) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Фамилия *</label>
+            <label className="block text-sm font-medium text-body mb-1">Фамилия *</label>
             <input
               type="text"
               value={form.lastName}
               onChange={(e) => setField("lastName", e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Имя *</label>
+            <label className="block text-sm font-medium text-body mb-1">Имя *</label>
             <input
               type="text"
               value={form.firstName}
               onChange={(e) => setField("firstName", e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Email *</label>
+            <label className="block text-sm font-medium text-body mb-1">Email *</label>
             <input
               type="email"
               value={form.email}
               onChange={(e) => setField("email", e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
           <div>
@@ -336,18 +333,20 @@ function EditClientModal({ client, onClose, onUpdated }) {
                 type="checkbox"
                 checked={form.isActive}
                 onChange={(e) => setField("isActive", e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                className="w-4 h-4 rounded border-line text-primary focus:ring-primary/30"
               />
-              <span className="text-sm font-medium text-slate-700">Активен</span>
+              <span className="text-sm font-medium text-body">Активен</span>
             </label>
           </div>
 
           {error && (
-            <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>
+            <div className="text-sm text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-500/15 px-3 py-2 rounded-lg">
+              {error}
+            </div>
           )}
 
           {/* Password reset block */}
-          <div className="border-t border-slate-100 pt-4">
+          <div className="border-t border-line pt-4">
             {!showPasswordBlock ? (
               <button
                 type="button"
@@ -355,21 +354,21 @@ function EditClientModal({ client, onClose, onUpdated }) {
                   setShowPasswordBlock(true);
                   setPasswordSuccess(false);
                 }}
-                className="flex items-center gap-2 text-sm text-slate-500 hover:text-[#6567F1] transition-colors"
+                className="flex items-center gap-2 text-sm text-subtle hover:text-primary transition-colors"
               >
                 <KeyRound size={14} />
                 Сменить пароль
               </button>
             ) : (
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-slate-700">Новый пароль</label>
+                <label className="block text-sm font-medium text-body">Новый пароль</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Минимум 8 символов"
-                    className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                    className="flex-1 px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                   <button
                     type="button"
@@ -390,16 +389,20 @@ function EditClientModal({ client, onClose, onUpdated }) {
                       setNewPassword("");
                       setPasswordError("");
                     }}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                    className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
                   >
                     <X size={16} />
                   </button>
                 </div>
-                {passwordError && <div className="text-sm text-red-600">{passwordError}</div>}
+                {passwordError && (
+                  <div className="text-sm text-red-600 dark:text-red-300">{passwordError}</div>
+                )}
               </div>
             )}
             {passwordSuccess && (
-              <div className="text-sm text-green-600 mt-1">Пароль успешно изменён</div>
+              <div className="text-sm text-green-600 dark:text-green-300 mt-1">
+                Пароль успешно изменён
+              </div>
             )}
           </div>
 
@@ -407,7 +410,7 @@ function EditClientModal({ client, onClose, onUpdated }) {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-body hover:text-heading transition-colors"
             >
               Отмена
             </button>

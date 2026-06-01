@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import NotificationBell from "./NotificationBell.jsx";
+import ThemeToggle from "./ThemeToggle.jsx";
 import AnnouncementsPanel from "./AnnouncementsPanel.jsx";
 import AnnouncementsWelcomeModal from "./AnnouncementsWelcomeModal.jsx";
 import { api } from "../lib/api.js";
@@ -103,8 +104,8 @@ function NavGroup({ group, hasPermission, hasRole, onClose }) {
   const linkClass = (isActive) =>
     `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
       isActive
-        ? "bg-[#6567F1]/10 text-[#6567F1] border-l-2 border-[#6567F1] pl-[10px]"
-        : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+        ? "bg-primary/10 text-primary border-l-2 border-primary pl-[10px]"
+        : "text-subtle hover:bg-canvas hover:text-heading"
     }`;
 
   return (
@@ -114,13 +115,13 @@ function NavGroup({ group, hasPermission, hasRole, onClose }) {
         onClick={() => setOpen((v) => !v)}
         className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
           isChildActive && !open
-            ? "bg-[#6567F1]/10 text-[#6567F1]"
-            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+            ? "bg-primary/10 text-primary"
+            : "text-body hover:bg-muted hover:text-heading"
         }`}
       >
         <span
           className={`flex items-center justify-center w-5 h-5 rounded-md transition-colors ${
-            isChildActive ? "text-[#6567F1]" : "text-slate-400"
+            isChildActive ? "text-primary" : "text-subtle"
           }`}
         >
           <group.icon size={18} />
@@ -128,13 +129,11 @@ function NavGroup({ group, hasPermission, hasRole, onClose }) {
         <span className="flex-1 text-left">{group.label}</span>
 
         {/* Pill count badge when collapsed & a child is active */}
-        {isChildActive && !open && (
-          <span className="w-1.5 h-1.5 rounded-full bg-[#6567F1] mr-0.5" />
-        )}
+        {isChildActive && !open && <span className="w-1.5 h-1.5 rounded-full bg-primary mr-0.5" />}
 
         <ChevronDown
           size={14}
-          className={`text-slate-400 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+          className={`text-subtle transition-transform duration-300 ${open ? "rotate-180" : ""}`}
         />
       </button>
 
@@ -143,7 +142,7 @@ function NavGroup({ group, hasPermission, hasRole, onClose }) {
         className="overflow-hidden transition-all duration-300 ease-in-out"
         style={{ maxHeight: open ? `${visibleChildren.length * 44}px` : "0px" }}
       >
-        <div className="mt-0.5 ml-3 pl-3 border-l-2 border-slate-100 flex flex-col gap-0.5 pb-1">
+        <div className="mt-0.5 ml-3 pl-3 border-l-2 border-line flex flex-col gap-0.5 pb-1">
           {visibleChildren.map((child) => (
             <NavLink
               key={child.to}
@@ -207,39 +206,38 @@ export default function Layout() {
 
   const linkClass = ({ isActive }) =>
     `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-      isActive
-        ? "bg-[#6567F1]/10 text-[#6567F1]"
-        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+      isActive ? "bg-primary/10 text-primary" : "text-body hover:bg-muted hover:text-heading"
     }`;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-canvas">
       {/* Header */}
-      <header className="fixed top-0 z-50 w-full h-20 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 lg:px-8">
+      <header className="fixed top-0 z-50 w-full h-20 bg-surface/80 backdrop-blur-md border-b border-line flex items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-4">
           <button
-            className="lg:hidden p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+            className="lg:hidden p-1.5 rounded-lg text-body hover:text-heading hover:bg-muted transition-colors"
             onClick={() => setSidebarOpen(!sidebarOpen)}
           >
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
           <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <img src="/logo.png" alt="ASBUH AUTOPILOT" className="h-8 w-auto" />
-            <span className="text-xl font-bold text-slate-900">
-              ASBUH <span className="text-[#6567F1]">AUTOPILOT</span>
+            <span className="text-xl font-bold text-heading">
+              ASBUH <span className="text-primary">AUTOPILOT</span>
             </span>
           </Link>
         </div>
         <div className="flex items-center gap-3">
+          <ThemeToggle />
           {/* Announcements bell */}
           <button
             onClick={() => setAnnouncementsOpen(true)}
-            className="relative p-1.5 rounded-lg text-slate-500 hover:text-[#6567F1] hover:bg-[#6567F1]/5 transition-colors"
+            className="relative p-1.5 rounded-lg text-subtle hover:text-primary hover:bg-primary/5 transition-colors"
             title="Обновления сервиса"
           >
             <Megaphone size={20} />
             {unreadAnnouncements > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#6567F1] text-white text-[10px] font-bold flex items-center justify-center">
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">
                 {unreadAnnouncements > 9 ? "9+" : unreadAnnouncements}
               </span>
             )}
@@ -253,21 +251,21 @@ export default function Layout() {
               <img
                 src={`${import.meta.env.VITE_API_URL || ""}${user.avatarUrl}`}
                 alt=""
-                className="w-8 h-8 rounded-full object-cover border border-slate-200"
+                className="w-8 h-8 rounded-full object-cover border border-line"
               />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-[#6567F1]/10 flex items-center justify-center text-[#6567F1] text-xs font-bold">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
                 {(user?.firstName?.[0] || "").toUpperCase()}
                 {(user?.lastName?.[0] || "").toUpperCase()}
               </div>
             )}
-            <span className="text-sm text-slate-600 hidden sm:inline">
+            <span className="text-sm text-body hidden sm:inline">
               {user?.firstName} {user?.lastName}
             </span>
           </Link>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1 text-sm text-slate-500 hover:text-[#6567F1] transition-colors"
+            className="flex items-center gap-1 text-sm text-subtle hover:text-primary transition-colors"
           >
             <LogOut size={16} />
             <span className="hidden sm:inline">Выйти</span>
@@ -285,7 +283,7 @@ export default function Layout() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-20 left-0 z-40 h-[calc(100vh-5rem)] w-60 bg-white border-r border-slate-200 p-4 transition-transform lg:translate-x-0 ${
+        className={`fixed top-20 left-0 z-40 h-[calc(100vh-5rem)] w-60 bg-surface border-r border-line p-4 transition-transform lg:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -330,7 +328,7 @@ export default function Layout() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Suspense
             fallback={
-              <div className="flex items-center justify-center py-16 text-slate-400">
+              <div className="flex items-center justify-center py-16 text-subtle">
                 <Loader2 size={24} className="animate-spin" />
               </div>
             }

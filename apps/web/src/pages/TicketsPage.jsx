@@ -24,21 +24,21 @@ const STATUS_LABELS = {
 };
 
 const STATUS_COLORS = {
-  NEW: "bg-blue-100 text-blue-700",
-  IN_PROGRESS: "bg-yellow-100 text-yellow-700",
-  WAITING_CLIENT: "bg-orange-100 text-orange-700",
-  ON_HOLD: "bg-slate-100 text-slate-600",
-  ESCALATED: "bg-red-100 text-red-700",
-  CLOSED: "bg-green-100 text-green-700",
-  REOPENED: "bg-purple-100 text-purple-700",
+  NEW: "bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300",
+  IN_PROGRESS: "bg-yellow-100 dark:bg-yellow-500/15 text-yellow-700 dark:text-yellow-300",
+  WAITING_CLIENT: "bg-orange-100 dark:bg-orange-500/15 text-orange-700 dark:text-orange-300",
+  ON_HOLD: "bg-muted text-body",
+  ESCALATED: "bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300",
+  CLOSED: "bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300",
+  REOPENED: "bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300",
 };
 
 const PRIORITY_LABELS = { LOW: "Низкий", NORMAL: "Обычный", HIGH: "Высокий", URGENT: "Срочный" };
 const PRIORITY_COLORS = {
-  LOW: "bg-slate-100 text-slate-600",
-  NORMAL: "bg-blue-100 text-blue-700",
-  HIGH: "bg-orange-100 text-orange-700",
-  URGENT: "bg-red-100 text-red-700",
+  LOW: "bg-muted text-body",
+  NORMAL: "bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300",
+  HIGH: "bg-orange-100 dark:bg-orange-500/15 text-orange-700 dark:text-orange-300",
+  URGENT: "bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300",
 };
 
 const TYPE_LABELS = {
@@ -56,10 +56,10 @@ const TYPE_ICONS = {
 };
 
 const TYPE_COLORS = {
-  QUESTION: "text-blue-600",
-  DOCUMENT_REQUEST: "text-amber-600",
-  PROBLEM: "text-red-600",
-  DOCUMENT_UPLOAD: "text-green-600",
+  QUESTION: "text-blue-600 dark:text-blue-300",
+  DOCUMENT_REQUEST: "text-amber-600 dark:text-amber-300",
+  PROBLEM: "text-red-600 dark:text-red-300",
+  DOCUMENT_UPLOAD: "text-green-600 dark:text-green-300",
 };
 
 export default function TicketsPage() {
@@ -178,8 +178,8 @@ export default function TicketsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">{isClient ? "Обращения" : "Тикеты"}</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-2xl font-bold text-heading">{isClient ? "Обращения" : "Тикеты"}</h1>
+          <p className="text-sm text-subtle mt-1">
             {total} {isClient ? "обращений" : "тикетов"}
           </p>
         </div>
@@ -197,7 +197,7 @@ export default function TicketsPage() {
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-6">
         <div className="relative flex-1 min-w-[200px]">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
           <input
             type="text"
             placeholder="Поиск по теме..."
@@ -206,7 +206,7 @@ export default function TicketsPage() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+            className="w-full pl-9 pr-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           />
         </div>
         <select
@@ -215,7 +215,7 @@ export default function TicketsPage() {
             setStatusFilter(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
+          className="px-3 py-2 border border-line rounded-lg text-sm"
         >
           <option value="">Все статусы</option>
           {Object.entries(STATUS_LABELS).map(([k, v]) => (
@@ -231,7 +231,7 @@ export default function TicketsPage() {
               setTypeFilter(e.target.value);
               setPage(1);
             }}
-            className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
+            className="px-3 py-2 border border-line rounded-lg text-sm"
           >
             <option value="">Все типы</option>
             {Object.entries(TYPE_LABELS).map(([k, v]) => (
@@ -245,13 +245,13 @@ export default function TicketsPage() {
 
       {/* List */}
       {loading ? (
-        <div className="flex items-center justify-center py-16 text-slate-400">
+        <div className="flex items-center justify-center py-16 text-subtle">
           <Loader2 size={24} className="animate-spin" />
         </div>
       ) : error ? (
-        <div className="text-center py-16 text-red-500">{error}</div>
+        <div className="text-center py-16 text-red-500 dark:text-red-400">{error}</div>
       ) : tickets.length === 0 ? (
-        <div className="text-center py-16 text-slate-400">
+        <div className="text-center py-16 text-subtle">
           <MessageSquare size={40} className="mx-auto mb-3 opacity-50" />
           <p>{isClient ? "У вас пока нет обращений" : "Нет тикетов"}</p>
         </div>
@@ -263,12 +263,12 @@ export default function TicketsPage() {
               <Link
                 key={t.id}
                 to={`/tickets/${t.id}`}
-                className="block bg-white rounded-2xl shadow-lg border border-slate-200 p-4 hover:shadow-xl transition-shadow"
+                className="block bg-surface rounded-2xl shadow-lg border border-line p-4 hover:shadow-xl transition-shadow"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs text-slate-400 font-mono">#{t.number}</span>
+                      <span className="text-xs text-subtle font-mono">#{t.number}</span>
                       <TypeIcon size={14} className={TYPE_COLORS[t.type]} />
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[t.status]}`}
@@ -283,15 +283,15 @@ export default function TicketsPage() {
                         </span>
                       )}
                     </div>
-                    <h3 className="text-sm font-medium text-slate-900 truncate">{t.subject}</h3>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
+                    <h3 className="text-sm font-medium text-heading truncate">{t.subject}</h3>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-subtle">
                       {isStaff && t.organization && <span>{t.organization.name}</span>}
                       <span>{new Date(t.createdAt).toLocaleDateString("ru")}</span>
                       <span>{t._count?.messages || 0} сообщ.</span>
                     </div>
                   </div>
                   {isStaff && t.assignedTo && (
-                    <div className="text-xs text-slate-500 text-right whitespace-nowrap">
+                    <div className="text-xs text-subtle text-right whitespace-nowrap">
                       {t.assignedTo.firstName} {t.assignedTo.lastName}
                     </div>
                   )}
@@ -308,17 +308,17 @@ export default function TicketsPage() {
           <button
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
-            className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg disabled:opacity-50"
+            className="px-3 py-1.5 text-sm border border-line rounded-lg disabled:opacity-50"
           >
             Назад
           </button>
-          <span className="text-sm text-slate-500">
+          <span className="text-sm text-subtle">
             {page} / {totalPages}
           </span>
           <button
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
-            className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg disabled:opacity-50"
+            className="px-3 py-1.5 text-sm border border-line rounded-lg disabled:opacity-50"
           >
             Далее
           </button>
@@ -332,27 +332,27 @@ export default function TicketsPage() {
           onClick={() => setShowCreate(false)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6"
+            className="bg-surface rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-slate-900">
+              <h2 className="text-lg font-bold text-heading">
                 {isClient ? "Новое обращение" : "Создать тикет"}
               </h2>
               <button
                 onClick={() => setShowCreate(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
               >
                 <span className="text-lg leading-none">&times;</span>
               </button>
             </div>
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Организация</label>
+                <label className="block text-sm font-medium text-body mb-1">Организация</label>
                 <select
                   value={createForm.organizationId}
                   onChange={(e) => setCreateForm((f) => ({ ...f, organizationId: e.target.value }))}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm"
                   required
                 >
                   <option value="">Выберите организацию</option>
@@ -364,11 +364,11 @@ export default function TicketsPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Тип</label>
+                <label className="block text-sm font-medium text-body mb-1">Тип</label>
                 <select
                   value={createForm.type}
                   onChange={(e) => setCreateForm((f) => ({ ...f, type: e.target.value }))}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm"
                 >
                   {Object.entries(TYPE_LABELS).map(([k, v]) => (
                     <option key={k} value={k}>
@@ -378,35 +378,37 @@ export default function TicketsPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Тема</label>
+                <label className="block text-sm font-medium text-body mb-1">Тема</label>
                 <input
                   type="text"
                   maxLength={200}
                   value={createForm.subject}
                   onChange={(e) => setCreateForm((f) => ({ ...f, subject: e.target.value }))}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm"
                   placeholder="Краткое описание вопроса"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Сообщение</label>
+                <label className="block text-sm font-medium text-body mb-1">Сообщение</label>
                 <textarea
                   rows={4}
                   maxLength={5000}
                   value={createForm.body}
                   onChange={(e) => setCreateForm((f) => ({ ...f, body: e.target.value }))}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm resize-none"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm resize-none"
                   placeholder="Опишите ваш вопрос подробнее..."
                   required
                 />
               </div>
-              {createError && <p className="text-sm text-red-500">{createError}</p>}
+              {createError && (
+                <p className="text-sm text-red-500 dark:text-red-400">{createError}</p>
+              )}
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShowCreate(false)}
-                  className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                  className="px-4 py-2 text-sm text-body hover:bg-muted rounded-lg transition-colors"
                 >
                   Отмена
                 </button>

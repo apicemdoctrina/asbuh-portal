@@ -11,9 +11,9 @@ const STATUS_BORDER = {
 const STATUS_TEXT_OK = "Полёт нормальный";
 
 const STATUS_TEXT_COLOR = {
-  ok: "text-emerald-700",
-  action_required: "text-amber-700",
-  overdue: "text-red-700",
+  ok: "text-emerald-700 dark:text-emerald-300",
+  action_required: "text-amber-700 dark:text-amber-300",
+  overdue: "text-red-700 dark:text-red-300",
 };
 
 function aggregateGroupTitle(group, orgs) {
@@ -51,9 +51,9 @@ export default function ClientGroupDashboard({ group, organizations }) {
               <button
                 type="button"
                 onClick={() => setExpandedId(expanded ? null : org.id)}
-                className={`w-full text-left bg-white rounded-2xl shadow-lg border border-slate-200 border-l-4 ${STATUS_BORDER[org.status]} p-4 hover:shadow-xl transition-shadow`}
+                className={`w-full text-left bg-surface rounded-2xl shadow-lg border border-line border-l-4 ${STATUS_BORDER[org.status]} p-4 hover:shadow-xl transition-shadow`}
               >
-                <div className="font-semibold text-slate-900">{org.name}</div>
+                <div className="font-semibold text-heading">{org.name}</div>
                 <div className={`text-sm ${STATUS_TEXT_COLOR[org.status]}`}>{subline}</div>
               </button>
               {expanded && (

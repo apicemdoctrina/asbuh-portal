@@ -117,8 +117,8 @@ export default function InvitePage() {
   // Loading states
   if (loading || authLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <p className="text-slate-400 text-sm">Загрузка...</p>
+      <div className="min-h-screen bg-canvas flex items-center justify-center">
+        <p className="text-subtle text-sm">Загрузка...</p>
       </div>
     );
   }
@@ -126,8 +126,8 @@ export default function InvitePage() {
   // Auto-accepting (logged in + fromLogin)
   if (accepting) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <p className="text-slate-400 text-sm">Принятие приглашения...</p>
+      <div className="min-h-screen bg-canvas flex items-center justify-center">
+        <p className="text-subtle text-sm">Принятие приглашения...</p>
       </div>
     );
   }
@@ -135,10 +135,10 @@ export default function InvitePage() {
   // Invalid token
   if (!inviteInfo?.valid) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-slate-200 p-8 text-center">
-          <h1 className="text-xl font-bold text-slate-900 mb-2">Приглашение недействительно</h1>
-          <p className="text-slate-500 text-sm mb-6">{inviteInfo?.reason}</p>
+      <div className="min-h-screen bg-canvas flex items-center justify-center px-4">
+        <div className="w-full max-w-md bg-surface rounded-2xl shadow-lg border border-line p-8 text-center">
+          <h1 className="text-xl font-bold text-heading mb-2">Приглашение недействительно</h1>
+          <p className="text-subtle text-sm mb-6">{inviteInfo?.reason}</p>
           <Link
             to="/"
             className="inline-flex px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all"
@@ -155,23 +155,25 @@ export default function InvitePage() {
   // Logged in user — show accept button
   if (user) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-slate-200 p-8">
+      <div className="min-h-screen bg-canvas flex items-center justify-center px-4">
+        <div className="w-full max-w-md bg-surface rounded-2xl shadow-lg border border-line p-8">
           <div className="text-center mb-6">
-            <h1 className="text-3xl font-bold text-slate-900">
-              ASBUH <span className="text-[#6567F1]">AUTOPILOT</span>
+            <h1 className="text-3xl font-bold text-heading">
+              ASBUH <span className="text-primary">AUTOPILOT</span>
             </h1>
-            <p className="text-slate-500 mt-2">Приглашение в организацию</p>
+            <p className="text-subtle mt-2">Приглашение в организацию</p>
           </div>
 
-          <p className="text-slate-700 text-sm text-center mb-6">
+          <p className="text-body text-sm text-center mb-6">
             Вы приглашены в организацию{" "}
-            <span className="font-semibold text-slate-900">&laquo;{orgName}&raquo;</span>. Принять
+            <span className="font-semibold text-heading">&laquo;{orgName}&raquo;</span>. Принять
             приглашение?
           </p>
 
           {error && (
-            <div className="text-red-600 text-sm bg-red-50 rounded-lg px-4 py-2 mb-4">{error}</div>
+            <div className="text-red-600 dark:text-red-300 text-sm bg-red-50 dark:bg-red-500/15 rounded-lg px-4 py-2 mb-4">
+              {error}
+            </div>
           )}
 
           <button
@@ -188,21 +190,21 @@ export default function InvitePage() {
 
   // Not logged in — registration form
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-slate-200 p-8">
+    <div className="min-h-screen bg-canvas flex items-center justify-center px-4">
+      <div className="w-full max-w-md bg-surface rounded-2xl shadow-lg border border-line p-8">
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-slate-900">
-            ASBUH <span className="text-[#6567F1]">AUTOPILOT</span>
+          <h1 className="text-3xl font-bold text-heading">
+            ASBUH <span className="text-primary">AUTOPILOT</span>
           </h1>
-          <p className="text-slate-500 mt-2">
+          <p className="text-subtle mt-2">
             Вы приглашены в{" "}
-            <span className="font-semibold text-slate-900">&laquo;{orgName}&raquo;</span>
+            <span className="font-semibold text-heading">&laquo;{orgName}&raquo;</span>
           </p>
         </div>
 
         <form onSubmit={handleRegister} className="space-y-4">
           <div>
-            <label htmlFor="lastName" className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="lastName" className="block text-sm font-medium text-body mb-1">
               Фамилия
             </label>
             <input
@@ -211,12 +213,12 @@ export default function InvitePage() {
               required
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#6567F1]/40 focus:border-[#6567F1]"
+              className="w-full rounded-lg border border-line px-4 py-3 text-heading focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
             />
           </div>
 
           <div>
-            <label htmlFor="firstName" className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="firstName" className="block text-sm font-medium text-body mb-1">
               Имя
             </label>
             <input
@@ -225,12 +227,12 @@ export default function InvitePage() {
               required
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#6567F1]/40 focus:border-[#6567F1]"
+              className="w-full rounded-lg border border-line px-4 py-3 text-heading focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
             />
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="email" className="block text-sm font-medium text-body mb-1">
               Email
             </label>
             <input
@@ -240,12 +242,12 @@ export default function InvitePage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#6567F1]/40 focus:border-[#6567F1]"
+              className="w-full rounded-lg border border-line px-4 py-3 text-heading focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-body mb-1">
               Пароль
             </label>
             <input
@@ -256,13 +258,15 @@ export default function InvitePage() {
               minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#6567F1]/40 focus:border-[#6567F1]"
+              className="w-full rounded-lg border border-line px-4 py-3 text-heading focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
             />
-            <p className="text-xs text-slate-400 mt-1">Минимум 8 символов</p>
+            <p className="text-xs text-subtle mt-1">Минимум 8 символов</p>
           </div>
 
           {formError && (
-            <div className="text-red-600 text-sm bg-red-50 rounded-lg px-4 py-2">{formError}</div>
+            <div className="text-red-600 dark:text-red-300 text-sm bg-red-50 dark:bg-red-500/15 rounded-lg px-4 py-2">
+              {formError}
+            </div>
           )}
 
           <button
@@ -274,12 +278,12 @@ export default function InvitePage() {
           </button>
         </form>
 
-        <p className="text-sm text-slate-500 text-center mt-4">
+        <p className="text-sm text-subtle text-center mt-4">
           Уже есть аккаунт?{" "}
           <Link
             to="/login"
             state={{ redirect: `/invite/${token}` }}
-            className="text-[#6567F1] hover:underline font-medium"
+            className="text-primary hover:underline font-medium"
           >
             Войти
           </Link>

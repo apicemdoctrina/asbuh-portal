@@ -3,9 +3,19 @@ import { api } from "../lib/api.js";
 import { Plus, Pencil, Trash2, X, Eye, EyeOff } from "lucide-react";
 
 const SYSTEM_TYPES = [
-  { value: "KASSA", label: "Касса", bg: "bg-emerald-100", text: "text-emerald-700" },
-  { value: "ONE_C", label: "1С", bg: "bg-blue-100", text: "text-blue-700" },
-  { value: "OTHER", label: "Другое", bg: "bg-slate-100", text: "text-slate-600" },
+  {
+    value: "KASSA",
+    label: "Касса",
+    bg: "bg-emerald-100 dark:bg-emerald-500/15",
+    text: "text-emerald-700 dark:text-emerald-300",
+  },
+  {
+    value: "ONE_C",
+    label: "1С",
+    bg: "bg-blue-100 dark:bg-blue-500/15",
+    text: "text-blue-700 dark:text-blue-300",
+  },
+  { value: "OTHER", label: "Другое", bg: "bg-muted", text: "text-body" },
 ];
 
 const TYPE_STYLE = Object.fromEntries(SYSTEM_TYPES.map((t) => [t.value, t]));
@@ -13,7 +23,7 @@ const TYPE_STYLE = Object.fromEntries(SYSTEM_TYPES.map((t) => [t.value, t]));
 function typeBadgeCls(type) {
   const s = TYPE_STYLE[type];
   if (s) return `${s.bg} ${s.text}`;
-  return "bg-slate-100 text-slate-600";
+  return "bg-muted text-body";
 }
 
 function typeLabel(type) {
@@ -153,13 +163,13 @@ export default function SystemAccessesCard({
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+    <div className="bg-surface rounded-2xl shadow-lg border border-line p-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-slate-900">Доступы (Касса / 1С)</h2>
+        <h2 className="text-lg font-bold text-heading">Доступы (Касса / 1С)</h2>
         {canEdit && (
           <button
             onClick={openAdd}
-            className="inline-flex items-center gap-1 text-sm text-[#6567F1] hover:text-[#5557E1] font-medium"
+            className="inline-flex items-center gap-1 text-sm text-primary hover:text-[#5557E1] font-medium"
           >
             <Plus size={16} /> Добавить
           </button>
@@ -167,7 +177,7 @@ export default function SystemAccessesCard({
       </div>
 
       {systemAccesses.length === 0 ? (
-        <p className="text-sm text-slate-400">Нет доступов</p>
+        <p className="text-sm text-subtle">Нет доступов</p>
       ) : (
         <div className="space-y-2">
           {systemAccesses.map((acc) => {
@@ -179,18 +189,16 @@ export default function SystemAccessesCard({
             return (
               <div
                 key={acc.id}
-                className="flex items-center justify-between bg-slate-50 rounded-lg p-3"
+                className="flex items-center justify-between bg-canvas rounded-lg p-3"
               >
-                <div className="text-sm text-slate-600 space-y-0.5">
+                <div className="text-sm text-body space-y-0.5">
                   <p>
                     <span
                       className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${typeBadgeCls(acc.systemType)}`}
                     >
                       {typeLabel(acc.systemType)}
                     </span>
-                    {acc.name && (
-                      <span className="ml-2 font-medium text-slate-700">{acc.name}</span>
-                    )}
+                    {acc.name && <span className="ml-2 font-medium text-body">{acc.name}</span>}
                   </p>
                   {displayLogin != null && (
                     <p>
@@ -202,13 +210,13 @@ export default function SystemAccessesCard({
                       Пароль: <span className="font-mono">{displayPassword}</span>
                     </p>
                   )}
-                  {acc.comment && <p className="text-slate-400">{acc.comment}</p>}
+                  {acc.comment && <p className="text-subtle">{acc.comment}</p>}
                 </div>
                 <div className="flex items-center gap-2 ml-4 shrink-0">
                   {canViewSecrets && (acc.login != null || acc.password != null) && (
                     <button
                       onClick={() => handleRevealSecrets(acc.id)}
-                      className="text-slate-400 hover:text-[#6567F1] transition-colors"
+                      className="text-subtle hover:text-primary transition-colors"
                       title={isRevealed ? "Скрыть" : "Показать секреты"}
                     >
                       {isRevealed ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -218,13 +226,13 @@ export default function SystemAccessesCard({
                     <>
                       <button
                         onClick={() => openEdit(acc)}
-                        className="text-slate-400 hover:text-[#6567F1] transition-colors"
+                        className="text-subtle hover:text-primary transition-colors"
                       >
                         <Pencil size={16} />
                       </button>
                       <button
                         onClick={() => handleDelete(acc.id)}
-                        className="text-slate-400 hover:text-red-500 transition-colors"
+                        className="text-subtle hover:text-red-500 dark:hover:text-red-400 transition-colors"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -239,22 +247,19 @@ export default function SystemAccessesCard({
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md mx-4 p-6">
+          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-md mx-4 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-slate-900">
+              <h2 className="text-lg font-bold text-heading">
                 {editingAccess ? "Редактировать доступ" : "Новый доступ"}
               </h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
+              <button onClick={() => setShowModal(false)} className="text-subtle hover:text-body">
                 <X size={20} />
               </button>
             </div>
 
             <div className="flex flex-col gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Система *</label>
+                <label className="block text-sm font-medium text-body mb-2">Система *</label>
                 <div className="flex gap-2">
                   {SYSTEM_TYPES.map((t) => (
                     <button
@@ -274,61 +279,63 @@ export default function SystemAccessesCard({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Название <span className="text-slate-400 font-normal">(необязательно)</span>
+                <label className="block text-sm font-medium text-body mb-1">
+                  Название <span className="text-subtle font-normal">(необязательно)</span>
                 </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder='Например: "Основная касса"'
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Логин</label>
+                <label className="block text-sm font-medium text-body mb-1">Логин</label>
                 <input
                   type="text"
                   value={login}
                   onChange={(e) => setLogin(e.target.value)}
                   placeholder={editingAccess ? "Оставьте пустым, чтобы не менять" : ""}
                   autoComplete="off"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Пароль</label>
+                <label className="block text-sm font-medium text-body mb-1">Пароль</label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={editingAccess ? "Оставьте пустым, чтобы не менять" : ""}
                   autoComplete="new-password"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Комментарий</label>
+                <label className="block text-sm font-medium text-body mb-1">Комментарий</label>
                 <input
                   type="text"
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 />
               </div>
 
               {formError && (
-                <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{formError}</div>
+                <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
+                  {formError}
+                </div>
               )}
 
               <div className="flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
                 >
                   Отмена
                 </button>

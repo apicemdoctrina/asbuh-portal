@@ -97,7 +97,7 @@ export default function UserProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24 text-slate-400">
+      <div className="flex items-center justify-center py-24 text-subtle">
         <Loader2 size={28} className="animate-spin" />
       </div>
     );
@@ -106,8 +106,8 @@ export default function UserProfilePage() {
   if (error) {
     return (
       <div className="text-center py-24">
-        <p className="text-slate-500 mb-4">{error}</p>
-        <button onClick={() => navigate(-1)} className="text-[#6567F1] hover:underline text-sm">
+        <p className="text-subtle mb-4">{error}</p>
+        <button onClick={() => navigate(-1)} className="text-primary hover:underline text-sm">
           Назад
         </button>
       </div>
@@ -132,7 +132,7 @@ export default function UserProfilePage() {
       <div className="flex items-center gap-2">
         <Link
           to={backTo}
-          className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 transition-colors"
+          className="flex items-center gap-1.5 text-sm text-subtle hover:text-body transition-colors"
         >
           <ArrowLeft size={16} />
           {backLabel}
@@ -141,24 +141,24 @@ export default function UserProfilePage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Avatar + status card */}
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 flex flex-col items-center gap-4">
+        <div className="bg-surface rounded-2xl shadow-lg border border-line p-6 flex flex-col items-center gap-4">
           {avatarUrl ? (
             <img
               src={avatarUrl}
               alt="Аватар"
-              className="w-24 h-24 rounded-full object-cover border-2 border-slate-200"
+              className="w-24 h-24 rounded-full object-cover border-2 border-line"
             />
           ) : (
-            <div className="w-24 h-24 rounded-full bg-[#6567F1]/10 flex items-center justify-center text-[#6567F1] text-2xl font-bold">
+            <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center text-primary text-2xl font-bold">
               {initials || <User size={32} />}
             </div>
           )}
 
           <div className="text-center">
-            <p className="font-semibold text-slate-900 text-lg">
+            <p className="font-semibold text-heading text-lg">
               {profile.lastName} {profile.firstName}
             </p>
-            <p className="text-sm text-slate-500">{profile.email}</p>
+            <p className="text-sm text-subtle">{profile.email}</p>
           </div>
 
           {/* Roles */}
@@ -166,7 +166,7 @@ export default function UserProfilePage() {
             {profile.roles.map((r) => (
               <span
                 key={r}
-                className="bg-[#6567F1]/10 text-[#6567F1] px-3 py-1 rounded-full text-xs font-medium"
+                className="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-medium"
               >
                 {ROLE_LABELS[r] || r}
               </span>
@@ -178,14 +178,16 @@ export default function UserProfilePage() {
             <span
               className={`inline-block w-2.5 h-2.5 rounded-full ${online ? "bg-green-500" : "bg-slate-300"}`}
             />
-            <span className={`text-sm font-medium ${online ? "text-green-600" : "text-slate-500"}`}>
+            <span
+              className={`text-sm font-medium ${online ? "text-green-600 dark:text-green-300" : "text-subtle"}`}
+            >
               {formatLastSeen(profile.lastSeenAt)}
             </span>
           </div>
 
           {/* Status badge */}
           {!profile.isActive && (
-            <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-xs font-medium">
+            <span className="bg-muted text-subtle px-3 py-1 rounded-full text-xs font-medium">
               Деактивирован
             </span>
           )}
@@ -195,7 +197,7 @@ export default function UserProfilePage() {
             <div className="flex gap-2 w-full">
               <button
                 onClick={() => setEditOpen(true)}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 text-sm font-medium transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl border-2 border-primary/20 text-primary hover:bg-primary/5 text-sm font-medium transition-colors"
               >
                 <Pencil size={15} />
                 Изменить
@@ -204,7 +206,7 @@ export default function UserProfilePage() {
                 <button
                   onClick={handleDelete}
                   title={profile.isActive ? "Деактивировать" : "Удалить навсегда"}
-                  className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl border-2 border-red-200 text-red-500 hover:bg-red-50 text-sm font-medium transition-colors"
+                  className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl border-2 border-red-200 dark:border-red-500/30 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/15 text-sm font-medium transition-colors"
                 >
                   <Trash2 size={15} />
                 </button>
@@ -214,41 +216,41 @@ export default function UserProfilePage() {
         </div>
 
         {/* Personal details */}
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 lg:col-span-2 space-y-4">
-          <h2 className="text-lg font-semibold text-slate-900">Личные данные</h2>
+        <div className="bg-surface rounded-2xl shadow-lg border border-line p-6 lg:col-span-2 space-y-4">
+          <h2 className="text-lg font-semibold text-heading">Личные данные</h2>
           <dl className="grid gap-y-3 gap-x-6 sm:grid-cols-2 text-sm">
             <div>
-              <dt className="text-slate-500 font-medium mb-0.5">Фамилия</dt>
-              <dd className="text-slate-900">{profile.lastName || "—"}</dd>
+              <dt className="text-subtle font-medium mb-0.5">Фамилия</dt>
+              <dd className="text-heading">{profile.lastName || "—"}</dd>
             </div>
             <div>
-              <dt className="text-slate-500 font-medium mb-0.5">Имя</dt>
-              <dd className="text-slate-900">{profile.firstName || "—"}</dd>
+              <dt className="text-subtle font-medium mb-0.5">Имя</dt>
+              <dd className="text-heading">{profile.firstName || "—"}</dd>
             </div>
             <div>
-              <dt className="text-slate-500 font-medium mb-0.5">Email</dt>
-              <dd className="text-slate-900">{profile.email}</dd>
+              <dt className="text-subtle font-medium mb-0.5">Email</dt>
+              <dd className="text-heading">{profile.email}</dd>
             </div>
             <div>
-              <dt className="text-slate-500 font-medium mb-0.5">Телефон</dt>
-              <dd className="text-slate-900">{profile.phone || "—"}</dd>
+              <dt className="text-subtle font-medium mb-0.5">Телефон</dt>
+              <dd className="text-heading">{profile.phone || "—"}</dd>
             </div>
             <div>
-              <dt className="text-slate-500 font-medium mb-0.5">Дата рождения</dt>
-              <dd className="text-slate-900">
+              <dt className="text-subtle font-medium mb-0.5">Дата рождения</dt>
+              <dd className="text-heading">
                 {profile.birthDate ? new Date(profile.birthDate).toLocaleDateString("ru-RU") : "—"}
               </dd>
             </div>
             <div>
-              <dt className="text-slate-500 font-medium mb-0.5">В системе с</dt>
-              <dd className="text-slate-900">
+              <dt className="text-subtle font-medium mb-0.5">В системе с</dt>
+              <dd className="text-heading">
                 {profile.createdAt ? new Date(profile.createdAt).toLocaleDateString("ru-RU") : "—"}
               </dd>
             </div>
             {!isClient && (
               <div>
-                <dt className="text-slate-500 font-medium mb-0.5">Зарплата</dt>
-                <dd className="text-slate-900">
+                <dt className="text-subtle font-medium mb-0.5">Зарплата</dt>
+                <dd className="text-heading">
                   {profile.salary != null
                     ? Number(profile.salary).toLocaleString("ru-RU", {
                         style: "currency",
@@ -263,9 +265,9 @@ export default function UserProfilePage() {
 
           {/* Organizations (mainly for clients) */}
           {profile.organizations?.length > 0 && (
-            <div className="pt-2 border-t border-slate-100">
-              <h3 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
-                <Building2 size={16} className="text-slate-400" />
+            <div className="pt-2 border-t border-line">
+              <h3 className="text-sm font-semibold text-body mb-2 flex items-center gap-2">
+                <Building2 size={16} className="text-subtle" />
                 Организации
               </h3>
               <div className="flex flex-wrap gap-2">
@@ -273,7 +275,7 @@ export default function UserProfilePage() {
                   <Link
                     key={org.id}
                     to={`/organizations/${org.id}`}
-                    className="bg-[#6567F1]/10 text-[#6567F1] px-3 py-1 rounded-full text-xs font-medium hover:bg-[#6567F1]/20 transition-colors"
+                    className="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-medium hover:bg-primary/20 transition-colors"
                   >
                     {org.name}
                   </Link>
@@ -401,14 +403,14 @@ function EditUserModal({ profile, isClient, isSelf, onClose, onUpdated }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
+      <div className="bg-surface rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-slate-900">
+          <h2 className="text-lg font-bold text-heading">
             Редактировать {isClient ? "клиента" : "сотрудника"}
           </h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
           >
             <X size={20} />
           </button>
@@ -416,37 +418,37 @@ function EditUserModal({ profile, isClient, isSelf, onClose, onUpdated }) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Фамилия *</label>
+            <label className="block text-sm font-medium text-body mb-1">Фамилия *</label>
             <input
               type="text"
               value={form.lastName}
               onChange={(e) => setField("lastName", e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Имя *</label>
+            <label className="block text-sm font-medium text-body mb-1">Имя *</label>
             <input
               type="text"
               value={form.firstName}
               onChange={(e) => setField("firstName", e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Email *</label>
+            <label className="block text-sm font-medium text-body mb-1">Email *</label>
             <input
               type="email"
               value={form.email}
               onChange={(e) => setField("email", e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
 
           {/* Salary — only for staff */}
           {!isClient && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Зарплата (₽)</label>
+              <label className="block text-sm font-medium text-body mb-1">Зарплата (₽)</label>
               <input
                 type="number"
                 min="0"
@@ -454,7 +456,7 @@ function EditUserModal({ profile, isClient, isSelf, onClose, onUpdated }) {
                 value={form.salary}
                 onChange={(e) => setField("salary", e.target.value)}
                 placeholder="Не указана"
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               />
             </div>
           )}
@@ -462,7 +464,7 @@ function EditUserModal({ profile, isClient, isSelf, onClose, onUpdated }) {
           {/* Role picker — only for staff */}
           {!isClient && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Роль</label>
+              <label className="block text-sm font-medium text-body mb-2">Роль</label>
               <div className="flex flex-wrap gap-3">
                 {ASSIGNABLE_ROLES.map((r) => (
                   <label
@@ -475,9 +477,9 @@ function EditUserModal({ profile, isClient, isSelf, onClose, onUpdated }) {
                       checked={form.role === r}
                       onChange={() => setField("role", r)}
                       disabled={rolesDisabled}
-                      className="w-4 h-4 border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                      className="w-4 h-4 border-line text-primary focus:ring-primary/30"
                     />
-                    <span className="text-sm text-slate-700">{ROLE_LABELS[r]}</span>
+                    <span className="text-sm text-body">{ROLE_LABELS[r]}</span>
                   </label>
                 ))}
               </div>
@@ -491,18 +493,20 @@ function EditUserModal({ profile, isClient, isSelf, onClose, onUpdated }) {
                 type="checkbox"
                 checked={form.isActive}
                 onChange={(e) => setField("isActive", e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                className="w-4 h-4 rounded border-line text-primary focus:ring-primary/30"
               />
-              <span className="text-sm font-medium text-slate-700">Активен</span>
+              <span className="text-sm font-medium text-body">Активен</span>
             </label>
           )}
 
           {error && (
-            <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>
+            <div className="text-sm text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-500/15 px-3 py-2 rounded-lg">
+              {error}
+            </div>
           )}
 
           {/* Password reset block */}
-          <div className="border-t border-slate-100 pt-4">
+          <div className="border-t border-line pt-4">
             {!showPasswordBlock ? (
               <button
                 type="button"
@@ -510,21 +514,21 @@ function EditUserModal({ profile, isClient, isSelf, onClose, onUpdated }) {
                   setShowPasswordBlock(true);
                   setPasswordSuccess(false);
                 }}
-                className="flex items-center gap-2 text-sm text-slate-500 hover:text-[#6567F1] transition-colors"
+                className="flex items-center gap-2 text-sm text-subtle hover:text-primary transition-colors"
               >
                 <KeyRound size={14} />
                 Сменить пароль
               </button>
             ) : (
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-slate-700">Новый пароль</label>
+                <label className="block text-sm font-medium text-body">Новый пароль</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Минимум 8 символов"
-                    className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                    className="flex-1 px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                   <button
                     type="button"
@@ -545,16 +549,20 @@ function EditUserModal({ profile, isClient, isSelf, onClose, onUpdated }) {
                       setNewPassword("");
                       setPasswordError("");
                     }}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                    className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
                   >
                     <X size={16} />
                   </button>
                 </div>
-                {passwordError && <div className="text-sm text-red-600">{passwordError}</div>}
+                {passwordError && (
+                  <div className="text-sm text-red-600 dark:text-red-300">{passwordError}</div>
+                )}
               </div>
             )}
             {passwordSuccess && (
-              <div className="text-sm text-green-600 mt-1">Пароль успешно изменён</div>
+              <div className="text-sm text-green-600 dark:text-green-300 mt-1">
+                Пароль успешно изменён
+              </div>
             )}
           </div>
 
@@ -562,7 +570,7 @@ function EditUserModal({ profile, isClient, isSelf, onClose, onUpdated }) {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-body hover:text-heading transition-colors"
             >
               Отмена
             </button>

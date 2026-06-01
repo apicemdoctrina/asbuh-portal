@@ -82,7 +82,7 @@ export default function SectionsPage() {
   return (
     <>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Участки</h1>
+        <h1 className="text-2xl font-bold text-heading">Участки</h1>
         {hasPermission("section", "create") && (
           <button
             onClick={() => setShowCreate(true)}
@@ -96,7 +96,7 @@ export default function SectionsPage() {
 
       {/* Search */}
       <div className="relative mb-6">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
         <input
           type="text"
           placeholder="Поиск по номеру или названию..."
@@ -105,45 +105,49 @@ export default function SectionsPage() {
             setSearch(e.target.value);
             setPage(1);
           }}
-          className="w-full sm:w-80 pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+          className="w-full sm:w-80 pl-9 pr-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
         />
       </div>
 
-      {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>}
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
+          {error}
+        </div>
+      )}
 
       {loading ? (
-        <div className="flex items-center justify-center py-16 text-slate-400">
+        <div className="flex items-center justify-center py-16 text-subtle">
           <Loader2 size={24} className="animate-spin" />
         </div>
       ) : sections.length === 0 ? (
-        <div className="text-slate-400 text-sm">Участки не найдены</div>
+        <div className="text-subtle text-sm">Участки не найдены</div>
       ) : (
         <>
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+          <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/50">
-                  <th className="text-left px-4 py-3 font-medium text-slate-500">№</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-500">Название</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-500">Участники</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-500">Организации</th>
+                <tr className="border-b border-line bg-canvas/50">
+                  <th className="text-left px-4 py-3 font-medium text-subtle">№</th>
+                  <th className="text-left px-4 py-3 font-medium text-subtle">Название</th>
+                  <th className="text-left px-4 py-3 font-medium text-subtle">Участники</th>
+                  <th className="text-left px-4 py-3 font-medium text-subtle">Организации</th>
                 </tr>
               </thead>
               <tbody>
                 {sections.map((s) => (
-                  <tr key={s.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                    <td className="px-4 py-3 font-medium text-slate-900">{s.number}</td>
-                    <td className="px-4 py-3 text-slate-600">
+                  <tr key={s.id} className="border-b border-line hover:bg-canvas/50">
+                    <td className="px-4 py-3 font-medium text-heading">{s.number}</td>
+                    <td className="px-4 py-3 text-body">
                       <Link
                         to={`/sections/${s.id}`}
-                        className="inline-flex items-center gap-2 text-[#6567F1] hover:underline"
+                        className="inline-flex items-center gap-2 text-primary hover:underline"
                       >
-                        <SectionIcon section={s} size={15} className="text-[#6567F1]" />
+                        <SectionIcon section={s} size={15} className="text-primary" />
                         {s.name || "—"}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{s._count?.members ?? 0}</td>
-                    <td className="px-4 py-3 text-slate-600">{s._count?.organizations ?? 0}</td>
+                    <td className="px-4 py-3 text-body">{s._count?.members ?? 0}</td>
+                    <td className="px-4 py-3 text-body">{s._count?.organizations ?? 0}</td>
                   </tr>
                 ))}
               </tbody>
@@ -153,24 +157,24 @@ export default function SectionsPage() {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4">
-              <span className="text-sm text-slate-500">
+              <span className="text-sm text-subtle">
                 Показано {(page - 1) * limit + 1}–{Math.min(page * limit, total)} из {total}
               </span>
               <div className="flex items-center gap-2">
                 <button
                   disabled={page <= 1}
                   onClick={() => setPage(page - 1)}
-                  className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="p-2 rounded-lg border border-line text-body hover:bg-canvas disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft size={16} />
                 </button>
-                <span className="text-sm text-slate-600">
+                <span className="text-sm text-body">
                   {page} / {totalPages}
                 </span>
                 <button
                   disabled={page >= totalPages}
                   onClick={() => setPage(page + 1)}
-                  className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="p-2 rounded-lg border border-line text-body hover:bg-canvas disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <ChevronRight size={16} />
                 </button>
@@ -183,32 +187,30 @@ export default function SectionsPage() {
       {/* Create Modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md mx-4 p-6">
-            <h2 className="text-lg font-bold text-slate-900 mb-4">Новый участок</h2>
+          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-md mx-4 p-6">
+            <h2 className="text-lg font-bold text-heading mb-4">Новый участок</h2>
             <form onSubmit={handleCreate} className="flex flex-col gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Номер участка *
-                </label>
+                <label className="block text-sm font-medium text-body mb-1">Номер участка *</label>
                 <input
                   type="number"
                   required
                   value={createNumber}
                   onChange={(e) => setCreateNumber(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Название</label>
+                <label className="block text-sm font-medium text-body mb-1">Название</label>
                 <input
                   type="text"
                   value={createName}
                   onChange={(e) => setCreateName(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Иконка</label>
+                <label className="block text-sm font-medium text-body mb-2">Иконка</label>
                 <AnimalPicker
                   value={createAnimal}
                   onChange={setCreateAnimal}
@@ -216,7 +218,9 @@ export default function SectionsPage() {
                 />
               </div>
               {createError && (
-                <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{createError}</div>
+                <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
+                  {createError}
+                </div>
               )}
               <div className="flex justify-end gap-3">
                 <button
@@ -226,7 +230,7 @@ export default function SectionsPage() {
                     setCreateError("");
                     setCreateAnimal("");
                   }}
-                  className="px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
                 >
                   Отмена
                 </button>

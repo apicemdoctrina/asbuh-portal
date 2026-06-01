@@ -5,121 +5,160 @@ import { Search, Loader2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } fr
 
 // Human-readable Russian labels and colors for known actions
 const ACTION_META = {
-  login: { label: "Вход", color: "bg-blue-50 text-blue-700 border border-blue-200" },
-  login_failed: { label: "Неудачный вход", color: "bg-red-50 text-red-700 border border-red-200" },
-  logout: { label: "Выход", color: "bg-slate-100 text-slate-600 border border-slate-200" },
+  login: {
+    label: "Вход",
+    color:
+      "bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30",
+  },
+  login_failed: {
+    label: "Неудачный вход",
+    color:
+      "bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30",
+  },
+  logout: { label: "Выход", color: "bg-muted text-body border border-line" },
   user_created: {
     label: "Пользователь создан",
-    color: "bg-green-50 text-green-700 border border-green-200",
+    color:
+      "bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-500/30",
   },
   user_updated: {
     label: "Профиль изменён",
-    color: "bg-amber-50 text-amber-700 border border-amber-200",
+    color:
+      "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-500/30",
   },
   user_deactivated: {
     label: "Пользователь отключён",
-    color: "bg-red-50 text-red-700 border border-red-200",
+    color:
+      "bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30",
   },
   user_activated: {
     label: "Пользователь включён",
-    color: "bg-green-50 text-green-700 border border-green-200",
+    color:
+      "bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-500/30",
   },
   role_assigned: {
     label: "Роль назначена",
-    color: "bg-purple-50 text-purple-700 border border-purple-200",
+    color:
+      "bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-500/30",
   },
   invite_created: {
     label: "Приглашение создано",
-    color: "bg-indigo-50 text-indigo-700 border border-indigo-200",
+    color:
+      "bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30",
   },
   invite_accepted: {
     label: "Приглашение принято",
-    color: "bg-green-50 text-green-700 border border-green-200",
+    color:
+      "bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-500/30",
   },
   client_registered: {
     label: "Клиент зарегистрирован",
-    color: "bg-green-50 text-green-700 border border-green-200",
+    color:
+      "bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-500/30",
   },
   password_reset: {
     label: "Пароль сброшен",
-    color: "bg-orange-50 text-orange-700 border border-orange-200",
+    color:
+      "bg-orange-50 dark:bg-orange-500/15 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-500/30",
   },
   "task.create": {
     label: "Задача создана",
-    color: "bg-green-50 text-green-700 border border-green-200",
+    color:
+      "bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-500/30",
   },
   "task.update": {
     label: "Задача изменена",
-    color: "bg-amber-50 text-amber-700 border border-amber-200",
+    color:
+      "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-500/30",
   },
-  "task.delete": { label: "Задача удалена", color: "bg-red-50 text-red-700 border border-red-200" },
+  "task.delete": {
+    label: "Задача удалена",
+    color:
+      "bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30",
+  },
   "org.create": {
     label: "Организация создана",
-    color: "bg-green-50 text-green-700 border border-green-200",
+    color:
+      "bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-500/30",
   },
   "org.update": {
     label: "Организация изменена",
-    color: "bg-amber-50 text-amber-700 border border-amber-200",
+    color:
+      "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-500/30",
   },
   "org.delete": {
     label: "Организация удалена",
-    color: "bg-red-50 text-red-700 border border-red-200",
+    color:
+      "bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30",
   },
   "org.archive": {
     label: "Организация архивирована",
-    color: "bg-slate-100 text-slate-600 border border-slate-200",
+    color: "bg-muted text-body border border-line",
   },
   "org.restore": {
     label: "Организация восстановлена",
-    color: "bg-green-50 text-green-700 border border-green-200",
+    color:
+      "bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-500/30",
   },
   "document.upload": {
     label: "Документ загружен",
-    color: "bg-green-50 text-green-700 border border-green-200",
+    color:
+      "bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-500/30",
   },
   "document.delete": {
     label: "Документ удалён",
-    color: "bg-red-50 text-red-700 border border-red-200",
+    color:
+      "bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30",
   },
   "section.create": {
     label: "Участок создан",
-    color: "bg-green-50 text-green-700 border border-green-200",
+    color:
+      "bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-500/30",
   },
   "section.update": {
     label: "Участок изменён",
-    color: "bg-amber-50 text-amber-700 border border-amber-200",
+    color:
+      "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-500/30",
   },
   "section.delete": {
     label: "Участок удалён",
-    color: "bg-red-50 text-red-700 border border-red-200",
+    color:
+      "bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30",
   },
   "knowledge.create": {
     label: "Статья создана",
-    color: "bg-green-50 text-green-700 border border-green-200",
+    color:
+      "bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-500/30",
   },
   "knowledge.update": {
     label: "Статья изменена",
-    color: "bg-amber-50 text-amber-700 border border-amber-200",
+    color:
+      "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-500/30",
   },
   "knowledge.delete": {
     label: "Статья удалена",
-    color: "bg-red-50 text-red-700 border border-red-200",
+    color:
+      "bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30",
   },
   "work_contact.create": {
     label: "Контакт создан",
-    color: "bg-green-50 text-green-700 border border-green-200",
+    color:
+      "bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-500/30",
   },
   "work_contact.update": {
     label: "Контакт изменён",
-    color: "bg-amber-50 text-amber-700 border border-amber-200",
+    color:
+      "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-500/30",
   },
   "work_contact.delete": {
     label: "Контакт удалён",
-    color: "bg-red-50 text-red-700 border border-red-200",
+    color:
+      "bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30",
   },
   "secret.view": {
     label: "Просмотр секрета",
-    color: "bg-orange-50 text-orange-700 border border-orange-200",
+    color:
+      "bg-orange-50 dark:bg-orange-500/15 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-500/30",
   },
 };
 
@@ -256,25 +295,25 @@ export default function AuditLogPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-900 mb-6">Журнал действий</h1>
+      <h1 className="text-2xl font-bold text-heading mb-6">Журнал действий</h1>
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
         <div className="relative flex-1 min-w-[200px]">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
           <input
             type="text"
             placeholder="Поиск по действию, ID, IP, браузеру..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+            className="w-full pl-10 pr-4 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           />
         </div>
 
         <select
           value={entity}
           onChange={(e) => setEntity(e.target.value)}
-          className="px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
+          className="px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
         >
           {ENTITY_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -286,7 +325,7 @@ export default function AuditLogPage() {
         <select
           value={action}
           onChange={(e) => setAction(e.target.value)}
-          className="px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
+          className="px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
         >
           <option value="">Все действия</option>
           {actionOptions.map((a) => (
@@ -300,29 +339,29 @@ export default function AuditLogPage() {
           type="date"
           value={from}
           onChange={(e) => setFrom(e.target.value)}
-          className="px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+          className="px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
         />
         <input
           type="date"
           value={to}
           onChange={(e) => setTo(e.target.value)}
-          className="px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+          className="px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
         />
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+      <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center py-12 text-slate-400">
+          <div className="flex items-center justify-center py-12 text-subtle">
             <Loader2 size={24} className="animate-spin" />
           </div>
         ) : logs.length === 0 ? (
-          <div className="text-center py-12 text-slate-400 text-sm">Нет записей</div>
+          <div className="text-center py-12 text-subtle text-sm">Нет записей</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 text-left text-xs text-slate-500 uppercase tracking-wide">
+                <tr className="border-b border-line text-left text-xs text-subtle uppercase tracking-wide">
                   <th className="px-5 py-3 font-medium whitespace-nowrap">Дата / Время</th>
                   <th className="px-5 py-3 font-medium">Пользователь</th>
                   <th className="px-5 py-3 font-medium">Действие</th>
@@ -351,23 +390,23 @@ export default function AuditLogPage() {
 
         {/* Pagination */}
         {!loading && total > 0 && (
-          <div className="flex items-center justify-between px-6 py-3 border-t border-slate-100 text-sm text-slate-500">
+          <div className="flex items-center justify-between px-6 py-3 border-t border-line text-sm text-subtle">
             <span>Всего {total} записей</span>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-1.5 rounded-lg hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronLeft size={16} />
               </button>
-              <span className="text-slate-700 font-medium">
+              <span className="text-body font-medium">
                 Стр {page} из {totalPages}
               </span>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-1.5 rounded-lg hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronRight size={16} />
               </button>
@@ -390,7 +429,7 @@ function ActionBadge({ action }) {
   }
   // Unknown action: generic badge
   return (
-    <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-[#6567F1]/10 text-[#6567F1] border border-[#6567F1]/20">
+    <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary border border-primary/20">
       {action}
     </span>
   );
@@ -404,12 +443,12 @@ function EntityCell({ entity, entityId, details }) {
 
   return (
     <div>
-      {entityLabel && <div className="text-slate-700 font-medium">{entityLabel}</div>}
+      {entityLabel && <div className="text-body font-medium">{entityLabel}</div>}
       {name && (
-        <div className="text-xs text-slate-500 mt-0.5 truncate max-w-[180px]">{String(name)}</div>
+        <div className="text-xs text-subtle mt-0.5 truncate max-w-[180px]">{String(name)}</div>
       )}
       {entityId && !name && (
-        <div className="text-xs text-slate-400 font-mono mt-0.5 truncate max-w-[180px]">
+        <div className="text-xs text-subtle font-mono mt-0.5 truncate max-w-[180px]">
           {entityId}
         </div>
       )}
@@ -418,13 +457,13 @@ function EntityCell({ entity, entityId, details }) {
 }
 
 function DetailsSummary({ details }) {
-  if (!details || typeof details !== "object") return <span className="text-slate-400">—</span>;
+  if (!details || typeof details !== "object") return <span className="text-subtle">—</span>;
 
   const entries = Object.entries(details)
     .filter(([k]) => !SKIP_DETAIL_KEYS.has(k))
     .slice(0, 3);
 
-  if (entries.length === 0) return <span className="text-slate-400">—</span>;
+  if (entries.length === 0) return <span className="text-subtle">—</span>;
 
   return (
     <div className="flex flex-wrap gap-x-3 gap-y-0.5">
@@ -436,8 +475,8 @@ function DetailsSummary({ details }) {
         if (Array.isArray(v)) display = v.join(", ");
         if (v === null || v === undefined) return null;
         return (
-          <span key={k} className="text-xs text-slate-600">
-            <span className="text-slate-400">{label}:</span>{" "}
+          <span key={k} className="text-xs text-body">
+            <span className="text-subtle">{label}:</span>{" "}
             <span className="font-medium">{String(display)}</span>
           </span>
         );
@@ -472,20 +511,20 @@ function DetailsPanel({ log }) {
   return (
     <div className="space-y-3">
       {/* Meta info */}
-      <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-500">
+      <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-subtle">
         {ipAddress && (
           <span>
-            <span className="font-medium text-slate-600">IP:</span> {ipAddress}
+            <span className="font-medium text-body">IP:</span> {ipAddress}
           </span>
         )}
         {userAgent && (
           <span>
-            <span className="font-medium text-slate-600">Браузер:</span> {parseUserAgent(userAgent)}
+            <span className="font-medium text-body">Браузер:</span> {parseUserAgent(userAgent)}
           </span>
         )}
         {entityId && (
           <span>
-            <span className="font-medium text-slate-600">ID объекта:</span>{" "}
+            <span className="font-medium text-body">ID объекта:</span>{" "}
             <span className="font-mono">{entityId}</span>
           </span>
         )}
@@ -494,8 +533,8 @@ function DetailsPanel({ log }) {
       {/* Structured details */}
       {hasDetails && (
         <div>
-          <div className="text-xs font-medium text-slate-500 mb-1.5">Детали</div>
-          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+          <div className="text-xs font-medium text-subtle mb-1.5">Детали</div>
+          <div className="bg-surface border border-line rounded-2xl overflow-hidden">
             <table className="w-full text-xs">
               <tbody>
                 {Object.entries(details)
@@ -507,13 +546,13 @@ function DetailsPanel({ log }) {
                     if (k === "priority") display = PRIORITY_LABELS[v] ?? v;
                     if (Array.isArray(v)) display = v.join(", ");
                     return (
-                      <tr key={k} className="border-b border-slate-100 last:border-0">
-                        <td className="px-3 py-2 text-slate-500 font-medium w-40 align-top">
+                      <tr key={k} className="border-b border-line last:border-0">
+                        <td className="px-3 py-2 text-subtle font-medium w-40 align-top">
                           {label}
                         </td>
-                        <td className="px-3 py-2 text-slate-700 break-all">
+                        <td className="px-3 py-2 text-body break-all">
                           {v === null || v === undefined ? (
-                            <span className="text-slate-400 italic">пусто</span>
+                            <span className="text-subtle italic">пусто</span>
                           ) : typeof v === "object" ? (
                             <pre className="font-mono text-xs whitespace-pre-wrap">
                               {JSON.stringify(v, null, 2)}
@@ -534,10 +573,10 @@ function DetailsPanel({ log }) {
       {/* Raw userAgent for debugging */}
       {userAgent && (
         <details className="text-xs">
-          <summary className="text-slate-400 cursor-pointer select-none hover:text-slate-600">
+          <summary className="text-subtle cursor-pointer select-none hover:text-body">
             User-Agent (raw)
           </summary>
-          <div className="mt-1 font-mono text-slate-500 break-all bg-slate-50 border border-slate-200 rounded p-2">
+          <div className="mt-1 font-mono text-subtle break-all bg-canvas border border-line rounded p-2">
             {userAgent}
           </div>
         </details>
@@ -556,16 +595,16 @@ function LogRow({ log, expanded, onToggle, formatDateTime, userName, userEmail }
   return (
     <>
       <tr
-        className={`border-b border-slate-50 transition-colors ${hasDetails ? "cursor-pointer hover:bg-slate-50/60" : ""} ${expanded ? "bg-slate-50/80" : ""}`}
+        className={`border-b border-line transition-colors ${hasDetails ? "cursor-pointer hover:bg-canvas/60" : ""} ${expanded ? "bg-canvas/80" : ""}`}
         onClick={hasDetails ? onToggle : undefined}
       >
         <td className="px-5 py-3 whitespace-nowrap">
-          <div className="text-slate-800 font-medium">{date}</div>
-          <div className="text-xs text-slate-400">{time}</div>
+          <div className="text-heading font-medium">{date}</div>
+          <div className="text-xs text-subtle">{time}</div>
         </td>
         <td className="px-5 py-3">
-          <div className="text-slate-700">{userName(log.user)}</div>
-          {email && <div className="text-xs text-slate-400">{email}</div>}
+          <div className="text-body">{userName(log.user)}</div>
+          {email && <div className="text-xs text-subtle">{email}</div>}
         </td>
         <td className="px-5 py-3">
           <ActionBadge action={log.action} />
@@ -576,15 +615,15 @@ function LogRow({ log, expanded, onToggle, formatDateTime, userName, userEmail }
         <td className="px-5 py-3 max-w-[240px]">
           <DetailsSummary details={log.details} />
         </td>
-        <td className="px-5 py-3 text-xs text-slate-400 font-mono whitespace-nowrap">
+        <td className="px-5 py-3 text-xs text-subtle font-mono whitespace-nowrap">
           {log.ipAddress || "—"}
         </td>
-        <td className="px-3 py-3 text-slate-400">
+        <td className="px-3 py-3 text-subtle">
           {hasDetails && (expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
         </td>
       </tr>
       {expanded && hasDetails && (
-        <tr className="bg-slate-50/80">
+        <tr className="bg-canvas/80">
           <td colSpan={7} className="px-5 py-4">
             <DetailsPanel log={log} />
           </td>

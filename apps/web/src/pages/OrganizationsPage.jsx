@@ -85,15 +85,15 @@ const STATUS_LABELS = {
 
 function statusBadge(status) {
   const map = {
-    active: "bg-green-100 text-green-700",
-    new: "bg-blue-100 text-blue-700",
-    liquidating: "bg-amber-100 text-amber-700",
-    left: "bg-slate-100 text-slate-500",
-    closed: "bg-slate-100 text-slate-500",
-    not_paying: "bg-red-100 text-red-700",
+    active: "bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300",
+    new: "bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300",
+    liquidating: "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300",
+    left: "bg-muted text-subtle",
+    closed: "bg-muted text-subtle",
+    not_paying: "bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300",
     blacklisted: "bg-slate-900 text-white",
   };
-  return map[status] || "bg-slate-100 text-slate-500";
+  return map[status] || "bg-muted text-subtle";
 }
 
 function fmtMoney(val) {
@@ -171,12 +171,11 @@ const SORTABLE_COLS = new Set([
 ]);
 
 function SortIcon({ colKey, sortBy, sortOrder }) {
-  if (sortBy !== colKey)
-    return <ArrowUpDown size={13} className="ml-1 text-slate-300 inline-block" />;
+  if (sortBy !== colKey) return <ArrowUpDown size={13} className="ml-1 text-subtle inline-block" />;
   return sortOrder === "asc" ? (
-    <ArrowUp size={13} className="ml-1 text-[#6567F1] inline-block" />
+    <ArrowUp size={13} className="ml-1 text-primary inline-block" />
   ) : (
-    <ArrowDown size={13} className="ml-1 text-[#6567F1] inline-block" />
+    <ArrowDown size={13} className="ml-1 text-primary inline-block" />
   );
 }
 
@@ -234,14 +233,15 @@ function renderCell(colKey, org) {
       const date = new Date(org.digitalSignatureExpiry);
       const daysLeft = Math.ceil((date - Date.now()) / 86400000);
       const label = date.toLocaleDateString("ru-RU");
-      if (daysLeft < 0) return { __expiry: true, label, cls: "text-red-600 font-medium" };
+      if (daysLeft < 0)
+        return { __expiry: true, label, cls: "text-red-600 dark:text-red-300 font-medium" };
       if (daysLeft <= 30)
         return {
           __expiry: true,
           label: `${label} (${daysLeft} дн.)`,
-          cls: "text-amber-600 font-medium",
+          cls: "text-amber-600 dark:text-amber-300 font-medium",
         };
-      return { __expiry: true, label, cls: "text-slate-600" };
+      return { __expiry: true, label, cls: "text-body" };
     }
     case "hasCashRegister":
       return org.hasCashRegister ? "Да" : "Нет";
@@ -309,7 +309,7 @@ function InlineEditor({ col, org, sections, onSave, onCancel }) {
   };
 
   const cls =
-    "w-full px-2 py-1 border border-[#6567F1] rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 bg-white";
+    "w-full px-2 py-1 border border-primary rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-surface";
 
   if (col.editType === "boolean") {
     return (
@@ -378,8 +378,8 @@ function InlineEditor({ col, org, sections, onSave, onCancel }) {
             key={k}
             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs cursor-pointer border ${
               value.includes(k)
-                ? "bg-[#6567F1]/10 border-[#6567F1]/30 text-[#6567F1]"
-                : "bg-white border-slate-200 text-slate-500"
+                ? "bg-primary/10 border-primary/30 text-primary"
+                : "bg-surface border-line text-subtle"
             }`}
           >
             <input
@@ -397,13 +397,13 @@ function InlineEditor({ col, org, sections, onSave, onCancel }) {
         ))}
         <button
           onClick={save}
-          className="px-2 py-0.5 rounded text-xs bg-[#6567F1] text-white hover:bg-[#5557E1]"
+          className="px-2 py-0.5 rounded text-xs bg-primary text-white hover:bg-[#5557E1]"
         >
           ✓
         </button>
         <button
           onClick={onCancel}
-          className="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-600 hover:bg-slate-200"
+          className="px-2 py-0.5 rounded text-xs bg-muted text-body hover:bg-line"
         >
           ✕
         </button>
@@ -466,50 +466,50 @@ function ColumnPicker({ visibleCols, onChange }) {
         onClick={() => setOpen((v) => !v)}
         className={`inline-flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium transition-colors ${
           open
-            ? "border-[#6567F1] text-[#6567F1] bg-[#6567F1]/5"
-            : "border-slate-200 text-slate-600 hover:bg-slate-50"
+            ? "border-primary text-primary bg-primary/5"
+            : "border-line text-body hover:bg-canvas"
         }`}
       >
         <SlidersHorizontal size={15} />
         Столбцы
         {visibleCols.length !== DEFAULT_COLS.length && (
-          <span className="ml-0.5 bg-[#6567F1] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+          <span className="ml-0.5 bg-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
             {visibleCols.length}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 z-30 bg-white border border-slate-200 rounded-xl shadow-xl p-3 w-52">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2 px-1">
+        <div className="absolute right-0 top-full mt-1 z-30 bg-surface border border-line rounded-xl shadow-xl p-3 w-52">
+          <p className="text-[11px] font-semibold text-subtle uppercase tracking-wide mb-2 px-1">
             Название — всегда
           </p>
           <div className="space-y-0.5">
             {COLUMN_DEFS.map(({ key, label }) => (
               <label
                 key={key}
-                className="flex items-center gap-2.5 px-1 py-1 rounded-lg hover:bg-slate-50 cursor-pointer text-sm text-slate-700"
+                className="flex items-center gap-2.5 px-1 py-1 rounded-lg hover:bg-canvas cursor-pointer text-sm text-body"
               >
                 <input
                   type="checkbox"
                   checked={visibleCols.includes(key)}
                   onChange={() => toggle(key)}
-                  className="w-4 h-4 rounded border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                  className="w-4 h-4 rounded border-line text-primary focus:ring-primary/30"
                 />
                 {label}
               </label>
             ))}
           </div>
-          <div className="mt-2 pt-2 border-t border-slate-100 flex gap-2">
+          <div className="mt-2 pt-2 border-t border-line flex gap-2">
             <button
               onClick={() => onChange(COLUMN_DEFS.map((c) => c.key))}
-              className="flex-1 text-xs text-[#6567F1] hover:underline text-center"
+              className="flex-1 text-xs text-primary hover:underline text-center"
             >
               Все
             </button>
             <button
               onClick={() => onChange(DEFAULT_COLS)}
-              className="flex-1 text-xs text-slate-500 hover:underline text-center"
+              className="flex-1 text-xs text-subtle hover:underline text-center"
             >
               По умолчанию
             </button>
@@ -570,34 +570,33 @@ function BulkModal({ mode, selectedIds, onClose, onSuccess }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md mx-4 p-6">
+      <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-md mx-4 p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-slate-900">{title}</h2>
+          <h2 className="text-lg font-bold text-heading">{title}</h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
           >
             <X size={18} />
           </button>
         </div>
 
-        <p className="text-sm text-slate-500 mb-1">
-          Выбрано организаций:{" "}
-          <span className="font-semibold text-slate-700">{selectedIds.size}</span>
+        <p className="text-sm text-subtle mb-1">
+          Выбрано организаций: <span className="font-semibold text-body">{selectedIds.size}</span>
         </p>
-        <p className="text-xs text-slate-400 mb-3">
+        <p className="text-xs text-subtle mb-3">
           {mode === "remove"
             ? "Показаны только ответственные, закреплённые за выбранными организациями"
             : "Показаны только сотрудники, не закреплённые ни за одной из выбранных организаций"}
         </p>
 
-        <div className="border border-slate-200 rounded-lg overflow-hidden mb-4 h-52 overflow-y-auto">
+        <div className="border border-line rounded-lg overflow-hidden mb-4 h-52 overflow-y-auto">
           {loading ? (
-            <div className="flex items-center justify-center h-full text-slate-400">
+            <div className="flex items-center justify-center h-full text-subtle">
               <Loader2 size={18} className="animate-spin" />
             </div>
           ) : allUsers.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-sm text-slate-400">
+            <div className="flex items-center justify-center h-full text-sm text-subtle">
               Пользователи не найдены
             </div>
           ) : (
@@ -605,27 +604,31 @@ function BulkModal({ mode, selectedIds, onClose, onSuccess }) {
               <button
                 key={u.id}
                 onClick={() => setSelectedUser(u)}
-                className={`w-full text-left px-3 py-2.5 text-sm transition-colors border-b border-slate-100 last:border-0 ${
+                className={`w-full text-left px-3 py-2.5 text-sm transition-colors border-b border-line last:border-0 ${
                   selectedUser?.id === u.id
-                    ? "bg-[#6567F1]/10 text-[#6567F1] font-medium"
-                    : "hover:bg-slate-50 text-slate-700"
+                    ? "bg-primary/10 text-primary font-medium"
+                    : "hover:bg-canvas text-body"
                 }`}
               >
                 <div className="font-medium">
                   {u.lastName} {u.firstName} {u.middleName || ""}
                 </div>
-                <div className="text-xs text-slate-400">{u.email}</div>
+                <div className="text-xs text-subtle">{u.email}</div>
               </button>
             ))
           )}
         </div>
 
-        {error && <div className="mb-3 p-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>}
+        {error && (
+          <div className="mb-3 p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
 
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+            className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
           >
             Отмена
           </button>
@@ -710,46 +713,50 @@ function OrgAssignModal({ group, onClose, onChanged }) {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg mx-4 flex flex-col max-h-[90vh]">
+      <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-lg mx-4 flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-line shrink-0">
           <div>
-            <h2 className="text-base font-bold text-slate-900">{group.name}</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Управление организациями группы</p>
+            <h2 className="text-base font-bold text-heading">{group.name}</h2>
+            <p className="text-xs text-subtle mt-0.5">Управление организациями группы</p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
           >
             <X size={18} />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
-          {error && <div className="p-2 bg-red-50 text-red-700 rounded-lg text-xs">{error}</div>}
+          {error && (
+            <div className="p-2 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-xs">
+              {error}
+            </div>
+          )}
 
           {/* В группе */}
           <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
+            <p className="text-xs font-semibold text-subtle uppercase tracking-wide mb-2">
               В группе ({inGroup.length})
             </p>
             {inGroup.length === 0 ? (
-              <p className="text-sm text-slate-400">Организаций нет</p>
+              <p className="text-sm text-subtle">Организаций нет</p>
             ) : (
               <div className="space-y-1">
                 {inGroup.map((org) => (
                   <div
                     key={org.id}
-                    className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-[#6567F1]/5 border border-[#6567F1]/10"
+                    className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/10"
                   >
                     <div className="min-w-0">
-                      <div className="text-sm font-medium text-slate-900 truncate">{org.name}</div>
-                      {org.inn && <div className="text-xs text-slate-400">{org.inn}</div>}
+                      <div className="text-sm font-medium text-heading truncate">{org.name}</div>
+                      {org.inn && <div className="text-xs text-subtle">{org.inn}</div>}
                     </div>
                     <button
                       disabled={working === org.id}
                       onClick={() => unassign(org.id)}
-                      className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40"
+                      className="shrink-0 p-1.5 rounded-lg text-subtle hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/15 transition-colors disabled:opacity-40"
                       title="Открепить"
                     >
                       {working === org.id ? (
@@ -766,27 +773,24 @@ function OrgAssignModal({ group, onClose, onChanged }) {
 
           {/* Добавить */}
           <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
+            <p className="text-xs font-semibold text-subtle uppercase tracking-wide mb-2">
               Добавить организацию
             </p>
             <div className="relative mb-2">
-              <Search
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Поиск по названию или ИНН..."
-                className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                className="w-full pl-8 pr-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               />
             </div>
             {loadingOrgs ? (
-              <div className="flex justify-center py-6 text-slate-400">
+              <div className="flex justify-center py-6 text-subtle">
                 <Loader2 size={20} className="animate-spin" />
               </div>
             ) : available.length === 0 ? (
-              <p className="text-sm text-slate-400">
+              <p className="text-sm text-subtle">
                 {search ? "Ничего не найдено" : "Все организации уже в группах"}
               </p>
             ) : (
@@ -794,21 +798,23 @@ function OrgAssignModal({ group, onClose, onChanged }) {
                 {available.map((org) => (
                   <div
                     key={org.id}
-                    className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-slate-100 hover:border-slate-200 hover:bg-slate-50 transition-colors"
+                    className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-line hover:border-line hover:bg-canvas transition-colors"
                   >
                     <div className="min-w-0">
-                      <div className="text-sm font-medium text-slate-900 truncate">{org.name}</div>
-                      <div className="text-xs text-slate-400">
+                      <div className="text-sm font-medium text-heading truncate">{org.name}</div>
+                      <div className="text-xs text-subtle">
                         {org.inn || ""}
                         {org.clientGroup && (
-                          <span className="ml-2 text-amber-600">← {org.clientGroup.name}</span>
+                          <span className="ml-2 text-amber-600 dark:text-amber-300">
+                            ← {org.clientGroup.name}
+                          </span>
                         )}
                       </div>
                     </div>
                     <button
                       disabled={working === org.id}
                       onClick={() => assign(org.id)}
-                      className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-[#6567F1] hover:bg-[#6567F1]/10 transition-colors disabled:opacity-40"
+                      className="shrink-0 p-1.5 rounded-lg text-subtle hover:text-primary hover:bg-primary/10 transition-colors disabled:opacity-40"
                       title="Добавить в группу"
                     >
                       {working === org.id ? (
@@ -917,13 +923,13 @@ function ManageGroupsModal({ groups, onClose, onChanged }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg mx-4 flex flex-col max-h-[90vh]">
+      <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-lg mx-4 flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
-          <h2 className="text-lg font-bold text-slate-900">Группы клиентов</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-line shrink-0">
+          <h2 className="text-lg font-bold text-heading">Группы клиентов</h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
           >
             <X size={18} />
           </button>
@@ -932,23 +938,23 @@ function ManageGroupsModal({ groups, onClose, onChanged }) {
         {/* List */}
         <div className="overflow-y-auto flex-1 px-6 py-4 space-y-2">
           {groups.length === 0 && (
-            <p className="text-sm text-slate-400 text-center py-4">Групп пока нет</p>
+            <p className="text-sm text-subtle text-center py-4">Групп пока нет</p>
           )}
           {groups.map((g) =>
             editingId === g.id ? (
-              <div key={g.id} className="border border-[#6567F1]/30 rounded-xl p-3 bg-[#6567F1]/5">
+              <div key={g.id} className="border border-primary/30 rounded-xl p-3 bg-primary/5">
                 <input
                   autoFocus
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   placeholder="Название"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                  className="w-full px-3 py-1.5 border border-line rounded-lg text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 />
                 <input
                   value={editDesc}
                   onChange={(e) => setEditDesc(e.target.value)}
                   placeholder="Описание (необязательно)"
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                  className="w-full px-3 py-1.5 border border-line rounded-lg text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 />
                 <div className="flex gap-2">
                   <button
@@ -960,7 +966,7 @@ function ManageGroupsModal({ groups, onClose, onChanged }) {
                   </button>
                   <button
                     onClick={() => setEditingId(null)}
-                    className="px-3 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg text-xs font-medium"
+                    className="px-3 py-1.5 border border-line text-body hover:bg-canvas rounded-lg text-xs font-medium"
                   >
                     Отмена
                   </button>
@@ -969,18 +975,18 @@ function ManageGroupsModal({ groups, onClose, onChanged }) {
             ) : (
               <div
                 key={g.id}
-                className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50 transition-colors"
+                className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border border-line hover:border-line hover:bg-canvas transition-colors"
               >
                 <div className="min-w-0">
-                  <div className="text-sm font-medium text-slate-900 truncate">{g.name}</div>
+                  <div className="text-sm font-medium text-heading truncate">{g.name}</div>
                   {g.description && (
-                    <div className="text-xs text-slate-400 truncate">{g.description}</div>
+                    <div className="text-xs text-subtle truncate">{g.description}</div>
                   )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => setAssigningGroup(g)}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-[#6567F1] hover:bg-[#6567F1]/10 border border-slate-200 hover:border-[#6567F1]/30 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-subtle hover:text-primary hover:bg-primary/10 border border-line hover:border-primary/30 transition-colors"
                     title="Управление организациями"
                   >
                     <Building2 size={13} />
@@ -988,14 +994,14 @@ function ManageGroupsModal({ groups, onClose, onChanged }) {
                   </button>
                   <button
                     onClick={() => startEdit(g)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#6567F1] hover:bg-[#6567F1]/10 transition-colors"
+                    className="p-1.5 rounded-lg text-subtle hover:text-primary hover:bg-primary/10 transition-colors"
                     title="Переименовать"
                   >
                     <Pencil size={14} />
                   </button>
                   <button
                     onClick={() => handleDelete(g)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                    className="p-1.5 rounded-lg text-subtle hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/15 transition-colors"
                     title="Удалить"
                   >
                     <Trash2 size={14} />
@@ -1007,12 +1013,14 @@ function ManageGroupsModal({ groups, onClose, onChanged }) {
         </div>
 
         {/* Create form */}
-        <div className="border-t border-slate-100 px-6 py-4 shrink-0">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
+        <div className="border-t border-line px-6 py-4 shrink-0">
+          <p className="text-xs font-semibold text-subtle uppercase tracking-wide mb-3">
             Новая группа
           </p>
           {error && (
-            <div className="mb-3 p-2 bg-red-50 text-red-700 rounded-lg text-xs">{error}</div>
+            <div className="mb-3 p-2 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-xs">
+              {error}
+            </div>
           )}
           <form onSubmit={handleCreate} className="flex flex-col gap-2">
             <input
@@ -1020,13 +1028,13 @@ function ManageGroupsModal({ groups, onClose, onChanged }) {
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Название *"
               required
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
             <input
               value={newDesc}
               onChange={(e) => setNewDesc(e.target.value)}
               placeholder="Описание (необязательно)"
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
             <button
               type="submit"
@@ -1095,37 +1103,37 @@ function GroupedView({
           return (
             <div
               key={g.id}
-              className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden"
+              className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden"
             >
-              <div className="flex items-center justify-between px-5 py-3.5 hover:bg-slate-50/50 transition-colors">
+              <div className="flex items-center justify-between px-5 py-3.5 hover:bg-canvas/50 transition-colors">
                 <div className="flex items-center gap-3">
                   <button onClick={() => toggle(g.id)} className="flex items-center gap-3">
-                    <Layers size={16} className="text-[#6567F1] shrink-0" />
+                    <Layers size={16} className="text-primary shrink-0" />
                   </button>
                   <Link
                     to={`/client-groups/${g.id}`}
-                    className="font-semibold text-[#6567F1] text-sm hover:underline"
+                    className="font-semibold text-primary text-sm hover:underline"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {g.name}
                   </Link>
                   {g.description && (
-                    <span className="text-xs text-slate-400 hidden sm:block">{g.description}</span>
+                    <span className="text-xs text-subtle hidden sm:block">{g.description}</span>
                   )}
                 </div>
                 <button onClick={() => toggle(g.id)} className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                  <span className="text-xs font-medium text-subtle bg-muted px-2 py-0.5 rounded-full">
                     {orgs.length} орг.
                   </span>
                   {open ? (
-                    <ChevronDown size={16} className="text-slate-400" />
+                    <ChevronDown size={16} className="text-subtle" />
                   ) : (
-                    <ChevronRightIcon size={16} className="text-slate-400" />
+                    <ChevronRightIcon size={16} className="text-subtle" />
                   )}
                 </button>
               </div>
               {open && (
-                <div className="border-t border-slate-100 overflow-x-auto">
+                <div className="border-t border-line overflow-x-auto">
                   <OrgTable orgs={orgs} visibleCols={visibleCols} />
                 </div>
               )}
@@ -1134,28 +1142,28 @@ function GroupedView({
         })}
 
         {ungrouped.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+          <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden">
             <button
               onClick={() => toggle("__ungrouped__")}
-              className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-50/50 transition-colors"
+              className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-canvas/50 transition-colors"
             >
               <div className="flex items-center gap-3">
-                <Layers size={16} className="text-slate-400 shrink-0" />
-                <span className="font-semibold text-slate-500 text-sm">Без группы</span>
+                <Layers size={16} className="text-subtle shrink-0" />
+                <span className="font-semibold text-subtle text-sm">Без группы</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                <span className="text-xs font-medium text-subtle bg-muted px-2 py-0.5 rounded-full">
                   {ungrouped.length} орг.
                 </span>
                 {expandedGroups.has("__ungrouped__") ? (
-                  <ChevronDown size={16} className="text-slate-400" />
+                  <ChevronDown size={16} className="text-subtle" />
                 ) : (
-                  <ChevronRightIcon size={16} className="text-slate-400" />
+                  <ChevronRightIcon size={16} className="text-subtle" />
                 )}
               </div>
             </button>
             {expandedGroups.has("__ungrouped__") && (
-              <div className="border-t border-slate-100 overflow-x-auto">
+              <div className="border-t border-line overflow-x-auto">
                 <OrgTable orgs={ungrouped} visibleCols={visibleCols} />
               </div>
             )}
@@ -1165,24 +1173,24 @@ function GroupedView({
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4">
-          <span className="text-sm text-slate-500">
+          <span className="text-sm text-subtle">
             Показано {(page - 1) * limit + 1}–{Math.min(page * limit, total)} из {total}
           </span>
           <div className="flex items-center gap-2">
             <button
               disabled={page <= 1}
               onClick={() => setPage(page - 1)}
-              className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="p-2 rounded-lg border border-line text-body hover:bg-canvas disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <ChevronLeft size={16} />
             </button>
-            <span className="text-sm text-slate-600">
+            <span className="text-sm text-body">
               {page} / {totalPages}
             </span>
             <button
               disabled={page >= totalPages}
               onClick={() => setPage(page + 1)}
-              className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="p-2 rounded-lg border border-line text-body hover:bg-canvas disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <ChevronRight size={16} />
             </button>
@@ -1198,22 +1206,22 @@ function OrgTable({ orgs, visibleCols }) {
     <table className="w-full text-sm">
       <tbody>
         {orgs.map((org) => (
-          <tr key={org.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50">
-            <td className="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">
-              <Link to={`/organizations/${org.id}`} className="text-[#6567F1] hover:underline">
+          <tr key={org.id} className="border-b border-line last:border-0 hover:bg-canvas/50">
+            <td className="px-4 py-3 font-medium text-heading whitespace-nowrap">
+              <Link to={`/organizations/${org.id}`} className="text-primary hover:underline">
                 {org.name}
               </Link>
               {org.clientGroup && (
                 <Link
                   to={`/client-groups/${org.clientGroup.id}`}
-                  className="ml-2 text-xs text-slate-400 hover:text-[#6567F1]"
+                  className="ml-2 text-xs text-subtle hover:text-primary"
                 >
                   {org.clientGroup.name}
                 </Link>
               )}
             </td>
             {COLUMN_DEFS.filter((c) => visibleCols.includes(c.key)).map((col) => (
-              <td key={col.key} className="px-4 py-3 text-slate-600 whitespace-nowrap">
+              <td key={col.key} className="px-4 py-3 text-body whitespace-nowrap">
                 {col.key === "status" ? (
                   <span
                     className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusBadge(org.status)}`}
@@ -1221,7 +1229,9 @@ function OrgTable({ orgs, visibleCols }) {
                     {STATUS_LABELS[org.status] || org.status}
                   </span>
                 ) : col.key === "debtAmount" && org.debtAmount > 0 ? (
-                  <span className="text-red-600 font-medium">{fmtMoney(org.debtAmount)}</span>
+                  <span className="text-red-600 dark:text-red-300 font-medium">
+                    {fmtMoney(org.debtAmount)}
+                  </span>
                 ) : (
                   (() => {
                     const val = renderCell(col.key, org);
@@ -1450,12 +1460,12 @@ export default function OrganizationsPage() {
   return (
     <>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Организации</h1>
+        <h1 className="text-2xl font-bold text-heading">Организации</h1>
         <div className="flex items-center gap-2">
           {(hasRole("manager") || hasRole("accountant")) && (
             <Link
               to="/my-payments"
-              className="inline-flex items-center gap-2 px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] rounded-lg text-sm font-medium hover:bg-[#6567F1]/5 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 border-2 border-primary/20 text-primary rounded-lg text-sm font-medium hover:bg-primary/5 transition-colors"
             >
               <Banknote size={16} />
               Оплаты
@@ -1476,7 +1486,7 @@ export default function OrganizationsPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6 flex-wrap">
         <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
           <input
             type="text"
             placeholder="Поиск по названию или ИНН..."
@@ -1485,19 +1495,19 @@ export default function OrganizationsPage() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="w-full sm:w-72 pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+            className="w-full sm:w-72 pl-9 pr-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           />
         </div>
         {!archiveMode && (
           <div className="relative">
-            <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
             <select
               value={statusFilter}
               onChange={(e) => {
                 setStatusFilter(e.target.value);
                 setPage(1);
               }}
-              className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
+              className="pl-9 pr-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
             >
               <option value="">Все статусы</option>
               {Object.entries(STATUS_LABELS)
@@ -1517,7 +1527,7 @@ export default function OrganizationsPage() {
               setTaxSystem(e.target.value);
               setPage(1);
             }}
-            className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
+            className="px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
           >
             <option value="">Все системы Н/О</option>
             {Object.entries(TAX_SYSTEM_LABELS).map(([k, v]) => (
@@ -1541,7 +1551,7 @@ export default function OrganizationsPage() {
             }
             setPage(1);
           }}
-          className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
+          className="px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
         >
           <option value="">Все участки</option>
           {sections.map((s) => (
@@ -1559,7 +1569,7 @@ export default function OrganizationsPage() {
               setClientGroupFilter(e.target.value);
               setPage(1);
             }}
-            className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
+            className="px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
           >
             <option value="">Все клиенты</option>
             {clientGroups.map((g) => (
@@ -1576,7 +1586,7 @@ export default function OrganizationsPage() {
               setPaymentDestFilter(e.target.value);
               setPage(1);
             }}
-            className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
+            className="px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
           >
             <option value="">Все платежи</option>
             {Object.entries(PAYMENT_DEST_LABELS).map(([k, v]) => (
@@ -1589,7 +1599,7 @@ export default function OrganizationsPage() {
         {!archiveMode && hasPermission("organization", "create") && (
           <button
             onClick={() => setShowManageGroups(true)}
-            className="inline-flex items-center gap-2 px-3 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-2 px-3 py-2 border border-line text-body hover:bg-canvas rounded-lg text-sm font-medium transition-colors"
             title="Управление группами клиентов"
           >
             <Settings2 size={15} />
@@ -1603,8 +1613,8 @@ export default function OrganizationsPage() {
               onClick={() => setGroupByClient((v) => !v)}
               className={`inline-flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium transition-colors ${
                 groupByClient
-                  ? "border-[#6567F1] text-[#6567F1] bg-[#6567F1]/5"
-                  : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  ? "border-primary text-primary bg-primary/5"
+                  : "border-line text-body hover:bg-canvas"
               }`}
             >
               <Layers size={15} />
@@ -1615,14 +1625,18 @@ export default function OrganizationsPage() {
         </div>
       </div>
 
-      {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>}
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
+          {error}
+        </div>
+      )}
 
       {loading ? (
-        <div className="flex items-center justify-center py-16 text-slate-400">
+        <div className="flex items-center justify-center py-16 text-subtle">
           <Loader2 size={24} className="animate-spin" />
         </div>
       ) : organizations.length === 0 ? (
-        <div className="text-slate-400 text-sm">Организации не найдены</div>
+        <div className="text-subtle text-sm">Организации не найдены</div>
       ) : groupByClient ? (
         <GroupedView
           organizations={organizations}
@@ -1638,15 +1652,15 @@ export default function OrganizationsPage() {
         />
       ) : (
         <>
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden overflow-x-auto">
+          <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/50">
+                <tr className="border-b border-line bg-canvas/50">
                   {hasRole("admin") && (
                     <th className="pl-4 pr-2 py-3 w-8">
                       <input
                         type="checkbox"
-                        className="w-4 h-4 rounded border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                        className="w-4 h-4 rounded border-line text-primary focus:ring-primary/30"
                         checked={
                           organizations.length > 0 &&
                           organizations.every((o) => selectedIds.has(o.id))
@@ -1669,11 +1683,11 @@ export default function OrganizationsPage() {
                       />
                     </th>
                   )}
-                  <th className="px-4 py-3 font-medium text-slate-400 whitespace-nowrap text-right w-10">
+                  <th className="px-4 py-3 font-medium text-subtle whitespace-nowrap text-right w-10">
                     №
                   </th>
                   <th
-                    className="text-left px-4 py-3 font-medium text-slate-500 whitespace-nowrap cursor-pointer select-none hover:text-slate-700"
+                    className="text-left px-4 py-3 font-medium text-subtle whitespace-nowrap cursor-pointer select-none hover:text-body"
                     onClick={() => handleSort("name")}
                   >
                     Название
@@ -1682,7 +1696,7 @@ export default function OrganizationsPage() {
                   {COLUMN_DEFS.filter((c) => visibleCols.includes(c.key)).map((col) => (
                     <th
                       key={col.key}
-                      className={`text-left px-4 py-3 font-medium text-slate-500 whitespace-nowrap ${SORTABLE_COLS.has(col.key) ? "cursor-pointer select-none hover:text-slate-700" : ""}`}
+                      className={`text-left px-4 py-3 font-medium text-subtle whitespace-nowrap ${SORTABLE_COLS.has(col.key) ? "cursor-pointer select-none hover:text-body" : ""}`}
                       onClick={SORTABLE_COLS.has(col.key) ? () => handleSort(col.key) : undefined}
                     >
                       {col.label}
@@ -1697,13 +1711,13 @@ export default function OrganizationsPage() {
                 {organizations.map((org, i) => (
                   <tr
                     key={org.id}
-                    className={`border-b border-slate-50 hover:bg-slate-50/50 ${selectedIds.has(org.id) ? "bg-[#6567F1]/5" : ""}`}
+                    className={`border-b border-line hover:bg-canvas/50 ${selectedIds.has(org.id) ? "bg-primary/5" : ""}`}
                   >
                     {hasRole("admin") && (
                       <td className="pl-4 pr-2 py-3">
                         <input
                           type="checkbox"
-                          className="w-4 h-4 rounded border-slate-300 text-[#6567F1] focus:ring-[#6567F1]/30"
+                          className="w-4 h-4 rounded border-line text-primary focus:ring-primary/30"
                           checked={selectedIds.has(org.id)}
                           onChange={(e) => {
                             setSelectedIds((prev) => {
@@ -1716,20 +1730,20 @@ export default function OrganizationsPage() {
                         />
                       </td>
                     )}
-                    <td className="px-4 py-3 text-slate-400 text-sm text-right tabular-nums whitespace-nowrap">
+                    <td className="px-4 py-3 text-subtle text-sm text-right tabular-nums whitespace-nowrap">
                       {(page - 1) * limit + i + 1}
                     </td>
-                    <td className="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">
+                    <td className="px-4 py-3 font-medium text-heading whitespace-nowrap">
                       <Link
                         to={`/organizations/${org.id}`}
-                        className="text-[#6567F1] hover:underline"
+                        className="text-primary hover:underline"
                       >
                         {org.name}
                       </Link>
                       {org.clientGroup && (
                         <Link
                           to={`/client-groups/${org.clientGroup.id}`}
-                          className="ml-2 text-xs text-slate-400 hover:text-[#6567F1]"
+                          className="ml-2 text-xs text-subtle hover:text-primary"
                         >
                           {org.clientGroup.name}
                         </Link>
@@ -1745,7 +1759,7 @@ export default function OrganizationsPage() {
                       return (
                         <td
                           key={col.key}
-                          className={`px-4 py-3 text-slate-600 whitespace-nowrap ${canEdit && !isEditing ? "cursor-pointer hover:bg-[#6567F1]/5 transition-colors" : ""}`}
+                          className={`px-4 py-3 text-body whitespace-nowrap ${canEdit && !isEditing ? "cursor-pointer hover:bg-primary/5 transition-colors" : ""}`}
                           onDoubleClick={
                             canEdit && !isEditing
                               ? () => setEditingCell({ orgId: org.id, colKey: col.key })
@@ -1769,7 +1783,7 @@ export default function OrganizationsPage() {
                               {STATUS_LABELS[org.status] || org.status}
                             </span>
                           ) : col.key === "debtAmount" && org.debtAmount > 0 ? (
-                            <span className="text-red-600 font-medium">
+                            <span className="text-red-600 dark:text-red-300 font-medium">
                               {fmtMoney(org.debtAmount)}
                             </span>
                           ) : col.key === "debtAmount" &&
@@ -1777,7 +1791,7 @@ export default function OrganizationsPage() {
                             org.clientGroup ? (
                             <Link
                               to={`/client-groups/${org.clientGroup.id}`}
-                              className="text-xs text-[#6567F1] hover:underline"
+                              className="text-xs text-primary hover:underline"
                             >
                               → группа
                             </Link>
@@ -1800,24 +1814,24 @@ export default function OrganizationsPage() {
 
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4">
-              <span className="text-sm text-slate-500">
+              <span className="text-sm text-subtle">
                 Показано {(page - 1) * limit + 1}–{Math.min(page * limit, total)} из {total}
               </span>
               <div className="flex items-center gap-2">
                 <button
                   disabled={page <= 1}
                   onClick={() => setPage(page - 1)}
-                  className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="p-2 rounded-lg border border-line text-body hover:bg-canvas disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft size={16} />
                 </button>
-                <span className="text-sm text-slate-600">
+                <span className="text-sm text-body">
                   {page} / {totalPages}
                 </span>
                 <button
                   disabled={page >= totalPages}
                   onClick={() => setPage(page + 1)}
-                  className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="p-2 rounded-lg border border-line text-body hover:bg-canvas disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <ChevronRight size={16} />
                 </button>
@@ -1829,11 +1843,11 @@ export default function OrganizationsPage() {
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3 bg-white rounded-2xl shadow-xl border border-slate-200">
-          <span className="text-sm font-medium text-slate-700">
-            Выбрано: <span className="text-[#6567F1] font-bold">{selectedIds.size}</span>
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3 bg-surface rounded-2xl shadow-xl border border-line">
+          <span className="text-sm font-medium text-body">
+            Выбрано: <span className="text-primary font-bold">{selectedIds.size}</span>
           </span>
-          <div className="w-px h-5 bg-slate-200" />
+          <div className="w-px h-5 bg-line" />
           <button
             onClick={() => setBulkModal("assign")}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg text-sm font-medium transition-all shadow-md shadow-[#6567F1]/30"
@@ -1843,14 +1857,14 @@ export default function OrganizationsPage() {
           </button>
           <button
             onClick={() => setBulkModal("remove")}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/15 rounded-lg text-sm font-medium transition-colors"
           >
             <UserMinus size={15} />
             Снять
           </button>
           <button
             onClick={() => setSelectedIds(new Set())}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
           >
             <X size={14} />
             Снять выделение
@@ -1887,36 +1901,36 @@ export default function OrganizationsPage() {
       {/* Create Modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md mx-4 p-6">
-            <h2 className="text-lg font-bold text-slate-900 mb-4">Новая организация</h2>
+          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-md mx-4 p-6">
+            <h2 className="text-lg font-bold text-heading mb-4">Новая организация</h2>
             <form onSubmit={handleCreate} className="flex flex-col gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Название *</label>
+                <label className="block text-sm font-medium text-body mb-1">Название *</label>
                 <input
                   type="text"
                   required
                   value={createName}
                   onChange={(e) => setCreateName(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">ИНН</label>
+                <label className="block text-sm font-medium text-body mb-1">ИНН</label>
                 <input
                   type="text"
                   value={createInn}
                   onChange={(e) => setCreateInn(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1]"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-body mb-1">
                   Форма собственности
                 </label>
                 <select
                   value={createForm}
                   onChange={(e) => setCreateForm(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
                 >
                   <option value="">Не указано</option>
                   <option value="OOO">ООО</option>
@@ -1928,11 +1942,11 @@ export default function OrganizationsPage() {
               </div>
               {sections.length > 0 && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Участок</label>
+                  <label className="block text-sm font-medium text-body mb-1">Участок</label>
                   <select
                     value={createSection}
                     onChange={(e) => setCreateSection(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
+                    className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
                   >
                     <option value="">Без участка</option>
                     {sections.map((s) => (
@@ -1945,13 +1959,11 @@ export default function OrganizationsPage() {
               )}
               {clientGroups.length > 0 && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Группа клиента
-                  </label>
+                  <label className="block text-sm font-medium text-body mb-1">Группа клиента</label>
                   <select
                     value={createClientGroup}
                     onChange={(e) => setCreateClientGroup(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#6567F1]/30 focus:border-[#6567F1] bg-white"
+                    className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
                   >
                     <option value="">Без группы</option>
                     {clientGroups.map((g) => (
@@ -1963,7 +1975,9 @@ export default function OrganizationsPage() {
                 </div>
               )}
               {createError && (
-                <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{createError}</div>
+                <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
+                  {createError}
+                </div>
               )}
               <div className="flex justify-end gap-3">
                 <button
@@ -1972,7 +1986,7 @@ export default function OrganizationsPage() {
                     setShowCreate(false);
                     setCreateError("");
                   }}
-                  className="px-4 py-2 border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 rounded-lg text-sm font-medium transition-colors"
+                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
                 >
                   Отмена
                 </button>
