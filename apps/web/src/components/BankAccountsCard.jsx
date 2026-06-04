@@ -76,7 +76,7 @@ function bankBadgeCls(name) {
   return "bg-muted text-body";
 }
 
-const API_PROVIDER_LABELS = { tochka: "Точка" };
+const API_PROVIDER_LABELS = { tochka: "Точка", sber: "Сбер" };
 
 const SECRET_DISPLAY_DURATION = 30_000;
 
@@ -493,34 +493,39 @@ export default function BankAccountsCard({
                     >
                       <option value="">Нет (только загрузка файла)</option>
                       <option value="tochka">Точка</option>
+                      <option value="sber">Сбербанк</option>
                     </select>
                   </div>
                   {apiProvider && (
                     <>
-                      <div>
-                        <label className="block text-sm font-medium text-body mb-1">
-                          Идентификатор счёта (accountId)
+                      {apiProvider === "tochka" && (
+                        <div>
+                          <label className="block text-sm font-medium text-body mb-1">
+                            Идентификатор счёта (accountId)
+                          </label>
+                          <input
+                            type="text"
+                            value={apiAccountId}
+                            onChange={(e) => setApiAccountId(e.target.value)}
+                            placeholder="Если пусто — берётся номер счёта"
+                            className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                          />
+                        </div>
+                      )}
+                      {apiProvider === "tochka" && (
+                        <label className="flex items-center gap-2 text-sm text-body cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={usePartnerToken}
+                            onChange={(e) => setUsePartnerToken(e.target.checked)}
+                          />
+                          Использовать партнёрский токен
                         </label>
-                        <input
-                          type="text"
-                          value={apiAccountId}
-                          onChange={(e) => setApiAccountId(e.target.value)}
-                          placeholder="Если пусто — берётся номер счёта"
-                          className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                        />
-                      </div>
-                      <label className="flex items-center gap-2 text-sm text-body cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={usePartnerToken}
-                          onChange={(e) => setUsePartnerToken(e.target.checked)}
-                        />
-                        Использовать партнёрский токен
-                      </label>
+                      )}
                       {!usePartnerToken && (
                         <div>
                           <label className="block text-sm font-medium text-body mb-1">
-                            API-токен
+                            {apiProvider === "sber" ? "Refresh-токен (СберБизнес)" : "API-токен"}
                           </label>
                           <input
                             type="password"
