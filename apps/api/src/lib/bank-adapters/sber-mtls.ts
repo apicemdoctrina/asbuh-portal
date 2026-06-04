@@ -4,6 +4,8 @@ import { BankConfigError } from "./types.js";
 
 export interface SberConfig {
   baseUrl: string;
+  authBaseUrl: string;
+  redirectUri: string;
   clientId: string;
   clientSecret: string;
   dispatcher: Dispatcher;
@@ -15,13 +17,23 @@ let cached: SberConfig | null = null;
 export function getSberConfig(): SberConfig {
   if (cached) return cached;
   const baseUrl = process.env.SBER_API_BASE || "";
+  const authBaseUrl = process.env.SBER_AUTH_BASE || "";
+  const redirectUri = process.env.SBER_REDIRECT_URI || "";
   const clientId = process.env.SBER_CLIENT_ID || "";
   const clientSecret = process.env.SBER_CLIENT_SECRET || "";
   const certPath = process.env.SBER_CERT_PATH || "";
   const keyPath = process.env.SBER_CERT_KEY_PATH || "";
   const passphrase = process.env.SBER_CERT_PASSPHRASE || undefined;
 
-  if (!baseUrl || !clientId || !clientSecret || !certPath || !keyPath) {
+  if (
+    !baseUrl ||
+    !authBaseUrl ||
+    !redirectUri ||
+    !clientId ||
+    !clientSecret ||
+    !certPath ||
+    !keyPath
+  ) {
     throw new BankConfigError("Сбер не сконфигурирован на сервере (SBER_* env)");
   }
 
@@ -35,6 +47,6 @@ export function getSberConfig(): SberConfig {
   }
 
   const dispatcher = new Agent({ connect: { cert, key, passphrase } });
-  cached = { baseUrl, clientId, clientSecret, dispatcher };
+  cached = { baseUrl, authBaseUrl, redirectUri, clientId, clientSecret, dispatcher };
   return cached;
 }

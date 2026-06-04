@@ -5,6 +5,8 @@ import { BankConfigError, BankApiError } from "./types.js";
 
 const cfg = {
   baseUrl: "https://sber.test",
+  authBaseUrl: "https://sso.sber.test",
+  redirectUri: "https://app.test/api/statements/sber/callback",
   clientId: "cid",
   clientSecret: "secret",
   dispatcher: undefined as never, // в тестах fetch замокан, диспетчер не используется

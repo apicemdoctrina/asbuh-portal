@@ -3,8 +3,13 @@ import type { SberConfig } from "./sber-mtls.js";
 
 // fetch в Node принимает undici-`dispatcher` в рантайме, но его нет в типах RequestInit,
 // поэтому добавляем поле и гасим excess-property-проверку приведением `as RequestInit`.
-function sberFetch(cfg: SberConfig, path: string, init: RequestInit): Promise<Response> {
-  return fetch(`${cfg.baseUrl}${path}`, { ...init, dispatcher: cfg.dispatcher } as RequestInit);
+function sberFetch(
+  baseUrl: string,
+  cfg: SberConfig,
+  path: string,
+  init: RequestInit,
+): Promise<Response> {
+  return fetch(`${baseUrl}${path}`, { ...init, dispatcher: cfg.dispatcher } as RequestInit);
 }
 
 export interface RefreshedTokens {
@@ -24,7 +29,7 @@ export async function refreshAccessToken(
     refresh_token: refreshToken,
     scope: "GET_STATEMENT_ACCOUNT",
   });
-  const res = await sberFetch(cfg, "/ic/sso/api/v2/oauth/token", {
+  const res = await sberFetch(cfg.authBaseUrl, cfg, "/ic/sso/api/v2/oauth/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
@@ -66,10 +71,15 @@ export async function fetchDailyFile(
   // Шаг 1: заказать файл; ретраим, пока банк формирует (HTTP 202).
   let taskBody: unknown = null;
   for (let attempt = 0; attempt < 20; attempt++) {
-    const res = await sberFetch(cfg, `/fintech/api/v1/statement/files?${qs.toString()}`, {
-      method: "GET",
-      headers: auth,
-    });
+    const res = await sberFetch(
+      cfg.baseUrl,
+      cfg,
+      `/fintech/api/v1/statement/files?${qs.toString()}`,
+      {
+        method: "GET",
+        headers: auth,
+      },
+    );
     if (res.status === 401 || res.status === 403) {
       throw new BankApiError("Сбер отклонил токен при запросе файла");
     }
@@ -96,10 +106,12 @@ export async function fetchDailyFile(
   const obj = taskBody as Record<string, unknown>;
   const link = (obj.downloadLink || obj.link || obj.url) as string | undefined;
   if (!link) throw new BankApiError("Сбер не вернул ссылку на файл");
-  const dl = await sberFetch(cfg, link.startsWith("http") ? link.replace(cfg.baseUrl, "") : link, {
-    method: "GET",
-    headers: auth,
-  });
+  const dl = await sberFetch(
+    cfg.baseUrl,
+    cfg,
+    link.startsWith("http") ? link.replace(cfg.baseUrl, "") : link,
+    { method: "GET", headers: auth },
+  );
   if (dl.status === 404) return null;
   if (!dl.ok) throw new BankApiError(`Не удалось скачать файл Сбера ${dl.status}`);
   const buf = Buffer.from(await dl.arrayBuffer());
