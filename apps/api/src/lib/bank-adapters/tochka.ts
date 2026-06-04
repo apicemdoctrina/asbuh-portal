@@ -159,13 +159,20 @@ async function tochkaApi(token: string, path: string, opts?: RequestInit): Promi
   });
 }
 
-/** Создать запрос выписки и опрашивать до Ready. Возвращает транзакции. */
-async function fetchTransactions(
+interface TochkaStatementData {
+  transactions: TochkaTransaction[];
+  // Остатки за период берём из самой выписки (startDateBalance/endDateBalance),
+  // а НЕ из эндпоинта /balances — тот отдаёт текущий снимок «на сейчас», не за период.
+  balance: { opening: number; closing: number } | null;
+}
+
+/** Создать запрос выписки и опрашивать до Ready. Возвращает транзакции + остатки периода. */
+async function fetchStatementData(
   token: string,
   accountId: string,
   start: string,
   end: string,
-): Promise<TochkaTransaction[]> {
+): Promise<TochkaStatementData> {
   const createRes = await tochkaApi(token, "/statements", {
     method: "POST",
     body: JSON.stringify({
@@ -191,62 +198,28 @@ async function fetchTransactions(
     const stmt = stmts[0];
     if (stmt.status === "Error") throw new BankApiError("Банк не смог подготовить выписку");
     if (stmt.status === "Ready" || stmt.status === "Complete") {
-      return (stmt.Transaction || []) as TochkaTransaction[];
+      const opening = stmt.startDateBalance;
+      const closing = stmt.endDateBalance;
+      const balance =
+        typeof opening === "number" && typeof closing === "number" ? { opening, closing } : null;
+      if (!balance) {
+        console.warn("[tochka] в выписке нет startDateBalance/endDateBalance — выписка без сверки");
+      }
+      return { transactions: (stmt.Transaction || []) as TochkaTransaction[], balance };
     }
   }
   throw new BankApiError("Банк не успел подготовить выписку, попробуйте позже");
 }
 
-/**
- * Best-effort остаток счёта. Любая ошибка/неизвестная форма → null (выписка без сверки,
- * reconcile поставит "нет данных" вместо ложного MISMATCH).
- *
- * ВНИМАНИЕ: точные имена типов баланса Точки (`OpeningAvailable`/`ClosingAvailable`/…)
- * и путь `Data.Balance[]` НЕ подтверждены реальным ответом — `payments.ts` остатки не тянет.
- * При первом боевом запуске сверить с фактическим JSON `/balances` и поправить разбор.
- * Когда остаток не распарсился — пишем диагностический warn, чтобы это было видно в логах.
- */
-async function fetchBalance(
-  token: string,
-  accountId: string,
-): Promise<{ opening: number; closing: number } | null> {
-  try {
-    const res = await tochkaApi(token, `/accounts/${encodeURIComponent(accountId)}/balances`);
-    if (!res.ok) {
-      console.warn(`[tochka] balances HTTP ${res.status} — выписка будет без сверки`);
-      return null;
-    }
-    const balances = (await res.json())?.Data?.Balance;
-    if (!Array.isArray(balances)) {
-      console.warn("[tochka] balances: неожиданная форма ответа — выписка без сверки");
-      return null;
-    }
-    const opening = balances.find(
-      (b) => b.type === "OpeningAvailable" || b.type === "OpeningBooked",
-    );
-    const closing = balances.find(
-      (b) => b.type === "ClosingAvailable" || b.type === "ClosingBooked",
-    );
-    if (!opening || !closing) {
-      console.warn("[tochka] balances: не найдены Opening/Closing — выписка без сверки");
-      return null;
-    }
-    return {
-      opening: Number(opening.Amount?.amount ?? 0),
-      closing: Number(closing.Amount?.amount ?? 0),
-    };
-  } catch {
-    return null;
-  }
-}
-
 export const tochkaAdapter: BankAdapter = {
   provider: "tochka",
   async fetchStatement(opts: FetchOpts) {
-    const [transactions, balance] = await Promise.all([
-      fetchTransactions(opts.token, opts.accountId, opts.start, opts.end),
-      fetchBalance(opts.token, opts.accountId),
-    ]);
+    const { transactions, balance } = await fetchStatementData(
+      opts.token,
+      opts.accountId,
+      opts.start,
+      opts.end,
+    );
     return tochkaToParsedStatement({
       accountNumber: opts.accountNumber,
       start: opts.start,
