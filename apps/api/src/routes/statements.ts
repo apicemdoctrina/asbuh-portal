@@ -14,10 +14,9 @@ import { generatePdf } from "../lib/statement-pdf.js";
 
 const router = Router();
 
-export function getStatementScopedWhere(user: {
-  userId: string;
-  roles: string[];
-}): Prisma.BankStatementWhereInput {
+type AuthedUser = { userId: string; roles: string[] };
+
+export function getStatementScopedWhere(user: AuthedUser): Prisma.BankStatementWhereInput {
   const { roles, userId } = user;
   if (roles.includes("admin") || roles.includes("supervisor")) return {};
   if (roles.includes("manager") || roles.includes("accountant")) {
@@ -25,6 +24,42 @@ export function getStatementScopedWhere(user: {
   }
   // client — нет доступа в v1
   return { id: "__none__" };
+}
+
+function isPrivileged(roles: string[]): boolean {
+  return roles.some((r) => r === "admin" || r === "supervisor");
+}
+
+/** Существует ли организация И доступна ли она пользователю по его скоупу. */
+async function orgInScope(orgId: string, user: AuthedUser): Promise<boolean> {
+  const allowed = await prisma.organization.findFirst({
+    where: {
+      id: orgId,
+      ...(isPrivileged(user.roles)
+        ? {}
+        : { section: { members: { some: { userId: user.userId } } } }),
+    },
+    select: { id: true },
+  });
+  return Boolean(allowed);
+}
+
+/** Авто-детект организации по номеру счёта — только среди организаций в скоупе. */
+async function detectOrg(
+  accountNumbers: string[],
+  user: AuthedUser,
+): Promise<{ id: string; name: string } | null> {
+  if (!accountNumbers.length) return null;
+  const bankAcc = await prisma.organizationBankAccount.findFirst({
+    where: {
+      accountNumber: { in: accountNumbers },
+      ...(isPrivileged(user.roles)
+        ? {}
+        : { organization: { section: { members: { some: { userId: user.userId } } } } }),
+    },
+    select: { organization: { select: { id: true, name: true } } },
+  });
+  return bankAcc?.organization ?? null;
 }
 
 function readOriginal(filename: string): { buf: Buffer; fullPath: string } {
@@ -39,9 +74,12 @@ function parseRuDate(d: string | null): Date {
   return new Date(`${yyyy}-${mm}-${dd}`);
 }
 
-/** Загрузить + распарсить выписку, сверить, сохранить запись. */
+/**
+ * Шаг 1: распарсить и сверить выписку БЕЗ сохранения, предложить организацию
+ * по номеру счёта. Файл не сохраняется — клиент шлёт его повторно на сохранение.
+ */
 router.post(
-  "/",
+  "/preview",
   authenticate,
   requirePermission("bank_statement", "create"),
   upload.single("file"),
@@ -51,13 +89,13 @@ router.post(
         res.status(422).json({ error: "Файл не передан" });
         return;
       }
-
       const buf = fs.readFileSync(req.file.path);
+      fs.promises.unlink(req.file.path).catch(() => {}); // preview ничего не хранит
+
       let parsed;
       try {
         parsed = parseStatement(buf);
       } catch {
-        fs.promises.unlink(req.file.path).catch(() => {});
         res.status(422).json({
           error: "Не удалось распознать файл как выписку формата 1CClientBankExchange",
         });
@@ -66,40 +104,69 @@ router.post(
 
       const rec = reconcile(parsed);
       const accountNumbers = parsed.accounts.map((a) => a.accountNumber).filter(Boolean);
+      const suggestedOrg = await detectOrg(accountNumbers, req.user!);
 
-      // Привязка к организации — строго в пределах скоупа пользователя.
-      const isPrivileged = req.user!.roles.some((r) => r === "admin" || r === "supervisor");
-      const orgInScope = async (orgId: string): Promise<boolean> => {
-        if (isPrivileged) return true;
-        const allowed = await prisma.organization.findFirst({
-          where: { id: orgId, section: { members: { some: { userId: req.user!.userId } } } },
-          select: { id: true },
-        });
-        return Boolean(allowed);
-      };
+      res.json({
+        reconcile: rec,
+        accountNumbers,
+        bankName: parsed.meta.sender,
+        periodStart: parsed.meta.dateStart,
+        periodEnd: parsed.meta.dateEnd,
+        docCount: parsed.accounts.reduce((s, a) => s + a.operations.length, 0),
+        suggestedOrg, // {id,name} | null
+      });
+    } catch (err) {
+      console.error("Statement preview error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
 
-      let organizationId: string | null = (req.body.organizationId as string) || null;
-      if (organizationId) {
-        // явно переданную орг проверяем и отклоняем, если она вне скоупа
-        if (!(await orgInScope(organizationId))) {
-          fs.promises.unlink(req.file.path).catch(() => {});
-          res.status(403).json({ error: "Нет доступа к указанной организации" });
-          return;
-        }
-      } else if (accountNumbers.length) {
-        // авто-детект по номеру счёта — только среди организаций в скоупе
-        const bankAcc = await prisma.organizationBankAccount.findFirst({
-          where: {
-            accountNumber: { in: accountNumbers },
-            ...(isPrivileged
-              ? {}
-              : { organization: { section: { members: { some: { userId: req.user!.userId } } } } }),
-          },
-          select: { organizationId: true },
-        });
-        organizationId = bankAcc?.organizationId ?? null;
+/**
+ * Шаг 2: сохранить выписку. Организация ОБЯЗАТЕЛЬНА и проверяется на скоуп —
+ * непривязанные выписки не допускаются.
+ */
+router.post(
+  "/",
+  authenticate,
+  requirePermission("bank_statement", "create"),
+  upload.single("file"),
+  async (req: Request, res) => {
+    const cleanup = () => {
+      if (req.file) fs.promises.unlink(req.file.path).catch(() => {});
+    };
+    try {
+      if (!req.file) {
+        res.status(422).json({ error: "Файл не передан" });
+        return;
       }
 
+      const organizationId = (req.body.organizationId as string) || null;
+      if (!organizationId) {
+        cleanup();
+        res.status(422).json({ error: "Не выбрана организация" });
+        return;
+      }
+      if (!(await orgInScope(organizationId, req.user!))) {
+        cleanup();
+        res.status(422).json({ error: "Организация не найдена или нет доступа" });
+        return;
+      }
+
+      const buf = fs.readFileSync(req.file.path);
+      let parsed;
+      try {
+        parsed = parseStatement(buf);
+      } catch {
+        cleanup();
+        res.status(422).json({
+          error: "Не удалось распознать файл как выписку формата 1CClientBankExchange",
+        });
+        return;
+      }
+
+      const rec = reconcile(parsed);
+      const accountNumbers = parsed.accounts.map((a) => a.accountNumber).filter(Boolean);
       const totalIn = rec.perAccount.reduce((s, p) => s + p.sumIn, 0);
       const totalOut = rec.perAccount.reduce((s, p) => s + p.sumOut, 0);
       const docCount = parsed.accounts.reduce((s, a) => s + a.operations.length, 0);
@@ -124,6 +191,7 @@ router.post(
           originalName: req.file.originalname,
           originalPath: req.file.filename,
         },
+        include: { organization: { select: { id: true, name: true } } },
       });
 
       await logAudit({
@@ -131,7 +199,7 @@ router.post(
         userId: req.user!.userId,
         entity: "bank_statement",
         entityId: record.id,
-        details: { reconcile: rec.status, accounts: accountNumbers },
+        details: { reconcile: rec.status, organizationId, accounts: accountNumbers },
       });
 
       res.status(201).json({
@@ -146,6 +214,7 @@ router.post(
       });
     } catch (err) {
       console.error("Statement upload error:", err);
+      cleanup();
       res.status(500).json({ error: "Internal server error" });
     }
   },
@@ -167,6 +236,51 @@ router.get("/", authenticate, requirePermission("bank_statement", "view"), async
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+/** Переназначить организацию уже загруженной выписки (исправление привязки). */
+router.patch(
+  "/:id",
+  authenticate,
+  requirePermission("bank_statement", "create"),
+  async (req, res) => {
+    try {
+      const where = getStatementScopedWhere(req.user!);
+      const item = await prisma.bankStatement.findFirst({
+        where: { AND: [{ id: req.params.id }, where] },
+        select: { id: true },
+      });
+      if (!item) {
+        res.status(404).json({ error: "Not found" });
+        return;
+      }
+      const organizationId = (req.body.organizationId as string) || null;
+      if (!organizationId) {
+        res.status(422).json({ error: "Не выбрана организация" });
+        return;
+      }
+      if (!(await orgInScope(organizationId, req.user!))) {
+        res.status(422).json({ error: "Организация не найдена или нет доступа" });
+        return;
+      }
+      const updated = await prisma.bankStatement.update({
+        where: { id: item.id },
+        data: { organizationId },
+        include: { organization: { select: { id: true, name: true } } },
+      });
+      await logAudit({
+        action: "bank_statement_reassigned",
+        userId: req.user!.userId,
+        entity: "bank_statement",
+        entityId: item.id,
+        details: { organizationId },
+      });
+      res.json(updated);
+    } catch (err) {
+      console.error("Statement reassign error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
 
 /** Детали + операции (перепарс оригинала). */
 router.get("/:id", authenticate, requirePermission("bank_statement", "view"), async (req, res) => {
