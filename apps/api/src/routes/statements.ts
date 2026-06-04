@@ -67,11 +67,34 @@ router.post(
       const rec = reconcile(parsed);
       const accountNumbers = parsed.accounts.map((a) => a.accountNumber).filter(Boolean);
 
-      // авто-детект организации по номеру счёта
+      // Привязка к организации — строго в пределах скоупа пользователя.
+      const isPrivileged = req.user!.roles.some((r) => r === "admin" || r === "supervisor");
+      const orgInScope = async (orgId: string): Promise<boolean> => {
+        if (isPrivileged) return true;
+        const allowed = await prisma.organization.findFirst({
+          where: { id: orgId, section: { members: { some: { userId: req.user!.userId } } } },
+          select: { id: true },
+        });
+        return Boolean(allowed);
+      };
+
       let organizationId: string | null = (req.body.organizationId as string) || null;
-      if (!organizationId && accountNumbers.length) {
+      if (organizationId) {
+        // явно переданную орг проверяем и отклоняем, если она вне скоупа
+        if (!(await orgInScope(organizationId))) {
+          fs.promises.unlink(req.file.path).catch(() => {});
+          res.status(403).json({ error: "Нет доступа к указанной организации" });
+          return;
+        }
+      } else if (accountNumbers.length) {
+        // авто-детект по номеру счёта — только среди организаций в скоупе
         const bankAcc = await prisma.organizationBankAccount.findFirst({
-          where: { accountNumber: { in: accountNumbers } },
+          where: {
+            accountNumber: { in: accountNumbers },
+            ...(isPrivileged
+              ? {}
+              : { organization: { section: { members: { some: { userId: req.user!.userId } } } } }),
+          },
           select: { organizationId: true },
         });
         organizationId = bankAcc?.organizationId ?? null;
