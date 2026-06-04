@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router";
 import { api } from "../lib/api.js";
+import OrgFinanceSection from "../components/OrgFinanceSection.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
   ArrowLeft,
@@ -1269,6 +1270,20 @@ export default function OrganizationDetailPage() {
 
       {/* ── Always visible: Bank accounts + Documents + Tasks (full width) ── */}
       <div className="space-y-4">
+        <div className="bg-surface rounded-2xl shadow-lg border border-line p-6">
+          <h2 className="text-base font-bold text-heading mb-4">Финансы</h2>
+          <OrgFinanceSection
+            organizationId={id}
+            financeVisibleToClient={org.financeVisibleToClient}
+            onToggle={async (val) => {
+              const res = await api(`/api/organizations/${id}`, {
+                method: "PUT",
+                body: JSON.stringify({ financeVisibleToClient: val }),
+              });
+              if (res.ok) setOrganization((o) => ({ ...o, financeVisibleToClient: val }));
+            }}
+          />
+        </div>
         <BankAccountsCard
           organizationId={id}
           bankAccounts={org.bankAccounts || []}
