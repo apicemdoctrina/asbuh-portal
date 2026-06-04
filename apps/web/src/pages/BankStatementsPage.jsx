@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import {
   Upload,
   FileText,
   FileDown,
+  Pencil,
   Trash2,
   CheckCircle2,
   AlertTriangle,
@@ -327,6 +329,13 @@ export default function BankStatementsPage() {
                   </td>
                   <td className="px-6 py-3">
                     <div className="flex items-center gap-2 justify-end">
+                      <Link
+                        to={`/statements/${it.id}`}
+                        title="Редактировать операции"
+                        className="p-1.5 rounded-lg text-subtle hover:text-primary hover:bg-primary/5 transition-colors"
+                      >
+                        <Pencil size={16} />
+                      </Link>
                       <button
                         onClick={() => download(it.id, "txt")}
                         title="Скачать .txt"

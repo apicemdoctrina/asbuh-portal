@@ -32,6 +32,7 @@ const KnowledgeArticlePage = lazy(() => import("./pages/KnowledgeArticlePage.jsx
 const ManagementPage = lazy(() => import("./pages/ManagementPage.jsx"));
 const PaymentsPage = lazy(() => import("./pages/PaymentsPage.jsx"));
 const BankStatementsPage = lazy(() => import("./pages/BankStatementsPage.jsx"));
+const StatementEditPage = lazy(() => import("./pages/StatementEditPage.jsx"));
 const MyPaymentsPage = lazy(() => import("./pages/MyPaymentsPage.jsx"));
 const MyDocumentsPage = lazy(() => import("./pages/MyDocumentsPage.jsx"));
 const ConsentPage = lazy(() => import("./pages/ConsentPage.jsx"));
@@ -82,6 +83,7 @@ export default function App() {
                   <Route path="management" element={<ManagementPage />} />
                   <Route path="payments" element={<PaymentsPage />} />
                   <Route path="statements" element={<BankStatementsPage />} />
+                  <Route path="statements/:id" element={<StatementEditPage />} />
                   <Route path="my-payments" element={<MyPaymentsPage />} />
                   <Route path="my-documents" element={<MyDocumentsPage />} />
                   <Route path="tasks" element={<TasksPage />} />
