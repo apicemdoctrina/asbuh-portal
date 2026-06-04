@@ -1,16 +1,18 @@
 import type { ParsedStatement } from "../statement-types.js";
 
-export interface FetchOpts {
-  token: string;
+export interface FetchContext {
   accountNumber: string;
-  accountId: string;
+  accountId: string | null;
   start: string; // YYYY-MM-DD
   end: string; // YYYY-MM-DD
+  credential: string; // расшифрованный apiToken (Точка: JWT/bearer | Сбер: refresh_token)
+  /** Персист ротированного токена (Сбер). Точка не вызывает. */
+  saveCredential: (next: string) => Promise<void>;
 }
 
 export interface BankAdapter {
   provider: string;
-  fetchStatement(opts: FetchOpts): Promise<ParsedStatement>;
+  fetchStatement(ctx: FetchContext): Promise<ParsedStatement>;
 }
 
 /** Доступ не настроен (нет токена и т.п.) → 422 на роуте. */

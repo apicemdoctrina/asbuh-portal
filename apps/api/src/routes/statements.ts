@@ -22,6 +22,7 @@ import {
   BankConfigError,
   BankApiError,
 } from "../lib/bank-adapters/index.js";
+import { encrypt } from "../lib/crypto.js";
 import type { ParsedStatement } from "../lib/statement-types.js";
 
 const router = Router();
@@ -144,14 +145,19 @@ async function loadFetched(
   }
   const adapter = getAdapter(conn.apiProvider);
   if (!adapter) throw new BankConfigError("Провайдер банка не поддерживается");
-  const token = resolveToken(conn);
-  // accountId Точки часто совпадает с номером счёта; если apiAccountId не задан — берём accountNumber.
+  const credential = resolveToken(conn);
   return adapter.fetchStatement({
-    token,
     accountNumber: conn.accountNumber,
-    accountId: conn.apiAccountId || conn.accountNumber,
+    accountId: conn.apiAccountId,
     start,
     end,
+    credential,
+    saveCredential: async (next: string) => {
+      await prisma.organizationBankAccount.update({
+        where: { id: conn.id },
+        data: { apiToken: encrypt(next) },
+      });
+    },
   });
 }
 

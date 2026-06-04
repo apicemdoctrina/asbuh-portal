@@ -1,6 +1,6 @@
 import type { ParsedStatement, ParsedOperation } from "../statement-types.js";
 import { decrypt } from "../crypto.js";
-import { BankApiError, BankConfigError, type BankAdapter, type FetchOpts } from "./types.js";
+import { BankApiError, BankConfigError, type BankAdapter, type FetchContext } from "./types.js";
 
 const TOCHKA_API_BASE = "https://enter.tochka.com/uapi/open-banking/v1.0";
 
@@ -213,17 +213,18 @@ async function fetchStatementData(
 
 export const tochkaAdapter: BankAdapter = {
   provider: "tochka",
-  async fetchStatement(opts: FetchOpts) {
+  async fetchStatement(ctx: FetchContext) {
+    const accountId = ctx.accountId || ctx.accountNumber;
     const { transactions, balance } = await fetchStatementData(
-      opts.token,
-      opts.accountId,
-      opts.start,
-      opts.end,
+      ctx.credential,
+      accountId,
+      ctx.start,
+      ctx.end,
     );
     return tochkaToParsedStatement({
-      accountNumber: opts.accountNumber,
-      start: opts.start,
-      end: opts.end,
+      accountNumber: ctx.accountNumber,
+      start: ctx.start,
+      end: ctx.end,
       transactions,
       balance,
     });
