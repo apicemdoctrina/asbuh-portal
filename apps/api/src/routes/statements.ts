@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { Request } from "express";
 import fs from "node:fs";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import prisma from "../lib/prisma.js";
@@ -15,6 +16,12 @@ import { reconcile } from "../lib/statement-reconcile.js";
 import { normalizeEdited } from "../lib/statement-edit.js";
 import { generate1c } from "../lib/statement-1c.js";
 import { generatePdf } from "../lib/statement-pdf.js";
+import {
+  getAdapter,
+  resolveToken,
+  BankConfigError,
+  BankApiError,
+} from "../lib/bank-adapters/index.js";
 import type { ParsedStatement } from "../lib/statement-types.js";
 
 const router = Router();
@@ -87,6 +94,65 @@ function aggregatesFrom(parsed: ParsedStatement) {
     openingBalance: parsed.accounts.reduce((s, a) => s + a.openingBalance, 0),
     closingBalance: parsed.accounts.reduce((s, a) => s + a.closingBalance, 0),
   };
+}
+
+export function mapBankError(err: unknown): { status: number; error: string } {
+  if (err instanceof BankConfigError) return { status: 422, error: err.message };
+  if (err instanceof BankApiError) return { status: 502, error: err.message };
+  return { status: 500, error: "Internal server error" };
+}
+
+/** Найти tochka-подключение организации в скоупе пользователя. */
+async function getOrgConnection(orgId: string, user: AuthedUser) {
+  const acc = await prisma.organizationBankAccount.findFirst({
+    where: {
+      organizationId: orgId,
+      apiProvider: { not: null },
+      ...(isPrivileged(user.roles)
+        ? {}
+        : { organization: { section: { members: { some: { userId: user.userId } } } } }),
+    },
+    select: {
+      id: true,
+      apiProvider: true,
+      apiToken: true,
+      apiAccountId: true,
+      usePartnerToken: true,
+      accountNumber: true,
+    },
+  });
+  return acc;
+}
+
+const fetchBodySchema = z.object({
+  organizationId: z.string().min(1),
+  start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+/** Резолв подключения + токена + опрос API банка → ParsedStatement. */
+async function loadFetched(
+  orgId: string,
+  user: AuthedUser,
+  start: string,
+  end: string,
+): Promise<ParsedStatement> {
+  const conn = await getOrgConnection(orgId, user);
+  if (!conn) throw new BankConfigError("API-доступ к банку не настроен для организации");
+  if (!conn.accountNumber) {
+    throw new BankConfigError("Не задан номер счёта банка");
+  }
+  const adapter = getAdapter(conn.apiProvider);
+  if (!adapter) throw new BankConfigError("Провайдер банка не поддерживается");
+  const token = resolveToken(conn);
+  // accountId Точки часто совпадает с номером счёта; если apiAccountId не задан — берём accountNumber.
+  return adapter.fetchStatement({
+    token,
+    accountNumber: conn.accountNumber,
+    accountId: conn.apiAccountId || conn.accountNumber,
+    start,
+    end,
+  });
 }
 
 // Схема правок: клиент присылает счета с операциями; raw синхронизируется на сервере.
@@ -533,6 +599,150 @@ router.delete(
     } catch (err) {
       console.error("Statement delete error:", err);
       res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+/**
+ * Шаг 1 (API): забрать выписку из банка и сверить БЕЗ сохранения.
+ * Возвращает сверку + признак уже существующей выгрузки за период.
+ */
+router.post(
+  "/fetch/preview",
+  authenticate,
+  requirePermission("bank_statement", "create"),
+  async (req: Request, res) => {
+    try {
+      const body = fetchBodySchema.safeParse(req.body);
+      if (!body.success) {
+        res.status(422).json({ error: "Некорректные параметры" });
+        return;
+      }
+      if (!(await orgInScope(body.data.organizationId, req.user!))) {
+        res.status(422).json({ error: "Организация не найдена или нет доступа" });
+        return;
+      }
+      const parsed = await loadFetched(
+        body.data.organizationId,
+        req.user!,
+        body.data.start,
+        body.data.end,
+      );
+      const existing = await prisma.bankStatement.findFirst({
+        where: {
+          organizationId: body.data.organizationId,
+          // нормализуем к полуночи UTC, чтобы сравнение с @db.Date не плыло на границе суток
+          periodStart: { lte: new Date(`${body.data.end}T00:00:00Z`) },
+          periodEnd: { gte: new Date(`${body.data.start}T00:00:00Z`) },
+        },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true, docCount: true },
+      });
+      res.json({
+        reconcile: reconcile(parsed),
+        accountNumbers: parsed.accounts.map((a) => a.accountNumber).filter(Boolean),
+        bankName: parsed.meta.sender,
+        periodStart: parsed.meta.dateStart,
+        periodEnd: parsed.meta.dateEnd,
+        docCount: parsed.accounts.reduce((s, a) => s + a.operations.length, 0),
+        existingForPeriod: existing
+          ? { date: existing.createdAt, docCount: existing.docCount }
+          : null,
+      });
+    } catch (err) {
+      const m = mapBankError(err);
+      if (m.status === 500) console.error("Statement fetch preview error:", err);
+      res.status(m.status).json({ error: m.error });
+    }
+  },
+);
+
+/**
+ * Шаг 2 (API): забрать выписку из банка и сохранить через канонический конвейер
+ * (синтез 1С-файла → BankStatement → синк оборотов).
+ */
+router.post(
+  "/fetch",
+  authenticate,
+  requirePermission("bank_statement", "create"),
+  async (req: Request, res) => {
+    try {
+      const body = fetchBodySchema.safeParse(req.body);
+      if (!body.success) {
+        res.status(422).json({ error: "Некорректные параметры" });
+        return;
+      }
+      if (!(await orgInScope(body.data.organizationId, req.user!))) {
+        res.status(422).json({ error: "Организация не найдена или нет доступа" });
+        return;
+      }
+      const parsed = await loadFetched(
+        body.data.organizationId,
+        req.user!,
+        body.data.start,
+        body.data.end,
+      );
+
+      const buf = generate1c(parsed);
+      const acc = parsed.accounts[0]?.accountNumber || "acc";
+      const filename = `tochka_${acc}_${body.data.start}_${body.data.end}_${randomUUID()}.txt`;
+      fs.writeFileSync(path.join(UPLOADS_DIR, filename), buf);
+
+      const agg = aggregatesFrom(parsed);
+      const record = await prisma.bankStatement.create({
+        data: {
+          organizationId: body.data.organizationId,
+          uploadedById: req.user!.userId,
+          bankName: agg.bankName,
+          accountNumbers: agg.accountNumbers,
+          periodStart: parseRuDate(parsed.meta.dateStart),
+          periodEnd: parseRuDate(parsed.meta.dateEnd),
+          openingBalance: new Prisma.Decimal(agg.openingBalance),
+          closingBalance: new Prisma.Decimal(agg.closingBalance),
+          totalIn: new Prisma.Decimal(agg.totalIn),
+          totalOut: new Prisma.Decimal(agg.totalOut),
+          docCount: agg.docCount,
+          reconcileStatus: agg.rec.status,
+          reconcileDiff: new Prisma.Decimal(agg.rec.totalDiff),
+          originalName: `Точка ${body.data.start}—${body.data.end}.txt`,
+          originalPath: filename,
+        },
+        include: { organization: { select: { id: true, name: true } } },
+      });
+
+      await prisma.organizationBankAccount.updateMany({
+        where: { organizationId: body.data.organizationId, apiProvider: { not: null } },
+        data: { lastFetchAt: new Date() },
+      });
+
+      await logAudit({
+        action: "bank_statement_fetched",
+        userId: req.user!.userId,
+        entity: "bank_statement",
+        entityId: record.id,
+        details: {
+          reconcile: agg.rec.status,
+          organizationId: body.data.organizationId,
+          period: `${body.data.start}..${body.data.end}`,
+        },
+      });
+
+      await syncStatementTransactions(record.id);
+
+      res.status(201).json({
+        statement: record,
+        reconcile: agg.rec,
+        accounts: parsed.accounts.map((a) => ({
+          accountNumber: a.accountNumber,
+          openingBalance: a.openingBalance,
+          closingBalance: a.closingBalance,
+          operations: a.operations,
+        })),
+      });
+    } catch (err) {
+      const m = mapBankError(err);
+      if (m.status === 500) console.error("Statement fetch error:", err);
+      res.status(m.status).json({ error: m.error });
     }
   },
 );
