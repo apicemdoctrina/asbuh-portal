@@ -9,6 +9,7 @@ import { authenticate, requirePermission } from "../middleware/auth.js";
 import { logAudit } from "../lib/audit.js";
 import { upload, UPLOADS_DIR } from "../lib/upload.js";
 import { readOriginal, loadParsed } from "../lib/statement-store.js";
+import { syncStatementTransactions } from "../lib/org-finance.js";
 import { parseStatement } from "../lib/statement-parser.js";
 import { reconcile } from "../lib/statement-reconcile.js";
 import { normalizeEdited } from "../lib/statement-edit.js";
@@ -244,6 +245,8 @@ router.post(
         details: { reconcile: rec.status, organizationId, accounts: accountNumbers },
       });
 
+      await syncStatementTransactions(record.id);
+
       res.status(201).json({
         statement: record,
         reconcile: rec,
@@ -316,6 +319,7 @@ router.patch(
         entityId: item.id,
         details: { organizationId },
       });
+      await syncStatementTransactions(item.id);
       res.json(updated);
     } catch (err) {
       console.error("Statement reassign error:", err);
@@ -380,6 +384,8 @@ router.put(
         details: { reconcile: agg.rec.status, docCount: agg.docCount },
       });
 
+      await syncStatementTransactions(item.id);
+
       res.json({ statement: updated, reconcile: agg.rec, accounts: edited.accounts });
     } catch (err) {
       console.error("Statement edit error:", err);
@@ -429,6 +435,8 @@ router.post(
         entity: "bank_statement",
         entityId: item.id,
       });
+      await syncStatementTransactions(item.id);
+
       res.json({ statement: updated, reconcile: agg.rec, accounts: parsed.accounts });
     } catch (err) {
       console.error("Statement reset error:", err);
