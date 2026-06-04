@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { tochkaToParsedStatement } from "./tochka.js";
+import { tochkaToParsedStatement, resolveToken } from "./tochka.js";
+import { BankConfigError } from "./types.js";
+import { encrypt } from "../crypto.js";
 import { generate1c } from "../statement-1c.js";
 import { parseStatement } from "../statement-parser.js";
 
@@ -124,5 +126,28 @@ describe("tochkaToParsedStatement", () => {
     expect(reparsed.accounts[0].operations.find((o) => o.direction === "in")?.purpose).toBe(
       "Оплата по счету 1",
     );
+  });
+});
+
+describe("resolveToken", () => {
+  it("свой токен → расшифровка", () => {
+    const enc = encrypt("my-secret-token");
+    expect(resolveToken({ usePartnerToken: false, apiToken: enc })).toBe("my-secret-token");
+  });
+
+  it("нет токена → BankConfigError", () => {
+    expect(() => resolveToken({ usePartnerToken: false, apiToken: null })).toThrow(BankConfigError);
+  });
+
+  it("партнёрский без env → BankConfigError", () => {
+    const prev = process.env.TOCHKA_JWT_TOKEN;
+    delete process.env.TOCHKA_JWT_TOKEN;
+    try {
+      expect(() => resolveToken({ usePartnerToken: true, apiToken: null })).toThrow(
+        BankConfigError,
+      );
+    } finally {
+      if (prev !== undefined) process.env.TOCHKA_JWT_TOKEN = prev;
+    }
   });
 });

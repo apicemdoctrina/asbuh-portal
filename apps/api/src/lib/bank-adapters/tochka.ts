@@ -1,4 +1,8 @@
 import type { ParsedStatement, ParsedOperation } from "../statement-types.js";
+import { decrypt } from "../crypto.js";
+import { BankApiError, BankConfigError, type BankAdapter, type FetchOpts } from "./types.js";
+
+const TOCHKA_API_BASE = "https://enter.tochka.com/uapi/open-banking/v1.0";
 
 export interface TochkaTransaction {
   transactionId: string;
@@ -130,3 +134,125 @@ export function tochkaToParsedStatement(input: {
     ],
   };
 }
+
+export function resolveToken(account: {
+  usePartnerToken: boolean;
+  apiToken: string | null;
+}): string {
+  if (account.usePartnerToken) {
+    const t = process.env.TOCHKA_JWT_TOKEN || "";
+    if (!t) throw new BankConfigError("Партнёрский токен банка не настроен");
+    return t;
+  }
+  if (!account.apiToken) throw new BankConfigError("API-токен банка не настроен для организации");
+  return decrypt(account.apiToken);
+}
+
+async function tochkaApi(token: string, path: string, opts?: RequestInit): Promise<Response> {
+  return fetch(`${TOCHKA_API_BASE}${path}`, {
+    ...opts,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...opts?.headers,
+    },
+  });
+}
+
+/** Создать запрос выписки и опрашивать до Ready. Возвращает транзакции. */
+async function fetchTransactions(
+  token: string,
+  accountId: string,
+  start: string,
+  end: string,
+): Promise<TochkaTransaction[]> {
+  const createRes = await tochkaApi(token, "/statements", {
+    method: "POST",
+    body: JSON.stringify({
+      Data: { Statement: { accountId, startDateTime: start, endDateTime: end } },
+    }),
+  });
+  if (createRes.status === 401 || createRes.status === 403) {
+    throw new BankApiError("Банк отклонил токен — проверьте доступ");
+  }
+  if (!createRes.ok) throw new BankApiError(`Банк вернул ошибку ${createRes.status}`);
+
+  const createData = await createRes.json();
+  const statementId = createData?.Data?.Statement?.statementId;
+  if (!statementId) throw new BankApiError("Банк не вернул идентификатор выписки");
+
+  const pollPath = `/accounts/${encodeURIComponent(accountId)}/statements/${statementId}`;
+  for (let attempt = 0; attempt < 20; attempt++) {
+    await new Promise((r) => setTimeout(r, 3000));
+    const pollRes = await tochkaApi(token, pollPath);
+    if (!pollRes.ok) continue;
+    const stmts = (await pollRes.json())?.Data?.Statement;
+    if (!Array.isArray(stmts) || stmts.length === 0) continue;
+    const stmt = stmts[0];
+    if (stmt.status === "Error") throw new BankApiError("Банк не смог подготовить выписку");
+    if (stmt.status === "Ready" || stmt.status === "Complete") {
+      return (stmt.Transaction || []) as TochkaTransaction[];
+    }
+  }
+  throw new BankApiError("Банк не успел подготовить выписку, попробуйте позже");
+}
+
+/**
+ * Best-effort остаток счёта. Любая ошибка/неизвестная форма → null (выписка без сверки,
+ * reconcile поставит "нет данных" вместо ложного MISMATCH).
+ *
+ * ВНИМАНИЕ: точные имена типов баланса Точки (`OpeningAvailable`/`ClosingAvailable`/…)
+ * и путь `Data.Balance[]` НЕ подтверждены реальным ответом — `payments.ts` остатки не тянет.
+ * При первом боевом запуске сверить с фактическим JSON `/balances` и поправить разбор.
+ * Когда остаток не распарсился — пишем диагностический warn, чтобы это было видно в логах.
+ */
+async function fetchBalance(
+  token: string,
+  accountId: string,
+): Promise<{ opening: number; closing: number } | null> {
+  try {
+    const res = await tochkaApi(token, `/accounts/${encodeURIComponent(accountId)}/balances`);
+    if (!res.ok) {
+      console.warn(`[tochka] balances HTTP ${res.status} — выписка будет без сверки`);
+      return null;
+    }
+    const balances = (await res.json())?.Data?.Balance;
+    if (!Array.isArray(balances)) {
+      console.warn("[tochka] balances: неожиданная форма ответа — выписка без сверки");
+      return null;
+    }
+    const opening = balances.find(
+      (b) => b.type === "OpeningAvailable" || b.type === "OpeningBooked",
+    );
+    const closing = balances.find(
+      (b) => b.type === "ClosingAvailable" || b.type === "ClosingBooked",
+    );
+    if (!opening || !closing) {
+      console.warn("[tochka] balances: не найдены Opening/Closing — выписка без сверки");
+      return null;
+    }
+    return {
+      opening: Number(opening.Amount?.amount ?? 0),
+      closing: Number(closing.Amount?.amount ?? 0),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export const tochkaAdapter: BankAdapter = {
+  provider: "tochka",
+  async fetchStatement(opts: FetchOpts) {
+    const [transactions, balance] = await Promise.all([
+      fetchTransactions(opts.token, opts.accountId, opts.start, opts.end),
+      fetchBalance(opts.token, opts.accountId),
+    ]);
+    return tochkaToParsedStatement({
+      accountNumber: opts.accountNumber,
+      start: opts.start,
+      end: opts.end,
+      transactions,
+      balance,
+    });
+  },
+};
