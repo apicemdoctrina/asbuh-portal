@@ -301,6 +301,7 @@ model Organization {
   serviceStartDate   DateTime?           @map("service_start_date") @db.Date
   debtAmount         Decimal?            @map("debt_amount") @db.Decimal(12, 2)
   paymentNote        String?             @map("payment_note")
+  financeVisibleToClient Boolean         @default(false) @map("finance_visible_to_client")
 
   section          Section?                   @relation(fields: [sectionId], references: [id], onDelete: SetNull)
   clientGroup      ClientGroup?               @relation(fields: [clientGroupId], references: [id], onDelete: SetNull)
@@ -318,6 +319,7 @@ model Organization {
   paymentPeriods   PaymentPeriod[]
   priceHistory     PriceHistory[]
   bankStatements   BankStatement[]
+  statementTransactions StatementTransaction[]
 
   @@index([sectionId])
   @@index([clientGroupId])
@@ -1076,10 +1078,36 @@ model BankStatement {
 
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   uploadedBy   User          @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  transactions StatementTransaction[]
 
   @@index([organizationId])
   @@index([createdAt])
   @@map("bank_statements")
+}
+
+model StatementTransaction {
+  id              String        @id @default(uuid())
+  organizationId  String        @map("organization_id")
+  statementId     String        @map("statement_id")
+  date            DateTime      @db.Date
+  direction       FlowDirection
+  amount          Decimal       @db.Decimal(14, 2)
+  counterparty    String?
+  counterpartyInn String?       @map("counterparty_inn")
+  purpose         String?
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  statement    BankStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, date])
+  @@index([statementId])
+  @@map("statement_transactions")
+}
+
+enum FlowDirection {
+  IN
+  OUT
 }
 
 enum ReconcileStatus {
