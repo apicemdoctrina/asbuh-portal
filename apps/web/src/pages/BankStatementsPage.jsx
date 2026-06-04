@@ -71,9 +71,9 @@ export default function BankStatementsPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-2xl font-bold text-slate-900 mb-6">Выписки → 1С</h1>
+      <h1 className="text-2xl font-bold text-heading mb-6">Выписки → 1С</h1>
 
-      <label className="block bg-white rounded-2xl shadow-lg border border-slate-200 border-dashed p-8 text-center cursor-pointer hover:border-[#6567F1]/50 transition-colors mb-6">
+      <label className="block bg-surface rounded-2xl shadow-lg border border-dashed border-line p-8 text-center cursor-pointer hover:border-primary transition-colors mb-6">
         <input
           type="file"
           accept=".txt"
@@ -82,24 +82,26 @@ export default function BankStatementsPage() {
           disabled={uploading}
         />
         {uploading ? (
-          <Loader2 size={32} className="animate-spin mx-auto text-[#6567F1]" />
+          <Loader2 size={32} className="animate-spin mx-auto text-primary" />
         ) : (
-          <Upload size={32} className="mx-auto text-[#6567F1]" />
+          <Upload size={32} className="mx-auto text-primary" />
         )}
-        <p className="mt-3 text-slate-600">Загрузить файл выписки (.txt, формат 1С)</p>
+        <p className="mt-3 text-body">Загрузить файл выписки (.txt, формат 1С)</p>
       </label>
 
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-50 text-red-700 border border-red-200">
+        <div className="mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30 text-sm">
           {error}
         </div>
       )}
 
       {result && (
-        <div className="mb-6 bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+        <div className="mb-6 bg-surface rounded-2xl shadow-lg border border-line p-6">
           <div
             className={`flex items-center gap-2 font-semibold ${
-              result.reconcile.status === "OK" ? "text-emerald-600" : "text-red-600"
+              result.reconcile.status === "OK"
+                ? "text-emerald-600 dark:text-emerald-300"
+                : "text-red-600 dark:text-red-300"
             }`}
           >
             {result.reconcile.status === "OK" ? (
@@ -112,7 +114,7 @@ export default function BankStatementsPage() {
               </>
             )}
           </div>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-subtle mt-1">
             {result.statement.bankName || "Банк не указан"} · операций: {result.statement.docCount}
           </p>
           <div className="flex gap-3 mt-4">
@@ -124,7 +126,7 @@ export default function BankStatementsPage() {
             </button>
             <button
               onClick={() => download(result.statement.id, "pdf")}
-              className="px-4 py-2 rounded-lg border-2 border-[#6567F1]/20 text-[#6567F1] hover:bg-[#6567F1]/5 flex items-center gap-2"
+              className="px-4 py-2 rounded-lg border-2 border-primary/20 text-primary hover:bg-primary/5 flex items-center gap-2"
             >
               <FileText size={16} /> Скачать .pdf
             </button>
@@ -132,31 +134,29 @@ export default function BankStatementsPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 font-semibold text-slate-700">
-          История
-        </div>
+      <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden">
+        <div className="px-6 py-4 border-b border-line font-semibold text-body">История</div>
         {loading ? (
-          <div className="flex items-center justify-center py-16 text-slate-400">
+          <div className="flex items-center justify-center py-16 text-subtle">
             <Loader2 size={24} className="animate-spin" />
           </div>
         ) : items.length === 0 ? (
-          <div className="py-16 text-center text-slate-400">Пока нет загруженных выписок</div>
+          <div className="py-16 text-center text-subtle">Пока нет загруженных выписок</div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-500 text-left">
+            <thead className="bg-muted text-subtle text-left">
               <tr>
-                <th className="px-6 py-3">Дата</th>
-                <th className="px-6 py-3">Организация</th>
-                <th className="px-6 py-3">Банк</th>
-                <th className="px-6 py-3">Период</th>
-                <th className="px-6 py-3">Сверка</th>
+                <th className="px-6 py-3 font-medium">Дата</th>
+                <th className="px-6 py-3 font-medium">Организация</th>
+                <th className="px-6 py-3 font-medium">Банк</th>
+                <th className="px-6 py-3 font-medium">Период</th>
+                <th className="px-6 py-3 font-medium">Сверка</th>
                 <th className="px-6 py-3"></th>
               </tr>
             </thead>
             <tbody>
               {items.map((it) => (
-                <tr key={it.id} className="border-t border-slate-100">
+                <tr key={it.id} className="border-t border-line text-body">
                   <td className="px-6 py-3">
                     {new Date(it.createdAt).toLocaleDateString("ru-RU")}
                   </td>
@@ -168,11 +168,11 @@ export default function BankStatementsPage() {
                   </td>
                   <td className="px-6 py-3">
                     {it.reconcileStatus === "OK" ? (
-                      <span className="text-emerald-600 inline-flex items-center gap-1">
+                      <span className="text-emerald-600 dark:text-emerald-300 inline-flex items-center gap-1">
                         <CheckCircle2 size={14} /> ОК
                       </span>
                     ) : (
-                      <span className="text-red-600 inline-flex items-center gap-1">
+                      <span className="text-red-600 dark:text-red-300 inline-flex items-center gap-1">
                         <AlertTriangle size={14} /> {money(it.reconcileDiff)} ₽
                       </span>
                     )}
@@ -182,21 +182,21 @@ export default function BankStatementsPage() {
                       <button
                         onClick={() => download(it.id, "txt")}
                         title="Скачать .txt"
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-[#6567F1] hover:bg-slate-100"
+                        className="p-1.5 rounded-lg text-subtle hover:text-primary hover:bg-primary/5 transition-colors"
                       >
                         <FileDown size={16} />
                       </button>
                       <button
                         onClick={() => download(it.id, "pdf")}
                         title="Скачать .pdf"
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-[#6567F1] hover:bg-slate-100"
+                        className="p-1.5 rounded-lg text-subtle hover:text-primary hover:bg-primary/5 transition-colors"
                       >
                         <FileText size={16} />
                       </button>
                       <button
                         onClick={() => remove(it.id)}
                         title="Удалить"
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-slate-100"
+                        className="p-1.5 rounded-lg text-subtle hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/15 transition-colors"
                       >
                         <Trash2 size={16} />
                       </button>
