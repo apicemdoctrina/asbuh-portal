@@ -172,9 +172,14 @@ function maskBankAccountSecrets(
     if (stripForClient) {
       delete account.login;
       delete account.password;
+      delete account.apiToken;
     } else {
       account.login = account.login != null ? "***" : null;
       account.password = account.password != null ? "***" : null;
+      // apiToken защищаем оборонительно — на случай, если попадёт в выборку
+      if ("apiToken" in account) {
+        account.apiToken = account.apiToken != null ? "***" : null;
+      }
     }
   }
 }
@@ -647,8 +652,12 @@ router.get("/:id", authenticate, requirePermission("organization", "view"), asyn
             bankName: true,
             accountNumber: true,
             // skip encrypted fields entirely for clients — they're stripped anyway
-            ...(clientOnly ? {} : { login: true, password: true }),
+            ...(clientOnly ? {} : { login: true, password: true, apiToken: true }),
             comment: true,
+            apiProvider: true,
+            apiAccountId: true,
+            usePartnerToken: true,
+            lastFetchAt: true,
             createdAt: true,
             updatedAt: true,
           },
@@ -1036,6 +1045,10 @@ router.post(
           login: loginValue ? encrypt(loginValue) : null,
           password: passwordValue ? encrypt(passwordValue) : null,
           comment: result.data.comment ?? null,
+          apiProvider: result.data.apiProvider ?? null,
+          apiToken: result.data.apiToken ? encrypt(result.data.apiToken) : null,
+          apiAccountId: result.data.apiAccountId ?? null,
+          usePartnerToken: result.data.usePartnerToken ?? false,
         },
       });
 
@@ -1053,6 +1066,7 @@ router.post(
         ...account,
         login: account.login != null ? "***" : null,
         password: account.password != null ? "***" : null,
+        apiToken: account.apiToken != null ? "***" : null,
       };
       res.status(201).json(responseAccount);
     } catch (err) {
@@ -1097,12 +1111,15 @@ router.put(
         if (value !== undefined) data[key] = value;
       }
 
-      // Encrypt login/password if provided
+      // Encrypt login/password/apiToken if provided
       if (data.login !== undefined) {
         data.login = data.login ? encrypt(data.login as string) : null;
       }
       if (data.password !== undefined) {
         data.password = data.password ? encrypt(data.password as string) : null;
+      }
+      if (data.apiToken !== undefined) {
+        data.apiToken = data.apiToken ? encrypt(data.apiToken as string) : null;
       }
 
       const updated = await prisma.organizationBankAccount.update({
@@ -1124,6 +1141,7 @@ router.put(
         ...updated,
         login: updated.login != null ? "***" : null,
         password: updated.password != null ? "***" : null,
+        apiToken: updated.apiToken != null ? "***" : null,
       };
       res.json(responseAccount);
     } catch (err) {
