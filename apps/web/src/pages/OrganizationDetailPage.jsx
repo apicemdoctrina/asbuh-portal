@@ -1290,6 +1290,7 @@ export default function OrganizationDetailPage() {
           canEdit={canEdit}
           showLogin={canEdit && !hasRole("client")}
           canViewSecrets={hasPermission("organization_secret", "view")}
+          canFetchStatements={hasPermission("bank_statement", "create")}
           onDataChanged={fetchOrganization}
         />
         <SystemAccessesCard

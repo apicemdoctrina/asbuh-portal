@@ -1,6 +1,30 @@
 import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router";
 import { api } from "../lib/api.js";
-import { Plus, Pencil, Trash2, X, Eye, EyeOff } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  X,
+  Eye,
+  EyeOff,
+  Download,
+  Loader2,
+  CheckCircle2,
+  AlertTriangle,
+} from "lucide-react";
+
+const money = (n) =>
+  Number(n).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** YYYY-MM-DD для <input type=date>. */
+function isoDay(d) {
+  return new Date(d).toISOString().slice(0, 10);
+}
+function firstDayOfMonth() {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-01`;
+}
 
 const BANKS = [
   {
@@ -58,6 +82,7 @@ export default function BankAccountsCard({
   canEdit,
   showLogin,
   canViewSecrets,
+  canFetchStatements,
   onDataChanged,
 }) {
   const [showModal, setShowModal] = useState(false);
@@ -66,8 +91,21 @@ export default function BankAccountsCard({
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [comment, setComment] = useState("");
+  const [apiProvider, setApiProvider] = useState("");
+  const [apiAccountId, setApiAccountId] = useState("");
+  const [apiToken, setApiToken] = useState("");
+  const [usePartnerToken, setUsePartnerToken] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+
+  // Fetch-from-bank modal state
+  const [fetchAccount, setFetchAccount] = useState(null);
+  const [fetchStart, setFetchStart] = useState("");
+  const [fetchEnd, setFetchEnd] = useState("");
+  const [fetchPreview, setFetchPreview] = useState(null); // ответ /fetch/preview
+  const [fetchBusy, setFetchBusy] = useState(false);
+  const [fetchError, setFetchError] = useState("");
+  const [fetchSaved, setFetchSaved] = useState(null); // { status, diff, id }
 
   // Revealed secrets: { [accountId]: { login, password } }
   const [revealedSecrets, setRevealedSecrets] = useState({});
@@ -86,6 +124,10 @@ export default function BankAccountsCard({
     setLogin("");
     setPassword("");
     setComment("");
+    setApiProvider("");
+    setApiAccountId("");
+    setApiToken("");
+    setUsePartnerToken(false);
     setFormError("");
     setShowModal(true);
   }
@@ -96,6 +138,10 @@ export default function BankAccountsCard({
     setLogin("");
     setPassword("");
     setComment(acc.comment || "");
+    setApiProvider(acc.apiProvider || "");
+    setApiAccountId(acc.apiAccountId || "");
+    setApiToken("");
+    setUsePartnerToken(!!acc.usePartnerToken);
     setFormError("");
     setShowModal(true);
   }
@@ -110,6 +156,7 @@ export default function BankAccountsCard({
     try {
       const loginVal = login.trim();
       const passwordVal = password.trim();
+      const tokenVal = apiToken.trim();
       const body = JSON.stringify({
         bankName,
         ...(showLogin
@@ -119,6 +166,11 @@ export default function BankAccountsCard({
             }
           : {}),
         comment: comment.trim() || null,
+        apiProvider: apiProvider || null,
+        apiAccountId: apiAccountId.trim() || null,
+        usePartnerToken,
+        // токен: пусто при редактировании = не менять; при создании = null
+        apiToken: tokenVal || (editingAccount ? undefined : null),
       });
       const url = editingAccount
         ? `/api/organizations/${organizationId}/bank-accounts/${editingAccount.id}`
@@ -150,6 +202,58 @@ export default function BankAccountsCard({
       onDataChanged();
     } catch (err) {
       alert(err.message);
+    }
+  }
+
+  function openFetch(acc) {
+    setFetchAccount(acc);
+    setFetchStart(acc.lastFetchAt ? isoDay(acc.lastFetchAt) : firstDayOfMonth());
+    setFetchEnd(isoDay(Date.now()));
+    setFetchPreview(null);
+    setFetchError("");
+    setFetchSaved(null);
+  }
+
+  function closeFetch() {
+    setFetchAccount(null);
+    setFetchPreview(null);
+    setFetchError("");
+    setFetchSaved(null);
+  }
+
+  async function runFetch(path) {
+    setFetchBusy(true);
+    setFetchError("");
+    try {
+      const res = await api(`/api/statements/${path}`, {
+        method: "POST",
+        body: JSON.stringify({ organizationId, start: fetchStart, end: fetchEnd }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Ошибка запроса к банку");
+      return data;
+    } catch (err) {
+      setFetchError(err.message);
+      return null;
+    } finally {
+      setFetchBusy(false);
+    }
+  }
+
+  async function runPreview() {
+    const data = await runFetch("fetch/preview");
+    if (data) setFetchPreview(data);
+  }
+
+  async function runSave() {
+    const data = await runFetch("fetch");
+    if (data) {
+      setFetchSaved({
+        status: data.reconcile.status,
+        diff: data.reconcile.totalDiff,
+        id: data.statement.id,
+      });
+      onDataChanged();
     }
   }
 
@@ -248,6 +352,15 @@ export default function BankAccountsCard({
                   {acc.comment && <p className="text-subtle">{acc.comment}</p>}
                 </div>
                 <div className="flex items-center gap-2 ml-4 shrink-0">
+                  {canFetchStatements && acc.apiProvider && (
+                    <button
+                      onClick={() => openFetch(acc)}
+                      className="text-subtle hover:text-primary transition-colors"
+                      title="Забрать выписку из банка"
+                    >
+                      <Download size={16} />
+                    </button>
+                  )}
                   {canViewSecrets && (acc.login != null || acc.password != null) && (
                     <button
                       onClick={() => handleRevealSecrets(acc.id)}
@@ -348,6 +461,66 @@ export default function BankAccountsCard({
                 />
               </div>
 
+              {showLogin && (
+                <div className="border-t border-line pt-4 space-y-4">
+                  <div className="text-xs font-semibold text-subtle uppercase tracking-wide">
+                    Подключение к API банка
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-body mb-1">
+                      Провайдер API
+                    </label>
+                    <select
+                      value={apiProvider}
+                      onChange={(e) => setApiProvider(e.target.value)}
+                      className="w-full px-3 py-2 border border-line rounded-lg text-sm bg-surface text-body focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    >
+                      <option value="">Нет (только загрузка файла)</option>
+                      <option value="tochka">Точка</option>
+                    </select>
+                  </div>
+                  {apiProvider && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-body mb-1">
+                          Идентификатор счёта (accountId)
+                        </label>
+                        <input
+                          type="text"
+                          value={apiAccountId}
+                          onChange={(e) => setApiAccountId(e.target.value)}
+                          placeholder="Если пусто — берётся номер счёта"
+                          className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                        />
+                      </div>
+                      <label className="flex items-center gap-2 text-sm text-body cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={usePartnerToken}
+                          onChange={(e) => setUsePartnerToken(e.target.checked)}
+                        />
+                        Использовать партнёрский токен
+                      </label>
+                      {!usePartnerToken && (
+                        <div>
+                          <label className="block text-sm font-medium text-body mb-1">
+                            API-токен
+                          </label>
+                          <input
+                            type="password"
+                            value={apiToken}
+                            onChange={(e) => setApiToken(e.target.value)}
+                            placeholder={editingAccount ? "Оставьте пустым, чтобы не менять" : ""}
+                            autoComplete="new-password"
+                            className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
               {formError && (
                 <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
                   {formError}
@@ -370,6 +543,132 @@ export default function BankAccountsCard({
                 >
                   {submitting ? "Сохранение..." : "Сохранить"}
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {fetchAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-md mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-heading">
+                Выписка из банка: {fetchAccount.bankName}
+              </h2>
+              <button onClick={closeFetch} className="text-subtle hover:text-body">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              <div className="flex items-end gap-3">
+                <label className="text-xs text-subtle">
+                  С
+                  <input
+                    type="date"
+                    value={fetchStart}
+                    onChange={(e) => setFetchStart(e.target.value)}
+                    className="block mt-0.5 rounded-md border border-line bg-surface text-body text-sm px-2 py-1"
+                  />
+                </label>
+                <label className="text-xs text-subtle">
+                  По
+                  <input
+                    type="date"
+                    value={fetchEnd}
+                    onChange={(e) => setFetchEnd(e.target.value)}
+                    className="block mt-0.5 rounded-md border border-line bg-surface text-body text-sm px-2 py-1"
+                  />
+                </label>
+              </div>
+
+              {fetchError && (
+                <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm flex items-center gap-2">
+                  <AlertTriangle size={16} /> {fetchError}
+                </div>
+              )}
+
+              {fetchSaved ? (
+                <div
+                  className={`p-3 rounded-lg text-sm border flex items-center gap-2 ${
+                    fetchSaved.status === "OK"
+                      ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30"
+                      : "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30"
+                  }`}
+                >
+                  {fetchSaved.status === "OK" ? (
+                    <>
+                      <CheckCircle2 size={16} /> Выписка сохранена, остатки сошлись.
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle size={16} /> Выписка сохранена. Сверка: расхождение{" "}
+                      {money(fetchSaved.diff)} ₽.
+                      <Link to={`/statements/${fetchSaved.id}`} className="underline font-medium">
+                        Открыть
+                      </Link>
+                    </>
+                  )}
+                </div>
+              ) : (
+                fetchPreview && (
+                  <div className="p-3 rounded-lg border border-line bg-canvas text-sm text-body space-y-1">
+                    <div>
+                      Операций: <span className="font-medium">{fetchPreview.docCount}</span>
+                    </div>
+                    <div>
+                      Сверка:{" "}
+                      {fetchPreview.reconcile.status === "OK" ? (
+                        <span className="text-emerald-600 dark:text-emerald-300">сошлась</span>
+                      ) : (
+                        <span className="text-amber-600 dark:text-amber-300">
+                          расхождение {money(fetchPreview.reconcile.totalDiff)} ₽
+                        </span>
+                      )}
+                    </div>
+                    {fetchPreview.existingForPeriod && (
+                      <div className="text-subtle">
+                        За этот период уже есть выгрузка от{" "}
+                        {new Date(fetchPreview.existingForPeriod.date).toLocaleDateString("ru-RU")},
+                        операций {fetchPreview.existingForPeriod.docCount}. Повторяющиеся операции в
+                        финансах не задваиваются (кроме выписок, загруженных до обновления).
+                      </div>
+                    )}
+                  </div>
+                )
+              )}
+
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={closeFetch}
+                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Закрыть
+                </button>
+                {!fetchSaved &&
+                  (fetchPreview ? (
+                    <button
+                      type="button"
+                      onClick={runSave}
+                      disabled={fetchBusy}
+                      className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50 inline-flex items-center gap-2"
+                    >
+                      {fetchBusy && <Loader2 size={16} className="animate-spin" />}
+                      Сохранить
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={runPreview}
+                      disabled={fetchBusy}
+                      className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50 inline-flex items-center gap-2"
+                    >
+                      {fetchBusy && <Loader2 size={16} className="animate-spin" />}
+                      Проверить
+                    </button>
+                  ))}
               </div>
             </div>
           </div>
