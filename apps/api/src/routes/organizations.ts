@@ -222,6 +222,7 @@ function buildOrgData(validated: Record<string, unknown>): Prisma.OrganizationUp
     "bik",
     "correspondentAccount",
     "requisitesBank",
+    "financeVisibleToClient",
   ] as const;
 
   for (const field of directFields) {
