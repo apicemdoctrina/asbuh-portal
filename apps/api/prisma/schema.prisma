@@ -58,6 +58,7 @@ model User {
   announcementReads    AnnouncementRead[]
   filedReportEntries   ReportEntry[]
   consents             UserConsent[]
+  bankStatements       BankStatement[]
 
   @@map("users")
 }
@@ -316,6 +317,7 @@ model Organization {
   bankTransactions BankTransaction[]
   paymentPeriods   PaymentPeriod[]
   priceHistory     PriceHistory[]
+  bankStatements   BankStatement[]
 
   @@index([sectionId])
   @@index([clientGroupId])
@@ -1049,4 +1051,36 @@ enum PaymentPeriodStatus {
   PAID // оплачено полностью
   PARTIAL // частично оплачено
   OVERDUE // просрочено (>15 дней)
+}
+
+model BankStatement {
+  id              String          @id @default(uuid())
+  organizationId  String?         @map("organization_id")
+  uploadedById    String          @map("uploaded_by_id")
+  bankName        String?         @map("bank_name")
+  accountNumbers  String[]        @map("account_numbers")
+  periodStart     DateTime        @map("period_start") @db.Date
+  periodEnd       DateTime        @map("period_end") @db.Date
+  openingBalance  Decimal         @map("opening_balance") @db.Decimal(14, 2)
+  closingBalance  Decimal         @map("closing_balance") @db.Decimal(14, 2)
+  totalIn         Decimal         @map("total_in") @db.Decimal(14, 2)
+  totalOut        Decimal         @map("total_out") @db.Decimal(14, 2)
+  docCount        Int             @map("doc_count")
+  reconcileStatus ReconcileStatus @map("reconcile_status")
+  reconcileDiff   Decimal?        @map("reconcile_diff") @db.Decimal(14, 2)
+  originalName    String          @map("original_name")
+  originalPath    String          @map("original_path")
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  uploadedBy   User          @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([organizationId])
+  @@index([createdAt])
+  @@map("bank_statements")
+}
+
+enum ReconcileStatus {
+  OK
+  MISMATCH
 }
