@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   PlugZap,
   Unplug,
+  LogIn,
 } from "lucide-react";
 
 const money = (n) =>
@@ -209,6 +210,17 @@ export default function BankAccountsCard({
     }
   }
 
+  async function connectSber(acc) {
+    try {
+      const res = await api(`/api/statements/sber/authorize-url?bankAccountId=${acc.id}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.url) throw new Error(data.error || "Не удалось начать подключение");
+      window.location.href = data.url;
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
   function openFetch(acc) {
     setFetchAccount(acc);
     setFetchStart(acc.lastFetchAt ? isoDay(acc.lastFetchAt) : firstDayOfMonth());
@@ -354,6 +366,11 @@ export default function BankAccountsCard({
                           без API
                         </span>
                       ))}
+                    {showLogin && acc.apiProvider === "sber" && (
+                      <span className="text-xs text-subtle">
+                        {acc.apiToken ? "· подключён" : "· не подключён"}
+                      </span>
+                    )}
                   </p>
                   {showLogin && displayLogin != null && (
                     <p>
@@ -368,6 +385,15 @@ export default function BankAccountsCard({
                   {acc.comment && <p className="text-subtle">{acc.comment}</p>}
                 </div>
                 <div className="flex items-center gap-2 ml-4 shrink-0">
+                  {canFetchStatements && acc.apiProvider === "sber" && (
+                    <button
+                      onClick={() => connectSber(acc)}
+                      className="text-subtle hover:text-primary transition-colors"
+                      title={acc.apiToken ? "Переподключить Сбер" : "Подключить Сбер"}
+                    >
+                      <LogIn size={16} />
+                    </button>
+                  )}
                   {canFetchStatements && acc.apiProvider && (
                     <button
                       onClick={() => openFetch(acc)}

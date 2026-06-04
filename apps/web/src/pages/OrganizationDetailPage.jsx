@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, Link, useNavigate } from "react-router";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../lib/api.js";
 import OrgFinanceSection from "../components/OrgFinanceSection.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -347,6 +347,19 @@ export default function OrganizationDetailPage() {
     fetchOrganization();
   }, [fetchOrganization]);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [sberMsg, setSberMsg] = useState(null); // { ok, text } | null
+
+  useEffect(() => {
+    const sber = searchParams.get("sber");
+    if (!sber) return;
+    if (sber === "connected") setSberMsg({ ok: true, text: "Сбер подключён." });
+    else setSberMsg({ ok: false, text: "Не удалось подключить Сбер." });
+    fetchOrganization();
+    searchParams.delete("sber");
+    setSearchParams(searchParams, { replace: true });
+  }, []);
+
   const fetchOrgTasks = useCallback(async () => {
     if (!hasPermission("task", "view")) return;
     setOrgTasksLoading(true);
@@ -570,6 +583,21 @@ export default function OrganizationDetailPage() {
       >
         <ArrowLeft size={15} /> Все организации
       </Link>
+
+      {sberMsg && (
+        <div
+          className={`mb-4 p-3 rounded-xl text-sm border flex items-center justify-between ${
+            sberMsg.ok
+              ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30"
+              : "bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 border-red-200 dark:border-red-500/30"
+          }`}
+        >
+          <span>{sberMsg.text}</span>
+          <button onClick={() => setSberMsg(null)} className="text-subtle hover:text-body">
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
