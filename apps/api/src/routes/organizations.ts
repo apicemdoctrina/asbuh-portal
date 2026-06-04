@@ -2300,6 +2300,7 @@ router.get(
             amount: true,
             counterparty: true,
             counterpartyInn: true,
+            opHash: true,
           },
         }),
         prisma.statementTransaction.findMany({
@@ -2311,8 +2312,16 @@ router.get(
         prisma.statementTransaction.count({ where }),
       ]);
 
+      const seenHashes = new Set<string>();
+      const dedupedAll = all.filter((t) => {
+        if (!t.opHash) return true; // старые строки без хэша — не трогаем
+        if (seenHashes.has(t.opHash)) return false;
+        seenHashes.add(t.opHash);
+        return true;
+      });
+
       const summary = summarize(
-        all.map((t) => ({
+        dedupedAll.map((t) => ({
           date: t.date,
           direction: t.direction as "IN" | "OUT",
           amount: Number(t.amount),
