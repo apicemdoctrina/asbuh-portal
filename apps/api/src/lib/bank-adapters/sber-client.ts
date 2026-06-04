@@ -46,6 +46,34 @@ export async function refreshAccessToken(
   };
 }
 
+/** Обменять authorization code на токены. mTLS + client credentials. */
+export async function exchangeAuthCode(code: string, cfg: SberConfig): Promise<RefreshedTokens> {
+  const body = new URLSearchParams({
+    grant_type: "authorization_code",
+    client_id: cfg.clientId,
+    client_secret: cfg.clientSecret,
+    code,
+    redirect_uri: cfg.redirectUri,
+  });
+  const res = await sberFetch(cfg.authBaseUrl, cfg, "/ic/sso/api/v2/oauth/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+  if (res.status === 401 || res.status === 403) {
+    throw new BankApiError("Сбер отклонил код авторизации");
+  }
+  if (!res.ok) throw new BankApiError(`Сбер вернул ошибку обмена кода ${res.status}`);
+  const data = await res.json();
+  if (!data?.access_token || !data?.refresh_token) {
+    throw new BankApiError("Сбер не вернул токены");
+  }
+  return {
+    accessToken: data.access_token as string,
+    refreshToken: data.refresh_token as string,
+  };
+}
+
 /**
  * Скачать дневную выписку счёта в формате 1С (windows-1251 байты) или null, если за день нет данных.
  *

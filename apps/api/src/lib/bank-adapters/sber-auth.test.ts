@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { getSberConfig } from "./sber-mtls.js";
-import { refreshAccessToken } from "./sber-client.js";
+import { refreshAccessToken, exchangeAuthCode } from "./sber-client.js";
 import { BankConfigError, BankApiError } from "./types.js";
 
 const cfg = {
@@ -54,6 +54,32 @@ describe("refreshAccessToken", () => {
       vi.fn().mockResolvedValue({ ok: false, status: 401, text: async () => "denied" }),
     );
     await expect(refreshAccessToken("ref-old", cfg)).rejects.toBeInstanceOf(BankApiError);
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("exchangeAuthCode", () => {
+  it("успех → токены", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ access_token: "acc", refresh_token: "ref" }),
+      }),
+    );
+    const res = await exchangeAuthCode("the-code", cfg);
+    expect(res.accessToken).toBe("acc");
+    expect(res.refreshToken).toBe("ref");
+    vi.unstubAllGlobals();
+  });
+
+  it("401 → BankApiError", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 401, text: async () => "denied" }),
+    );
+    await expect(exchangeAuthCode("the-code", cfg)).rejects.toBeInstanceOf(BankApiError);
     vi.unstubAllGlobals();
   });
 });
