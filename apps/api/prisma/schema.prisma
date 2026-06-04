@@ -1070,6 +1070,8 @@ model BankStatement {
   reconcileDiff   Decimal?        @map("reconcile_diff") @db.Decimal(14, 2)
   originalName    String          @map("original_name")
   originalPath    String          @map("original_path")
+  editedData      Json?           @map("edited_data")
+  editedAt        DateTime?       @map("edited_at")
   createdAt       DateTime        @default(now()) @map("created_at")
 
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
