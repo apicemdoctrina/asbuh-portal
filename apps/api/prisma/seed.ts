@@ -61,6 +61,10 @@ const PERMISSIONS: Array<{ entity: string; action: string }> = [
   { entity: "reporting", action: "create" },
   { entity: "reporting", action: "edit" },
   { entity: "reporting", action: "delete" },
+
+  { entity: "bank_statement", action: "view" },
+  { entity: "bank_statement", action: "create" },
+  { entity: "bank_statement", action: "delete" },
 ];
 
 // Role → permitted (entity, action) pairs
@@ -97,6 +101,9 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "reporting", action: "create" },
     { entity: "reporting", action: "edit" },
     { entity: "reporting", action: "delete" },
+    { entity: "bank_statement", action: "view" },
+    { entity: "bank_statement", action: "create" },
+    { entity: "bank_statement", action: "delete" },
   ],
   manager: [
     { entity: "user", action: "view" },
@@ -128,6 +135,9 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "reporting", action: "view" },
     { entity: "reporting", action: "create" },
     { entity: "reporting", action: "edit" },
+    { entity: "bank_statement", action: "view" },
+    { entity: "bank_statement", action: "create" },
+    { entity: "bank_statement", action: "delete" },
   ],
   accountant: [
     { entity: "organization", action: "view" },
@@ -152,6 +162,9 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "reporting", action: "view" },
     { entity: "reporting", action: "create" },
     { entity: "reporting", action: "edit" },
+    { entity: "bank_statement", action: "view" },
+    { entity: "bank_statement", action: "create" },
+    { entity: "bank_statement", action: "delete" },
   ],
   client: [
     { entity: "organization", action: "view" },
