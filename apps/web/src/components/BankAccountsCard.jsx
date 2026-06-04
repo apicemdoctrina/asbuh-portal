@@ -12,6 +12,8 @@ import {
   Loader2,
   CheckCircle2,
   AlertTriangle,
+  PlugZap,
+  Unplug,
 } from "lucide-react";
 
 const money = (n) =>
@@ -73,6 +75,8 @@ function bankBadgeCls(name) {
   if (s) return `${s.bg} ${s.text}`;
   return "bg-muted text-body";
 }
+
+const API_PROVIDER_LABELS = { tochka: "Точка" };
 
 const SECRET_DISPLAY_DURATION = 30_000;
 
@@ -332,12 +336,24 @@ export default function BankAccountsCard({
                 className="flex items-center justify-between bg-canvas rounded-lg p-3"
               >
                 <div className="text-sm text-body space-y-0.5">
-                  <p>
+                  <p className="flex items-center gap-1.5">
                     <span
                       className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${bankBadgeCls(acc.bankName)}`}
                     >
                       {acc.bankName}
                     </span>
+                    {showLogin &&
+                      (acc.apiProvider ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                          <PlugZap size={12} />
+                          API: {API_PROVIDER_LABELS[acc.apiProvider] || acc.apiProvider}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-subtle">
+                          <Unplug size={12} />
+                          без API
+                        </span>
+                      ))}
                   </p>
                   {showLogin && displayLogin != null && (
                     <p>
