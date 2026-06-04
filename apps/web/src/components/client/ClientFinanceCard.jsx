@@ -66,7 +66,17 @@ export default function ClientFinanceCard({ organizationId }) {
         <BarChart data={summary.byMonth}>
           <XAxis dataKey="month" stroke="#94a3b8" fontSize={12} />
           <YAxis stroke="#94a3b8" fontSize={12} />
-          <Tooltip formatter={(v) => `${money(v)} ₽`} />
+          <Tooltip
+            formatter={(v) => `${money(v)} ₽`}
+            cursor={{ fill: "var(--color-muted)", fillOpacity: 0.5 }}
+            contentStyle={{
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-line)",
+              borderRadius: 12,
+              color: "var(--color-heading)",
+            }}
+            labelStyle={{ color: "var(--color-body)" }}
+          />
           <Legend />
           <Bar dataKey="in" name="Приход" fill="#10b981" />
           <Bar dataKey="out" name="Расход" fill="#ef4444" />
