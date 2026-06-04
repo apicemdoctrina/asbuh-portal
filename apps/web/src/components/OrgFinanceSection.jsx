@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { TrendingUp, TrendingDown, Loader2 } from "lucide-react";
+import {
+  TrendingUp,
+  TrendingDown,
+  Loader2,
+  Upload,
+  CheckCircle2,
+  AlertTriangle,
+} from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext.jsx";
 
@@ -13,6 +21,9 @@ export default function OrgFinanceSection({ organizationId, financeVisibleToClie
   const [loading, setLoading] = useState(true);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+  const [uploading, setUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState(null); // { ok, status, diff, id } | { error }
 
   useEffect(() => {
     let active = true;
@@ -34,9 +45,41 @@ export default function OrgFinanceSection({ organizationId, financeVisibleToClie
     return () => {
       active = false;
     };
-  }, [organizationId, from, to]);
+  }, [organizationId, from, to, reloadKey]);
+
+  async function onUpload(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    setUploadResult(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("organizationId", organizationId);
+      const res = await api("/api/statements", { method: "POST", body: fd });
+      if (res.ok) {
+        const body = await res.json();
+        setUploadResult({
+          ok: true,
+          status: body.reconcile.status,
+          diff: body.reconcile.totalDiff,
+          id: body.statement.id,
+        });
+        setReloadKey((k) => k + 1); // обновить аналитику
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setUploadResult({ error: body.error || "Ошибка загрузки" });
+      }
+    } catch {
+      setUploadResult({ error: "Сеть недоступна" });
+    } finally {
+      setUploading(false);
+    }
+  }
 
   const canEdit = hasPermission("organization", "edit");
+  const canUpload = hasPermission("bank_statement", "create");
 
   if (loading) {
     return (
@@ -72,17 +115,62 @@ export default function OrgFinanceSection({ organizationId, financeVisibleToClie
             />
           </label>
         </div>
-        {canEdit && (
-          <label className="flex items-center gap-2 text-sm text-body cursor-pointer">
-            <input
-              type="checkbox"
-              checked={!!financeVisibleToClient}
-              onChange={(e) => onToggle(e.target.checked)}
-            />
-            Показывать клиенту
-          </label>
-        )}
+        <div className="flex items-center gap-4">
+          {canEdit && (
+            <label className="flex items-center gap-2 text-sm text-body cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!financeVisibleToClient}
+                onChange={(e) => onToggle(e.target.checked)}
+              />
+              Показывать клиенту
+            </label>
+          )}
+          {canUpload && (
+            <label className="px-3 py-2 rounded-lg bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white shadow-lg shadow-[#6567F1]/30 flex items-center gap-2 cursor-pointer text-sm">
+              <input
+                type="file"
+                accept=".txt"
+                className="hidden"
+                onChange={onUpload}
+                disabled={uploading}
+              />
+              {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+              Загрузить выписку
+            </label>
+          )}
+        </div>
       </div>
+
+      {uploadResult && (
+        <div
+          className={`p-3 rounded-xl text-sm border flex items-center gap-2 ${
+            uploadResult.error
+              ? "bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 border-red-200 dark:border-red-500/30"
+              : uploadResult.status === "OK"
+                ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30"
+                : "bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 border-red-200 dark:border-red-500/30"
+          }`}
+        >
+          {uploadResult.error ? (
+            <>
+              <AlertTriangle size={16} /> {uploadResult.error}
+            </>
+          ) : uploadResult.status === "OK" ? (
+            <>
+              <CheckCircle2 size={16} /> Выписка загружена, остатки сошлись.
+            </>
+          ) : (
+            <>
+              <AlertTriangle size={16} /> Выписка загружена, расхождение {money(uploadResult.diff)}{" "}
+              ₽.
+              <Link to={`/statements/${uploadResult.id}`} className="underline font-medium">
+                Открыть для правки
+              </Link>
+            </>
+          )}
+        </div>
+      )}
 
       {empty ? (
         <div className="py-12 text-center text-subtle">Нет данных по выпискам</div>
