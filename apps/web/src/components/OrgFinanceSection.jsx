@@ -20,11 +20,17 @@ export default function OrgFinanceSection({ organizationId, financeVisibleToClie
     const qs = new URLSearchParams();
     if (from) qs.set("from", from);
     if (to) qs.set("to", to);
-    api(`/api/organizations/${organizationId}/finance?${qs.toString()}`).then(async (res) => {
-      if (!active) return;
-      if (res.ok) setData(await res.json());
-      setLoading(false);
-    });
+    (async () => {
+      try {
+        const res = await api(`/api/organizations/${organizationId}/finance?${qs.toString()}`);
+        if (!active) return;
+        if (res.ok) setData(await res.json());
+      } catch {
+        // игнорируем сетевую ошибку — покажем пустое состояние
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
     return () => {
       active = false;
     };

@@ -1,6 +1,7 @@
 import StatusLight from "./StatusLight.jsx";
 import ActivityFeed from "./ActivityFeed.jsx";
 import SummaryBlocks from "./SummaryBlocks.jsx";
+import ClientFinanceCard from "./ClientFinanceCard.jsx";
 
 export default function ClientOrgDashboard({ org, showOrgName = false }) {
   return (
@@ -15,6 +16,7 @@ export default function ClientOrgDashboard({ org, showOrgName = false }) {
         <ActivityFeed feed={org.feed} />
         <SummaryBlocks summary={org.summary} />
       </div>
+      <ClientFinanceCard organizationId={org.id} />
     </div>
   );
 }
