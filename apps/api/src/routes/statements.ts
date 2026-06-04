@@ -8,6 +8,7 @@ import prisma from "../lib/prisma.js";
 import { authenticate, requirePermission } from "../middleware/auth.js";
 import { logAudit } from "../lib/audit.js";
 import { upload, UPLOADS_DIR } from "../lib/upload.js";
+import { readOriginal, loadParsed } from "../lib/statement-store.js";
 import { parseStatement } from "../lib/statement-parser.js";
 import { reconcile } from "../lib/statement-reconcile.js";
 import { normalizeEdited } from "../lib/statement-edit.js";
@@ -65,22 +66,11 @@ async function detectOrg(
   return bankAcc?.organization ?? null;
 }
 
-function readOriginal(filename: string): { buf: Buffer; fullPath: string } {
-  const fullPath = path.join(UPLOADS_DIR, filename);
-  return { buf: fs.readFileSync(fullPath), fullPath };
-}
-
 /** DD.MM.YYYY → Date (полночь UTC); пустое → текущая дата. */
 function parseRuDate(d: string | null): Date {
   if (!d) return new Date();
   const [dd, mm, yyyy] = d.split(".");
   return new Date(`${yyyy}-${mm}-${dd}`);
-}
-
-/** Источник правды: правленые данные (editedData), иначе парсинг оригинала. */
-function loadParsed(item: { editedData: Prisma.JsonValue; originalPath: string }): ParsedStatement {
-  if (item.editedData) return item.editedData as unknown as ParsedStatement;
-  return parseStatement(readOriginal(item.originalPath).buf);
 }
 
 /** Агрегаты для записи BankStatement из распарсенной выписки. */
