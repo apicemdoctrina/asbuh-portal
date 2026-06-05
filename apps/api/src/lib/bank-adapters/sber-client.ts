@@ -127,6 +127,11 @@ export async function fetchDailyFile(
     }
     // Вариант B: банк отдал JSON с идентификатором задачи/ссылкой.
     taskBody = await res.json();
+    if (process.env.DEBUG_SBER) {
+      console.warn(
+        `[sber] step1 acc=${accountNumber} date=${dateISO} body=${JSON.stringify(taskBody).slice(0, 400)}`,
+      );
+    }
     break;
   }
   if (!taskBody) throw new BankApiError("Сбер не успел сформировать файл, попробуйте позже");
@@ -152,21 +157,38 @@ export async function fetchDailyFile(
       throw new BankApiError("Сбер не вернул идентификатор файла");
     }
   }
+  if (process.env.DEBUG_SBER) {
+    console.warn(`[sber] step2 acc=${accountNumber} date=${dateISO} downloadPath=${downloadPath}`);
+  }
 
+  // Сбер может вернуть 404 пока файл в очереди формирования. Ретраим 404 столько
+  // же раз, сколько 202 — на 4-й попытке (12 секунд ожидания) выходим, чтоб
+  // не мучить банк.
+  let firstNotFoundAttempt = -1;
   for (let attempt = 0; attempt < 20; attempt++) {
     const dl = await sberFetch(cfg.baseUrl, cfg, downloadPath, {
       method: "GET",
       headers: auth,
     });
     if (dl.status === 404) {
-      debugEmpty(accountNumber, dateISO, "download:404");
-      return null;
+      if (firstNotFoundAttempt < 0) firstNotFoundAttempt = attempt;
+      if (attempt - firstNotFoundAttempt >= 3) {
+        debugEmpty(accountNumber, dateISO, "download:404");
+        return null;
+      }
+      await new Promise((r) => setTimeout(r, 3000));
+      continue;
     }
     if (dl.status === 202) {
       await new Promise((r) => setTimeout(r, 3000));
       continue;
     }
-    if (!dl.ok) throw new BankApiError(`Не удалось скачать файл Сбера ${dl.status}`);
+    if (!dl.ok) {
+      const txt = await dl.text().catch(() => "");
+      throw new BankApiError(
+        `Не удалось скачать файл Сбера ${dl.status}${txt ? `: ${txt.slice(0, 200)}` : ""}`,
+      );
+    }
     const buf = Buffer.from(await dl.arrayBuffer());
     if (buf.length === 0) {
       debugEmpty(accountNumber, dateISO, "download:empty-body");
