@@ -1056,6 +1056,7 @@ export default function ManagementPage() {
   const [incomes, setIncomes] = useState([]);
   const [sectionProfitability, setSectionProfitability] = useState([]);
   const [sections, setSections] = useState([]);
+  const [bankStats, setBankStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [capturing, setCapturing] = useState(false);
@@ -1072,22 +1073,25 @@ export default function ManagementPage() {
     setLoading(true);
     setError(null);
     try {
-      const [dashRes, snapsRes, expsRes, incsRes, analyticsRes, sectionsRes] = await Promise.all([
-        api("/api/management/dashboard"),
-        api("/api/management/snapshots"),
-        api("/api/management/expenses"),
-        api("/api/management/incomes"),
-        api("/api/management/analytics"),
-        api("/api/sections?limit=100"),
-      ]);
+      const [dashRes, snapsRes, expsRes, incsRes, analyticsRes, sectionsRes, bankStatsRes] =
+        await Promise.all([
+          api("/api/management/dashboard"),
+          api("/api/management/snapshots"),
+          api("/api/management/expenses"),
+          api("/api/management/incomes"),
+          api("/api/management/analytics"),
+          api("/api/sections?limit=100"),
+          api("/api/management/bank-stats"),
+        ]);
       if (!dashRes.ok) throw new Error("Ошибка загрузки данных");
-      const [dash, snaps, exps, incs, analytics, sectionsData] = await Promise.all([
+      const [dash, snaps, exps, incs, analytics, sectionsData, bankStatsData] = await Promise.all([
         dashRes.json(),
         snapsRes.ok ? snapsRes.json() : Promise.resolve([]),
         expsRes.ok ? expsRes.json() : Promise.resolve([]),
         incsRes.ok ? incsRes.json() : Promise.resolve([]),
         analyticsRes.ok ? analyticsRes.json() : Promise.resolve(null),
         sectionsRes.ok ? sectionsRes.json() : Promise.resolve({ sections: [] }),
+        bankStatsRes.ok ? bankStatsRes.json() : Promise.resolve(null),
       ]);
       setDashboard(dash);
       setSnapshots(snaps);
@@ -1095,6 +1099,7 @@ export default function ManagementPage() {
       setIncomes(incs);
       setSectionProfitability(analytics?.sectionProfitability ?? []);
       setSections(sectionsData.sections ?? []);
+      setBankStats(bankStatsData);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1942,6 +1947,64 @@ export default function ManagementPage() {
                   <td className="py-2.5 text-body">{ROLE_LABELS[r.role] ?? r.role}</td>
                   <td className="py-2.5 text-right text-body">{r.count}</td>
                   <td className="py-2.5 text-right font-medium text-heading">{fmt(r.payroll)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {bankStats && bankStats.banks.length > 0 && (
+        <div className="bg-surface rounded-2xl shadow-lg border border-line p-6">
+          <h2 className="text-lg font-bold text-heading mb-4">Банки клиентов</h2>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <div className="rounded-lg border border-line p-3">
+              <div className="text-xs text-subtle">Всего счетов</div>
+              <div className="text-2xl font-bold text-heading mt-1">
+                {bankStats.totals.accounts}
+              </div>
+            </div>
+            <div className="rounded-lg border border-line p-3">
+              <div className="text-xs text-subtle">Организаций</div>
+              <div className="text-2xl font-bold text-heading mt-1">
+                {bankStats.totals.organizations}
+              </div>
+            </div>
+            <div className="rounded-lg border border-line p-3">
+              <div className="text-xs text-subtle">Подключено к API</div>
+              <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-300 mt-1">
+                {bankStats.totals.apiConnected}
+              </div>
+            </div>
+            <div className="rounded-lg border border-line p-3">
+              <div className="text-xs text-subtle">Авто-выгрузка ВКЛ</div>
+              <div className="text-2xl font-bold text-primary mt-1">
+                {bankStats.totals.autoFetch}
+              </div>
+            </div>
+          </div>
+
+          <table className="w-full text-sm">
+            <thead className="text-subtle border-b border-line">
+              <tr className="text-left">
+                <th className="pb-2 font-medium">Банк</th>
+                <th className="pb-2 font-medium text-right">Счетов</th>
+                <th className="pb-2 font-medium text-right">Организаций</th>
+                <th className="pb-2 font-medium text-right">API подключено</th>
+                <th className="pb-2 font-medium text-right">Авто-выгрузка</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {bankStats.banks.map((b) => (
+                <tr key={b.bankName}>
+                  <td className="py-2.5 text-body font-medium">{b.bankName}</td>
+                  <td className="py-2.5 text-right text-body">{b.accounts}</td>
+                  <td className="py-2.5 text-right text-body">{b.organizations}</td>
+                  <td className="py-2.5 text-right text-emerald-600 dark:text-emerald-300">
+                    {b.apiConnected || "—"}
+                  </td>
+                  <td className="py-2.5 text-right text-primary">{b.autoFetch || "—"}</td>
                 </tr>
               ))}
             </tbody>
