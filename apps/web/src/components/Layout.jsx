@@ -22,7 +22,6 @@ import {
   Ticket,
   FileSpreadsheet,
   FolderOpen,
-  Landmark,
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import NotificationBell from "./NotificationBell.jsx";
@@ -41,12 +40,6 @@ const navItems = [
     label: "Отчётность",
     icon: FileSpreadsheet,
     permission: ["reporting", "view"],
-  },
-  {
-    to: "/statements",
-    label: "Выписки в 1С",
-    icon: Landmark,
-    permission: ["bank_statement", "view"],
   },
   { to: "/management", label: "Управление", icon: TrendingUp, roles: ["admin", "supervisor"] },
   { to: "/staff", label: "Сотрудники", icon: Users, roles: ["admin", "supervisor"] },

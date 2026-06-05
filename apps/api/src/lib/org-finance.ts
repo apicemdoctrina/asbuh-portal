@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import prisma from "./prisma.js";
 import { loadParsed } from "./statement-store.js";
+import { opHash } from "./op-hash.js";
 import type { ParsedStatement } from "./statement-types.js";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -14,6 +15,7 @@ export interface OrgTxInput {
   counterparty: string | null;
   counterpartyInn: string | null;
   purpose: string | null;
+  opHash: string;
 }
 
 /** DD.MM.YYYY → Date (полночь UTC); пустое → текущая дата. */
@@ -41,6 +43,14 @@ export function statementToTransactions(
         counterparty: isIn ? op.payerName : op.payeeName,
         counterpartyInn: isIn ? op.payerInn : op.payeeInn,
         purpose: op.purpose,
+        opHash: opHash({
+          accountNumber: acc.accountNumber,
+          date: op.date,
+          amount: round2(op.amount),
+          direction: op.direction,
+          number: op.number,
+          purpose: op.purpose,
+        }),
       });
     }
   }
@@ -142,6 +152,7 @@ export async function syncStatementTransactions(statementId: string): Promise<vo
         counterparty: r.counterparty,
         counterpartyInn: r.counterpartyInn,
         purpose: r.purpose,
+        opHash: r.opHash,
       })),
     });
   });

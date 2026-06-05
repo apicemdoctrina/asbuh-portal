@@ -2,6 +2,14 @@
 .env.*
 !.env.example
 node_modules
+
+# bank API certificates / private keys — local only, NEVER commit
+apps/api/certs/
+*.pem
+*.key
+*.p12
+*.pfx
+
 dist
 build
 coverage

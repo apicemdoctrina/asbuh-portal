@@ -128,6 +128,10 @@ export const createBankAccountSchema = z.object({
   login: z.string().nullable().optional(),
   password: z.string().nullable().optional(),
   comment: z.string().nullable().optional(),
+  apiProvider: z.enum(["tochka", "sber"]).nullable().optional(),
+  apiToken: z.string().nullable().optional(),
+  apiAccountId: z.string().nullable().optional(),
+  usePartnerToken: z.boolean().optional(),
 });
 
 export const updateBankAccountSchema = z.object({
@@ -136,6 +140,10 @@ export const updateBankAccountSchema = z.object({
   login: z.string().nullable().optional(),
   password: z.string().nullable().optional(),
   comment: z.string().nullable().optional(),
+  apiProvider: z.enum(["tochka", "sber"]).nullable().optional(),
+  apiToken: z.string().nullable().optional(),
+  apiAccountId: z.string().nullable().optional(),
+  usePartnerToken: z.boolean().optional(),
 });
 
 export const createSystemAccessSchema = z.object({

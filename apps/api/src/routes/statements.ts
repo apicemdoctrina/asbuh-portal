@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { Request } from "express";
 import fs from "node:fs";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import prisma from "../lib/prisma.js";
@@ -15,6 +16,16 @@ import { reconcile } from "../lib/statement-reconcile.js";
 import { normalizeEdited } from "../lib/statement-edit.js";
 import { generate1c } from "../lib/statement-1c.js";
 import { generatePdf } from "../lib/statement-pdf.js";
+import {
+  getAdapter,
+  resolveToken,
+  BankConfigError,
+  BankApiError,
+} from "../lib/bank-adapters/index.js";
+import { encrypt } from "../lib/crypto.js";
+import { getSberConfig } from "../lib/bank-adapters/sber-mtls.js";
+import { exchangeAuthCode } from "../lib/bank-adapters/sber-client.js";
+import { signSberState, verifySberState } from "../lib/bank-adapters/sber-oauth-state.js";
 import type { ParsedStatement } from "../lib/statement-types.js";
 
 const router = Router();
@@ -87,6 +98,85 @@ function aggregatesFrom(parsed: ParsedStatement) {
     openingBalance: parsed.accounts.reduce((s, a) => s + a.openingBalance, 0),
     closingBalance: parsed.accounts.reduce((s, a) => s + a.closingBalance, 0),
   };
+}
+
+export function mapBankError(err: unknown): { status: number; error: string } {
+  if (err instanceof BankConfigError) return { status: 422, error: err.message };
+  if (err instanceof BankApiError) return { status: 502, error: err.message };
+  return { status: 500, error: "Internal server error" };
+}
+
+/** Собрать ссылку авторизации Сбера. Имена параметров — кандидат на правку на живом IFT. */
+export function buildAuthorizeUrl(
+  cfg: { authBaseUrl: string; clientId: string; redirectUri: string },
+  state: string,
+): string {
+  const qs = new URLSearchParams({
+    response_type: "code",
+    client_id: cfg.clientId,
+    redirect_uri: cfg.redirectUri,
+    scope: "GET_STATEMENT_ACCOUNT",
+    state,
+  });
+  return `${cfg.authBaseUrl}/ic/sso/api/v2/oauth/authorize?${qs.toString()}`;
+}
+
+/** Найти tochka-подключение организации в скоупе пользователя. */
+async function getOrgConnection(orgId: string, user: AuthedUser) {
+  const acc = await prisma.organizationBankAccount.findFirst({
+    where: {
+      organizationId: orgId,
+      apiProvider: { not: null },
+      ...(isPrivileged(user.roles)
+        ? {}
+        : { organization: { section: { members: { some: { userId: user.userId } } } } }),
+    },
+    select: {
+      id: true,
+      apiProvider: true,
+      apiToken: true,
+      apiAccountId: true,
+      usePartnerToken: true,
+      accountNumber: true,
+    },
+  });
+  return acc;
+}
+
+const fetchBodySchema = z.object({
+  organizationId: z.string().min(1),
+  start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+/** Резолв подключения + токена + опрос API банка → ParsedStatement. */
+async function loadFetched(
+  orgId: string,
+  user: AuthedUser,
+  start: string,
+  end: string,
+): Promise<ParsedStatement> {
+  const conn = await getOrgConnection(orgId, user);
+  if (!conn) throw new BankConfigError("API-доступ к банку не настроен для организации");
+  if (!conn.accountNumber) {
+    throw new BankConfigError("Не задан номер счёта банка");
+  }
+  const adapter = getAdapter(conn.apiProvider);
+  if (!adapter) throw new BankConfigError("Провайдер банка не поддерживается");
+  const credential = resolveToken(conn);
+  return adapter.fetchStatement({
+    accountNumber: conn.accountNumber,
+    accountId: conn.apiAccountId,
+    start,
+    end,
+    credential,
+    saveCredential: async (next: string) => {
+      await prisma.organizationBankAccount.update({
+        where: { id: conn.id },
+        data: { apiToken: encrypt(next) },
+      });
+    },
+  });
 }
 
 // Схема правок: клиент присылает счета с операциями; raw синхронизируется на сервере.
@@ -536,5 +626,235 @@ router.delete(
     }
   },
 );
+
+/**
+ * Шаг 1 (API): забрать выписку из банка и сверить БЕЗ сохранения.
+ * Возвращает сверку + признак уже существующей выгрузки за период.
+ */
+router.post(
+  "/fetch/preview",
+  authenticate,
+  requirePermission("bank_statement", "create"),
+  async (req: Request, res) => {
+    try {
+      const body = fetchBodySchema.safeParse(req.body);
+      if (!body.success) {
+        res.status(422).json({ error: "Некорректные параметры" });
+        return;
+      }
+      if (!(await orgInScope(body.data.organizationId, req.user!))) {
+        res.status(422).json({ error: "Организация не найдена или нет доступа" });
+        return;
+      }
+      const parsed = await loadFetched(
+        body.data.organizationId,
+        req.user!,
+        body.data.start,
+        body.data.end,
+      );
+      const existing = await prisma.bankStatement.findFirst({
+        where: {
+          organizationId: body.data.organizationId,
+          // нормализуем к полуночи UTC, чтобы сравнение с @db.Date не плыло на границе суток
+          periodStart: { lte: new Date(`${body.data.end}T00:00:00Z`) },
+          periodEnd: { gte: new Date(`${body.data.start}T00:00:00Z`) },
+        },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true, docCount: true },
+      });
+      res.json({
+        reconcile: reconcile(parsed),
+        accountNumbers: parsed.accounts.map((a) => a.accountNumber).filter(Boolean),
+        bankName: parsed.meta.sender,
+        periodStart: parsed.meta.dateStart,
+        periodEnd: parsed.meta.dateEnd,
+        docCount: parsed.accounts.reduce((s, a) => s + a.operations.length, 0),
+        existingForPeriod: existing
+          ? { date: existing.createdAt, docCount: existing.docCount }
+          : null,
+      });
+    } catch (err) {
+      const m = mapBankError(err);
+      if (m.status === 500) console.error("Statement fetch preview error:", err);
+      res.status(m.status).json({ error: m.error });
+    }
+  },
+);
+
+/**
+ * Шаг 2 (API): забрать выписку из банка и сохранить через канонический конвейер
+ * (синтез 1С-файла → BankStatement → синк оборотов).
+ */
+router.post(
+  "/fetch",
+  authenticate,
+  requirePermission("bank_statement", "create"),
+  async (req: Request, res) => {
+    try {
+      const body = fetchBodySchema.safeParse(req.body);
+      if (!body.success) {
+        res.status(422).json({ error: "Некорректные параметры" });
+        return;
+      }
+      if (!(await orgInScope(body.data.organizationId, req.user!))) {
+        res.status(422).json({ error: "Организация не найдена или нет доступа" });
+        return;
+      }
+      const parsed = await loadFetched(
+        body.data.organizationId,
+        req.user!,
+        body.data.start,
+        body.data.end,
+      );
+
+      const buf = generate1c(parsed);
+      const acc = parsed.accounts[0]?.accountNumber || "acc";
+      const filename = `tochka_${acc}_${body.data.start}_${body.data.end}_${randomUUID()}.txt`;
+      fs.writeFileSync(path.join(UPLOADS_DIR, filename), buf);
+
+      const agg = aggregatesFrom(parsed);
+      const record = await prisma.bankStatement.create({
+        data: {
+          organizationId: body.data.organizationId,
+          uploadedById: req.user!.userId,
+          bankName: agg.bankName,
+          accountNumbers: agg.accountNumbers,
+          periodStart: parseRuDate(parsed.meta.dateStart),
+          periodEnd: parseRuDate(parsed.meta.dateEnd),
+          openingBalance: new Prisma.Decimal(agg.openingBalance),
+          closingBalance: new Prisma.Decimal(agg.closingBalance),
+          totalIn: new Prisma.Decimal(agg.totalIn),
+          totalOut: new Prisma.Decimal(agg.totalOut),
+          docCount: agg.docCount,
+          reconcileStatus: agg.rec.status,
+          reconcileDiff: new Prisma.Decimal(agg.rec.totalDiff),
+          originalName: `Точка ${body.data.start}—${body.data.end}.txt`,
+          originalPath: filename,
+        },
+        include: { organization: { select: { id: true, name: true } } },
+      });
+
+      await prisma.organizationBankAccount.updateMany({
+        where: { organizationId: body.data.organizationId, apiProvider: { not: null } },
+        data: { lastFetchAt: new Date() },
+      });
+
+      await logAudit({
+        action: "bank_statement_fetched",
+        userId: req.user!.userId,
+        entity: "bank_statement",
+        entityId: record.id,
+        details: {
+          reconcile: agg.rec.status,
+          organizationId: body.data.organizationId,
+          period: `${body.data.start}..${body.data.end}`,
+        },
+      });
+
+      await syncStatementTransactions(record.id);
+
+      res.status(201).json({
+        statement: record,
+        reconcile: agg.rec,
+        accounts: parsed.accounts.map((a) => ({
+          accountNumber: a.accountNumber,
+          openingBalance: a.openingBalance,
+          closingBalance: a.closingBalance,
+          operations: a.operations,
+        })),
+      });
+    } catch (err) {
+      const m = mapBankError(err);
+      if (m.status === 500) console.error("Statement fetch error:", err);
+      res.status(m.status).json({ error: m.error });
+    }
+  },
+);
+
+/** Старт OAuth-онбординга Сбера: вернуть ссылку авторизации для счёта в скоупе. */
+router.get(
+  "/sber/authorize-url",
+  authenticate,
+  requirePermission("bank_statement", "connect"),
+  async (req: Request, res) => {
+    try {
+      const bankAccountId = (req.query.bankAccountId as string) || "";
+      const acc = await prisma.organizationBankAccount.findFirst({
+        where: {
+          id: bankAccountId,
+          apiProvider: "sber",
+          // Сотрудники видят счёт через секцию, клиент — через членство в организации.
+          ...(isPrivileged(req.user!.roles)
+            ? {}
+            : {
+                organization: {
+                  OR: [
+                    { section: { members: { some: { userId: req.user!.userId } } } },
+                    { members: { some: { userId: req.user!.userId } } },
+                  ],
+                },
+              }),
+        },
+        select: { id: true },
+      });
+      if (!acc) {
+        res.status(404).json({ error: "Счёт Сбера не найден или нет доступа" });
+        return;
+      }
+      const cfg = getSberConfig();
+      const state = signSberState({ bankAccountId: acc.id, userId: req.user!.userId });
+      res.json({ url: buildAuthorizeUrl(cfg, state) });
+    } catch (err) {
+      const m = mapBankError(err);
+      if (m.status === 500) console.error("Sber authorize-url error:", err);
+      res.status(m.status).json({ error: m.error });
+    }
+  },
+);
+
+/** Публичный callback Сбера: обменять код на токены и сохранить refresh в счёт. */
+router.get("/sber/callback", async (req: Request, res) => {
+  const appUrl = process.env.APP_URL || "http://localhost:5173";
+  const code = (req.query.code as string) || "";
+  const stateRaw = (req.query.state as string) || "";
+
+  let state;
+  try {
+    state = verifySberState(stateRaw);
+  } catch {
+    res.redirect(`${appUrl}/?sber=error`);
+    return;
+  }
+
+  const acc = await prisma.organizationBankAccount.findFirst({
+    where: { id: state.bankAccountId },
+    select: { id: true, organizationId: true },
+  });
+  if (!acc) {
+    res.redirect(`${appUrl}/?sber=error`);
+    return;
+  }
+
+  try {
+    if (!code) throw new BankApiError("Сбер не вернул код авторизации");
+    const cfg = getSberConfig();
+    const { refreshToken } = await exchangeAuthCode(code, cfg);
+    await prisma.organizationBankAccount.update({
+      where: { id: acc.id },
+      data: { apiToken: encrypt(refreshToken) },
+    });
+    await logAudit({
+      action: "sber_oauth_connected",
+      userId: state.userId,
+      entity: "bank_statement",
+      entityId: acc.id,
+      details: { organizationId: acc.organizationId },
+    });
+    res.redirect(`${appUrl}/organizations/${acc.organizationId}?sber=connected`);
+  } catch (err) {
+    console.error("Sber callback error:", err);
+    res.redirect(`${appUrl}/organizations/${acc.organizationId}?sber=error`);
+  }
+});
 
 export default router;

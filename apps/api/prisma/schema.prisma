@@ -66,7 +66,7 @@ model User {
 model UserConsent {
   id              String   @id @default(uuid())
   userId          String   @map("user_id")
-  documentType    String   @map("document_type") // "offer" | "personal_data"
+  documentType    String   @map("document_type") // "terms_of_use" | "personal_data"
   documentVersion String   @map("document_version")
   acceptedAt      DateTime @default(now()) @map("accepted_at")
   ipAddress       String?  @map("ip_address")
@@ -376,6 +376,11 @@ model OrganizationBankAccount {
   login          String?
   password       String?
   comment        String?
+  apiProvider     String?   @map("api_provider")
+  apiToken        String?   @map("api_token")
+  apiAccountId    String?   @map("api_account_id")
+  usePartnerToken Boolean   @default(false) @map("use_partner_token")
+  lastFetchAt     DateTime? @map("last_fetch_at")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
@@ -1095,6 +1100,7 @@ model StatementTransaction {
   counterparty    String?
   counterpartyInn String?       @map("counterparty_inn")
   purpose         String?
+  opHash          String?       @map("op_hash")
   createdAt       DateTime      @default(now()) @map("created_at")
 
   organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -1102,6 +1108,7 @@ model StatementTransaction {
 
   @@index([organizationId, date])
   @@index([statementId])
+  @@index([organizationId, opHash])
   @@map("statement_transactions")
 }
 
