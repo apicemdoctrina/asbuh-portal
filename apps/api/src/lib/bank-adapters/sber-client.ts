@@ -128,8 +128,11 @@ export async function fetchDailyFile(
     // Вариант B: банк отдал JSON с идентификатором задачи/ссылкой.
     taskBody = await res.json();
     if (process.env.DEBUG_SBER) {
+      const interestingHeaders = ["location", "content-disposition", "x-statement-status", "link"]
+        .map((h) => `${h}=${res.headers.get(h) ?? "-"}`)
+        .join(" ");
       console.warn(
-        `[sber] step1 acc=${accountNumber} date=${dateISO} body=${JSON.stringify(taskBody).slice(0, 400)}`,
+        `[sber] step1 acc=${accountNumber} date=${dateISO} ctype=${ctype} ${interestingHeaders} body=${JSON.stringify(taskBody).slice(0, 400)}`,
       );
     }
     break;
@@ -159,6 +162,44 @@ export async function fetchDailyFile(
   }
   if (process.env.DEBUG_SBER) {
     console.warn(`[sber] step2 acc=${accountNumber} date=${dateISO} downloadPath=${downloadPath}`);
+  }
+
+  // Probe-режим (DEBUG_SBER=probe): на первой попытке прогоняем кандидатные URL
+  // параллельно и логируем status каждого. Когда найдём настоящий — фиксируем
+  // в коде и снимаем probe. Запускать ОДИН раз на маленьком периоде.
+  if (process.env.DEBUG_SBER === "probe") {
+    const rawId =
+      typeof taskBody === "string" || typeof taskBody === "number"
+        ? String(taskBody)
+        : String(
+            ((taskBody as Record<string, unknown>).statementId ||
+              (taskBody as Record<string, unknown>).id ||
+              "") as string,
+          );
+    const candidates = [
+      `/fintech/api/v1/statement/files/${rawId}`,
+      `/fintech/api/v1/statement/files/${rawId}/download`,
+      `/fintech/api/v1/statement/files?statementId=${rawId}`,
+      `/fintech/api/v1/statement/${rawId}/files`,
+      `/fintech/api/v1/statements/${rawId}/files`,
+      `/fintech/api/v1/statements/${rawId}`,
+      `/fintech/api/v1/statement/files?${qs.toString()}&statementId=${rawId}`,
+    ];
+    for (const p of candidates) {
+      try {
+        const r = await sberFetch(cfg.baseUrl, cfg, p, { method: "GET", headers: auth });
+        const ct = r.headers.get("content-type") || "-";
+        console.warn(
+          `[sber] probe acc=${accountNumber} date=${dateISO} status=${r.status} ctype=${ct} path=${p}`,
+        );
+      } catch (e) {
+        console.warn(
+          `[sber] probe acc=${accountNumber} date=${dateISO} err=${(e as Error).message} path=${p}`,
+        );
+      }
+    }
+    // probe-режим возвращает null — реального файла нет смысла качать.
+    return null;
   }
 
   // Сбер может вернуть 404 пока файл в очереди формирования. Ретраим 404 столько
