@@ -104,6 +104,7 @@ export default function BankAccountsCard({
   const [apiAccountId, setApiAccountId] = useState("");
   const [apiToken, setApiToken] = useState("");
   const [usePartnerToken, setUsePartnerToken] = useState(false);
+  const [autoFetchEnabled, setAutoFetchEnabled] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
 
@@ -226,6 +227,7 @@ export default function BankAccountsCard({
     setApiAccountId("");
     setApiToken("");
     setUsePartnerToken(false);
+    setAutoFetchEnabled(false);
     setFormError("");
     setShowModal(true);
   }
@@ -241,6 +243,7 @@ export default function BankAccountsCard({
     setApiAccountId(acc.apiAccountId || "");
     setApiToken("");
     setUsePartnerToken(!!acc.usePartnerToken);
+    setAutoFetchEnabled(!!acc.autoFetchEnabled);
     setFormError("");
     setShowModal(true);
   }
@@ -269,6 +272,7 @@ export default function BankAccountsCard({
         apiProvider: apiProvider || null,
         apiAccountId: apiAccountId.trim() || null,
         usePartnerToken,
+        autoFetchEnabled,
         // токен: пусто при редактировании = не менять; при создании = null
         apiToken: tokenVal || (editingAccount ? undefined : null),
       });
@@ -819,6 +823,21 @@ export default function BankAccountsCard({
                           />
                         </div>
                       )}
+                      <label className="flex items-start gap-2 text-sm text-body cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={autoFetchEnabled}
+                          onChange={(e) => setAutoFetchEnabled(e.target.checked)}
+                          className="mt-0.5"
+                        />
+                        <span>
+                          Автоматически выгружать выписку каждый день в 09:00 (GMT+2) за прошлый
+                          день
+                          <span className="block text-xs text-subtle">
+                            По умолчанию выключено. Требуется подключённый API и номер счёта.
+                          </span>
+                        </span>
+                      </label>
                     </>
                   )}
                 </div>

@@ -12,6 +12,7 @@ import { startBankAutoSync } from "./routes/payments.js";
 import { startTemporarySectionRevoker } from "./lib/section-revoker.js";
 import { initHealthAlerts } from "./lib/health-alerts.js";
 import { startWeeklyClientDigest } from "./lib/client-digest.js";
+import { startAutoStatementFetcher } from "./lib/auto-statement-fetch.js";
 
 const PORT = process.env.PORT || 3001;
 
@@ -64,3 +65,4 @@ startReportDeadlineNotifier();
 startBankAutoSync();
 startTemporarySectionRevoker();
 startWeeklyClientDigest();
+startAutoStatementFetcher();

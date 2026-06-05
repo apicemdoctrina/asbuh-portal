@@ -132,6 +132,7 @@ export const createBankAccountSchema = z.object({
   apiToken: z.string().nullable().optional(),
   apiAccountId: z.string().nullable().optional(),
   usePartnerToken: z.boolean().optional(),
+  autoFetchEnabled: z.boolean().optional(),
 });
 
 export const updateBankAccountSchema = z.object({
@@ -144,6 +145,7 @@ export const updateBankAccountSchema = z.object({
   apiToken: z.string().nullable().optional(),
   apiAccountId: z.string().nullable().optional(),
   usePartnerToken: z.boolean().optional(),
+  autoFetchEnabled: z.boolean().optional(),
 });
 
 export const createSystemAccessSchema = z.object({
