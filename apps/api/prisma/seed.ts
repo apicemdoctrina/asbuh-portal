@@ -221,51 +221,55 @@ async function main() {
   }
   console.log("Role-permission assignments seeded");
 
-  // Seed admin user from env (defaults for dev only)
-  const adminEmail = process.env.ADMIN_EMAIL || "admin@asbuh.local";
-  const adminPassword = process.env.ADMIN_PASSWORD || "Admin123!";
+  // Dev-only test users (admin + supervisor). On prod the singleton-admin
+  // trigger blocks this and the real users already exist — skip unless
+  // explicitly opted in via SEED_DEV_USERS=true.
+  if (process.env.SEED_DEV_USERS === "true") {
+    const adminEmail = process.env.ADMIN_EMAIL || "admin@asbuh.local";
+    const adminPassword = process.env.ADMIN_PASSWORD || "Admin123!";
+    const passwordHash = await bcrypt.hash(adminPassword, 12);
 
-  const passwordHash = await bcrypt.hash(adminPassword, 12);
+    const admin = await prisma.user.upsert({
+      where: { email: adminEmail },
+      update: {},
+      create: {
+        email: adminEmail,
+        passwordHash,
+        firstName: "Admin",
+        lastName: "ASBUH",
+      },
+    });
 
-  const admin = await prisma.user.upsert({
-    where: { email: adminEmail },
-    update: {},
-    create: {
-      email: adminEmail,
-      passwordHash,
-      firstName: "Admin",
-      lastName: "ASBUH",
-    },
-  });
+    await prisma.userRole.upsert({
+      where: { userId_roleId: { userId: admin.id, roleId: roleRecords.admin.id } },
+      update: {},
+      create: { userId: admin.id, roleId: roleRecords.admin.id },
+    });
 
-  await prisma.userRole.upsert({
-    where: { userId_roleId: { userId: admin.id, roleId: roleRecords.admin.id } },
-    update: {},
-    create: { userId: admin.id, roleId: roleRecords.admin.id },
-  });
+    console.log(`Admin user seeded: ${adminEmail} (dev-only default password)`);
 
-  console.log(`Admin user seeded: ${adminEmail} (dev-only default password)`);
+    const supervisorPasswordHash = await bcrypt.hash("Supervisor123!", 12);
+    const supervisor = await prisma.user.upsert({
+      where: { email: "supervisor@asbuh.local" },
+      update: {},
+      create: {
+        email: "supervisor@asbuh.local",
+        passwordHash: supervisorPasswordHash,
+        firstName: "Тест",
+        lastName: "Руководитель",
+      },
+    });
 
-  // Seed test supervisor user (dev only)
-  const supervisorPasswordHash = await bcrypt.hash("Supervisor123!", 12);
-  const supervisor = await prisma.user.upsert({
-    where: { email: "supervisor@asbuh.local" },
-    update: {},
-    create: {
-      email: "supervisor@asbuh.local",
-      passwordHash: supervisorPasswordHash,
-      firstName: "Тест",
-      lastName: "Руководитель",
-    },
-  });
+    await prisma.userRole.upsert({
+      where: { userId_roleId: { userId: supervisor.id, roleId: roleRecords.supervisor.id } },
+      update: {},
+      create: { userId: supervisor.id, roleId: roleRecords.supervisor.id },
+    });
 
-  await prisma.userRole.upsert({
-    where: { userId_roleId: { userId: supervisor.id, roleId: roleRecords.supervisor.id } },
-    update: {},
-    create: { userId: supervisor.id, roleId: roleRecords.supervisor.id },
-  });
-
-  console.log("Test supervisor seeded: supervisor@asbuh.local / Supervisor123!");
+    console.log("Test supervisor seeded: supervisor@asbuh.local / Supervisor123!");
+  } else {
+    console.log("Skipping dev test users (set SEED_DEV_USERS=true to enable)");
+  }
 
   // Seed default report types
   const reportTypes = [
