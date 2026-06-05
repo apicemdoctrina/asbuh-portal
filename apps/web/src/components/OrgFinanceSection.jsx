@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import {
   TrendingUp,
@@ -164,9 +163,6 @@ export default function OrgFinanceSection({ organizationId, financeVisibleToClie
             <>
               <AlertTriangle size={16} /> Выписка загружена, расхождение {money(uploadResult.diff)}{" "}
               ₽.
-              <Link to={`/statements/${uploadResult.id}`} className="underline font-medium">
-                Открыть для правки
-              </Link>
             </>
           )}
         </div>

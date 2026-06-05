@@ -122,6 +122,35 @@ export default function BankAccountsCard({
 
   // Per-account statements (lazy-loaded on expand): { [accountId]: { open, items, loading, err } }
   const [acctStatements, setAcctStatements] = useState({});
+  // Per-statement operations (lazy-loaded on row expand): { [stId]: { open, accounts, loading, err } }
+  const [stOps, setStOps] = useState({});
+
+  async function toggleStOps(stId) {
+    const cur = stOps[stId];
+    if (cur?.open) {
+      setStOps((s) => ({ ...s, [stId]: { ...cur, open: false } }));
+      return;
+    }
+    if (cur?.accounts) {
+      setStOps((s) => ({ ...s, [stId]: { ...cur, open: true } }));
+      return;
+    }
+    setStOps((s) => ({ ...s, [stId]: { open: true, accounts: [], loading: true, err: "" } }));
+    try {
+      const res = await api(`/api/statements/${stId}`);
+      if (!res.ok) throw new Error("Не удалось загрузить операции");
+      const data = await res.json();
+      setStOps((s) => ({
+        ...s,
+        [stId]: { open: true, accounts: data.accounts || [], loading: false, err: "" },
+      }));
+    } catch (err) {
+      setStOps((s) => ({
+        ...s,
+        [stId]: { open: true, accounts: [], loading: false, err: err.message },
+      }));
+    }
+  }
 
   async function loadAcctStatements(accId, keepOpen = true) {
     try {
@@ -518,44 +547,128 @@ export default function BankAccountsCard({
                     {!sts.loading && !sts.err && sts.items.length === 0 && (
                       <div className="text-xs text-subtle">Выписок пока нет</div>
                     )}
-                    {sts.items.map((st) => (
-                      <div
-                        key={st.id}
-                        className="flex items-center justify-between gap-2 text-xs py-1"
-                      >
-                        <div
-                          className="flex items-center gap-1.5 text-body truncate"
-                          title={st.originalName}
-                        >
-                          <FileText size={12} className="shrink-0" />
-                          <span className="font-medium">
-                            {isoDay(st.periodStart)} — {isoDay(st.periodEnd)}
-                          </span>
-                          <span className="text-subtle">· {st.docCount} опер.</span>
-                          {st.reconcileStatus !== "OK" && (
-                            <span className="text-amber-600 dark:text-amber-400">
-                              · расх. {money(Number(st.reconcileDiff ?? 0))} ₽
-                            </span>
+                    {sts.items.map((st) => {
+                      const ops = stOps[st.id];
+                      return (
+                        <div key={st.id} className="text-xs">
+                          <div className="flex items-center justify-between gap-2 py-1">
+                            <button
+                              onClick={() => toggleStOps(st.id)}
+                              className="flex items-center gap-1.5 text-body hover:text-primary transition-colors truncate text-left"
+                              title={st.originalName}
+                            >
+                              {ops?.open ? (
+                                <ChevronDown size={12} className="shrink-0" />
+                              ) : (
+                                <ChevronRight size={12} className="shrink-0" />
+                              )}
+                              <FileText size={12} className="shrink-0" />
+                              <span className="font-medium">
+                                {isoDay(st.periodStart)} — {isoDay(st.periodEnd)}
+                              </span>
+                              <span className="text-subtle">· {st.docCount} опер.</span>
+                              {st.reconcileStatus !== "OK" && (
+                                <span className="text-amber-600 dark:text-amber-400">
+                                  · расх. {money(Number(st.reconcileDiff ?? 0))} ₽
+                                </span>
+                              )}
+                            </button>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                onClick={() => downloadStatement(st.id, "txt")}
+                                className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide bg-muted text-body hover:bg-primary/10 hover:text-primary transition-colors"
+                                title="Скачать в формате 1С (txt)"
+                              >
+                                1С
+                              </button>
+                              <button
+                                onClick={() => downloadStatement(st.id, "pdf")}
+                                className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide bg-muted text-body hover:bg-primary/10 hover:text-primary transition-colors"
+                                title="Скачать PDF"
+                              >
+                                PDF
+                              </button>
+                            </div>
+                          </div>
+                          {ops?.open && (
+                            <div className="ml-4 mt-1 mb-2 rounded border border-line bg-surface overflow-hidden">
+                              {ops.loading && (
+                                <div className="flex items-center gap-2 p-2 text-subtle">
+                                  <Loader2 size={12} className="animate-spin" /> Загрузка операций…
+                                </div>
+                              )}
+                              {ops.err && <div className="p-2 text-red-500">{ops.err}</div>}
+                              {!ops.loading && !ops.err && ops.accounts.length === 0 && (
+                                <div className="p-2 text-subtle">Нет данных</div>
+                              )}
+                              {!ops.loading &&
+                                !ops.err &&
+                                ops.accounts.map((a) =>
+                                  a.operations.length === 0 ? (
+                                    <div
+                                      key={a.accountNumber}
+                                      className="p-2 text-subtle text-center"
+                                    >
+                                      По счёту {a.accountNumber} операций нет
+                                    </div>
+                                  ) : (
+                                    <table key={a.accountNumber} className="w-full border-collapse">
+                                      <thead className="bg-canvas">
+                                        <tr className="text-subtle">
+                                          <th className="text-left px-2 py-1 font-medium">Дата</th>
+                                          <th className="text-left px-2 py-1 font-medium">№</th>
+                                          <th className="text-left px-2 py-1 font-medium">
+                                            Контрагент
+                                          </th>
+                                          <th className="text-left px-2 py-1 font-medium">
+                                            Назначение
+                                          </th>
+                                          <th className="text-right px-2 py-1 font-medium">
+                                            Сумма
+                                          </th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {a.operations.map((op, i) => {
+                                          const cp =
+                                            op.direction === "in" ? op.payerName : op.payeeName;
+                                          return (
+                                            <tr
+                                              key={i}
+                                              className="border-t border-line hover:bg-canvas/60"
+                                            >
+                                              <td className="px-2 py-1 whitespace-nowrap">
+                                                {op.date}
+                                              </td>
+                                              <td className="px-2 py-1 text-subtle">{op.number}</td>
+                                              <td className="px-2 py-1 truncate max-w-[200px]">
+                                                {cp || "—"}
+                                              </td>
+                                              <td className="px-2 py-1 truncate max-w-[300px] text-subtle">
+                                                {op.purpose || "—"}
+                                              </td>
+                                              <td
+                                                className={`px-2 py-1 text-right font-medium whitespace-nowrap ${
+                                                  op.direction === "in"
+                                                    ? "text-emerald-600 dark:text-emerald-300"
+                                                    : "text-rose-600 dark:text-rose-300"
+                                                }`}
+                                              >
+                                                {op.direction === "in" ? "+" : "−"}
+                                                {money(op.amount)} ₽
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  ),
+                                )}
+                            </div>
                           )}
                         </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            onClick={() => downloadStatement(st.id, "txt")}
-                            className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide bg-muted text-body hover:bg-primary/10 hover:text-primary transition-colors"
-                            title="Скачать в формате 1С (txt)"
-                          >
-                            1С
-                          </button>
-                          <button
-                            onClick={() => downloadStatement(st.id, "pdf")}
-                            className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide bg-muted text-body hover:bg-primary/10 hover:text-primary transition-colors"
-                            title="Скачать PDF"
-                          >
-                            PDF
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
