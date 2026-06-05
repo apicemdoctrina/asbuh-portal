@@ -173,15 +173,42 @@ export async function findAccountIdByNumber(
   const res = await fetch(`${TOCHKA_AUTH_BASE}/uapi/open-banking/v1.0/accounts`, {
     headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    console.warn(`[tochka] GET /accounts вернул ${res.status}`);
+    return null;
+  }
   const data = await res.json();
-  const accounts = (data?.Data?.Account ?? []) as Array<{
-    accountId?: string;
-    Identification?: string;
-    nameAccount?: string;
-  }>;
-  const match = accounts.find((a) => a.Identification === accountNumber);
-  return match?.accountId ?? null;
+  const accounts = (data?.Data?.Account ?? []) as Array<Record<string, unknown>>;
+
+  // Точка кладёт номер счёта в разные поля в зависимости от версии. Проверяем
+  // все известные варианты + ищем 20-значное совпадение в любом строковом поле
+  // первого уровня. Также — массив Identification[].identification (Open Banking).
+  function digitsOnly(v: unknown): string {
+    return typeof v === "string" ? v.replace(/\D/g, "") : "";
+  }
+
+  for (const a of accounts) {
+    const candidates: string[] = [];
+    candidates.push(digitsOnly(a.Identification));
+    candidates.push(digitsOnly(a.identification));
+    candidates.push(digitsOnly(a.accountNumber));
+    candidates.push(digitsOnly(a.AccountNumber));
+    // Account.Account[].Identification массив в Open Banking
+    const acctArr = a.Account as Array<{ Identification?: unknown }> | undefined;
+    if (Array.isArray(acctArr)) {
+      for (const x of acctArr) candidates.push(digitsOnly(x?.Identification));
+    }
+    if (candidates.some((c) => c === accountNumber)) {
+      return (a.accountId ?? a.AccountId ?? a.id) as string;
+    }
+  }
+
+  console.warn(
+    `[tochka] /accounts: не нашёл ${accountNumber}. Полученные счета: ${JSON.stringify(
+      accounts.slice(0, 3),
+    ).slice(0, 500)}`,
+  );
+  return null;
 }
 
 /** Обновить access по refresh. Точка ротирует refresh. */
