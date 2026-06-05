@@ -113,7 +113,6 @@ export default function BankAccountsCard({
   const [fetchAccount, setFetchAccount] = useState(null);
   const [fetchStart, setFetchStart] = useState("");
   const [fetchEnd, setFetchEnd] = useState("");
-  const [fetchPreview, setFetchPreview] = useState(null); // ответ /fetch/preview
   const [fetchBusy, setFetchBusy] = useState(false);
   const [fetchError, setFetchError] = useState("");
   const [fetchSaved, setFetchSaved] = useState(null); // { status, diff, id }
@@ -386,14 +385,12 @@ export default function BankAccountsCard({
     setFetchAccount(acc);
     setFetchStart(acc.lastFetchAt ? isoDay(acc.lastFetchAt) : firstDayOfMonth());
     setFetchEnd(isoDay(Date.now()));
-    setFetchPreview(null);
     setFetchError("");
     setFetchSaved(null);
   }
 
   function closeFetch() {
     setFetchAccount(null);
-    setFetchPreview(null);
     setFetchError("");
     setFetchSaved(null);
   }
@@ -417,11 +414,6 @@ export default function BankAccountsCard({
     }
   }
 
-  async function runPreview() {
-    const data = await runFetch("fetch/preview");
-    if (data) setFetchPreview(data);
-  }
-
   async function runSave() {
     const data = await runFetch("fetch");
     if (data) {
@@ -429,6 +421,7 @@ export default function BankAccountsCard({
         status: data.reconcile.status,
         diff: data.reconcile.totalDiff,
         id: data.statement.id,
+        docCount: data.statement.docCount ?? 0,
       });
       onDataChanged();
       if (fetchAccount?.id) loadAcctStatements(fetchAccount.id, true);
@@ -1064,51 +1057,34 @@ export default function BankAccountsCard({
                 </div>
               )}
 
-              {fetchSaved ? (
+              {fetchSaved && (
                 <div
-                  className={`p-3 rounded-lg text-sm border flex items-center gap-2 ${
-                    fetchSaved.status === "OK"
-                      ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30"
-                      : "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30"
+                  className={`p-3 rounded-lg text-sm border ${
+                    fetchSaved.docCount === 0
+                      ? "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30"
+                      : fetchSaved.status === "OK"
+                        ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30"
+                        : "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30"
                   }`}
                 >
-                  {fetchSaved.status === "OK" ? (
-                    <>
-                      <CheckCircle2 size={16} /> Выписка сохранена, остатки сошлись.
-                    </>
-                  ) : (
-                    <>
-                      <AlertTriangle size={16} /> Выписка сохранена. Сверка: расхождение{" "}
-                      {money(fetchSaved.diff)} ₽.
-                    </>
-                  )}
-                </div>
-              ) : (
-                fetchPreview && (
-                  <div className="p-3 rounded-lg border border-line bg-canvas text-sm text-body space-y-1">
-                    <div>
-                      Операций: <span className="font-medium">{fetchPreview.docCount}</span>
-                    </div>
-                    <div>
-                      Сверка:{" "}
-                      {fetchPreview.reconcile.status === "OK" ? (
-                        <span className="text-emerald-600 dark:text-emerald-300">сошлась</span>
-                      ) : (
-                        <span className="text-amber-600 dark:text-amber-300">
-                          расхождение {money(fetchPreview.reconcile.totalDiff)} ₽
-                        </span>
-                      )}
-                    </div>
-                    {fetchPreview.existingForPeriod && (
-                      <div className="text-subtle">
-                        За этот период уже есть выгрузка от{" "}
-                        {new Date(fetchPreview.existingForPeriod.date).toLocaleDateString("ru-RU")},
-                        операций {fetchPreview.existingForPeriod.docCount}. Повторяющиеся операции в
-                        финансах не задваиваются (кроме выписок, загруженных до обновления).
-                      </div>
+                  <div className="flex items-center gap-2">
+                    {fetchSaved.docCount === 0 ? (
+                      <>
+                        <AlertTriangle size={16} /> Выписка сохранена, но операций за период нет.
+                      </>
+                    ) : fetchSaved.status === "OK" ? (
+                      <>
+                        <CheckCircle2 size={16} /> Сохранено {fetchSaved.docCount} операций, сверка
+                        сошлась.
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle size={16} /> Сохранено {fetchSaved.docCount} операций,
+                        расхождение {money(fetchSaved.diff)} ₽.
+                      </>
                     )}
                   </div>
-                )
+                </div>
               )}
 
               <div className="flex justify-end gap-3">
@@ -1116,31 +1092,21 @@ export default function BankAccountsCard({
                   type="button"
                   onClick={closeFetch}
                   className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
+                  disabled={fetchBusy}
                 >
                   {fetchSaved ? "Закрыть" : "Отмена"}
                 </button>
-                {!fetchSaved &&
-                  (fetchPreview ? (
-                    <button
-                      type="button"
-                      onClick={runSave}
-                      disabled={fetchBusy}
-                      className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50 inline-flex items-center gap-2"
-                    >
-                      {fetchBusy && <Loader2 size={16} className="animate-spin" />}
-                      Сохранить файл
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={runPreview}
-                      disabled={fetchBusy}
-                      className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50 inline-flex items-center gap-2"
-                    >
-                      {fetchBusy && <Loader2 size={16} className="animate-spin" />}
-                      Проверить
-                    </button>
-                  ))}
+                {!fetchSaved && (
+                  <button
+                    type="button"
+                    onClick={runSave}
+                    disabled={fetchBusy}
+                    className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50 inline-flex items-center gap-2"
+                  >
+                    {fetchBusy && <Loader2 size={16} className="animate-spin" />}
+                    Сохранить файл
+                  </button>
+                )}
               </div>
             </div>
           </div>
