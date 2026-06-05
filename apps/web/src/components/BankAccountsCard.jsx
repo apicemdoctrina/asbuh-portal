@@ -88,6 +88,7 @@ export default function BankAccountsCard({
   showLogin,
   canViewSecrets,
   canFetchStatements,
+  canConnectBank,
   onDataChanged,
 }) {
   const [showModal, setShowModal] = useState(false);
@@ -366,7 +367,7 @@ export default function BankAccountsCard({
                           без API
                         </span>
                       ))}
-                    {showLogin && acc.apiProvider === "sber" && (
+                    {(showLogin || canConnectBank) && acc.apiProvider === "sber" && (
                       <span className="text-xs text-subtle">
                         {acc.apiToken ? "· подключён" : "· не подключён"}
                       </span>
@@ -385,7 +386,7 @@ export default function BankAccountsCard({
                   {acc.comment && <p className="text-subtle">{acc.comment}</p>}
                 </div>
                 <div className="flex items-center gap-2 ml-4 shrink-0">
-                  {canFetchStatements && acc.apiProvider === "sber" && (
+                  {canConnectBank && acc.apiProvider === "sber" && (
                     <button
                       onClick={() => connectSber(acc)}
                       className="text-subtle hover:text-primary transition-colors"

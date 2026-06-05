@@ -65,6 +65,8 @@ const PERMISSIONS: Array<{ entity: string; action: string }> = [
   { entity: "bank_statement", action: "view" },
   { entity: "bank_statement", action: "create" },
   { entity: "bank_statement", action: "delete" },
+  // Узкое право: только запуск OAuth-онбординга банка (Сбер). Не даёт fetch/правку выписок.
+  { entity: "bank_statement", action: "connect" },
 ];
 
 // Role → permitted (entity, action) pairs
@@ -104,6 +106,7 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "bank_statement", action: "view" },
     { entity: "bank_statement", action: "create" },
     { entity: "bank_statement", action: "delete" },
+    { entity: "bank_statement", action: "connect" },
   ],
   manager: [
     { entity: "user", action: "view" },
@@ -138,6 +141,7 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "bank_statement", action: "view" },
     { entity: "bank_statement", action: "create" },
     { entity: "bank_statement", action: "delete" },
+    { entity: "bank_statement", action: "connect" },
   ],
   accountant: [
     { entity: "organization", action: "view" },
@@ -165,6 +169,7 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "bank_statement", action: "view" },
     { entity: "bank_statement", action: "create" },
     { entity: "bank_statement", action: "delete" },
+    { entity: "bank_statement", action: "connect" },
   ],
   client: [
     { entity: "organization", action: "view" },
@@ -173,6 +178,8 @@ const ROLE_PERMISSIONS: Record<string, Array<{ entity: string; action: string }>
     { entity: "knowledge_item", action: "view" },
     { entity: "ticket", action: "view" },
     { entity: "ticket", action: "create" },
+    // Клиент может сам подключить свой банк (OAuth), но не видит/не тянет выписки.
+    { entity: "bank_statement", action: "connect" },
   ],
 };
 

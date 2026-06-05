@@ -775,7 +775,7 @@ router.post(
 router.get(
   "/sber/authorize-url",
   authenticate,
-  requirePermission("bank_statement", "create"),
+  requirePermission("bank_statement", "connect"),
   async (req: Request, res) => {
     try {
       const bankAccountId = (req.query.bankAccountId as string) || "";
@@ -783,9 +783,17 @@ router.get(
         where: {
           id: bankAccountId,
           apiProvider: "sber",
+          // Сотрудники видят счёт через секцию, клиент — через членство в организации.
           ...(isPrivileged(req.user!.roles)
             ? {}
-            : { organization: { section: { members: { some: { userId: req.user!.userId } } } } }),
+            : {
+                organization: {
+                  OR: [
+                    { section: { members: { some: { userId: req.user!.userId } } } },
+                    { members: { some: { userId: req.user!.userId } } },
+                  ],
+                },
+              }),
         },
         select: { id: true },
       });

@@ -25,6 +25,10 @@ export function getSberConfig(): SberConfig {
   const keyPath = process.env.SBER_CERT_KEY_PATH || "";
   const passphrase = process.env.SBER_CERT_PASSPHRASE || undefined;
 
+  // Сбер-консоль выдаёт PKCS#12-бандл (.p12/.pfx) — сертификат и ключ в одном файле.
+  // В этом случае отдельный SBER_CERT_KEY_PATH не нужен; иначе ждём пару PEM (cert + key).
+  const isPfx = /\.(p12|pfx)$/i.test(certPath);
+
   if (
     !baseUrl ||
     !authBaseUrl ||
@@ -32,21 +36,24 @@ export function getSberConfig(): SberConfig {
     !clientId ||
     !clientSecret ||
     !certPath ||
-    !keyPath
+    (!isPfx && !keyPath)
   ) {
     throw new BankConfigError("Сбер не сконфигурирован на сервере (SBER_* env)");
   }
 
-  let cert: Buffer;
-  let key: Buffer;
+  let dispatcher: Agent;
   try {
-    cert = fs.readFileSync(certPath);
-    key = fs.readFileSync(keyPath);
+    if (isPfx) {
+      const pfx = fs.readFileSync(certPath);
+      dispatcher = new Agent({ connect: { pfx, passphrase } });
+    } else {
+      const cert = fs.readFileSync(certPath);
+      const key = fs.readFileSync(keyPath);
+      dispatcher = new Agent({ connect: { cert, key, passphrase } });
+    }
   } catch {
     throw new BankConfigError("Не удалось прочитать сертификат/ключ Сбера");
   }
-
-  const dispatcher = new Agent({ connect: { cert, key, passphrase } });
   cached = { baseUrl, authBaseUrl, redirectUri, clientId, clientSecret, dispatcher };
   return cached;
 }
