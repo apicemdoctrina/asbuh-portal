@@ -29,7 +29,8 @@ export async function refreshAccessToken(
     refresh_token: refreshToken,
     scope: cfg.scope,
   });
-  const res = await sberFetch(cfg.authBaseUrl, cfg, "/ic/sso/api/v2/oauth/token", {
+  // /authorize живёт на authBaseUrl (sbi.sberbank.ru), /token — на baseUrl (fintech.sberbank.ru).
+  const res = await sberFetch(cfg.baseUrl, cfg, "/ic/sso/api/v2/oauth/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
@@ -55,7 +56,7 @@ export async function exchangeAuthCode(code: string, cfg: SberConfig): Promise<R
     code,
     redirect_uri: cfg.redirectUri,
   });
-  const res = await sberFetch(cfg.authBaseUrl, cfg, "/ic/sso/api/v2/oauth/token", {
+  const res = await sberFetch(cfg.baseUrl, cfg, "/ic/sso/api/v2/oauth/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
