@@ -36,7 +36,19 @@ export function getTochkaOAuthConfig(): TochkaOAuthConfig {
     clientId,
     clientSecret,
     redirectUri,
-    permissions: ["ReadAccountsBasic", "ReadAccountsDetail", "ReadBalances", "ReadStatements"],
+    // ReadStatements даёт метаданные выписки, но без операций; для самих
+    // транзакций нужны Transactions* (Basic + Detail + Credits + Debits),
+    // иначе Точка молча отдаёт docCount=0.
+    permissions: [
+      "ReadAccountsBasic",
+      "ReadAccountsDetail",
+      "ReadBalances",
+      "ReadStatements",
+      "ReadTransactionsBasic",
+      "ReadTransactionsDetail",
+      "ReadTransactionsCredits",
+      "ReadTransactionsDebits",
+    ],
     scope: "accounts balances statements",
   };
 }
