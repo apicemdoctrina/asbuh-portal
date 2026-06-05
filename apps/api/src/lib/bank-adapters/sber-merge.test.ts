@@ -23,8 +23,8 @@ describe("enumerateDays", () => {
     expect(enumerateDays("2026-01-05", "2026-01-05")).toEqual(["2026-01-05"]);
   });
 
-  it("период > 31 дня → BankConfigError", () => {
-    expect(() => enumerateDays("2026-01-01", "2026-03-01")).toThrow(BankConfigError);
+  it("период > 366 дней → BankConfigError", () => {
+    expect(() => enumerateDays("2024-01-01", "2025-12-31")).toThrow(BankConfigError);
   });
 
   it("start позже end → BankConfigError", () => {

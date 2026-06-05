@@ -1,9 +1,9 @@
 import type { ParsedStatement } from "../statement-types.js";
 import { BankConfigError } from "./types.js";
 
-const MAX_DAYS = 31;
+const MAX_DAYS = 366;
 
-/** Список дней YYYY-MM-DD от start до end включительно (UTC). Лимит 31 день. */
+/** Список дней YYYY-MM-DD от start до end включительно (UTC). Лимит 366 дней (год + високосный). */
 export function enumerateDays(start: string, end: string): string[] {
   const s = new Date(`${start}T00:00:00Z`);
   const e = new Date(`${end}T00:00:00Z`);
