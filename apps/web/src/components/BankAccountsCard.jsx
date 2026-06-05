@@ -80,7 +80,7 @@ function bankBadgeCls(name) {
   return "bg-muted text-body";
 }
 
-const API_PROVIDER_LABELS = { tochka: "Точка", sber: "Сбер" };
+const API_PROVIDER_LABELS = { tochka: "Точка", sber: "Сбер", alfa: "Альфа" };
 
 const SECRET_DISPLAY_DURATION = 30_000;
 
@@ -331,9 +331,10 @@ export default function BankAccountsCard({
     }
   }
 
-  async function connectSber(acc) {
+  async function connectOAuthBank(acc) {
+    const path = acc.apiProvider === "alfa" ? "alfa" : "sber";
     try {
-      const res = await api(`/api/statements/sber/authorize-url?bankAccountId=${acc.id}`);
+      const res = await api(`/api/statements/${path}/authorize-url?bankAccountId=${acc.id}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.url) throw new Error(data.error || "Не удалось начать подключение");
       window.location.href = data.url;
@@ -487,11 +488,12 @@ export default function BankAccountsCard({
                             без API
                           </span>
                         ))}
-                      {(showLogin || canConnectBank) && acc.apiProvider === "sber" && (
-                        <span className="text-xs text-subtle">
-                          {acc.apiToken ? "· подключён" : "· не подключён"}
-                        </span>
-                      )}
+                      {(showLogin || canConnectBank) &&
+                        (acc.apiProvider === "sber" || acc.apiProvider === "alfa") && (
+                          <span className="text-xs text-subtle">
+                            {acc.apiToken ? "· подключён" : "· не подключён"}
+                          </span>
+                        )}
                     </p>
                     {showLogin && displayLogin != null && (
                       <p>
@@ -506,15 +508,20 @@ export default function BankAccountsCard({
                     {acc.comment && <p className="text-subtle">{acc.comment}</p>}
                   </div>
                   <div className="flex items-center gap-2 ml-4 shrink-0">
-                    {canConnectBank && acc.apiProvider === "sber" && (
-                      <button
-                        onClick={() => connectSber(acc)}
-                        className="text-subtle hover:text-primary transition-colors"
-                        title={acc.apiToken ? "Переподключить Сбер" : "Подключить Сбер"}
-                      >
-                        <LogIn size={16} />
-                      </button>
-                    )}
+                    {canConnectBank &&
+                      (acc.apiProvider === "sber" || acc.apiProvider === "alfa") && (
+                        <button
+                          onClick={() => connectOAuthBank(acc)}
+                          className="text-subtle hover:text-primary transition-colors"
+                          title={
+                            acc.apiToken
+                              ? `Переподключить ${API_PROVIDER_LABELS[acc.apiProvider]}`
+                              : `Подключить ${API_PROVIDER_LABELS[acc.apiProvider]}`
+                          }
+                        >
+                          <LogIn size={16} />
+                        </button>
+                      )}
                     {canFetchStatements && acc.apiProvider && (
                       <button
                         onClick={() => openFetch(acc)}
@@ -820,6 +827,7 @@ export default function BankAccountsCard({
                       <option value="">Нет (только загрузка файла)</option>
                       <option value="tochka">Точка</option>
                       <option value="sber">Сбербанк</option>
+                      <option value="alfa">Альфа-Банк</option>
                     </select>
                   </div>
                   {apiProvider && (
@@ -851,7 +859,11 @@ export default function BankAccountsCard({
                       {!usePartnerToken && (
                         <div>
                           <label className="block text-sm font-medium text-body mb-1">
-                            {apiProvider === "sber" ? "Refresh-токен (СберБизнес)" : "API-токен"}
+                            {apiProvider === "sber"
+                              ? "Refresh-токен (СберБизнес)"
+                              : apiProvider === "alfa"
+                                ? "Refresh-токен (Alfa ID)"
+                                : "API-токен"}
                           </label>
                           <input
                             type="password"

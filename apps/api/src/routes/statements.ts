@@ -26,6 +26,9 @@ import { encrypt } from "../lib/crypto.js";
 import { getSberConfig } from "../lib/bank-adapters/sber-mtls.js";
 import { exchangeAuthCode } from "../lib/bank-adapters/sber-client.js";
 import { signSberState, verifySberState } from "../lib/bank-adapters/sber-oauth-state.js";
+import { getAlfaConfig } from "../lib/bank-adapters/alfa-mtls.js";
+import { exchangeAuthCode as exchangeAlfaCode } from "../lib/bank-adapters/alfa-client.js";
+import { signAlfaState, verifyAlfaState } from "../lib/bank-adapters/alfa-oauth-state.js";
 import type { ParsedStatement } from "../lib/statement-types.js";
 
 const router = Router();
@@ -119,6 +122,21 @@ export function buildAuthorizeUrl(
     state,
   });
   return `${cfg.authBaseUrl}/ic/sso/api/v2/oauth/authorize?${qs.toString()}`;
+}
+
+/** Собрать ссылку авторизации Альфы (Alfa ID OIDC). */
+export function buildAlfaAuthorizeUrl(
+  cfg: { authBaseUrl: string; clientId: string; redirectUri: string; scope: string },
+  state: string,
+): string {
+  const qs = new URLSearchParams({
+    response_type: "code",
+    client_id: cfg.clientId,
+    redirect_uri: cfg.redirectUri,
+    scope: cfg.scope,
+    state,
+  });
+  return `${cfg.authBaseUrl}/oidc/authorize?${qs.toString()}`;
 }
 
 /** Найти tochka-подключение организации в скоупе пользователя. */
@@ -854,6 +872,94 @@ router.get("/sber/callback", async (req: Request, res) => {
   } catch (err) {
     console.error("Sber callback error:", err);
     res.redirect(`${appUrl}/organizations/${acc.organizationId}?sber=error`);
+  }
+});
+
+/** Старт OAuth-онбординга Альфы: вернуть ссылку авторизации для счёта в скоупе. */
+router.get(
+  "/alfa/authorize-url",
+  authenticate,
+  requirePermission("bank_statement", "connect"),
+  async (req: Request, res) => {
+    try {
+      const bankAccountId = (req.query.bankAccountId as string) || "";
+      const acc = await prisma.organizationBankAccount.findFirst({
+        where: {
+          id: bankAccountId,
+          apiProvider: "alfa",
+          ...(isPrivileged(req.user!.roles)
+            ? {}
+            : {
+                organization: {
+                  OR: [
+                    { section: { members: { some: { userId: req.user!.userId } } } },
+                    { members: { some: { userId: req.user!.userId } } },
+                  ],
+                },
+              }),
+        },
+        select: { id: true },
+      });
+      if (!acc) {
+        res.status(404).json({ error: "Счёт Альфы не найден или нет доступа" });
+        return;
+      }
+      const cfg = getAlfaConfig();
+      const state = signAlfaState({ bankAccountId: acc.id, userId: req.user!.userId });
+      res.json({ url: buildAlfaAuthorizeUrl(cfg, state) });
+    } catch (err) {
+      const m = mapBankError(err);
+      if (m.status === 500) console.error("Alfa authorize-url error:", err);
+      res.status(m.status).json({ error: m.error });
+    }
+  },
+);
+
+/** Публичный callback Альфы: обменять код на токены и сохранить refresh в счёт. */
+router.get("/alfa/callback", async (req: Request, res) => {
+  const appUrl = process.env.APP_URL || "http://localhost:5173";
+  const code = (req.query.code as string) || "";
+  const stateRaw = (req.query.state as string) || "";
+
+  let state;
+  try {
+    state = verifyAlfaState(stateRaw);
+  } catch {
+    res.redirect(`${appUrl}/?alfa=error`);
+    return;
+  }
+
+  const acc = await prisma.organizationBankAccount.findFirst({
+    where: { id: state.bankAccountId },
+    select: { id: true, organizationId: true },
+  });
+  if (!acc) {
+    res.redirect(`${appUrl}/?alfa=error`);
+    return;
+  }
+
+  try {
+    if (!code) {
+      console.error("Alfa callback query:", req.query);
+      throw new BankApiError("Альфа не вернула код авторизации");
+    }
+    const cfg = getAlfaConfig();
+    const { refreshToken } = await exchangeAlfaCode(code, cfg);
+    await prisma.organizationBankAccount.update({
+      where: { id: acc.id },
+      data: { apiToken: encrypt(refreshToken) },
+    });
+    await logAudit({
+      action: "alfa_oauth_connected",
+      userId: state.userId,
+      entity: "bank_statement",
+      entityId: acc.id,
+      details: { organizationId: acc.organizationId },
+    });
+    res.redirect(`${appUrl}/organizations/${acc.organizationId}?alfa=connected`);
+  } catch (err) {
+    console.error("Alfa callback error:", err);
+    res.redirect(`${appUrl}/organizations/${acc.organizationId}?alfa=error`);
   }
 });
 
