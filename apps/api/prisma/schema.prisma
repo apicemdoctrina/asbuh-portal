@@ -379,7 +379,6 @@ model OrganizationBankAccount {
   apiProvider     String?   @map("api_provider")
   apiToken        String?   @map("api_token")
   apiAccountId    String?   @map("api_account_id")
-  usePartnerToken  Boolean   @default(false) @map("use_partner_token")
   lastFetchAt      DateTime? @map("last_fetch_at")
   autoFetchEnabled Boolean   @default(false) @map("auto_fetch_enabled")
   createdAt      DateTime @default(now()) @map("created_at")

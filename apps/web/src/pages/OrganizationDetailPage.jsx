@@ -324,24 +324,27 @@ export default function OrganizationDetailPage() {
     });
   }
 
-  const fetchOrganization = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await api(`/api/organizations/${id}`);
-      if (!res.ok) {
-        if (res.status === 404) throw new Error("Организация не найдена");
-        throw new Error("Failed to load organization");
+  const fetchOrganization = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!silent) setLoading(true);
+      setError("");
+      try {
+        const res = await api(`/api/organizations/${id}`);
+        if (!res.ok) {
+          if (res.status === 404) throw new Error("Организация не найдена");
+          throw new Error("Failed to load organization");
+        }
+        const data = await res.json();
+        setOrganization(data);
+        populateForm(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        if (!silent) setLoading(false);
       }
-      const data = await res.json();
-      setOrganization(data);
-      populateForm(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
+    },
+    [id],
+  );
 
   useEffect(() => {
     fetchOrganization();

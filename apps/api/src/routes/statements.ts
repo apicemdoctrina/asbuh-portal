@@ -163,7 +163,6 @@ async function getOrgConnection(orgId: string, user: AuthedUser) {
       apiProvider: true,
       apiToken: true,
       apiAccountId: true,
-      usePartnerToken: true,
       accountNumber: true,
     },
   });
@@ -1061,7 +1060,6 @@ router.get("/tochka/callback", async (req: Request, res) => {
       where: { id: acc.id },
       data: {
         apiToken: encrypt(refreshToken),
-        usePartnerToken: false,
         ...(apiAccountId ? { apiAccountId } : {}),
       },
     });

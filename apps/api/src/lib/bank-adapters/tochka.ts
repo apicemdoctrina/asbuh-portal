@@ -136,15 +136,7 @@ export function tochkaToParsedStatement(input: {
   };
 }
 
-export function resolveToken(account: {
-  usePartnerToken: boolean;
-  apiToken: string | null;
-}): string {
-  if (account.usePartnerToken) {
-    const t = process.env.TOCHKA_JWT_TOKEN || "";
-    if (!t) throw new BankConfigError("Партнёрский токен банка не настроен");
-    return t;
-  }
+export function resolveToken(account: { apiToken: string | null }): string {
   if (!account.apiToken) throw new BankConfigError("API-токен банка не настроен для организации");
   return decrypt(account.apiToken);
 }
@@ -238,49 +230,25 @@ async function fetchStatementData(
     console.warn("[tochka] /transactions упал:", err);
   }
 
-  console.log(
-    `[tochka] statement=${statementId} inline=${inlineTx.length} used=${transactions.length}`,
-  );
+  if (process.env.DEBUG_TOCHKA) {
+    console.warn(
+      `[tochka] statement=${statementId} inline=${inlineTx.length} used=${transactions.length}`,
+    );
+  }
   return { transactions, balance };
 }
 
 /**
- * Возвращает access-token для запроса в API Точки.
- *
- * Логика выбора:
- * - Партнёрский режим (`usePartnerToken=true`) или сценарий, когда credential уже
- *   является валидным access-токеном (старый ручной ввод JWT) — возвращаем как есть.
- * - Иначе credential — это OAuth refresh-token (сценарий «Подключить Точку»):
- *   меняем на свежий access, ротированный refresh сохраняем обратно в счёт.
- *
- * Эвристика «refresh или access» применяется так: пробуем refresh; если 401/403 —
- * значит credential уже access-токен старого формата, возвращаем его как есть для
- * обратной совместимости.
+ * Меняет OAuth refresh-token (хранится в apiToken) на свежий access-token.
+ * Ротированный refresh сохраняем обратно в счёт.
  */
 async function resolveAccessToken(ctx: FetchContext): Promise<string> {
-  // Старый партнёрский режим: TOCHKA_JWT_TOKEN — это уже Bearer.
-  // FetchContext не знает про usePartnerToken, поэтому полагаемся на то, что
-  // partner-токен в credential приходит готовый (см. resolveToken выше).
-  // Чтобы отличить refresh от access-токена, пробуем refresh; при провале
-  // считаем credential готовым access.
-  try {
-    const cfg = getTochkaOAuthConfig();
-    const { accessToken, refreshToken } = await refreshAccessToken(ctx.credential, cfg);
-    if (refreshToken && refreshToken !== ctx.credential) {
-      await ctx.saveCredential(refreshToken);
-    }
-    return accessToken;
-  } catch (err) {
-    if (err instanceof BankConfigError) {
-      // OAuth не настроен — credential должен быть готовым Bearer (партнёр/ручной).
-      return ctx.credential;
-    }
-    if (err instanceof BankApiError && /отклонила refresh|invalid_grant/i.test(err.message)) {
-      // Не refresh — пробуем как готовый access-токен (легаси-режим).
-      return ctx.credential;
-    }
-    throw err;
+  const cfg = getTochkaOAuthConfig();
+  const { accessToken, refreshToken } = await refreshAccessToken(ctx.credential, cfg);
+  if (refreshToken && refreshToken !== ctx.credential) {
+    await ctx.saveCredential(refreshToken);
   }
+  return accessToken;
 }
 
 export const tochkaAdapter: BankAdapter = {

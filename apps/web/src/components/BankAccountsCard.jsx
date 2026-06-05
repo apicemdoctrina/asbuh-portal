@@ -104,7 +104,6 @@ export default function BankAccountsCard({
   const [apiProvider, setApiProvider] = useState("");
   const [apiAccountId, setApiAccountId] = useState("");
   const [apiToken, setApiToken] = useState("");
-  const [usePartnerToken, setUsePartnerToken] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [autoBusy, setAutoBusy] = useState({}); // { [accId]: true } while toggling
   const [formError, setFormError] = useState("");
@@ -206,7 +205,7 @@ export default function BankAccountsCard({
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Не удалось переключить авто-выгрузку");
       }
-      onDataChanged();
+      onDataChanged?.({ silent: true });
     } catch (err) {
       alert(err.message);
     } finally {
@@ -253,7 +252,6 @@ export default function BankAccountsCard({
     setApiProvider("");
     setApiAccountId("");
     setApiToken("");
-    setUsePartnerToken(false);
     setFormError("");
     setShowModal(true);
   }
@@ -268,7 +266,6 @@ export default function BankAccountsCard({
     setApiProvider(acc.apiProvider || "");
     setApiAccountId(acc.apiAccountId || "");
     setApiToken("");
-    setUsePartnerToken(!!acc.usePartnerToken);
     setFormError("");
     setShowModal(true);
   }
@@ -296,7 +293,6 @@ export default function BankAccountsCard({
         comment: comment.trim() || null,
         apiProvider: apiProvider || null,
         apiAccountId: apiAccountId.trim() || null,
-        usePartnerToken,
         // токен: пусто при редактировании = не менять; при создании = null
         apiToken: tokenVal || (editingAccount ? undefined : null),
       });
@@ -327,7 +323,7 @@ export default function BankAccountsCard({
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Ошибка удаления");
       }
-      onDataChanged();
+      onDataChanged?.({ silent: true });
     } catch (err) {
       alert(err.message);
     }
@@ -423,9 +419,9 @@ export default function BankAccountsCard({
         id: data.statement.id,
         docCount: data.statement.docCount ?? 0,
       });
-      // Не зовём onDataChanged — он перезагружает страницу через
-      // setLoading(true) в parent'е и размонтирует нашу модалку.
-      // Список выписок счёта обновится локально.
+      // Тихий рефреш родителя — без setLoading(true), иначе модалка размонтируется.
+      // Нужен, чтобы acc.lastFetchAt обновился и при повторном открытии не предлагал тот же период.
+      onDataChanged?.({ silent: true });
       if (fetchAccount?.id) loadAcctStatements(fetchAccount.id, true);
     }
   }
@@ -888,35 +884,23 @@ export default function BankAccountsCard({
                           />
                         </div>
                       )}
-                      {apiProvider === "tochka" && (
-                        <label className="flex items-center gap-2 text-sm text-body cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={usePartnerToken}
-                            onChange={(e) => setUsePartnerToken(e.target.checked)}
-                          />
-                          Использовать партнёрский токен
+                      <div>
+                        <label className="block text-sm font-medium text-body mb-1">
+                          {apiProvider === "sber"
+                            ? "Refresh-токен (СберБизнес)"
+                            : apiProvider === "alfa"
+                              ? "Refresh-токен (Alfa ID)"
+                              : "API-токен"}
                         </label>
-                      )}
-                      {!usePartnerToken && (
-                        <div>
-                          <label className="block text-sm font-medium text-body mb-1">
-                            {apiProvider === "sber"
-                              ? "Refresh-токен (СберБизнес)"
-                              : apiProvider === "alfa"
-                                ? "Refresh-токен (Alfa ID)"
-                                : "API-токен"}
-                          </label>
-                          <input
-                            type="password"
-                            value={apiToken}
-                            onChange={(e) => setApiToken(e.target.value)}
-                            placeholder={editingAccount ? "Оставьте пустым, чтобы не менять" : ""}
-                            autoComplete="new-password"
-                            className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                          />
-                        </div>
-                      )}
+                        <input
+                          type="password"
+                          value={apiToken}
+                          onChange={(e) => setApiToken(e.target.value)}
+                          placeholder={editingAccount ? "Оставьте пустым, чтобы не менять" : ""}
+                          autoComplete="new-password"
+                          className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                        />
+                      </div>
                     </>
                   )}
                 </div>
@@ -1026,7 +1010,11 @@ export default function BankAccountsCard({
               <h2 className="text-lg font-bold text-heading">
                 Выписка из банка: {fetchAccount.bankName}
               </h2>
-              <button onClick={closeFetch} className="text-subtle hover:text-body">
+              <button
+                onClick={closeFetch}
+                disabled={fetchBusy}
+                className="text-subtle hover:text-body disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 <X size={20} />
               </button>
             </div>

@@ -131,7 +131,6 @@ export const createBankAccountSchema = z.object({
   apiProvider: z.enum(["tochka", "sber", "alfa"]).nullable().optional(),
   apiToken: z.string().nullable().optional(),
   apiAccountId: z.string().nullable().optional(),
-  usePartnerToken: z.boolean().optional(),
   autoFetchEnabled: z.boolean().optional(),
 });
 
@@ -144,7 +143,6 @@ export const updateBankAccountSchema = z.object({
   apiProvider: z.enum(["tochka", "sber", "alfa"]).nullable().optional(),
   apiToken: z.string().nullable().optional(),
   apiAccountId: z.string().nullable().optional(),
-  usePartnerToken: z.boolean().optional(),
   autoFetchEnabled: z.boolean().optional(),
 });
 

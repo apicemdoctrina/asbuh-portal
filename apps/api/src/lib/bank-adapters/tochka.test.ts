@@ -132,22 +132,10 @@ describe("tochkaToParsedStatement", () => {
 describe("resolveToken", () => {
   it("свой токен → расшифровка", () => {
     const enc = encrypt("my-secret-token");
-    expect(resolveToken({ usePartnerToken: false, apiToken: enc })).toBe("my-secret-token");
+    expect(resolveToken({ apiToken: enc })).toBe("my-secret-token");
   });
 
   it("нет токена → BankConfigError", () => {
-    expect(() => resolveToken({ usePartnerToken: false, apiToken: null })).toThrow(BankConfigError);
-  });
-
-  it("партнёрский без env → BankConfigError", () => {
-    const prev = process.env.TOCHKA_JWT_TOKEN;
-    delete process.env.TOCHKA_JWT_TOKEN;
-    try {
-      expect(() => resolveToken({ usePartnerToken: true, apiToken: null })).toThrow(
-        BankConfigError,
-      );
-    } finally {
-      if (prev !== undefined) process.env.TOCHKA_JWT_TOKEN = prev;
-    }
+    expect(() => resolveToken({ apiToken: null })).toThrow(BankConfigError);
   });
 });

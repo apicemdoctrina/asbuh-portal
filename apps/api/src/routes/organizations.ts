@@ -656,7 +656,6 @@ router.get("/:id", authenticate, requirePermission("organization", "view"), asyn
             comment: true,
             apiProvider: true,
             apiAccountId: true,
-            usePartnerToken: true,
             lastFetchAt: true,
             createdAt: true,
             updatedAt: true,
@@ -1048,7 +1047,6 @@ router.post(
           apiProvider: result.data.apiProvider ?? null,
           apiToken: result.data.apiToken ? encrypt(result.data.apiToken) : null,
           apiAccountId: result.data.apiAccountId ?? null,
-          usePartnerToken: result.data.usePartnerToken ?? false,
         },
       });
 
