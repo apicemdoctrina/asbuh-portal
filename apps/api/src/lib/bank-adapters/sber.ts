@@ -16,11 +16,19 @@ export const sberAdapter: BankAdapter = {
       await ctx.saveCredential(refreshToken);
     }
 
+    // Параллельный fetch с ограниченным пулом, чтобы не вылетать в таймаут nginx
+    // на длинных периодах и не задушить Сбер. CONCURRENCY=6 — компромисс по нагрузке.
+    const CONCURRENCY = 6;
     const daily: ParsedStatement[] = [];
-    for (const day of days) {
-      const file = await fetchDailyFile(accessToken, ctx.accountNumber, day, cfg);
-      if (file) daily.push(parseStatement(file));
+    let cursor = 0;
+    async function worker(): Promise<void> {
+      while (cursor < days.length) {
+        const i = cursor++;
+        const file = await fetchDailyFile(accessToken, ctx.accountNumber, days[i], cfg);
+        if (file) daily.push(parseStatement(file));
+      }
     }
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, days.length) }, worker));
 
     return mergeDailyStatements(daily, {
       accountNumber: ctx.accountNumber,
