@@ -94,6 +94,7 @@ export default function BankAccountsCard({
   const [showModal, setShowModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
   const [bankName, setBankName] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [comment, setComment] = useState("");
@@ -127,6 +128,7 @@ export default function BankAccountsCard({
   function openAdd() {
     setEditingAccount(null);
     setBankName("");
+    setAccountNumber("");
     setLogin("");
     setPassword("");
     setComment("");
@@ -141,6 +143,7 @@ export default function BankAccountsCard({
   function openEdit(acc) {
     setEditingAccount(acc);
     setBankName(acc.bankName || "");
+    setAccountNumber(acc.accountNumber || "");
     setLogin("");
     setPassword("");
     setComment(acc.comment || "");
@@ -165,6 +168,7 @@ export default function BankAccountsCard({
       const tokenVal = apiToken.trim();
       const body = JSON.stringify({
         bankName,
+        accountNumber: accountNumber.trim() || null,
         ...(showLogin
           ? {
               login: loginVal || (editingAccount ? undefined : null),
@@ -494,6 +498,21 @@ export default function BankAccountsCard({
                   </div>
                 </>
               )}
+              <div>
+                <label className="block text-sm font-medium text-body mb-1">
+                  Номер счёта{" "}
+                  <span className="text-subtle font-normal">(20 цифр, нужен для API-выгрузки)</span>
+                </label>
+                <input
+                  type="text"
+                  value={accountNumber}
+                  onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ""))}
+                  inputMode="numeric"
+                  maxLength={20}
+                  placeholder="40702810…"
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-body mb-1">Комментарий</label>
                 <input
