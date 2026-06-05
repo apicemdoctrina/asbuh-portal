@@ -24,6 +24,10 @@ export function getSberConfig(): SberConfig {
   const certPath = process.env.SBER_CERT_PATH || "";
   const keyPath = process.env.SBER_CERT_KEY_PATH || "";
   const passphrase = process.env.SBER_CERT_PASSPHRASE || undefined;
+  // Опционально: цепочка доверенных CA Сбера (российский УЦ Минцифры). Нужна,
+  // чтобы Node доверял серверному сертификату sbi/fintech при mTLS-вызовах.
+  // Альтернатива — NODE_EXTRA_CA_CERTS в окружении сервиса.
+  const caPath = process.env.SBER_CA_PATH || "";
 
   // Сбер-консоль выдаёт PKCS#12-бандл (.p12/.pfx) — сертификат и ключ в одном файле.
   // В этом случае отдельный SBER_CERT_KEY_PATH не нужен; иначе ждём пару PEM (cert + key).
@@ -43,13 +47,14 @@ export function getSberConfig(): SberConfig {
 
   let dispatcher: Agent;
   try {
+    const ca = caPath ? fs.readFileSync(caPath) : undefined;
     if (isPfx) {
       const pfx = fs.readFileSync(certPath);
-      dispatcher = new Agent({ connect: { pfx, passphrase } });
+      dispatcher = new Agent({ connect: { pfx, passphrase, ca } });
     } else {
       const cert = fs.readFileSync(certPath);
       const key = fs.readFileSync(keyPath);
-      dispatcher = new Agent({ connect: { cert, key, passphrase } });
+      dispatcher = new Agent({ connect: { cert, key, passphrase, ca } });
     }
   } catch {
     throw new BankConfigError("Не удалось прочитать сертификат/ключ Сбера");
