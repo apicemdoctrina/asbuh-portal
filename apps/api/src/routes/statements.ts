@@ -29,6 +29,14 @@ import { signSberState, verifySberState } from "../lib/bank-adapters/sber-oauth-
 import { getAlfaConfig } from "../lib/bank-adapters/alfa-mtls.js";
 import { exchangeAuthCode as exchangeAlfaCode } from "../lib/bank-adapters/alfa-client.js";
 import { signAlfaState, verifyAlfaState } from "../lib/bank-adapters/alfa-oauth-state.js";
+import {
+  getTochkaOAuthConfig,
+  getConsentsToken,
+  createConsent,
+  buildTochkaAuthorizeUrl,
+  exchangeAuthCode as exchangeTochkaCode,
+} from "../lib/bank-adapters/tochka-oauth.js";
+import { signTochkaState, verifyTochkaState } from "../lib/bank-adapters/tochka-oauth-state.js";
 import type { ParsedStatement } from "../lib/statement-types.js";
 
 const router = Router();
@@ -960,6 +968,96 @@ router.get("/alfa/callback", async (req: Request, res) => {
   } catch (err) {
     console.error("Alfa callback error:", err);
     res.redirect(`${appUrl}/organizations/${acc.organizationId}?alfa=error`);
+  }
+});
+
+/** Старт OAuth-онбординга Точки: получить consent + вернуть ссылку авторизации. */
+router.get(
+  "/tochka/authorize-url",
+  authenticate,
+  requirePermission("bank_statement", "connect"),
+  async (req: Request, res) => {
+    try {
+      const bankAccountId = (req.query.bankAccountId as string) || "";
+      const acc = await prisma.organizationBankAccount.findFirst({
+        where: {
+          id: bankAccountId,
+          apiProvider: "tochka",
+          ...(isPrivileged(req.user!.roles)
+            ? {}
+            : {
+                organization: {
+                  OR: [
+                    { section: { members: { some: { userId: req.user!.userId } } } },
+                    { members: { some: { userId: req.user!.userId } } },
+                  ],
+                },
+              }),
+        },
+        select: { id: true },
+      });
+      if (!acc) {
+        res.status(404).json({ error: "Счёт Точки не найден или нет доступа" });
+        return;
+      }
+      const cfg = getTochkaOAuthConfig();
+      const consentsToken = await getConsentsToken(cfg);
+      const consentId = await createConsent(consentsToken, cfg);
+      const state = signTochkaState({ bankAccountId: acc.id, userId: req.user!.userId });
+      res.json({ url: buildTochkaAuthorizeUrl(cfg, consentId, state) });
+    } catch (err) {
+      const m = mapBankError(err);
+      if (m.status === 500) console.error("Tochka authorize-url error:", err);
+      res.status(m.status).json({ error: m.error });
+    }
+  },
+);
+
+/** Публичный callback Точки: обменять код на токены и сохранить refresh в счёт. */
+router.get("/tochka/callback", async (req: Request, res) => {
+  const appUrl = process.env.APP_URL || "http://localhost:5173";
+  const code = (req.query.code as string) || "";
+  const stateRaw = (req.query.state as string) || "";
+
+  let state;
+  try {
+    state = verifyTochkaState(stateRaw);
+  } catch {
+    res.redirect(`${appUrl}/?tochka=error`);
+    return;
+  }
+
+  const acc = await prisma.organizationBankAccount.findFirst({
+    where: { id: state.bankAccountId },
+    select: { id: true, organizationId: true },
+  });
+  if (!acc) {
+    res.redirect(`${appUrl}/?tochka=error`);
+    return;
+  }
+
+  try {
+    if (!code) {
+      console.error("Tochka callback query:", req.query);
+      throw new BankApiError("Точка не вернула код авторизации");
+    }
+    const cfg = getTochkaOAuthConfig();
+    const { refreshToken } = await exchangeTochkaCode(code, cfg);
+    await prisma.organizationBankAccount.update({
+      where: { id: acc.id },
+      data: { apiToken: encrypt(refreshToken), usePartnerToken: false },
+    });
+    await logAudit({
+      action: "tochka_oauth_connected",
+      userId: state.userId,
+      entity: "bank_statement",
+      entityId: acc.id,
+      details: { organizationId: acc.organizationId },
+    });
+    res.redirect(`${appUrl}/organizations/${acc.organizationId}?tochka=connected`);
+  } catch (err) {
+    console.error("Tochka callback error:", err);
+    res.redirect(`${appUrl}/organizations/${acc.organizationId}?tochka=error`);
   }
 });
 

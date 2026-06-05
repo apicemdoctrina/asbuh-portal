@@ -332,7 +332,8 @@ export default function BankAccountsCard({
   }
 
   async function connectOAuthBank(acc) {
-    const path = acc.apiProvider === "alfa" ? "alfa" : "sber";
+    const path =
+      acc.apiProvider === "alfa" ? "alfa" : acc.apiProvider === "tochka" ? "tochka" : "sber";
     try {
       const res = await api(`/api/statements/${path}/authorize-url?bankAccountId=${acc.id}`);
       const data = await res.json().catch(() => ({}));
@@ -489,7 +490,9 @@ export default function BankAccountsCard({
                           </span>
                         ))}
                       {(showLogin || canConnectBank) &&
-                        (acc.apiProvider === "sber" || acc.apiProvider === "alfa") && (
+                        (acc.apiProvider === "sber" ||
+                          acc.apiProvider === "alfa" ||
+                          acc.apiProvider === "tochka") && (
                           <span className="text-xs text-subtle">
                             {acc.apiToken ? "· подключён" : "· не подключён"}
                           </span>
@@ -509,7 +512,9 @@ export default function BankAccountsCard({
                   </div>
                   <div className="flex items-center gap-2 ml-4 shrink-0">
                     {canConnectBank &&
-                      (acc.apiProvider === "sber" || acc.apiProvider === "alfa") && (
+                      (acc.apiProvider === "sber" ||
+                        acc.apiProvider === "alfa" ||
+                        acc.apiProvider === "tochka") && (
                         <button
                           onClick={() => connectOAuthBank(acc)}
                           className="text-subtle hover:text-primary transition-colors"

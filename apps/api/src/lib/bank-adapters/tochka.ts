@@ -1,6 +1,7 @@
 import type { ParsedStatement, ParsedOperation } from "../statement-types.js";
 import { decrypt } from "../crypto.js";
 import { BankApiError, BankConfigError, type BankAdapter, type FetchContext } from "./types.js";
+import { getTochkaOAuthConfig, refreshAccessToken } from "./tochka-oauth.js";
 
 const TOCHKA_API_BASE = "https://enter.tochka.com/uapi/open-banking/v1.0";
 
@@ -211,12 +212,52 @@ async function fetchStatementData(
   throw new BankApiError("Банк не успел подготовить выписку, попробуйте позже");
 }
 
+/**
+ * Возвращает access-token для запроса в API Точки.
+ *
+ * Логика выбора:
+ * - Партнёрский режим (`usePartnerToken=true`) или сценарий, когда credential уже
+ *   является валидным access-токеном (старый ручной ввод JWT) — возвращаем как есть.
+ * - Иначе credential — это OAuth refresh-token (сценарий «Подключить Точку»):
+ *   меняем на свежий access, ротированный refresh сохраняем обратно в счёт.
+ *
+ * Эвристика «refresh или access» применяется так: пробуем refresh; если 401/403 —
+ * значит credential уже access-токен старого формата, возвращаем его как есть для
+ * обратной совместимости.
+ */
+async function resolveAccessToken(ctx: FetchContext): Promise<string> {
+  // Старый партнёрский режим: TOCHKA_JWT_TOKEN — это уже Bearer.
+  // FetchContext не знает про usePartnerToken, поэтому полагаемся на то, что
+  // partner-токен в credential приходит готовый (см. resolveToken выше).
+  // Чтобы отличить refresh от access-токена, пробуем refresh; при провале
+  // считаем credential готовым access.
+  try {
+    const cfg = getTochkaOAuthConfig();
+    const { accessToken, refreshToken } = await refreshAccessToken(ctx.credential, cfg);
+    if (refreshToken && refreshToken !== ctx.credential) {
+      await ctx.saveCredential(refreshToken);
+    }
+    return accessToken;
+  } catch (err) {
+    if (err instanceof BankConfigError) {
+      // OAuth не настроен — credential должен быть готовым Bearer (партнёр/ручной).
+      return ctx.credential;
+    }
+    if (err instanceof BankApiError && /отклонила refresh|invalid_grant/i.test(err.message)) {
+      // Не refresh — пробуем как готовый access-токен (легаси-режим).
+      return ctx.credential;
+    }
+    throw err;
+  }
+}
+
 export const tochkaAdapter: BankAdapter = {
   provider: "tochka",
   async fetchStatement(ctx: FetchContext) {
     const accountId = ctx.accountId || ctx.accountNumber;
+    const accessToken = await resolveAccessToken(ctx);
     const { transactions, balance } = await fetchStatementData(
-      ctx.credential,
+      accessToken,
       accountId,
       ctx.start,
       ctx.end,
