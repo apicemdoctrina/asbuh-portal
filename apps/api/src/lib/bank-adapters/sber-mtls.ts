@@ -8,6 +8,7 @@ export interface SberConfig {
   redirectUri: string;
   clientId: string;
   clientSecret: string;
+  scope: string;
   dispatcher: Dispatcher;
 }
 
@@ -28,6 +29,10 @@ export function getSberConfig(): SberConfig {
   // чтобы Node доверял серверному сертификату sbi/fintech при mTLS-вызовах.
   // Альтернатива — NODE_EXTRA_CA_CERTS в окружении сервиса.
   const caPath = process.env.SBER_CA_PATH || "";
+  // OAuth-скоупы: Сбер требует openid + продуктовый scope из консоли (B2BSaaS_...).
+  // Передавать через env, разделители — пробел. Дефолт оставляем безопасный (только openid),
+  // чтобы упавший на проде .env не молча работал не на ту функциональность.
+  const scope = process.env.SBER_SCOPE || "openid";
 
   // Сбер-консоль выдаёт PKCS#12-бандл (.p12/.pfx) — сертификат и ключ в одном файле.
   // В этом случае отдельный SBER_CERT_KEY_PATH не нужен; иначе ждём пару PEM (cert + key).
@@ -59,6 +64,6 @@ export function getSberConfig(): SberConfig {
   } catch {
     throw new BankConfigError("Не удалось прочитать сертификат/ключ Сбера");
   }
-  cached = { baseUrl, authBaseUrl, redirectUri, clientId, clientSecret, dispatcher };
+  cached = { baseUrl, authBaseUrl, redirectUri, clientId, clientSecret, scope, dispatcher };
   return cached;
 }

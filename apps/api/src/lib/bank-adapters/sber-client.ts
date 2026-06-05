@@ -27,7 +27,7 @@ export async function refreshAccessToken(
     client_id: cfg.clientId,
     client_secret: cfg.clientSecret,
     refresh_token: refreshToken,
-    scope: "GET_STATEMENT_ACCOUNT",
+    scope: cfg.scope,
   });
   const res = await sberFetch(cfg.authBaseUrl, cfg, "/ic/sso/api/v2/oauth/token", {
     method: "POST",

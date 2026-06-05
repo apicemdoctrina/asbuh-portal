@@ -29,13 +29,14 @@ describe("buildAuthorizeUrl", () => {
         authBaseUrl: "https://sso.sber.test",
         clientId: "cid",
         redirectUri: "https://app.test/api/statements/sber/callback",
+        scope: "openid GET_STATEMENT_ACCOUNT",
       },
       "the-state",
     );
     expect(url).toContain("https://sso.sber.test/ic/sso/api/v2/oauth/authorize?");
     expect(url).toContain("response_type=code");
     expect(url).toContain("client_id=cid");
-    expect(url).toContain("scope=GET_STATEMENT_ACCOUNT");
+    expect(url).toContain("scope=openid+GET_STATEMENT_ACCOUNT");
     expect(url).toContain("state=the-state");
     expect(url).toContain("redirect_uri=https%3A%2F%2Fapp.test");
   });

@@ -108,14 +108,14 @@ export function mapBankError(err: unknown): { status: number; error: string } {
 
 /** Собрать ссылку авторизации Сбера. Имена параметров — кандидат на правку на живом IFT. */
 export function buildAuthorizeUrl(
-  cfg: { authBaseUrl: string; clientId: string; redirectUri: string },
+  cfg: { authBaseUrl: string; clientId: string; redirectUri: string; scope: string },
   state: string,
 ): string {
   const qs = new URLSearchParams({
     response_type: "code",
     client_id: cfg.clientId,
     redirect_uri: cfg.redirectUri,
-    scope: "GET_STATEMENT_ACCOUNT",
+    scope: cfg.scope,
     state,
   });
   return `${cfg.authBaseUrl}/ic/sso/api/v2/oauth/authorize?${qs.toString()}`;
