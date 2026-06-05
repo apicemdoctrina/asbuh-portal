@@ -189,8 +189,15 @@ export async function fetchDailyFile(
       try {
         const r = await sberFetch(cfg.baseUrl, cfg, p, { method: "GET", headers: auth });
         const ct = r.headers.get("content-type") || "-";
+        // Для не-404 — снимаем тело: в 200-JSON может быть статус готовности или
+        // base64-контент; в 400 — текст ошибки Сбера.
+        let bodyPreview = "";
+        if (r.status !== 404) {
+          const txt = await r.text().catch(() => "");
+          bodyPreview = ` body[${txt.length}]=${txt.slice(0, 400).replace(/\s+/g, " ")}`;
+        }
         console.warn(
-          `[sber] probe acc=${accountNumber} date=${dateISO} status=${r.status} ctype=${ct} path=${p}`,
+          `[sber] probe acc=${accountNumber} date=${dateISO} status=${r.status} ctype=${ct} path=${p}${bodyPreview}`,
         );
       } catch (e) {
         console.warn(
