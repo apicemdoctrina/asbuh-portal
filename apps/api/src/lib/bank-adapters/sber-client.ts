@@ -1,5 +1,6 @@
 import { BankApiError } from "./types.js";
 import type { SberConfig } from "./sber-mtls.js";
+import { postOAuthToken, type OAuthTokens } from "./oauth-token.js";
 
 // fetch в Node принимает undici-`dispatcher` в рантайме, но его нет в типах RequestInit,
 // поэтому добавляем поле и гасим excess-property-проверку приведением `as RequestInit`.
@@ -12,67 +13,49 @@ function sberFetch(
   return fetch(`${baseUrl}${path}`, { ...init, dispatcher: cfg.dispatcher } as RequestInit);
 }
 
-export interface RefreshedTokens {
-  accessToken: string;
-  refreshToken: string; // может совпадать со старым, если ротации нет
-}
+export type RefreshedTokens = OAuthTokens;
+
+const SBER_TOKEN_PATH = "/ic/sso/api/v2/oauth/token";
 
 /** Обновить access_token по refresh_token. mTLS + client credentials. */
 export async function refreshAccessToken(
   refreshToken: string,
   cfg: SberConfig,
 ): Promise<RefreshedTokens> {
-  const body = new URLSearchParams({
-    grant_type: "refresh_token",
-    client_id: cfg.clientId,
-    client_secret: cfg.clientSecret,
-    refresh_token: refreshToken,
-    scope: cfg.scope,
-  });
   // /authorize живёт на authBaseUrl (sbi.sberbank.ru), /token — на baseUrl (fintech.sberbank.ru).
-  const res = await sberFetch(cfg.baseUrl, cfg, "/ic/sso/api/v2/oauth/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
+  return postOAuthToken({
+    url: `${cfg.baseUrl}${SBER_TOKEN_PATH}`,
+    dispatcher: cfg.dispatcher,
+    params: {
+      grant_type: "refresh_token",
+      client_id: cfg.clientId,
+      client_secret: cfg.clientSecret,
+      refresh_token: refreshToken,
+      scope: cfg.scope,
+    },
+    authRejectMessage: "Сбер отклонил авторизацию — переподключите счёт",
+    apiErrorPrefix: "Сбер вернул ошибку авторизации",
+    missingTokenMessage: "Сбер не вернул access_token",
   });
-  if (res.status === 401 || res.status === 403) {
-    throw new BankApiError("Сбер отклонил авторизацию — переподключите счёт");
-  }
-  if (!res.ok) throw new BankApiError(`Сбер вернул ошибку авторизации ${res.status}`);
-  const data = await res.json();
-  if (!data?.access_token) throw new BankApiError("Сбер не вернул access_token");
-  return {
-    accessToken: data.access_token as string,
-    refreshToken: (data.refresh_token as string) || refreshToken,
-  };
 }
 
 /** Обменять authorization code на токены. mTLS + client credentials. */
 export async function exchangeAuthCode(code: string, cfg: SberConfig): Promise<RefreshedTokens> {
-  const body = new URLSearchParams({
-    grant_type: "authorization_code",
-    client_id: cfg.clientId,
-    client_secret: cfg.clientSecret,
-    code,
-    redirect_uri: cfg.redirectUri,
+  return postOAuthToken({
+    url: `${cfg.baseUrl}${SBER_TOKEN_PATH}`,
+    dispatcher: cfg.dispatcher,
+    params: {
+      grant_type: "authorization_code",
+      client_id: cfg.clientId,
+      client_secret: cfg.clientSecret,
+      code,
+      redirect_uri: cfg.redirectUri,
+    },
+    authRejectMessage: "Сбер отклонил код авторизации",
+    apiErrorPrefix: "Сбер вернул ошибку обмена кода",
+    missingTokenMessage: "Сбер не вернул токены",
+    expectRefresh: true,
   });
-  const res = await sberFetch(cfg.baseUrl, cfg, "/ic/sso/api/v2/oauth/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
-  });
-  if (res.status === 401 || res.status === 403) {
-    throw new BankApiError("Сбер отклонил код авторизации");
-  }
-  if (!res.ok) throw new BankApiError(`Сбер вернул ошибку обмена кода ${res.status}`);
-  const data = await res.json();
-  if (!data?.access_token || !data?.refresh_token) {
-    throw new BankApiError("Сбер не вернул токены");
-  }
-  return {
-    accessToken: data.access_token as string,
-    refreshToken: data.refresh_token as string,
-  };
 }
 
 /**
@@ -83,6 +66,16 @@ export async function exchangeAuthCode(code: string, cfg: SberConfig): Promise<R
  * Реализация ниже — по докам, с дефолтом «непонятно → BankApiError, не 500». На первом прогоне
  * на IFT правим ТОЛЬКО эту функцию (контракт: (accessToken, accountNumber, YYYY-MM-DD) → Buffer|null).
  */
+/**
+ * Лог «пустого дня» — каждая ветка, где fetchDailyFile тихо отдаёт null. Включается
+ * `DEBUG_SBER=1`. Нужно на IFT-прогоне, чтобы отличить «банк не вернул выписку за день»
+ * от «вернул, но файл пустой» — без этого пустые выгрузки неотлаживаемы.
+ */
+function debugEmpty(accountNumber: string, dateISO: string, reason: string): void {
+  if (!process.env.DEBUG_SBER) return;
+  console.warn(`[sber] empty day acc=${accountNumber} date=${dateISO} reason=${reason}`);
+}
+
 export async function fetchDailyFile(
   accessToken: string,
   accountNumber: string,
@@ -112,7 +105,10 @@ export async function fetchDailyFile(
     if (res.status === 401 || res.status === 403) {
       throw new BankApiError("Сбер отклонил токен при запросе файла");
     }
-    if (res.status === 404) return null; // за день нет выписки
+    if (res.status === 404) {
+      debugEmpty(accountNumber, dateISO, "files:404");
+      return null;
+    }
     if (res.status === 202) {
       await new Promise((r) => setTimeout(r, 3000));
       continue;
@@ -123,7 +119,11 @@ export async function fetchDailyFile(
     // Вариант A: банк сразу отдал файл (текст 1С).
     if (!ctype.includes("application/json")) {
       const buf = Buffer.from(await res.arrayBuffer());
-      return buf.length > 0 ? buf : null;
+      if (buf.length === 0) {
+        debugEmpty(accountNumber, dateISO, "files:empty-body");
+        return null;
+      }
+      return buf;
     }
     // Вариант B: банк отдал JSON с идентификатором задачи/ссылкой.
     taskBody = await res.json();
@@ -158,14 +158,21 @@ export async function fetchDailyFile(
       method: "GET",
       headers: auth,
     });
-    if (dl.status === 404) return null;
+    if (dl.status === 404) {
+      debugEmpty(accountNumber, dateISO, "download:404");
+      return null;
+    }
     if (dl.status === 202) {
       await new Promise((r) => setTimeout(r, 3000));
       continue;
     }
     if (!dl.ok) throw new BankApiError(`Не удалось скачать файл Сбера ${dl.status}`);
     const buf = Buffer.from(await dl.arrayBuffer());
-    return buf.length > 0 ? buf : null;
+    if (buf.length === 0) {
+      debugEmpty(accountNumber, dateISO, "download:empty-body");
+      return null;
+    }
+    return buf;
   }
   throw new BankApiError("Сбер не успел отдать файл, попробуйте позже");
 }

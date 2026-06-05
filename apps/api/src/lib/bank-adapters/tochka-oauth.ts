@@ -10,6 +10,7 @@
  */
 
 import { BankApiError, BankConfigError } from "./types.js";
+import { postOAuthToken } from "./oauth-token.js";
 
 const TOCHKA_AUTH_BASE = "https://enter.tochka.com";
 
@@ -130,33 +131,21 @@ export async function exchangeAuthCode(
   code: string,
   cfg: TochkaOAuthConfig,
 ): Promise<TochkaTokens> {
-  const body = new URLSearchParams({
-    grant_type: "authorization_code",
-    client_id: cfg.clientId,
-    client_secret: cfg.clientSecret,
-    code,
-    redirect_uri: cfg.redirectUri,
+  return postOAuthToken({
+    url: `${TOCHKA_AUTH_BASE}/connect/token`,
+    params: {
+      grant_type: "authorization_code",
+      client_id: cfg.clientId,
+      client_secret: cfg.clientSecret,
+      code,
+      redirect_uri: cfg.redirectUri,
+    },
+    authRejectMessage: "Точка отклонила код авторизации",
+    apiErrorPrefix: "Точка вернула ошибку обмена кода",
+    missingTokenMessage: "Точка не вернула токены",
+    expectRefresh: true,
+    includeBodyInError: true,
   });
-  const res = await fetch(`${TOCHKA_AUTH_BASE}/connect/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
-  });
-  if (res.status === 401 || res.status === 403) {
-    throw new BankApiError("Точка отклонила код авторизации");
-  }
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new BankApiError(`Точка вернула ошибку обмена кода ${res.status}: ${txt.slice(0, 200)}`);
-  }
-  const data = await res.json();
-  if (!data?.access_token || !data?.refresh_token) {
-    throw new BankApiError("Точка не вернула токены");
-  }
-  return {
-    accessToken: data.access_token as string,
-    refreshToken: data.refresh_token as string,
-  };
 }
 
 /**
@@ -236,28 +225,17 @@ export async function refreshAccessToken(
   refreshToken: string,
   cfg: TochkaOAuthConfig,
 ): Promise<TochkaTokens> {
-  const body = new URLSearchParams({
-    grant_type: "refresh_token",
-    client_id: cfg.clientId,
-    client_secret: cfg.clientSecret,
-    refresh_token: refreshToken,
+  return postOAuthToken({
+    url: `${TOCHKA_AUTH_BASE}/connect/token`,
+    params: {
+      grant_type: "refresh_token",
+      client_id: cfg.clientId,
+      client_secret: cfg.clientSecret,
+      refresh_token: refreshToken,
+    },
+    authRejectMessage: "Точка отклонила refresh — переподключите счёт",
+    apiErrorPrefix: "Точка вернула ошибку refresh",
+    missingTokenMessage: "Точка не вернула access_token",
+    includeBodyInError: true,
   });
-  const res = await fetch(`${TOCHKA_AUTH_BASE}/connect/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
-  });
-  if (res.status === 401 || res.status === 403) {
-    throw new BankApiError("Точка отклонила refresh — переподключите счёт");
-  }
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new BankApiError(`Точка вернула ошибку refresh ${res.status}: ${txt.slice(0, 200)}`);
-  }
-  const data = await res.json();
-  if (!data?.access_token) throw new BankApiError("Точка не вернула access_token");
-  return {
-    accessToken: data.access_token as string,
-    refreshToken: (data.refresh_token as string) || refreshToken,
-  };
 }

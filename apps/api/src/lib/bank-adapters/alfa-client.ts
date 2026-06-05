@@ -1,5 +1,6 @@
 import { BankApiError } from "./types.js";
 import type { AlfaConfig } from "./alfa-mtls.js";
+import { postOAuthToken, type OAuthTokens } from "./oauth-token.js";
 
 function alfaFetch(
   baseUrl: string,
@@ -10,40 +11,28 @@ function alfaFetch(
   return fetch(`${baseUrl}${path}`, { ...init, dispatcher: cfg.dispatcher } as RequestInit);
 }
 
-export interface RefreshedTokens {
-  accessToken: string;
-  refreshToken: string;
-}
+export type RefreshedTokens = OAuthTokens;
+
+const ALFA_TOKEN_PATH = "/oidc/token";
 
 /** Обменять authorization_code на пару токенов. mTLS обязателен. */
 export async function exchangeAuthCode(code: string, cfg: AlfaConfig): Promise<RefreshedTokens> {
-  const body = new URLSearchParams({
-    grant_type: "authorization_code",
-    client_id: cfg.clientId,
-    client_secret: cfg.clientSecret,
-    code,
-    redirect_uri: cfg.redirectUri,
+  return postOAuthToken({
+    url: `${cfg.tokenBaseUrl}${ALFA_TOKEN_PATH}`,
+    dispatcher: cfg.dispatcher,
+    params: {
+      grant_type: "authorization_code",
+      client_id: cfg.clientId,
+      client_secret: cfg.clientSecret,
+      code,
+      redirect_uri: cfg.redirectUri,
+    },
+    authRejectMessage: "Альфа отклонила код авторизации",
+    apiErrorPrefix: "Альфа вернула ошибку обмена кода",
+    missingTokenMessage: "Альфа не вернула токены",
+    expectRefresh: true,
+    includeBodyInError: true,
   });
-  const res = await alfaFetch(cfg.tokenBaseUrl, cfg, "/oidc/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
-  });
-  if (res.status === 401 || res.status === 403) {
-    throw new BankApiError("Альфа отклонила код авторизации");
-  }
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new BankApiError(`Альфа вернула ошибку обмена кода ${res.status}: ${txt.slice(0, 200)}`);
-  }
-  const data = await res.json();
-  if (!data?.access_token || !data?.refresh_token) {
-    throw new BankApiError("Альфа не вернула токены");
-  }
-  return {
-    accessToken: data.access_token as string,
-    refreshToken: data.refresh_token as string,
-  };
 }
 
 /** Обновить access по refresh. Альфа может ротировать refresh — возвращаем то, что прислала. */
@@ -51,31 +40,21 @@ export async function refreshAccessToken(
   refreshToken: string,
   cfg: AlfaConfig,
 ): Promise<RefreshedTokens> {
-  const body = new URLSearchParams({
-    grant_type: "refresh_token",
-    client_id: cfg.clientId,
-    client_secret: cfg.clientSecret,
-    refresh_token: refreshToken,
-    scope: cfg.scope,
+  return postOAuthToken({
+    url: `${cfg.tokenBaseUrl}${ALFA_TOKEN_PATH}`,
+    dispatcher: cfg.dispatcher,
+    params: {
+      grant_type: "refresh_token",
+      client_id: cfg.clientId,
+      client_secret: cfg.clientSecret,
+      refresh_token: refreshToken,
+      scope: cfg.scope,
+    },
+    authRejectMessage: "Альфа отклонила авторизацию — переподключите счёт",
+    apiErrorPrefix: "Альфа вернула ошибку refresh",
+    missingTokenMessage: "Альфа не вернула access_token",
+    includeBodyInError: true,
   });
-  const res = await alfaFetch(cfg.tokenBaseUrl, cfg, "/oidc/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
-  });
-  if (res.status === 401 || res.status === 403) {
-    throw new BankApiError("Альфа отклонила авторизацию — переподключите счёт");
-  }
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new BankApiError(`Альфа вернула ошибку refresh ${res.status}: ${txt.slice(0, 200)}`);
-  }
-  const data = await res.json();
-  if (!data?.access_token) throw new BankApiError("Альфа не вернула access_token");
-  return {
-    accessToken: data.access_token as string,
-    refreshToken: (data.refresh_token as string) || refreshToken,
-  };
 }
 
 /** Сырой документ операции, как присылает Альфа (нас интересуют только нужные поля). */
