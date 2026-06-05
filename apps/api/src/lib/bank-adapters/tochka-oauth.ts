@@ -193,7 +193,18 @@ export async function findAccountIdByNumber(
     candidates.push(digitsOnly(a.identification));
     candidates.push(digitsOnly(a.accountNumber));
     candidates.push(digitsOnly(a.AccountNumber));
-    // Account.Account[].Identification массив в Open Banking
+    // У Точки сам accountId часто имеет вид "<20 цифр>/<БИК>" — первые 20 цифр это номер счёта.
+    const aid = typeof a.accountId === "string" ? a.accountId : "";
+    if (aid) candidates.push(aid.split("/")[0]);
+    // accountDetails[].identification (Open Banking; Точка использует RU.CBR.AccountNumber).
+    const details = a.accountDetails as Array<{ identification?: unknown }> | undefined;
+    if (Array.isArray(details)) {
+      for (const d of details) {
+        const id = typeof d?.identification === "string" ? d.identification : "";
+        if (id) candidates.push(id.split("/")[0]);
+      }
+    }
+    // Account.Account[].Identification (массив, старый Open Banking).
     const acctArr = a.Account as Array<{ Identification?: unknown }> | undefined;
     if (Array.isArray(acctArr)) {
       for (const x of acctArr) candidates.push(digitsOnly(x?.Identification));
