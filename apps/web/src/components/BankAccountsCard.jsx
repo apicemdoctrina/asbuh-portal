@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronRight,
   FileText,
+  CalendarClock,
 } from "lucide-react";
 
 const money = (n) =>
@@ -104,8 +105,8 @@ export default function BankAccountsCard({
   const [apiAccountId, setApiAccountId] = useState("");
   const [apiToken, setApiToken] = useState("");
   const [usePartnerToken, setUsePartnerToken] = useState(false);
-  const [autoFetchEnabled, setAutoFetchEnabled] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [autoBusy, setAutoBusy] = useState({}); // { [accId]: true } while toggling
   const [formError, setFormError] = useState("");
 
   // Fetch-from-bank modal state
@@ -191,6 +192,30 @@ export default function BankAccountsCard({
     await loadAcctStatements(acc.id, true);
   }
 
+  async function toggleAutoFetch(acc) {
+    if (autoBusy[acc.id]) return;
+    setAutoBusy((s) => ({ ...s, [acc.id]: true }));
+    try {
+      const res = await api(`/api/organizations/${organizationId}/bank-accounts/${acc.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ autoFetchEnabled: !acc.autoFetchEnabled }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Не удалось переключить авто-выгрузку");
+      }
+      onDataChanged();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setAutoBusy((s) => {
+        const next = { ...s };
+        delete next[acc.id];
+        return next;
+      });
+    }
+  }
+
   async function downloadStatement(stId, format) {
     try {
       const res = await api(`/api/statements/${stId}/download?format=${format}`);
@@ -227,7 +252,6 @@ export default function BankAccountsCard({
     setApiAccountId("");
     setApiToken("");
     setUsePartnerToken(false);
-    setAutoFetchEnabled(false);
     setFormError("");
     setShowModal(true);
   }
@@ -243,7 +267,6 @@ export default function BankAccountsCard({
     setApiAccountId(acc.apiAccountId || "");
     setApiToken("");
     setUsePartnerToken(!!acc.usePartnerToken);
-    setAutoFetchEnabled(!!acc.autoFetchEnabled);
     setFormError("");
     setShowModal(true);
   }
@@ -272,7 +295,6 @@ export default function BankAccountsCard({
         apiProvider: apiProvider || null,
         apiAccountId: apiAccountId.trim() || null,
         usePartnerToken,
-        autoFetchEnabled,
         // токен: пусто при редактировании = не менять; при создании = null
         apiToken: tokenVal || (editingAccount ? undefined : null),
       });
@@ -500,6 +522,24 @@ export default function BankAccountsCard({
                         title="Забрать выписку из банка"
                       >
                         <Download size={16} />
+                      </button>
+                    )}
+                    {canEdit && acc.apiProvider && acc.accountNumber && (
+                      <button
+                        onClick={() => toggleAutoFetch(acc)}
+                        disabled={!!autoBusy[acc.id]}
+                        className={`transition-colors ${
+                          acc.autoFetchEnabled
+                            ? "text-emerald-600 dark:text-emerald-300 hover:text-emerald-700"
+                            : "text-subtle hover:text-primary"
+                        } disabled:opacity-50`}
+                        title={
+                          acc.autoFetchEnabled
+                            ? "Авто-выгрузка ВКЛ (каждый день в 09:00 GMT+2). Нажмите, чтобы выключить."
+                            : "Авто-выгрузка выключена. Нажмите, чтобы включить (ежедневно 09:00 GMT+2, за прошлый день)."
+                        }
+                      >
+                        <CalendarClock size={16} />
                       </button>
                     )}
                     {canViewSecrets && (acc.login != null || acc.password != null) && (
@@ -823,21 +863,6 @@ export default function BankAccountsCard({
                           />
                         </div>
                       )}
-                      <label className="flex items-start gap-2 text-sm text-body cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={autoFetchEnabled}
-                          onChange={(e) => setAutoFetchEnabled(e.target.checked)}
-                          className="mt-0.5"
-                        />
-                        <span>
-                          Автоматически выгружать выписку каждый день в 09:00 (GMT+2) за прошлый
-                          день
-                          <span className="block text-xs text-subtle">
-                            По умолчанию выключено. Требуется подключённый API и номер счёта.
-                          </span>
-                        </span>
-                      </label>
                     </>
                   )}
                 </div>
