@@ -127,6 +127,9 @@ export default function BankAccountsCard({
   // Per-statement operations (lazy-loaded on row expand): { [stId]: { open, accounts, loading, err } }
   const [stOps, setStOps] = useState({});
 
+  // Connect-bank modal state: { acc, accountNumber, busy, error } | null
+  const [connectModal, setConnectModal] = useState(null);
+
   async function toggleStOps(stId) {
     const cur = stOps[stId];
     if (cur?.open) {
@@ -331,16 +334,51 @@ export default function BankAccountsCard({
     }
   }
 
-  async function connectOAuthBank(acc) {
-    const path =
-      acc.apiProvider === "alfa" ? "alfa" : acc.apiProvider === "tochka" ? "tochka" : "sber";
+  function openConnectModal(acc) {
+    setConnectModal({
+      acc,
+      accountNumber: acc.accountNumber || "",
+      busy: false,
+      error: "",
+    });
+  }
+
+  function closeConnectModal() {
+    setConnectModal(null);
+  }
+
+  async function submitConnectModal() {
+    const cm = connectModal;
+    if (!cm) return;
+    const num = (cm.accountNumber || "").replace(/\D/g, "").slice(0, 20);
+    if (num.length !== 20) {
+      setConnectModal({ ...cm, error: "Номер счёта должен быть из 20 цифр" });
+      return;
+    }
+    setConnectModal({ ...cm, busy: true, error: "" });
     try {
-      const res = await api(`/api/statements/${path}/authorize-url?bankAccountId=${acc.id}`);
+      if (num !== cm.acc.accountNumber) {
+        const upd = await api(`/api/organizations/${organizationId}/bank-accounts/${cm.acc.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ accountNumber: num }),
+        });
+        if (!upd.ok) {
+          const data = await upd.json().catch(() => ({}));
+          throw new Error(data.error || "Не удалось сохранить номер счёта");
+        }
+      }
+      const path =
+        cm.acc.apiProvider === "alfa"
+          ? "alfa"
+          : cm.acc.apiProvider === "tochka"
+            ? "tochka"
+            : "sber";
+      const res = await api(`/api/statements/${path}/authorize-url?bankAccountId=${cm.acc.id}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.url) throw new Error(data.error || "Не удалось начать подключение");
       window.location.href = data.url;
     } catch (err) {
-      alert(err.message);
+      setConnectModal((cur) => (cur ? { ...cur, busy: false, error: err.message } : null));
     }
   }
 
@@ -516,7 +554,7 @@ export default function BankAccountsCard({
                         acc.apiProvider === "alfa" ||
                         acc.apiProvider === "tochka") && (
                         <button
-                          onClick={() => connectOAuthBank(acc)}
+                          onClick={() => openConnectModal(acc)}
                           className="text-subtle hover:text-primary transition-colors"
                           title={
                             acc.apiToken
@@ -738,7 +776,9 @@ export default function BankAccountsCard({
           <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-md mx-4 p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-heading">
-                {editingAccount ? "Редактировать счёт" : "Новый банковский счёт"}
+                {editingAccount
+                  ? `Редактировать счёт${bankName ? `: ${bankName}` : ""}`
+                  : "Новый банковский счёт"}
               </h2>
               <button onClick={() => setShowModal(false)} className="text-subtle hover:text-body">
                 <X size={20} />
@@ -746,25 +786,27 @@ export default function BankAccountsCard({
             </div>
 
             <div className="flex flex-col gap-4">
-              <div>
-                <label className="block text-sm font-medium text-body mb-2">Банк *</label>
-                <div className="flex flex-wrap gap-2">
-                  {BANKS.map((b) => (
-                    <button
-                      key={b.name}
-                      type="button"
-                      onClick={() => setBankName(b.name)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all ${
-                        bankName === b.name
-                          ? `${b.bg} ${b.text} border-current ring-2 ring-current/20`
-                          : `${b.bg} ${b.text} border-transparent opacity-60 hover:opacity-100`
-                      }`}
-                    >
-                      {b.name}
-                    </button>
-                  ))}
+              {!editingAccount && (
+                <div>
+                  <label className="block text-sm font-medium text-body mb-2">Банк *</label>
+                  <div className="flex flex-wrap gap-2">
+                    {BANKS.map((b) => (
+                      <button
+                        key={b.name}
+                        type="button"
+                        onClick={() => setBankName(b.name)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all ${
+                          bankName === b.name
+                            ? `${b.bg} ${b.text} border-current ring-2 ring-current/20`
+                            : `${b.bg} ${b.text} border-transparent opacity-60 hover:opacity-100`
+                        }`}
+                      >
+                        {b.name}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
               {showLogin && (
                 <>
                   <div>
@@ -913,6 +955,75 @@ export default function BankAccountsCard({
         </div>
       )}
 
+      {connectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-md mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-heading">
+                Подключение: {connectModal.acc.bankName}
+              </h2>
+              <button
+                onClick={closeConnectModal}
+                className="text-subtle hover:text-body"
+                disabled={connectModal.busy}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex flex-col gap-4">
+              <div>
+                <label className="block text-sm font-medium text-body mb-1">
+                  Номер счёта <span className="text-subtle font-normal">(20 цифр)</span>
+                </label>
+                <input
+                  type="text"
+                  value={connectModal.accountNumber}
+                  onChange={(e) =>
+                    setConnectModal({
+                      ...connectModal,
+                      accountNumber: e.target.value.replace(/\D/g, "").slice(0, 20),
+                      error: "",
+                    })
+                  }
+                  inputMode="numeric"
+                  placeholder="40702810…"
+                  autoFocus
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                />
+                <p className="text-xs text-subtle mt-1">
+                  Тот номер счёта, по которому ты подключаешь интеграцию. После
+                  &laquo;Подключить&raquo; откроется страница банка для подтверждения.
+                </p>
+              </div>
+              {connectModal.error && (
+                <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm flex items-center gap-2">
+                  <AlertTriangle size={16} /> {connectModal.error}
+                </div>
+              )}
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={closeConnectModal}
+                  disabled={connectModal.busy}
+                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Отмена
+                </button>
+                <button
+                  type="button"
+                  onClick={submitConnectModal}
+                  disabled={connectModal.busy}
+                  className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50 inline-flex items-center gap-2"
+                >
+                  {connectModal.busy && <Loader2 size={16} className="animate-spin" />}
+                  Подключить
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {fetchAccount && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
           <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-md mx-4 p-6">
@@ -1006,7 +1117,7 @@ export default function BankAccountsCard({
                   onClick={closeFetch}
                   className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
                 >
-                  Закрыть
+                  {fetchSaved ? "Закрыть" : "Отмена"}
                 </button>
                 {!fetchSaved &&
                   (fetchPreview ? (
@@ -1017,7 +1128,7 @@ export default function BankAccountsCard({
                       className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50 inline-flex items-center gap-2"
                     >
                       {fetchBusy && <Loader2 size={16} className="animate-spin" />}
-                      Сохранить
+                      Сохранить файл
                     </button>
                   ) : (
                     <button
