@@ -15,6 +15,9 @@ import {
   PlugZap,
   Unplug,
   LogIn,
+  ChevronDown,
+  ChevronRight,
+  FileText,
 } from "lucide-react";
 
 const money = (n) =>
@@ -117,6 +120,38 @@ export default function BankAccountsCard({
   // Revealed secrets: { [accountId]: { login, password } }
   const [revealedSecrets, setRevealedSecrets] = useState({});
   const hideTimers = useRef({});
+
+  // Per-account statements (lazy-loaded on expand): { [accountId]: { open, items, loading, err } }
+  const [acctStatements, setAcctStatements] = useState({});
+
+  async function toggleAcctStatements(acc) {
+    const cur = acctStatements[acc.id];
+    if (cur?.open) {
+      setAcctStatements((s) => ({ ...s, [acc.id]: { ...cur, open: false } }));
+      return;
+    }
+    setAcctStatements((s) => ({
+      ...s,
+      [acc.id]: { open: true, items: cur?.items ?? [], loading: !cur?.items, err: "" },
+    }));
+    if (cur?.items) return;
+    try {
+      const res = await api(
+        `/api/organizations/${organizationId}/bank-accounts/${acc.id}/statements`,
+      );
+      if (!res.ok) throw new Error("Не удалось загрузить выписки");
+      const items = await res.json();
+      setAcctStatements((s) => ({
+        ...s,
+        [acc.id]: { open: true, items, loading: false, err: "" },
+      }));
+    } catch (err) {
+      setAcctStatements((s) => ({
+        ...s,
+        [acc.id]: { open: true, items: [], loading: false, err: err.message },
+      }));
+    }
+  }
 
   // Cleanup all timers on unmount
   useEffect(() => {
@@ -347,93 +382,140 @@ export default function BankAccountsCard({
             const displayPassword = getDisplayPassword(acc);
             const isRevealed = !!revealedSecrets[acc.id];
 
+            const sts = acctStatements[acc.id];
             return (
-              <div
-                key={acc.id}
-                className="flex items-center justify-between bg-canvas rounded-lg p-3"
-              >
-                <div className="text-sm text-body space-y-0.5">
-                  <p className="flex items-center gap-1.5">
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${bankBadgeCls(acc.bankName)}`}
-                    >
-                      {acc.bankName}
-                    </span>
-                    {showLogin &&
-                      (acc.apiProvider ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-                          <PlugZap size={12} />
-                          API: {API_PROVIDER_LABELS[acc.apiProvider] || acc.apiProvider}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-subtle">
-                          <Unplug size={12} />
-                          без API
-                        </span>
-                      ))}
-                    {(showLogin || canConnectBank) && acc.apiProvider === "sber" && (
-                      <span className="text-xs text-subtle">
-                        {acc.apiToken ? "· подключён" : "· не подключён"}
+              <div key={acc.id} className="bg-canvas rounded-lg p-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-body space-y-0.5">
+                    <p className="flex items-center gap-1.5">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${bankBadgeCls(acc.bankName)}`}
+                      >
+                        {acc.bankName}
                       </span>
+                      {showLogin &&
+                        (acc.apiProvider ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                            <PlugZap size={12} />
+                            API: {API_PROVIDER_LABELS[acc.apiProvider] || acc.apiProvider}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-subtle">
+                            <Unplug size={12} />
+                            без API
+                          </span>
+                        ))}
+                      {(showLogin || canConnectBank) && acc.apiProvider === "sber" && (
+                        <span className="text-xs text-subtle">
+                          {acc.apiToken ? "· подключён" : "· не подключён"}
+                        </span>
+                      )}
+                    </p>
+                    {showLogin && displayLogin != null && (
+                      <p>
+                        Логин: <span className="font-mono">{displayLogin}</span>
+                      </p>
                     )}
-                  </p>
-                  {showLogin && displayLogin != null && (
-                    <p>
-                      Логин: <span className="font-mono">{displayLogin}</span>
-                    </p>
-                  )}
-                  {showLogin && displayPassword != null && (
-                    <p>
-                      Пароль: <span className="font-mono">{displayPassword}</span>
-                    </p>
-                  )}
-                  {acc.comment && <p className="text-subtle">{acc.comment}</p>}
-                </div>
-                <div className="flex items-center gap-2 ml-4 shrink-0">
-                  {canConnectBank && acc.apiProvider === "sber" && (
-                    <button
-                      onClick={() => connectSber(acc)}
-                      className="text-subtle hover:text-primary transition-colors"
-                      title={acc.apiToken ? "Переподключить Сбер" : "Подключить Сбер"}
-                    >
-                      <LogIn size={16} />
-                    </button>
-                  )}
-                  {canFetchStatements && acc.apiProvider && (
-                    <button
-                      onClick={() => openFetch(acc)}
-                      className="text-subtle hover:text-primary transition-colors"
-                      title="Забрать выписку из банка"
-                    >
-                      <Download size={16} />
-                    </button>
-                  )}
-                  {canViewSecrets && (acc.login != null || acc.password != null) && (
-                    <button
-                      onClick={() => handleRevealSecrets(acc.id)}
-                      className="text-subtle hover:text-primary transition-colors"
-                      title={isRevealed ? "Скрыть" : "Показать секреты"}
-                    >
-                      {isRevealed ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  )}
-                  {canEdit && (
-                    <>
+                    {showLogin && displayPassword != null && (
+                      <p>
+                        Пароль: <span className="font-mono">{displayPassword}</span>
+                      </p>
+                    )}
+                    {acc.comment && <p className="text-subtle">{acc.comment}</p>}
+                  </div>
+                  <div className="flex items-center gap-2 ml-4 shrink-0">
+                    {canConnectBank && acc.apiProvider === "sber" && (
                       <button
-                        onClick={() => openEdit(acc)}
+                        onClick={() => connectSber(acc)}
                         className="text-subtle hover:text-primary transition-colors"
+                        title={acc.apiToken ? "Переподключить Сбер" : "Подключить Сбер"}
                       >
-                        <Pencil size={16} />
+                        <LogIn size={16} />
                       </button>
+                    )}
+                    {canFetchStatements && acc.apiProvider && (
                       <button
-                        onClick={() => handleDelete(acc.id)}
-                        className="text-subtle hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                        onClick={() => openFetch(acc)}
+                        className="text-subtle hover:text-primary transition-colors"
+                        title="Забрать выписку из банка"
                       >
-                        <Trash2 size={16} />
+                        <Download size={16} />
                       </button>
-                    </>
-                  )}
+                    )}
+                    {canViewSecrets && (acc.login != null || acc.password != null) && (
+                      <button
+                        onClick={() => handleRevealSecrets(acc.id)}
+                        className="text-subtle hover:text-primary transition-colors"
+                        title={isRevealed ? "Скрыть" : "Показать секреты"}
+                      >
+                        {isRevealed ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    )}
+                    {canEdit && (
+                      <>
+                        <button
+                          onClick={() => openEdit(acc)}
+                          className="text-subtle hover:text-primary transition-colors"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(acc.id)}
+                          className="text-subtle hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
+
+                {acc.accountNumber && (
+                  <button
+                    onClick={() => toggleAcctStatements(acc)}
+                    className="mt-2 inline-flex items-center gap-1 text-xs text-subtle hover:text-primary transition-colors"
+                  >
+                    {sts?.open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                    Выписки
+                    {sts?.items ? ` (${sts.items.length})` : ""}
+                  </button>
+                )}
+                {sts?.open && (
+                  <div className="mt-2 pl-4 border-l-2 border-line space-y-1">
+                    {sts.loading && (
+                      <div className="flex items-center gap-2 text-xs text-subtle">
+                        <Loader2 size={12} className="animate-spin" /> Загрузка…
+                      </div>
+                    )}
+                    {sts.err && <div className="text-xs text-red-500">{sts.err}</div>}
+                    {!sts.loading && !sts.err && sts.items.length === 0 && (
+                      <div className="text-xs text-subtle">Выписок пока нет</div>
+                    )}
+                    {sts.items.map((st) => (
+                      <div
+                        key={st.id}
+                        className="flex items-center justify-between gap-2 text-xs py-1"
+                      >
+                        <Link
+                          to={`/statements/${st.id}`}
+                          className="flex items-center gap-1.5 text-body hover:text-primary transition-colors truncate"
+                          title={st.originalName}
+                        >
+                          <FileText size={12} className="shrink-0" />
+                          <span className="font-medium">
+                            {isoDay(st.periodStart)} — {isoDay(st.periodEnd)}
+                          </span>
+                          <span className="text-subtle">· {st.docCount} опер.</span>
+                          {st.reconcileStatus !== "OK" && (
+                            <span className="text-amber-600 dark:text-amber-400">
+                              · расх. {money(Number(st.reconcileDiff ?? 0))} ₽
+                            </span>
+                          )}
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}

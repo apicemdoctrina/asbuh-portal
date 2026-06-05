@@ -1194,6 +1194,63 @@ router.delete(
   },
 );
 
+// GET /api/organizations/:id/bank-accounts/:accountId/statements
+// Список выписок по конкретному счёту (фильтр по accountNumber).
+router.get(
+  "/:id/bank-accounts/:accountId/statements",
+  authenticate,
+  requirePermission("bank_statement", "view"),
+  async (req, res) => {
+    try {
+      const scope = getScopedWhere(req.user!.userId, req.user!.roles);
+      const org = await prisma.organization.findFirst({
+        where: { id: req.params.id, ...scope },
+      });
+      if (!org) {
+        res.status(404).json({ error: "Organization not found" });
+        return;
+      }
+      const acc = await prisma.organizationBankAccount.findFirst({
+        where: { id: req.params.accountId, organizationId: org.id },
+        select: { id: true, accountNumber: true },
+      });
+      if (!acc) {
+        res.status(404).json({ error: "Bank account not found" });
+        return;
+      }
+      if (!acc.accountNumber) {
+        res.json([]);
+        return;
+      }
+      const items = await prisma.bankStatement.findMany({
+        where: {
+          organizationId: org.id,
+          accountNumbers: { has: acc.accountNumber },
+        },
+        select: {
+          id: true,
+          periodStart: true,
+          periodEnd: true,
+          openingBalance: true,
+          closingBalance: true,
+          totalIn: true,
+          totalOut: true,
+          docCount: true,
+          reconcileStatus: true,
+          reconcileDiff: true,
+          originalName: true,
+          createdAt: true,
+        },
+        orderBy: { periodEnd: "desc" },
+      });
+      res.json(items);
+    } catch (err) {
+      console.error("List bank-account statements error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
 // GET /api/organizations/:id/bank-accounts/:accountId/secrets — decrypt secrets
 router.get(
   "/:id/bank-accounts/:accountId/secrets",
