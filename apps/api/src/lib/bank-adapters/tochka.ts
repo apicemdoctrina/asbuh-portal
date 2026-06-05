@@ -189,25 +189,49 @@ async function fetchStatementData(
   const statementId = createData?.Data?.Statement?.statementId;
   if (!statementId) throw new BankApiError("Банк не вернул идентификатор выписки");
 
-  const pollPath = `/accounts/${encodeURIComponent(accountId)}/statements/${statementId}`;
+  const accPath = `/accounts/${encodeURIComponent(accountId)}/statements/${statementId}`;
   for (let attempt = 0; attempt < 20; attempt++) {
     await new Promise((r) => setTimeout(r, 3000));
-    const pollRes = await tochkaApi(token, pollPath);
+    const pollRes = await tochkaApi(token, accPath);
     if (!pollRes.ok) continue;
     const stmts = (await pollRes.json())?.Data?.Statement;
     if (!Array.isArray(stmts) || stmts.length === 0) continue;
     const stmt = stmts[0];
     if (stmt.status === "Error") throw new BankApiError("Банк не смог подготовить выписку");
-    if (stmt.status === "Ready" || stmt.status === "Complete") {
-      const opening = stmt.startDateBalance;
-      const closing = stmt.endDateBalance;
-      const balance =
-        typeof opening === "number" && typeof closing === "number" ? { opening, closing } : null;
-      if (!balance) {
-        console.warn("[tochka] в выписке нет startDateBalance/endDateBalance — выписка без сверки");
-      }
-      return { transactions: (stmt.Transaction || []) as TochkaTransaction[], balance };
+    if (stmt.status !== "Ready" && stmt.status !== "Complete") continue;
+
+    const opening = stmt.startDateBalance;
+    const closing = stmt.endDateBalance;
+    const balance =
+      typeof opening === "number" && typeof closing === "number" ? { opening, closing } : null;
+    if (!balance) {
+      console.warn("[tochka] в выписке нет startDateBalance/endDateBalance — выписка без сверки");
     }
+
+    // Транзакции лежат в отдельном endpoint'е /statements/{id}/transactions
+    // (Open Banking spec). Внутри metadata stmt.Transaction обычно пуст.
+    // Fallback: если такого endpoint'а нет — берём stmt.Transaction из metadata.
+    const inline = (stmt.Transaction || []) as TochkaTransaction[];
+    let transactions: TochkaTransaction[] = inline;
+    try {
+      const txRes = await tochkaApi(token, `${accPath}/transactions`);
+      if (txRes.ok) {
+        const txData = await txRes.json();
+        const list = (txData?.Data?.Transaction ??
+          txData?.Data?.Transactions ??
+          []) as TochkaTransaction[];
+        if (Array.isArray(list) && list.length > 0) transactions = list;
+      } else if (txRes.status !== 404) {
+        console.warn(`[tochka] /transactions вернул ${txRes.status}, используем inline`);
+      }
+    } catch (err) {
+      console.warn("[tochka] /transactions упал, используем inline:", err);
+    }
+
+    console.log(
+      `[tochka] statement ${statementId}: inline=${inline.length}, used=${transactions.length}`,
+    );
+    return { transactions, balance };
   }
   throw new BankApiError("Банк не успел подготовить выписку, попробуйте позже");
 }
