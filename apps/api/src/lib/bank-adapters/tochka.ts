@@ -167,73 +167,62 @@ interface TochkaStatementData {
   balance: { opening: number; closing: number } | null;
 }
 
-/** Создать запрос выписки и опрашивать до Ready. Возвращает транзакции + остатки периода. */
+/**
+ * Получить транзакции счёта за период через direct-endpoint
+ * `GET /accounts/{accountId}/transactions` с фильтром по датам.
+ *
+ * Раньше код шёл через `POST /statements` + polling — это создавало новый
+ * statement при каждом клике, и Точка после первой выгрузки транзакций
+ * по statementId возвращала пустоту для последующих, маскируясь под 0 ops.
+ *
+ * Open Banking endpoint `/transactions` — идемпотентный read-only, можно
+ * звать сколько угодно. Пагинация — `?page=N`, по 1000 записей.
+ * Балансы за период тут не вернутся; берём текущий снимок через
+ * `/accounts/{accountId}/balances` (без сверки за период).
+ */
 async function fetchStatementData(
   token: string,
   accountId: string,
   start: string,
   end: string,
 ): Promise<TochkaStatementData> {
-  const createRes = await tochkaApi(token, "/statements", {
-    method: "POST",
-    body: JSON.stringify({
-      Data: { Statement: { accountId, startDateTime: start, endDateTime: end } },
-    }),
-  });
-  if (createRes.status === 401 || createRes.status === 403) {
-    throw new BankApiError("Банк отклонил токен — проверьте доступ");
-  }
-  if (!createRes.ok) throw new BankApiError(`Банк вернул ошибку ${createRes.status}`);
-
-  const createData = await createRes.json();
-  const statementId = createData?.Data?.Statement?.statementId;
-  if (!statementId) throw new BankApiError("Банк не вернул идентификатор выписки");
-
-  const accPath = `/accounts/${encodeURIComponent(accountId)}/statements/${statementId}`;
-  for (let attempt = 0; attempt < 20; attempt++) {
-    await new Promise((r) => setTimeout(r, 3000));
-    const pollRes = await tochkaApi(token, accPath);
-    if (!pollRes.ok) continue;
-    const stmts = (await pollRes.json())?.Data?.Statement;
-    if (!Array.isArray(stmts) || stmts.length === 0) continue;
-    const stmt = stmts[0];
-    if (stmt.status === "Error") throw new BankApiError("Банк не смог подготовить выписку");
-    if (stmt.status !== "Ready" && stmt.status !== "Complete") continue;
-
-    const opening = stmt.startDateBalance;
-    const closing = stmt.endDateBalance;
-    const balance =
-      typeof opening === "number" && typeof closing === "number" ? { opening, closing } : null;
-    if (!balance) {
-      console.warn("[tochka] в выписке нет startDateBalance/endDateBalance — выписка без сверки");
-    }
-
-    // Транзакции лежат в отдельном endpoint'е /statements/{id}/transactions
-    // (Open Banking spec). Внутри metadata stmt.Transaction обычно пуст.
-    // Fallback: если такого endpoint'а нет — берём stmt.Transaction из metadata.
-    const inline = (stmt.Transaction || []) as TochkaTransaction[];
-    let transactions: TochkaTransaction[] = inline;
-    try {
-      const txRes = await tochkaApi(token, `${accPath}/transactions`);
-      if (txRes.ok) {
-        const txData = await txRes.json();
-        const list = (txData?.Data?.Transaction ??
-          txData?.Data?.Transactions ??
-          []) as TochkaTransaction[];
-        if (Array.isArray(list) && list.length > 0) transactions = list;
-      } else if (txRes.status !== 404) {
-        console.warn(`[tochka] /transactions вернул ${txRes.status}, используем inline`);
-      }
-    } catch (err) {
-      console.warn("[tochka] /transactions упал, используем inline:", err);
-    }
-
-    console.log(
-      `[tochka] statement ${statementId}: inline=${inline.length}, used=${transactions.length}`,
+  const fromIso = `${start}T00:00:00+00:00`;
+  const toIso = `${end}T23:59:59+00:00`;
+  const transactions: TochkaTransaction[] = [];
+  let page = 1;
+  while (page < 100) {
+    const qs = new URLSearchParams({
+      fromBookingDateTime: fromIso,
+      toBookingDateTime: toIso,
+      page: String(page),
+    });
+    const res = await tochkaApi(
+      token,
+      `/accounts/${encodeURIComponent(accountId)}/transactions?${qs.toString()}`,
     );
-    return { transactions, balance };
+    if (res.status === 401 || res.status === 403) {
+      throw new BankApiError("Банк отклонил токен — проверьте доступ");
+    }
+    if (res.status === 404) break;
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      console.error(`[tochka] /transactions ${res.status}:`, txt.slice(0, 300));
+      throw new BankApiError(`Банк вернул ошибку ${res.status}`);
+    }
+    const data = await res.json();
+    const list = (data?.Data?.Transaction ?? data?.Data?.Transactions ?? []) as TochkaTransaction[];
+    if (!Array.isArray(list) || list.length === 0) break;
+    transactions.push(...list);
+    // Пагинация: если страница вернула меньше типичного размера — это последняя.
+    if (list.length < 1000) break;
+    page++;
   }
-  throw new BankApiError("Банк не успел подготовить выписку, попробуйте позже");
+  console.log(`[tochka] /transactions accountId=${accountId}: ${transactions.length} ops`);
+
+  // Текущий баланс (без сверки за период — Точка не отдаёт period balances из
+  // /balances; reconcile пометит "нет данных").
+  const balance: TochkaStatementData["balance"] = null;
+  return { transactions, balance };
 }
 
 /**
