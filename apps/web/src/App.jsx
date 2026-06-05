@@ -19,6 +19,7 @@ import InvitePage from "./pages/InvitePage.jsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
+import LegalDocumentPage from "./pages/LegalDocumentPage.jsx";
 
 // Heavy / rarely-visited pages — split into async chunks
 const OrganizationDetailPage = lazy(() => import("./pages/OrganizationDetailPage.jsx"));
@@ -53,6 +54,7 @@ export default function App() {
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/invite/:token" element={<InvitePage />} />
+              <Route path="/legal/:type" element={<LegalDocumentPage />} />
               <Route
                 element={
                   <ProtectedRoute>

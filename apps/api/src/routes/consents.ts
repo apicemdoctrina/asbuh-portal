@@ -13,7 +13,7 @@ import {
 const router = Router();
 
 const acceptSchema = z.object({
-  documentType: z.enum(["offer", "personal_data"]),
+  documentType: z.enum(["terms_of_use", "personal_data"]),
   documentVersion: z.string().min(1).max(32),
 });
 
