@@ -214,10 +214,19 @@ export async function findAccountIdByNumber(
     }
   }
 
+  // Покажем все номера счетов, которые Точка отдала consent'у — чтобы понять,
+  // есть ли наш в списке вообще или OAuth прошёл не под тем логином/клиентом.
+  const seen = accounts.map((a, idx) => {
+    const aid = typeof a.accountId === "string" ? a.accountId : "";
+    const details = a.accountDetails as Array<{ identification?: unknown }> | undefined;
+    const detail = Array.isArray(details)
+      ? details.map((d) => String(d?.identification ?? "")).join("|")
+      : "";
+    return `#${idx} accountId=${aid} details=${detail} customerCode=${a.customerCode ?? ""}`;
+  });
   console.warn(
-    `[tochka] /accounts: не нашёл ${accountNumber}. Полученные счета: ${JSON.stringify(
-      accounts.slice(0, 3),
-    ).slice(0, 500)}`,
+    `[tochka] /accounts: не нашёл ${accountNumber} среди ${accounts.length} счетов.\n` +
+      seen.join("\n"),
   );
   return null;
 }
