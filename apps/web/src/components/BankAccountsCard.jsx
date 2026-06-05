@@ -423,7 +423,9 @@ export default function BankAccountsCard({
         id: data.statement.id,
         docCount: data.statement.docCount ?? 0,
       });
-      onDataChanged();
+      // Не зовём onDataChanged — он перезагружает страницу через
+      // setLoading(true) в parent'е и размонтирует нашу модалку.
+      // Список выписок счёта обновится локально.
       if (fetchAccount?.id) loadAcctStatements(fetchAccount.id, true);
     }
   }
