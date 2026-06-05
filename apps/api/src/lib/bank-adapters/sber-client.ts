@@ -131,18 +131,41 @@ export async function fetchDailyFile(
   }
   if (!taskBody) throw new BankApiError("Сбер не успел сформировать файл, попробуйте позже");
 
-  // Шаг 2: достать ссылку/идентификатор и скачать файл.
-  const obj = taskBody as Record<string, unknown>;
-  const link = (obj.downloadLink || obj.link || obj.url) as string | undefined;
-  if (!link) throw new BankApiError("Сбер не вернул ссылку на файл");
-  const dl = await sberFetch(
-    cfg.baseUrl,
-    cfg,
-    link.startsWith("http") ? link.replace(cfg.baseUrl, "") : link,
-    { method: "GET", headers: auth },
-  );
-  if (dl.status === 404) return null;
-  if (!dl.ok) throw new BankApiError(`Не удалось скачать файл Сбера ${dl.status}`);
-  const buf = Buffer.from(await dl.arrayBuffer());
-  return buf.length > 0 ? buf : null;
+  // Шаг 2: вытащить идентификатор/ссылку. Сбер на практике отдаёт:
+  // - голое число/строку — это statementId, файл лежит по /statement/files/{id};
+  // - объект с downloadLink/link/url — относительный или абсолютный URL.
+  let downloadPath: string;
+  if (typeof taskBody === "string" || typeof taskBody === "number") {
+    downloadPath = `/fintech/api/v1/statement/files/${taskBody}`;
+  } else {
+    const obj = taskBody as Record<string, unknown>;
+    const id = (obj.statementId || obj.id || obj.taskId || obj.requestId) as
+      | string
+      | number
+      | undefined;
+    const link = (obj.downloadLink || obj.link || obj.url) as string | undefined;
+    if (link) {
+      downloadPath = link.startsWith("http") ? link.replace(cfg.baseUrl, "") : link;
+    } else if (id !== undefined) {
+      downloadPath = `/fintech/api/v1/statement/files/${id}`;
+    } else {
+      throw new BankApiError("Сбер не вернул идентификатор файла");
+    }
+  }
+
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const dl = await sberFetch(cfg.baseUrl, cfg, downloadPath, {
+      method: "GET",
+      headers: auth,
+    });
+    if (dl.status === 404) return null;
+    if (dl.status === 202) {
+      await new Promise((r) => setTimeout(r, 3000));
+      continue;
+    }
+    if (!dl.ok) throw new BankApiError(`Не удалось скачать файл Сбера ${dl.status}`);
+    const buf = Buffer.from(await dl.arrayBuffer());
+    return buf.length > 0 ? buf : null;
+  }
+  throw new BankApiError("Сбер не успел отдать файл, попробуйте позже");
 }
