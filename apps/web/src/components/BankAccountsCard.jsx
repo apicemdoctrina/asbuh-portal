@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router";
 import { api } from "../lib/api.js";
 import {
   Plus,
@@ -124,6 +123,30 @@ export default function BankAccountsCard({
   // Per-account statements (lazy-loaded on expand): { [accountId]: { open, items, loading, err } }
   const [acctStatements, setAcctStatements] = useState({});
 
+  async function loadAcctStatements(accId, keepOpen = true) {
+    try {
+      const res = await api(
+        `/api/organizations/${organizationId}/bank-accounts/${accId}/statements`,
+      );
+      if (!res.ok) throw new Error("Не удалось загрузить выписки");
+      const items = await res.json();
+      setAcctStatements((s) => ({
+        ...s,
+        [accId]: { open: keepOpen || !!s[accId]?.open, items, loading: false, err: "" },
+      }));
+    } catch (err) {
+      setAcctStatements((s) => ({
+        ...s,
+        [accId]: {
+          open: keepOpen || !!s[accId]?.open,
+          items: [],
+          loading: false,
+          err: err.message,
+        },
+      }));
+    }
+  }
+
   async function toggleAcctStatements(acc) {
     const cur = acctStatements[acc.id];
     if (cur?.open) {
@@ -135,21 +158,24 @@ export default function BankAccountsCard({
       [acc.id]: { open: true, items: cur?.items ?? [], loading: !cur?.items, err: "" },
     }));
     if (cur?.items) return;
+    await loadAcctStatements(acc.id, true);
+  }
+
+  async function downloadStatement(stId, format) {
     try {
-      const res = await api(
-        `/api/organizations/${organizationId}/bank-accounts/${acc.id}/statements`,
-      );
-      if (!res.ok) throw new Error("Не удалось загрузить выписки");
-      const items = await res.json();
-      setAcctStatements((s) => ({
-        ...s,
-        [acc.id]: { open: true, items, loading: false, err: "" },
-      }));
+      const res = await api(`/api/statements/${stId}/download?format=${format}`);
+      if (!res.ok) throw new Error("Не удалось скачать");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = format === "pdf" ? `statement-${stId}.pdf` : `kl_to_1c-${stId}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
-      setAcctStatements((s) => ({
-        ...s,
-        [acc.id]: { open: true, items: [], loading: false, err: err.message },
-      }));
+      alert(err.message);
     }
   }
 
@@ -310,6 +336,7 @@ export default function BankAccountsCard({
         id: data.statement.id,
       });
       onDataChanged();
+      if (fetchAccount?.id) loadAcctStatements(fetchAccount.id, true);
     }
   }
 
@@ -496,9 +523,8 @@ export default function BankAccountsCard({
                         key={st.id}
                         className="flex items-center justify-between gap-2 text-xs py-1"
                       >
-                        <Link
-                          to={`/statements/${st.id}`}
-                          className="flex items-center gap-1.5 text-body hover:text-primary transition-colors truncate"
+                        <div
+                          className="flex items-center gap-1.5 text-body truncate"
                           title={st.originalName}
                         >
                           <FileText size={12} className="shrink-0" />
@@ -511,7 +537,23 @@ export default function BankAccountsCard({
                               · расх. {money(Number(st.reconcileDiff ?? 0))} ₽
                             </span>
                           )}
-                        </Link>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => downloadStatement(st.id, "txt")}
+                            className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide bg-muted text-body hover:bg-primary/10 hover:text-primary transition-colors"
+                            title="Скачать в формате 1С (txt)"
+                          >
+                            1С
+                          </button>
+                          <button
+                            onClick={() => downloadStatement(st.id, "pdf")}
+                            className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide bg-muted text-body hover:bg-primary/10 hover:text-primary transition-colors"
+                            title="Скачать PDF"
+                          >
+                            PDF
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -753,9 +795,6 @@ export default function BankAccountsCard({
                     <>
                       <AlertTriangle size={16} /> Выписка сохранена. Сверка: расхождение{" "}
                       {money(fetchSaved.diff)} ₽.
-                      <Link to={`/statements/${fetchSaved.id}`} className="underline font-medium">
-                        Открыть
-                      </Link>
                     </>
                   )}
                 </div>
