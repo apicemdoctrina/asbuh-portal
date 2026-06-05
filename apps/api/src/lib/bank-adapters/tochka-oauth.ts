@@ -147,6 +147,31 @@ export async function exchangeAuthCode(
   };
 }
 
+/**
+ * Найти внутренний `accountId` Точки по номеру расчётного счёта (20 цифр).
+ * Точка использует свой UUID-подобный accountId, а не сам номер счёта; его
+ * нужно сохранять в `apiAccountId` и передавать во все API-вызовы.
+ *
+ * Возвращает первый матч по Identification, или null если не нашли.
+ */
+export async function findAccountIdByNumber(
+  accessToken: string,
+  accountNumber: string,
+): Promise<string | null> {
+  const res = await fetch(`${TOCHKA_AUTH_BASE}/uapi/open-banking/v1.0/accounts`, {
+    headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  const accounts = (data?.Data?.Account ?? []) as Array<{
+    accountId?: string;
+    Identification?: string;
+    nameAccount?: string;
+  }>;
+  const match = accounts.find((a) => a.Identification === accountNumber);
+  return match?.accountId ?? null;
+}
+
 /** Обновить access по refresh. Точка ротирует refresh. */
 export async function refreshAccessToken(
   refreshToken: string,

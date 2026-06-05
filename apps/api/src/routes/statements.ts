@@ -35,6 +35,7 @@ import {
   createConsent,
   buildTochkaAuthorizeUrl,
   exchangeAuthCode as exchangeTochkaCode,
+  findAccountIdByNumber as findTochkaAccountId,
 } from "../lib/bank-adapters/tochka-oauth.js";
 import { signTochkaState, verifyTochkaState } from "../lib/bank-adapters/tochka-oauth-state.js";
 import type { ParsedStatement } from "../lib/statement-types.js";
@@ -1029,7 +1030,7 @@ router.get("/tochka/callback", async (req: Request, res) => {
 
   const acc = await prisma.organizationBankAccount.findFirst({
     where: { id: state.bankAccountId },
-    select: { id: true, organizationId: true },
+    select: { id: true, organizationId: true, accountNumber: true },
   });
   if (!acc) {
     res.redirect(`${appUrl}/?tochka=error`);
@@ -1042,10 +1043,27 @@ router.get("/tochka/callback", async (req: Request, res) => {
       throw new BankApiError("Точка не вернула код авторизации");
     }
     const cfg = getTochkaOAuthConfig();
-    const { refreshToken } = await exchangeTochkaCode(code, cfg);
+    const { accessToken, refreshToken } = await exchangeTochkaCode(code, cfg);
+
+    // Резолвим внутренний accountId Точки по номеру счёта — без него
+    // выписки вернут "Invalid accountId" на первом fetch.
+    let apiAccountId: string | null = null;
+    if (acc.accountNumber) {
+      apiAccountId = await findTochkaAccountId(accessToken, acc.accountNumber);
+      if (!apiAccountId) {
+        console.warn(
+          `[tochka] не нашёл accountId для счёта ${acc.accountNumber} (бух впишет вручную)`,
+        );
+      }
+    }
+
     await prisma.organizationBankAccount.update({
       where: { id: acc.id },
-      data: { apiToken: encrypt(refreshToken), usePartnerToken: false },
+      data: {
+        apiToken: encrypt(refreshToken),
+        usePartnerToken: false,
+        ...(apiAccountId ? { apiAccountId } : {}),
+      },
     });
     await logAudit({
       action: "tochka_oauth_connected",
