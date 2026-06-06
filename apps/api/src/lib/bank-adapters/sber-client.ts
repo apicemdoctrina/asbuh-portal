@@ -1,6 +1,8 @@
 import { BankApiError } from "./types.js";
 import type { SberConfig } from "./sber-mtls.js";
 import { postOAuthToken, type OAuthTokens } from "./oauth-token.js";
+import { generate1c } from "../statement-1c.js";
+import type { ParsedStatement, ParsedOperation } from "../statement-types.js";
 
 // fetch в Node принимает undici-`dispatcher` в рантайме, но его нет в типах RequestInit,
 // поэтому добавляем поле и гасим excess-property-проверку приведением `as RequestInit`.
@@ -76,187 +78,266 @@ function debugEmpty(accountNumber: string, dateISO: string, reason: string): voi
   console.warn(`[sber] empty day acc=${accountNumber} date=${dateISO} reason=${reason}`);
 }
 
+/** "2026-05-28" → "28.05.2026" — формат даты для KL_TO_1C. */
+function isoToRu(d: string): string {
+  const [y, m, day] = d.split("-");
+  return `${day}.${m}.${y}`;
+}
+
+/** Безопасно вытащить число из {amount, currencyName} либо из строки/числа. */
+function pickAmount(v: unknown): number {
+  if (typeof v === "number") return v;
+  if (typeof v === "string") return Number(v) || 0;
+  if (v && typeof v === "object") {
+    const a = (v as { amount?: unknown }).amount;
+    if (typeof a === "string") return Number(a) || 0;
+    if (typeof a === "number") return a;
+  }
+  return 0;
+}
+
+interface SberTxn {
+  amount?: { amount?: string };
+  amountRub?: { amount?: string };
+  direction?: "CREDIT" | "DEBIT";
+  documentDate?: string;
+  number?: string;
+  operationCode?: string;
+  paymentPurpose?: string;
+  rurTransfer?: {
+    deliveryKind?: string;
+    payeeAccount?: string;
+    payeeBankBic?: string;
+    payeeBankCorrAccount?: string;
+    payeeBankName?: string;
+    payeeInn?: string;
+    payeeKpp?: string;
+    payeeName?: string;
+    payerAccount?: string;
+    payerBankBic?: string;
+    payerBankCorrAccount?: string;
+    payerBankName?: string;
+    payerInn?: string;
+    payerKpp?: string;
+    payerName?: string;
+    receiptDate?: string;
+    valueDate?: string;
+  };
+}
+
+interface SberSummary {
+  openingBalance?: unknown;
+  closingBalance?: unknown;
+  totalCredit?: unknown;
+  totalDebit?: unknown;
+  // Альтернативные имена, которые встречаются в разных версиях
+  inflow?: unknown;
+  outflow?: unknown;
+  income?: unknown;
+  expense?: unknown;
+}
+
+/** Преобразовать одну операцию Сбера в KL_TO_1C-документ. */
+function toParsedOperation(tx: SberTxn): ParsedOperation {
+  const isIn = tx.direction === "CREDIT";
+  const r = tx.rurTransfer ?? {};
+  const amount = pickAmount(tx.amount);
+  const dateRu = tx.documentDate ? isoToRu(tx.documentDate) : "";
+  const sumStr = amount.toFixed(2);
+
+  const raw: Record<string, string> = {
+    Номер: tx.number ?? "",
+    Дата: dateRu,
+    Сумма: sumStr,
+  };
+  if (r.payerAccount) {
+    raw["ПлательщикСчет"] = r.payerAccount;
+    raw["ПлательщикРасчСчет"] = r.payerAccount;
+  }
+  if (r.payerName) raw["Плательщик"] = r.payerName;
+  if (r.payerInn) raw["ПлательщикИНН"] = r.payerInn;
+  if (r.payerKpp) raw["ПлательщикКПП"] = r.payerKpp;
+  if (r.payerBankName) raw["ПлательщикБанк1"] = r.payerBankName;
+  if (r.payerBankBic) raw["ПлательщикБИК"] = r.payerBankBic;
+  if (r.payerBankCorrAccount) raw["ПлательщикКорсчет"] = r.payerBankCorrAccount;
+  if (r.payeeAccount) {
+    raw["ПолучательСчет"] = r.payeeAccount;
+    raw["ПолучательРасчСчет"] = r.payeeAccount;
+  }
+  if (r.payeeName) raw["Получатель"] = r.payeeName;
+  if (r.payeeInn) raw["ПолучательИНН"] = r.payeeInn;
+  if (r.payeeKpp) raw["ПолучательКПП"] = r.payeeKpp;
+  if (r.payeeBankName) raw["ПолучательБанк1"] = r.payeeBankName;
+  if (r.payeeBankBic) raw["ПолучательБИК"] = r.payeeBankBic;
+  if (r.payeeBankCorrAccount) raw["ПолучательКорсчет"] = r.payeeBankCorrAccount;
+  if (r.deliveryKind) raw["ВидПлатежа"] = r.deliveryKind;
+  if (tx.operationCode) raw["ВидОплаты"] = tx.operationCode;
+  if (isIn && r.receiptDate) raw["ДатаПоступило"] = isoToRu(r.receiptDate);
+  if (!isIn && r.valueDate) raw["ДатаСписано"] = isoToRu(r.valueDate);
+  if (tx.paymentPurpose) raw["НазначениеПлатежа"] = tx.paymentPurpose;
+
+  return {
+    docType: "Платежное поручение",
+    number: tx.number ?? "",
+    date: dateRu,
+    amount,
+    direction: isIn ? "in" : "out",
+    payerName: r.payerName ?? null,
+    payerInn: r.payerInn ?? null,
+    payerAccount: r.payerAccount ?? null,
+    payeeName: r.payeeName ?? null,
+    payeeInn: r.payeeInn ?? null,
+    payeeAccount: r.payeeAccount ?? null,
+    purpose: tx.paymentPurpose ?? null,
+    raw,
+  };
+}
+
+/** Дёрнуть /v2/statement/summary; вернуть балансы (или нули, если не удалось). */
+async function fetchSummary(
+  accountNumber: string,
+  dateISO: string,
+  auth: Record<string, string>,
+  cfg: SberConfig,
+): Promise<{ opening: number; closing: number; totalIn: number; totalOut: number; ok: boolean }> {
+  try {
+    const url = `/fintech/api/v2/statement/summary?accountNumber=${accountNumber}&statementDate=${dateISO}`;
+    const r = await sberFetch(cfg.baseUrl, cfg, url, { method: "GET", headers: auth });
+    if (!r.ok) {
+      if (process.env.DEBUG_SBER) {
+        console.warn(`[sber] summary acc=${accountNumber} date=${dateISO} status=${r.status}`);
+      }
+      return { opening: 0, closing: 0, totalIn: 0, totalOut: 0, ok: false };
+    }
+    const body = (await r.json().catch(() => ({}))) as SberSummary;
+    if (process.env.DEBUG_SBER) {
+      console.warn(
+        `[sber] summary acc=${accountNumber} date=${dateISO} body=${JSON.stringify(body).slice(0, 600)}`,
+      );
+    }
+    return {
+      opening: pickAmount(body.openingBalance),
+      closing: pickAmount(body.closingBalance),
+      totalIn: pickAmount(body.totalCredit ?? body.inflow ?? body.income),
+      totalOut: pickAmount(body.totalDebit ?? body.outflow ?? body.expense),
+      ok: true,
+    };
+  } catch (e) {
+    if (process.env.DEBUG_SBER) {
+      console.warn(
+        `[sber] summary acc=${accountNumber} date=${dateISO} err=${(e as Error).message}`,
+      );
+    }
+    return { opening: 0, closing: 0, totalIn: 0, totalOut: 0, ok: false };
+  }
+}
+
 export async function fetchDailyFile(
   accessToken: string,
   accountNumber: string,
   dateISO: string,
   cfg: SberConfig,
 ): Promise<Buffer | null> {
-  const qs = new URLSearchParams({
-    accountNumber,
-    statementDate: dateISO,
-    format: "1C",
-    encoding: "WINDOWS",
-  });
   const auth = { Authorization: `Bearer ${accessToken}` };
+  const dateRu = isoToRu(dateISO);
 
-  // Диагностический пробник для перехода на /v2/statement/transactions —
-  // синхронный JSON-endpoint, требует тот же scope GET_STATEMENT_ACCOUNT,
-  // что у нас уже есть. По схеме ответа сможем собирать 1С локально, минуя
-  // файловый API (который сейчас 403 из-за невключённого сервиса FILES).
-  if (process.env.DEBUG_SBER) {
-    try {
-      const txQs = new URLSearchParams({
-        accountNumber,
-        statementDate: dateISO,
-        page: "1",
-      });
-      const r = await sberFetch(
-        cfg.baseUrl,
-        cfg,
-        `/fintech/api/v2/statement/transactions?${txQs.toString()}`,
-        { method: "GET", headers: auth },
-      );
-      const txt = await r.text().catch(() => "");
-      console.warn(
-        `[sber] v2-transactions acc=${accountNumber} date=${dateISO} status=${r.status} ctype=${r.headers.get("content-type") ?? "-"} body[${txt.length}]=${txt.slice(0, 4000).replace(/\s+/g, " ")}`,
-      );
-    } catch (e) {
-      console.warn(
-        `[sber] v2-transactions acc=${accountNumber} date=${dateISO} err=${(e as Error).message}`,
-      );
+  // Шаг 1: операции дня через /v2/statement/transactions с пагинацией.
+  // Требует scope GET_STATEMENT_ACCOUNT, который у нас есть в продуктовом
+  // SCOPE_B2BSaaS_… (обходим невключённый сервис FILES).
+  const transactions: SberTxn[] = [];
+  for (let page = 1; page <= 50; page++) {
+    const url = `/fintech/api/v2/statement/transactions?accountNumber=${accountNumber}&statementDate=${dateISO}&page=${page}`;
+    const r = await sberFetch(cfg.baseUrl, cfg, url, { method: "GET", headers: auth });
+    if (r.status === 401 || r.status === 403) {
+      throw new BankApiError("Сбер отклонил токен при запросе операций");
     }
-  }
-
-  // Шаг 1: заказать файл; ретраим, пока банк формирует (HTTP 202).
-  let taskBody: unknown = null;
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const res = await sberFetch(
-      cfg.baseUrl,
-      cfg,
-      `/fintech/api/v1/statement/files?${qs.toString()}`,
-      {
-        method: "GET",
-        headers: auth,
-      },
-    );
-    if (res.status === 401 || res.status === 403) {
-      throw new BankApiError("Сбер отклонил токен при запросе файла");
-    }
-    if (res.status === 404) {
-      debugEmpty(accountNumber, dateISO, "files:404");
+    if (r.status === 404) {
+      debugEmpty(accountNumber, dateISO, "transactions:404");
       return null;
     }
-    if (res.status === 202) {
-      await new Promise((r) => setTimeout(r, 3000));
-      continue;
+    if (!r.ok) {
+      const txt = await r.text().catch(() => "");
+      throw new BankApiError(
+        `Сбер вернул ошибку операций ${r.status}${txt ? `: ${txt.slice(0, 200)}` : ""}`,
+      );
     }
-    if (!res.ok) throw new BankApiError(`Сбер вернул ошибку файла ${res.status}`);
-
-    const ctype = res.headers.get("content-type") || "";
-    // Вариант A: банк сразу отдал файл (текст 1С).
-    if (!ctype.includes("application/json")) {
-      const buf = Buffer.from(await res.arrayBuffer());
-      if (buf.length === 0) {
-        debugEmpty(accountNumber, dateISO, "files:empty-body");
-        return null;
-      }
-      return buf;
-    }
-    // Вариант B: банк отдал JSON с идентификатором задачи/ссылкой.
-    taskBody = await res.json();
+    const body = (await r.json().catch(() => null)) as {
+      transactions?: SberTxn[];
+      _links?: Array<{ rel?: string; href?: string }>;
+    } | null;
+    if (!body) throw new BankApiError("Сбер вернул пустой JSON в /v2/statement/transactions");
+    const pageTx = body.transactions ?? [];
     if (process.env.DEBUG_SBER) {
-      const interestingHeaders = ["location", "content-disposition", "x-statement-status", "link"]
-        .map((h) => `${h}=${res.headers.get(h) ?? "-"}`)
-        .join(" ");
       console.warn(
-        `[sber] step1 acc=${accountNumber} date=${dateISO} ctype=${ctype} ${interestingHeaders} body=${JSON.stringify(taskBody).slice(0, 400)}`,
+        `[sber] tx acc=${accountNumber} date=${dateISO} page=${page} count=${pageTx.length} links=${JSON.stringify(body._links ?? [])}`,
       );
     }
-    break;
-  }
-  if (!taskBody) throw new BankApiError("Сбер не успел сформировать файл, попробуйте позже");
-
-  // Шаг 2: вытащить fileId. /statement/files отдаёт голое число/строку —
-  // это fileId для файлового API. Поля downloadLink/url Сбер на проде не
-  // возвращает (по доке и probe IFT — только число).
-  let fileId: string;
-  if (typeof taskBody === "string" || typeof taskBody === "number") {
-    fileId = String(taskBody);
-  } else {
-    const obj = taskBody as Record<string, unknown>;
-    const id = (obj.fileId || obj.statementId || obj.id || obj.taskId || obj.requestId) as
-      | string
-      | number
-      | undefined;
-    if (id === undefined) throw new BankApiError("Сбер не вернул идентификатор файла");
-    fileId = String(id);
-  }
-  if (process.env.DEBUG_SBER) {
-    console.warn(`[sber] step2 acc=${accountNumber} date=${dateISO} fileId=${fileId}`);
+    transactions.push(...pageTx);
+    // Если на странице меньше 100 операций или нет _links на след стр — стоп.
+    const hasNext = (body._links ?? []).some((l) => l.rel === "next" || l.rel === "nextPage");
+    if (!hasNext || pageTx.length === 0) break;
   }
 
-  // Шаг 3: POST /fintech/api/v1/files/download с {fileId} забирает готовый файл.
-  // Требует scope GET_STATEMENT_TRANSACTION (без него — 403 ACTION_ACCESS_EXCEPTION
-  // «отсутствует доступ к [FILES]»). Ретраим 202/404 пока файл формируется.
-  const downloadPath = "/fintech/api/v1/files/download";
-  let firstNotFoundAttempt = -1;
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const dl = await sberFetch(cfg.baseUrl, cfg, downloadPath, {
-      method: "POST",
-      headers: { ...auth, "Content-Type": "application/json" },
-      body: JSON.stringify({ fileId }),
-    });
-    if (dl.status === 403) {
-      // Это gate на стороне Сбера: сервис «FILES» должен быть включён в продукт
-      // партнёра в developer.sberbank.ru. Без этого продуктовый scope (SCOPE_B2BSaaS_…)
-      // не пускает к /v1/files/download — никакая правка .env это не обходит.
-      throw new BankApiError(
-        "Сбер: продукт партнёра не имеет доступа к сервису FILES — обратитесь к менеджеру Сбера, чтобы включить FILES в ваш B2BSaaS-продукт",
-      );
+  if (transactions.length === 0) {
+    // За день нет операций; всё равно создаём пустую секцию с балансами,
+    // чтобы пользователь видел подтверждение «банк проверен, операций нет».
+    const summary = await fetchSummary(accountNumber, dateISO, auth, cfg);
+    if (!summary.ok && summary.opening === 0 && summary.closing === 0) {
+      debugEmpty(accountNumber, dateISO, "transactions:empty+nosummary");
+      return null;
     }
-    if (dl.status === 404) {
-      if (firstNotFoundAttempt < 0) firstNotFoundAttempt = attempt;
-      if (attempt - firstNotFoundAttempt >= 3) {
-        debugEmpty(accountNumber, dateISO, "download:404");
-        return null;
-      }
-      await new Promise((r) => setTimeout(r, 3000));
-      continue;
-    }
-    if (dl.status === 202) {
-      await new Promise((r) => setTimeout(r, 3000));
-      continue;
-    }
-    if (!dl.ok) {
-      const txt = await dl.text().catch(() => "");
-      throw new BankApiError(
-        `Не удалось скачать файл Сбера ${dl.status}${txt ? `: ${txt.slice(0, 200)}` : ""}`,
-      );
-    }
-
-    const ctype = dl.headers.get("content-type") || "";
-    // Если ответ — бинарь, это и есть файл 1С.
-    if (!ctype.includes("application/json")) {
-      const buf = Buffer.from(await dl.arrayBuffer());
-      if (buf.length === 0) {
-        debugEmpty(accountNumber, dateISO, "download:empty-body");
-        return null;
-      }
-      return buf;
-    }
-    // Если JSON — внутри либо base64-контент, либо ссылка на скачивание.
-    const body = (await dl.json().catch(() => null)) as Record<string, unknown> | null;
-    if (!body) throw new BankApiError("Сбер вернул пустой JSON в /files/download");
-    const b64 = (body.content || body.file || body.data || body.fileContent) as string | undefined;
-    if (typeof b64 === "string" && b64.length > 0) {
-      return Buffer.from(b64, "base64");
-    }
-    const link = (body.downloadLink || body.url || body.link) as string | undefined;
-    if (typeof link === "string" && link.length > 0) {
-      const path = link.startsWith("http") ? link.replace(cfg.baseUrl, "") : link;
-      const r = await sberFetch(cfg.baseUrl, cfg, path, { method: "GET", headers: auth });
-      if (!r.ok) throw new BankApiError(`Сбер: ссылка на файл вернула ${r.status}`);
-      const buf = Buffer.from(await r.arrayBuffer());
-      if (buf.length === 0) {
-        debugEmpty(accountNumber, dateISO, "download:link-empty");
-        return null;
-      }
-      return buf;
-    }
-    throw new BankApiError(
-      `Сбер /files/download вернул JSON без файла: ${JSON.stringify(body).slice(0, 200)}`,
-    );
   }
-  throw new BankApiError("Сбер не успел отдать файл, попробуйте позже");
+
+  // Шаг 2: балансы для секции счёта.
+  const summary = await fetchSummary(accountNumber, dateISO, auth, cfg);
+
+  // Шаг 3: построить ParsedStatement и собрать KL_TO_1C через generate1c.
+  const ops = transactions.map(toParsedOperation);
+  const sumIn = ops.filter((o) => o.direction === "in").reduce((s, o) => s + o.amount, 0);
+  const sumOut = ops.filter((o) => o.direction === "out").reduce((s, o) => s + o.amount, 0);
+  const opening = summary.opening;
+  // Если summary не вернул closingBalance, посчитаем как opening + in − out.
+  const closing = summary.ok ? summary.closing : opening + sumIn - sumOut;
+  const totalIn = summary.totalIn || sumIn;
+  const totalOut = summary.totalOut || sumOut;
+
+  const parsed: ParsedStatement = {
+    meta: {
+      formatVersion: "1.03",
+      encoding: "Windows",
+      sender: "ПАО Сбербанк",
+      dateStart: dateRu,
+      dateEnd: dateRu,
+      raw: {
+        ВерсияФормата: "1.03",
+        Кодировка: "Windows",
+        Отправитель: "ПАО Сбербанк",
+        ДатаНачала: dateRu,
+        ДатаКонца: dateRu,
+        РасчСчет: accountNumber,
+      },
+    },
+    accounts: [
+      {
+        accountNumber,
+        openingBalance: opening,
+        totalIn,
+        totalOut,
+        closingBalance: closing,
+        hasClosing: summary.ok,
+        raw: {
+          РасчСчет: accountNumber,
+          ДатаНачала: dateRu,
+          ДатаКонца: dateRu,
+          НачальныйОстаток: opening.toFixed(2),
+          ВсегоПоступило: totalIn.toFixed(2),
+          ВсегоСписано: totalOut.toFixed(2),
+          КонечныйОстаток: closing.toFixed(2),
+        },
+        operations: ops,
+      },
+    ],
+  };
+
+  return generate1c(parsed);
 }
