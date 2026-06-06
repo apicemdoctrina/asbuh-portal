@@ -164,9 +164,10 @@ export async function fetchDailyFile(
     console.warn(`[sber] step2 acc=${accountNumber} date=${dateISO} downloadPath=${downloadPath}`);
   }
 
-  // Probe-режим (DEBUG_SBER=probe): прошлый probe показал, что statementId меняется
-  // на каждый GET /files?qs — это не поллинг, а task-id endpoint. Пробуем другие
-  // гипотезы: POST вместо GET, разные endpoints выгрузки операций.
+  // Probe-режим (DEBUG_SBER=probe): согласно доке Сбер Fintech REST API,
+  // /statement/files это task-creator, а реальный flow:
+  //   downloadstate (poll готовности) → download (забрать файл) на /files/* endpoints.
+  // statementId из /statement/files — это и есть fileId/externalId.
   if (process.env.DEBUG_SBER === "probe") {
     const rawId =
       typeof taskBody === "string" || typeof taskBody === "number"
@@ -176,57 +177,72 @@ export async function fetchDailyFile(
               (taskBody as Record<string, unknown>).id ||
               "") as string,
           );
-    type Probe = { label: string; method: string; path: string };
+    type Probe = {
+      label: string;
+      method: string;
+      path: string;
+      body?: string;
+      contentType?: string;
+    };
     const probes: Probe[] = [
-      // Текущий GET — для контрольной точки
+      // Главные кандидаты по доке: /files/downloadstate (poll) и /files/download (file).
+      // Параметр fileId — основное имя по SberBusinessAPI; externalId — запасной вариант.
       {
-        label: "GET-files-qs-id",
+        label: "GET-downloadstate-fileId",
         method: "GET",
-        path: `/fintech/api/v1/statement/files?${qs.toString()}&statementId=${rawId}`,
+        path: `/fintech/api/v1/files/downloadstate?fileId=${rawId}`,
       },
-      // POST на /files — возможно для создания задачи нужен POST
       {
-        label: "POST-files-qs",
-        method: "POST",
-        path: `/fintech/api/v1/statement/files?${qs.toString()}`,
+        label: "GET-downloadstate-externalId",
+        method: "GET",
+        path: `/fintech/api/v1/files/downloadstate?externalId=${rawId}`,
       },
-      // /transactions — операции в JSON, без файла
+      {
+        label: "POST-download-json-fileId",
+        method: "POST",
+        path: `/fintech/api/v1/files/download`,
+        body: JSON.stringify({ fileId: rawId }),
+        contentType: "application/json",
+      },
+      {
+        label: "POST-download-json-externalId",
+        method: "POST",
+        path: `/fintech/api/v1/files/download`,
+        body: JSON.stringify({ externalId: rawId }),
+        contentType: "application/json",
+      },
+      {
+        label: "GET-download-fileId",
+        method: "GET",
+        path: `/fintech/api/v1/files/download?fileId=${rawId}`,
+      },
+      // /transactions — fallback: операции напрямую в JSON, минуя файловый API.
       {
         label: "GET-transactions",
         method: "GET",
         path: `/fintech/api/v1/statement/transactions?${qs.toString()}`,
       },
-      // /statement без /files — может вернёт metadata + ссылку на файл
-      { label: "GET-statement", method: "GET", path: `/fintech/api/v1/statement?${qs.toString()}` },
-      // /statement/{id} — детали по task-id
-      { label: "GET-statement-id", method: "GET", path: `/fintech/api/v1/statement/${rawId}` },
-      // /statement/{id}/transactions — операции конкретной задачи
-      {
-        label: "GET-statement-id-transactions",
-        method: "GET",
-        path: `/fintech/api/v1/statement/${rawId}/transactions`,
-      },
-      // По доке Сбера встречается /export — пробуем
-      {
-        label: "GET-export",
-        method: "GET",
-        path: `/fintech/api/v1/statement/export?${qs.toString()}&statementId=${rawId}`,
-      },
     ];
     for (const p of probes) {
       try {
-        const r = await sberFetch(cfg.baseUrl, cfg, p.path, { method: p.method, headers: auth });
+        const headers2: Record<string, string> = { ...auth };
+        if (p.contentType) headers2["Content-Type"] = p.contentType;
+        const r = await sberFetch(cfg.baseUrl, cfg, p.path, {
+          method: p.method,
+          headers: headers2,
+          body: p.body,
+        });
         const headers: Record<string, string> = {};
         r.headers.forEach((v, k) => {
           headers[k] = v;
         });
         const txt = await r.text().catch(() => "");
         console.warn(
-          `[sber] probe2 acc=${accountNumber} date=${dateISO} label=${p.label} method=${p.method} status=${r.status} ctlen=${headers["content-length"] ?? "-"} ctype=${headers["content-type"] ?? "-"} body[${txt.length}]=${txt.slice(0, 2000).replace(/\s+/g, " ")}`,
+          `[sber] probe3 acc=${accountNumber} date=${dateISO} label=${p.label} method=${p.method} status=${r.status} ctlen=${headers["content-length"] ?? "-"} ctype=${headers["content-type"] ?? "-"} body[${txt.length}]=${txt.slice(0, 2000).replace(/\s+/g, " ")}`,
         );
       } catch (e) {
         console.warn(
-          `[sber] probe2 acc=${accountNumber} date=${dateISO} label=${p.label} err=${(e as Error).message}`,
+          `[sber] probe3 acc=${accountNumber} date=${dateISO} label=${p.label} err=${(e as Error).message}`,
         );
       }
     }
