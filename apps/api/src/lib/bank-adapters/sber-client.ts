@@ -139,125 +139,41 @@ export async function fetchDailyFile(
   }
   if (!taskBody) throw new BankApiError("Сбер не успел сформировать файл, попробуйте позже");
 
-  // Шаг 2: вытащить идентификатор/ссылку. Сбер на практике отдаёт:
-  // - голое число/строку — это statementId, файл лежит по /statement/files/{id};
-  // - объект с downloadLink/link/url — относительный или абсолютный URL.
-  let downloadPath: string;
+  // Шаг 2: вытащить fileId. /statement/files отдаёт голое число/строку —
+  // это fileId для файлового API. Поля downloadLink/url Сбер на проде не
+  // возвращает (по доке и probe IFT — только число).
+  let fileId: string;
   if (typeof taskBody === "string" || typeof taskBody === "number") {
-    downloadPath = `/fintech/api/v1/statement/files/${taskBody}`;
+    fileId = String(taskBody);
   } else {
     const obj = taskBody as Record<string, unknown>;
-    const id = (obj.statementId || obj.id || obj.taskId || obj.requestId) as
+    const id = (obj.fileId || obj.statementId || obj.id || obj.taskId || obj.requestId) as
       | string
       | number
       | undefined;
-    const link = (obj.downloadLink || obj.link || obj.url) as string | undefined;
-    if (link) {
-      downloadPath = link.startsWith("http") ? link.replace(cfg.baseUrl, "") : link;
-    } else if (id !== undefined) {
-      downloadPath = `/fintech/api/v1/statement/files/${id}`;
-    } else {
-      throw new BankApiError("Сбер не вернул идентификатор файла");
-    }
+    if (id === undefined) throw new BankApiError("Сбер не вернул идентификатор файла");
+    fileId = String(id);
   }
   if (process.env.DEBUG_SBER) {
-    console.warn(`[sber] step2 acc=${accountNumber} date=${dateISO} downloadPath=${downloadPath}`);
+    console.warn(`[sber] step2 acc=${accountNumber} date=${dateISO} fileId=${fileId}`);
   }
 
-  // Probe-режим (DEBUG_SBER=probe): согласно доке Сбер Fintech REST API,
-  // /statement/files это task-creator, а реальный flow:
-  //   downloadstate (poll готовности) → download (забрать файл) на /files/* endpoints.
-  // statementId из /statement/files — это и есть fileId/externalId.
-  if (process.env.DEBUG_SBER === "probe") {
-    const rawId =
-      typeof taskBody === "string" || typeof taskBody === "number"
-        ? String(taskBody)
-        : String(
-            ((taskBody as Record<string, unknown>).statementId ||
-              (taskBody as Record<string, unknown>).id ||
-              "") as string,
-          );
-    type Probe = {
-      label: string;
-      method: string;
-      path: string;
-      body?: string;
-      contentType?: string;
-    };
-    const probes: Probe[] = [
-      // Главные кандидаты по доке: /files/downloadstate (poll) и /files/download (file).
-      // Параметр fileId — основное имя по SberBusinessAPI; externalId — запасной вариант.
-      {
-        label: "GET-downloadstate-fileId",
-        method: "GET",
-        path: `/fintech/api/v1/files/downloadstate?fileId=${rawId}`,
-      },
-      {
-        label: "GET-downloadstate-externalId",
-        method: "GET",
-        path: `/fintech/api/v1/files/downloadstate?externalId=${rawId}`,
-      },
-      {
-        label: "POST-download-json-fileId",
-        method: "POST",
-        path: `/fintech/api/v1/files/download`,
-        body: JSON.stringify({ fileId: rawId }),
-        contentType: "application/json",
-      },
-      {
-        label: "POST-download-json-externalId",
-        method: "POST",
-        path: `/fintech/api/v1/files/download`,
-        body: JSON.stringify({ externalId: rawId }),
-        contentType: "application/json",
-      },
-      {
-        label: "GET-download-fileId",
-        method: "GET",
-        path: `/fintech/api/v1/files/download?fileId=${rawId}`,
-      },
-      // /transactions — fallback: операции напрямую в JSON, минуя файловый API.
-      {
-        label: "GET-transactions",
-        method: "GET",
-        path: `/fintech/api/v1/statement/transactions?${qs.toString()}`,
-      },
-    ];
-    for (const p of probes) {
-      try {
-        const headers2: Record<string, string> = { ...auth };
-        if (p.contentType) headers2["Content-Type"] = p.contentType;
-        const r = await sberFetch(cfg.baseUrl, cfg, p.path, {
-          method: p.method,
-          headers: headers2,
-          body: p.body,
-        });
-        const headers: Record<string, string> = {};
-        r.headers.forEach((v, k) => {
-          headers[k] = v;
-        });
-        const txt = await r.text().catch(() => "");
-        console.warn(
-          `[sber] probe3 acc=${accountNumber} date=${dateISO} label=${p.label} method=${p.method} status=${r.status} ctlen=${headers["content-length"] ?? "-"} ctype=${headers["content-type"] ?? "-"} body[${txt.length}]=${txt.slice(0, 2000).replace(/\s+/g, " ")}`,
-        );
-      } catch (e) {
-        console.warn(
-          `[sber] probe3 acc=${accountNumber} date=${dateISO} label=${p.label} err=${(e as Error).message}`,
-        );
-      }
-    }
-    return null;
-  }
-
-  // Сбер может вернуть 404 пока файл в очереди формирования. Ретраим 404 столько
-  // же раз, сколько 202 — на 4-й попытке (12 секунд ожидания) выходим, чтоб
-  // не мучить банк.
+  // Шаг 3: POST /fintech/api/v1/files/download с {fileId} забирает готовый файл.
+  // Требует scope GET_STATEMENT_TRANSACTION (без него — 403 ACTION_ACCESS_EXCEPTION
+  // «отсутствует доступ к [FILES]»). Ретраим 202/404 пока файл формируется.
+  const downloadPath = "/fintech/api/v1/files/download";
   let firstNotFoundAttempt = -1;
   for (let attempt = 0; attempt < 20; attempt++) {
     const dl = await sberFetch(cfg.baseUrl, cfg, downloadPath, {
-      method: "GET",
-      headers: auth,
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ fileId }),
     });
+    if (dl.status === 403) {
+      throw new BankApiError(
+        "Сбер: нет доступа к /files/download — добавьте scope GET_STATEMENT_TRANSACTION и переподключите счёт",
+      );
+    }
     if (dl.status === 404) {
       if (firstNotFoundAttempt < 0) firstNotFoundAttempt = attempt;
       if (attempt - firstNotFoundAttempt >= 3) {
@@ -277,12 +193,39 @@ export async function fetchDailyFile(
         `Не удалось скачать файл Сбера ${dl.status}${txt ? `: ${txt.slice(0, 200)}` : ""}`,
       );
     }
-    const buf = Buffer.from(await dl.arrayBuffer());
-    if (buf.length === 0) {
-      debugEmpty(accountNumber, dateISO, "download:empty-body");
-      return null;
+
+    const ctype = dl.headers.get("content-type") || "";
+    // Если ответ — бинарь, это и есть файл 1С.
+    if (!ctype.includes("application/json")) {
+      const buf = Buffer.from(await dl.arrayBuffer());
+      if (buf.length === 0) {
+        debugEmpty(accountNumber, dateISO, "download:empty-body");
+        return null;
+      }
+      return buf;
     }
-    return buf;
+    // Если JSON — внутри либо base64-контент, либо ссылка на скачивание.
+    const body = (await dl.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body) throw new BankApiError("Сбер вернул пустой JSON в /files/download");
+    const b64 = (body.content || body.file || body.data || body.fileContent) as string | undefined;
+    if (typeof b64 === "string" && b64.length > 0) {
+      return Buffer.from(b64, "base64");
+    }
+    const link = (body.downloadLink || body.url || body.link) as string | undefined;
+    if (typeof link === "string" && link.length > 0) {
+      const path = link.startsWith("http") ? link.replace(cfg.baseUrl, "") : link;
+      const r = await sberFetch(cfg.baseUrl, cfg, path, { method: "GET", headers: auth });
+      if (!r.ok) throw new BankApiError(`Сбер: ссылка на файл вернула ${r.status}`);
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (buf.length === 0) {
+        debugEmpty(accountNumber, dateISO, "download:link-empty");
+        return null;
+      }
+      return buf;
+    }
+    throw new BankApiError(
+      `Сбер /files/download вернул JSON без файла: ${JSON.stringify(body).slice(0, 200)}`,
+    );
   }
   throw new BankApiError("Сбер не успел отдать файл, попробуйте позже");
 }
