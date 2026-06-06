@@ -90,6 +90,34 @@ export async function fetchDailyFile(
   });
   const auth = { Authorization: `Bearer ${accessToken}` };
 
+  // Диагностический пробник для перехода на /v2/statement/transactions —
+  // синхронный JSON-endpoint, требует тот же scope GET_STATEMENT_ACCOUNT,
+  // что у нас уже есть. По схеме ответа сможем собирать 1С локально, минуя
+  // файловый API (который сейчас 403 из-за невключённого сервиса FILES).
+  if (process.env.DEBUG_SBER) {
+    try {
+      const txQs = new URLSearchParams({
+        accountNumber,
+        statementDate: dateISO,
+        page: "1",
+      });
+      const r = await sberFetch(
+        cfg.baseUrl,
+        cfg,
+        `/fintech/api/v2/statement/transactions?${txQs.toString()}`,
+        { method: "GET", headers: auth },
+      );
+      const txt = await r.text().catch(() => "");
+      console.warn(
+        `[sber] v2-transactions acc=${accountNumber} date=${dateISO} status=${r.status} ctype=${r.headers.get("content-type") ?? "-"} body[${txt.length}]=${txt.slice(0, 4000).replace(/\s+/g, " ")}`,
+      );
+    } catch (e) {
+      console.warn(
+        `[sber] v2-transactions acc=${accountNumber} date=${dateISO} err=${(e as Error).message}`,
+      );
+    }
+  }
+
   // Шаг 1: заказать файл; ретраим, пока банк формирует (HTTP 202).
   let taskBody: unknown = null;
   for (let attempt = 0; attempt < 20; attempt++) {
