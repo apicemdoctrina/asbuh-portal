@@ -148,16 +148,22 @@ export function buildAlfaAuthorizeUrl(
   return `${cfg.authBaseUrl}/oidc/authorize?${qs.toString()}`;
 }
 
-/** Найти tochka-подключение организации в скоупе пользователя. */
-async function getOrgConnection(orgId: string, user: AuthedUser) {
+/**
+ * Найти API-подключение организации в скоупе пользователя.
+ * Если передан bankAccountId — берётся именно этот счёт (важно когда в орге
+ * несколько подключённых банков). Иначе — первый по createdAt для детерминизма.
+ */
+async function getOrgConnection(orgId: string, user: AuthedUser, bankAccountId?: string) {
   const acc = await prisma.organizationBankAccount.findFirst({
     where: {
       organizationId: orgId,
       apiProvider: { not: null },
+      ...(bankAccountId ? { id: bankAccountId } : {}),
       ...(isPrivileged(user.roles)
         ? {}
         : { organization: { section: { members: { some: { userId: user.userId } } } } }),
     },
+    orderBy: { createdAt: "asc" },
     select: {
       id: true,
       apiProvider: true,
@@ -171,6 +177,7 @@ async function getOrgConnection(orgId: string, user: AuthedUser) {
 
 const fetchBodySchema = z.object({
   organizationId: z.string().min(1),
+  bankAccountId: z.string().min(1).optional(),
   start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
@@ -181,8 +188,9 @@ async function loadFetched(
   user: AuthedUser,
   start: string,
   end: string,
-): Promise<ParsedStatement> {
-  const conn = await getOrgConnection(orgId, user);
+  bankAccountId?: string,
+): Promise<{ parsed: ParsedStatement; apiProvider: string }> {
+  const conn = await getOrgConnection(orgId, user, bankAccountId);
   if (!conn) throw new BankConfigError("API-доступ к банку не настроен для организации");
   if (!conn.accountNumber) {
     throw new BankConfigError("Не задан номер счёта банка");
@@ -190,7 +198,7 @@ async function loadFetched(
   const adapter = getAdapter(conn.apiProvider);
   if (!adapter) throw new BankConfigError("Провайдер банка не поддерживается");
   const credential = resolveToken(conn);
-  return adapter.fetchStatement({
+  const parsed = await adapter.fetchStatement({
     accountNumber: conn.accountNumber,
     accountId: conn.apiAccountId,
     start,
@@ -203,6 +211,7 @@ async function loadFetched(
       });
     },
   });
+  return { parsed, apiProvider: conn.apiProvider! };
 }
 
 // Схема правок: клиент присылает счета с операциями; raw синхронизируется на сервере.
@@ -672,11 +681,12 @@ router.post(
         res.status(422).json({ error: "Организация не найдена или нет доступа" });
         return;
       }
-      const parsed = await loadFetched(
+      const { parsed } = await loadFetched(
         body.data.organizationId,
         req.user!,
         body.data.start,
         body.data.end,
+        body.data.bankAccountId,
       );
       const existing = await prisma.bankStatement.findFirst({
         where: {
@@ -726,16 +736,17 @@ router.post(
         res.status(422).json({ error: "Организация не найдена или нет доступа" });
         return;
       }
-      const parsed = await loadFetched(
+      const { parsed, apiProvider } = await loadFetched(
         body.data.organizationId,
         req.user!,
         body.data.start,
         body.data.end,
+        body.data.bankAccountId,
       );
 
       const buf = generate1c(parsed);
       const acc = parsed.accounts[0]?.accountNumber || "acc";
-      const filename = `tochka_${acc}_${body.data.start}_${body.data.end}_${randomUUID()}.txt`;
+      const filename = `${apiProvider}_${acc}_${body.data.start}_${body.data.end}_${randomUUID()}.txt`;
       fs.writeFileSync(path.join(UPLOADS_DIR, filename), buf);
 
       const agg = aggregatesFrom(parsed);
@@ -754,14 +765,18 @@ router.post(
           docCount: agg.docCount,
           reconcileStatus: agg.rec.status,
           reconcileDiff: new Prisma.Decimal(agg.rec.totalDiff),
-          originalName: `Точка ${body.data.start}—${body.data.end}.txt`,
+          originalName: `${agg.bankName || apiProvider} ${body.data.start}—${body.data.end}.txt`,
           originalPath: filename,
         },
         include: { organization: { select: { id: true, name: true } } },
       });
 
       await prisma.organizationBankAccount.updateMany({
-        where: { organizationId: body.data.organizationId, apiProvider: { not: null } },
+        where: {
+          organizationId: body.data.organizationId,
+          apiProvider: { not: null },
+          ...(body.data.bankAccountId ? { id: body.data.bankAccountId } : {}),
+        },
         data: { lastFetchAt: new Date() },
       });
 

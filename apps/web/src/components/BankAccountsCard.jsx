@@ -397,7 +397,12 @@ export default function BankAccountsCard({
     try {
       const res = await api(`/api/statements/${path}`, {
         method: "POST",
-        body: JSON.stringify({ organizationId, start: fetchStart, end: fetchEnd }),
+        body: JSON.stringify({
+          organizationId,
+          bankAccountId: fetchAccount?.id,
+          start: fetchStart,
+          end: fetchEnd,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Ошибка запроса к банку");
