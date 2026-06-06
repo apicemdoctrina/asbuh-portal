@@ -164,9 +164,9 @@ export async function fetchDailyFile(
     console.warn(`[sber] step2 acc=${accountNumber} date=${dateISO} downloadPath=${downloadPath}`);
   }
 
-  // Probe-режим (DEBUG_SBER=probe): на первой попытке прогоняем кандидатные URL
-  // параллельно и логируем status каждого. Когда найдём настоящий — фиксируем
-  // в коде и снимаем probe. Запускать ОДИН раз на маленьком периоде.
+  // Probe-режим (DEBUG_SBER=probe): дёргаем рабочий URL 6 раз с интервалом 2 сек,
+  // логируем headers + body до 4000 символов. Цель — понять асинхронный flow:
+  // сидит ли в эхе statementId пока файл готовится, или это финальный ответ.
   if (process.env.DEBUG_SBER === "probe") {
     const rawId =
       typeof taskBody === "string" || typeof taskBody === "number"
@@ -176,36 +176,26 @@ export async function fetchDailyFile(
               (taskBody as Record<string, unknown>).id ||
               "") as string,
           );
-    const candidates = [
-      `/fintech/api/v1/statement/files/${rawId}`,
-      `/fintech/api/v1/statement/files/${rawId}/download`,
-      `/fintech/api/v1/statement/files?statementId=${rawId}`,
-      `/fintech/api/v1/statement/${rawId}/files`,
-      `/fintech/api/v1/statements/${rawId}/files`,
-      `/fintech/api/v1/statements/${rawId}`,
-      `/fintech/api/v1/statement/files?${qs.toString()}&statementId=${rawId}`,
-    ];
-    for (const p of candidates) {
+    const probePath = `/fintech/api/v1/statement/files?${qs.toString()}&statementId=${rawId}`;
+    for (let i = 0; i < 6; i++) {
       try {
-        const r = await sberFetch(cfg.baseUrl, cfg, p, { method: "GET", headers: auth });
-        const ct = r.headers.get("content-type") || "-";
-        // Для не-404 — снимаем тело: в 200-JSON может быть статус готовности или
-        // base64-контент; в 400 — текст ошибки Сбера.
-        let bodyPreview = "";
-        if (r.status !== 404) {
-          const txt = await r.text().catch(() => "");
-          bodyPreview = ` body[${txt.length}]=${txt.slice(0, 400).replace(/\s+/g, " ")}`;
-        }
+        const r = await sberFetch(cfg.baseUrl, cfg, probePath, { method: "GET", headers: auth });
+        const headers: Record<string, string> = {};
+        r.headers.forEach((v, k) => {
+          headers[k] = v;
+        });
+        const txt = await r.text().catch(() => "");
         console.warn(
-          `[sber] probe acc=${accountNumber} date=${dateISO} status=${r.status} ctype=${ct} path=${p}${bodyPreview}`,
+          `[sber] probe-poll acc=${accountNumber} date=${dateISO} attempt=${i} status=${r.status} headers=${JSON.stringify(headers)} body[${txt.length}]=${txt.slice(0, 4000).replace(/\s+/g, " ")}`,
         );
+        if (r.status === 200 && txt.length > 20) break; // получили что-то осмысленное — стоп
       } catch (e) {
         console.warn(
-          `[sber] probe acc=${accountNumber} date=${dateISO} err=${(e as Error).message} path=${p}`,
+          `[sber] probe-poll acc=${accountNumber} date=${dateISO} attempt=${i} err=${(e as Error).message}`,
         );
       }
+      await new Promise((r) => setTimeout(r, 2000));
     }
-    // probe-режим возвращает null — реального файла нет смысла качать.
     return null;
   }
 
