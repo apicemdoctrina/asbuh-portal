@@ -170,8 +170,11 @@ export async function fetchDailyFile(
       body: JSON.stringify({ fileId }),
     });
     if (dl.status === 403) {
+      // Это gate на стороне Сбера: сервис «FILES» должен быть включён в продукт
+      // партнёра в developer.sberbank.ru. Без этого продуктовый scope (SCOPE_B2BSaaS_…)
+      // не пускает к /v1/files/download — никакая правка .env это не обходит.
       throw new BankApiError(
-        "Сбер: нет доступа к /files/download — добавьте scope GET_STATEMENT_TRANSACTION и переподключите счёт",
+        "Сбер: продукт партнёра не имеет доступа к сервису FILES — обратитесь к менеджеру Сбера, чтобы включить FILES в ваш B2BSaaS-продукт",
       );
     }
     if (dl.status === 404) {
