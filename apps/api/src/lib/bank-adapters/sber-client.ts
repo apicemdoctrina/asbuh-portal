@@ -164,9 +164,9 @@ export async function fetchDailyFile(
     console.warn(`[sber] step2 acc=${accountNumber} date=${dateISO} downloadPath=${downloadPath}`);
   }
 
-  // Probe-режим (DEBUG_SBER=probe): дёргаем рабочий URL 6 раз с интервалом 2 сек,
-  // логируем headers + body до 4000 символов. Цель — понять асинхронный flow:
-  // сидит ли в эхе statementId пока файл готовится, или это финальный ответ.
+  // Probe-режим (DEBUG_SBER=probe): прошлый probe показал, что statementId меняется
+  // на каждый GET /files?qs — это не поллинг, а task-id endpoint. Пробуем другие
+  // гипотезы: POST вместо GET, разные endpoints выгрузки операций.
   if (process.env.DEBUG_SBER === "probe") {
     const rawId =
       typeof taskBody === "string" || typeof taskBody === "number"
@@ -176,25 +176,59 @@ export async function fetchDailyFile(
               (taskBody as Record<string, unknown>).id ||
               "") as string,
           );
-    const probePath = `/fintech/api/v1/statement/files?${qs.toString()}&statementId=${rawId}`;
-    for (let i = 0; i < 6; i++) {
+    type Probe = { label: string; method: string; path: string };
+    const probes: Probe[] = [
+      // Текущий GET — для контрольной точки
+      {
+        label: "GET-files-qs-id",
+        method: "GET",
+        path: `/fintech/api/v1/statement/files?${qs.toString()}&statementId=${rawId}`,
+      },
+      // POST на /files — возможно для создания задачи нужен POST
+      {
+        label: "POST-files-qs",
+        method: "POST",
+        path: `/fintech/api/v1/statement/files?${qs.toString()}`,
+      },
+      // /transactions — операции в JSON, без файла
+      {
+        label: "GET-transactions",
+        method: "GET",
+        path: `/fintech/api/v1/statement/transactions?${qs.toString()}`,
+      },
+      // /statement без /files — может вернёт metadata + ссылку на файл
+      { label: "GET-statement", method: "GET", path: `/fintech/api/v1/statement?${qs.toString()}` },
+      // /statement/{id} — детали по task-id
+      { label: "GET-statement-id", method: "GET", path: `/fintech/api/v1/statement/${rawId}` },
+      // /statement/{id}/transactions — операции конкретной задачи
+      {
+        label: "GET-statement-id-transactions",
+        method: "GET",
+        path: `/fintech/api/v1/statement/${rawId}/transactions`,
+      },
+      // По доке Сбера встречается /export — пробуем
+      {
+        label: "GET-export",
+        method: "GET",
+        path: `/fintech/api/v1/statement/export?${qs.toString()}&statementId=${rawId}`,
+      },
+    ];
+    for (const p of probes) {
       try {
-        const r = await sberFetch(cfg.baseUrl, cfg, probePath, { method: "GET", headers: auth });
+        const r = await sberFetch(cfg.baseUrl, cfg, p.path, { method: p.method, headers: auth });
         const headers: Record<string, string> = {};
         r.headers.forEach((v, k) => {
           headers[k] = v;
         });
         const txt = await r.text().catch(() => "");
         console.warn(
-          `[sber] probe-poll acc=${accountNumber} date=${dateISO} attempt=${i} status=${r.status} headers=${JSON.stringify(headers)} body[${txt.length}]=${txt.slice(0, 4000).replace(/\s+/g, " ")}`,
+          `[sber] probe2 acc=${accountNumber} date=${dateISO} label=${p.label} method=${p.method} status=${r.status} ctlen=${headers["content-length"] ?? "-"} ctype=${headers["content-type"] ?? "-"} body[${txt.length}]=${txt.slice(0, 2000).replace(/\s+/g, " ")}`,
         );
-        if (r.status === 200 && txt.length > 20) break; // получили что-то осмысленное — стоп
       } catch (e) {
         console.warn(
-          `[sber] probe-poll acc=${accountNumber} date=${dateISO} attempt=${i} err=${(e as Error).message}`,
+          `[sber] probe2 acc=${accountNumber} date=${dateISO} label=${p.label} err=${(e as Error).message}`,
         );
       }
-      await new Promise((r) => setTimeout(r, 2000));
     }
     return null;
   }
