@@ -657,6 +657,8 @@ router.get("/:id", authenticate, requirePermission("organization", "view"), asyn
             apiProvider: true,
             apiAccountId: true,
             lastFetchAt: true,
+            lastSberSync: true,
+            autoFetchEnabled: true,
             createdAt: true,
             updatedAt: true,
           },
