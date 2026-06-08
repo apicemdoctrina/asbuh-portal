@@ -84,6 +84,15 @@ function isoToRu(d: string): string {
   return `${day}.${m}.${y}`;
 }
 
+/** ИНН: пустую строку и "0…0"-плейсхолдеры от Сбера трактуем как отсутствие. */
+function cleanInn(inn: string | undefined | null): string | null {
+  if (!inn) return null;
+  const t = inn.trim();
+  if (!t) return null;
+  if (/^0+$/.test(t)) return null;
+  return t;
+}
+
 /** Безопасно вытащить число из {amount, currencyName} либо из строки/числа. */
 function pickAmount(v: unknown): number {
   if (typeof v === "number") return v;
@@ -155,7 +164,8 @@ function toParsedOperation(tx: SberTxn): ParsedOperation {
     raw["ПлательщикРасчСчет"] = r.payerAccount;
   }
   if (r.payerName) raw["Плательщик"] = r.payerName;
-  if (r.payerInn) raw["ПлательщикИНН"] = r.payerInn;
+  const payerInn = cleanInn(r.payerInn);
+  if (payerInn) raw["ПлательщикИНН"] = payerInn;
   if (r.payerKpp) raw["ПлательщикКПП"] = r.payerKpp;
   if (r.payerBankName) raw["ПлательщикБанк1"] = r.payerBankName;
   if (r.payerBankBic) raw["ПлательщикБИК"] = r.payerBankBic;
@@ -165,7 +175,8 @@ function toParsedOperation(tx: SberTxn): ParsedOperation {
     raw["ПолучательРасчСчет"] = r.payeeAccount;
   }
   if (r.payeeName) raw["Получатель"] = r.payeeName;
-  if (r.payeeInn) raw["ПолучательИНН"] = r.payeeInn;
+  const payeeInn = cleanInn(r.payeeInn);
+  if (payeeInn) raw["ПолучательИНН"] = payeeInn;
   if (r.payeeKpp) raw["ПолучательКПП"] = r.payeeKpp;
   if (r.payeeBankName) raw["ПолучательБанк1"] = r.payeeBankName;
   if (r.payeeBankBic) raw["ПолучательБИК"] = r.payeeBankBic;
@@ -183,10 +194,10 @@ function toParsedOperation(tx: SberTxn): ParsedOperation {
     amount,
     direction: isIn ? "in" : "out",
     payerName: r.payerName ?? null,
-    payerInn: r.payerInn ?? null,
+    payerInn,
     payerAccount: r.payerAccount ?? null,
     payeeName: r.payeeName ?? null,
-    payeeInn: r.payeeInn ?? null,
+    payeeInn,
     payeeAccount: r.payeeAccount ?? null,
     purpose: tx.paymentPurpose ?? null,
     raw,

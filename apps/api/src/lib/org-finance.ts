@@ -80,6 +80,15 @@ function monthKey(d: Date): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+/** "0"/"00…" = плейсхолдер «нет ИНН» (Сбер так шлёт для физлиц). null/пустая строка — тоже нет ИНН. */
+function realInn(inn: string | null): string | null {
+  if (!inn) return null;
+  const t = inn.trim();
+  if (!t) return null;
+  if (/^0+$/.test(t)) return null;
+  return t;
+}
+
 function topCounterparties(
   txs: SummaryTx[],
   direction: "IN" | "OUT",
@@ -87,11 +96,12 @@ function topCounterparties(
   const map = new Map<string, { name: string; inn: string | null; sum: number }>();
   for (const t of txs) {
     if (t.direction !== direction) continue;
-    const key = t.counterpartyInn || t.counterparty || "—";
+    const inn = realInn(t.counterpartyInn);
+    // Без валидного ИНН группируем по имени, иначе все физлица слипнутся в одну строку.
+    const key = inn || t.counterparty || "—";
     const prev = map.get(key);
     if (prev) prev.sum = round2(prev.sum + t.amount);
-    else
-      map.set(key, { name: t.counterparty || "—", inn: t.counterpartyInn, sum: round2(t.amount) });
+    else map.set(key, { name: t.counterparty || "—", inn, sum: round2(t.amount) });
   }
   // Возвращаем всех — frontend сам решит, сколько показывать (collapse/expand).
   return [...map.values()].sort((a, b) => b.sum - a.sum);
