@@ -2368,7 +2368,7 @@ router.get(
       // не приближается даже к 1/10 этого.
       const limit = Math.min(50000, Math.max(1, Number(req.query.limit) || 50000));
 
-      const [all, transactions, total] = await Promise.all([
+      const [all, transactions] = await Promise.all([
         prisma.statementTransaction.findMany({
           where,
           select: {
@@ -2386,7 +2386,6 @@ router.get(
           skip: (page - 1) * limit,
           take: limit,
         }),
-        prisma.statementTransaction.count({ where }),
       ]);
 
       const seenHashes = new Set<string>();
@@ -2394,6 +2393,17 @@ router.get(
         if (!t.opHash) return true; // старые строки без хэша — не трогаем
         if (seenHashes.has(t.opHash)) return false;
         seenHashes.add(t.opHash);
+        return true;
+      });
+
+      // Тот же дедуп для отдаваемого списка операций — иначе в UI видим
+      // дубликаты (одна операция из перекрывающихся выписок), а «Топ по расходу»
+      // считается уже на deduped → цифры не сходятся.
+      const seenHashesTx = new Set<string>();
+      const transactionsDeduped = transactions.filter((t) => {
+        if (!t.opHash) return true;
+        if (seenHashesTx.has(t.opHash)) return false;
+        seenHashesTx.add(t.opHash);
         return true;
       });
 
@@ -2407,7 +2417,13 @@ router.get(
         })),
       );
 
-      res.json({ summary, transactions, total, page, limit });
+      res.json({
+        summary,
+        transactions: transactionsDeduped,
+        total: dedupedAll.length,
+        page,
+        limit,
+      });
     } catch (err) {
       console.error("Org finance error:", err);
       res.status(500).json({ error: "Internal server error" });
