@@ -693,17 +693,17 @@ export default function BankAccountsCard({
                             <div className="flex items-center gap-1 shrink-0">
                               <button
                                 onClick={() => downloadStatement(st.id, "txt")}
-                                className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide bg-muted text-body hover:bg-primary/10 hover:text-primary transition-colors"
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] uppercase tracking-wide bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors font-medium"
                                 title="Скачать в формате 1С (txt)"
                               >
-                                1С
+                                <Download size={11} /> 1С
                               </button>
                               <button
                                 onClick={() => downloadStatement(st.id, "pdf")}
-                                className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide bg-muted text-body hover:bg-primary/10 hover:text-primary transition-colors"
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] uppercase tracking-wide bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors font-medium"
                                 title="Скачать PDF"
                               >
-                                PDF
+                                <Download size={11} /> PDF
                               </button>
                               {canEdit && (
                                 <button
