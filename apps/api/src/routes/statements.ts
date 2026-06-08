@@ -1056,6 +1056,14 @@ router.get(
       const cfg = getAlfaConfig();
       const refresh = decrypt(acc.apiToken);
       const tokens = await refreshAlfaAccessToken(refresh, cfg);
+      // Альфа ротирует refresh — старый сразу инвалидируется. Сохраняем новый,
+      // иначе повторный клик «Диагностика» получит invalid_grant.
+      if (tokens.refreshToken && tokens.refreshToken !== refresh) {
+        await prisma.organizationBankAccount.update({
+          where: { id: acc.id },
+          data: { apiToken: encrypt(tokens.refreshToken) },
+        });
+      }
 
       // Декодируем JWT payload без проверки подписи.
       const jwtPart = tokens.accessToken.split(".")[1] || "";
@@ -1123,6 +1131,10 @@ router.get(
       }
 
       // Полный прогон через adapter — чтобы понять, теряет ли он операции.
+      // Используем САМЫЙ свежий refresh (только что сохранён выше) и саму
+      // прод-логику saveCredential, чтобы Альфа не отозвала токен.
+      const freshRefresh =
+        tokens.refreshToken && tokens.refreshToken !== refresh ? tokens.refreshToken : refresh;
       let adapterResult: unknown = null;
       let adapterError: string | null = null;
       try {
@@ -1131,8 +1143,13 @@ router.get(
           accountId: null,
           start: date,
           end: date,
-          credential: refresh,
-          saveCredential: async () => {},
+          credential: freshRefresh,
+          saveCredential: async (next: string) => {
+            await prisma.organizationBankAccount.update({
+              where: { id: acc.id },
+              data: { apiToken: encrypt(next) },
+            });
+          },
         });
         adapterResult = {
           accounts: parsed.accounts.map((a) => ({
