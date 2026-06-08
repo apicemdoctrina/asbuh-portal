@@ -104,9 +104,25 @@ export async function fetchDayTransactions(
       },
     );
     if (res.status === 401 || res.status === 403) {
-      throw new BankApiError("Альфа отклонила токен при запросе выписки");
+      const txt = await res.text().catch(() => "");
+      throw new BankApiError(
+        `Альфа отклонила токен при запросе выписки (${res.status}): ${txt.slice(0, 200)}`,
+      );
     }
-    if (res.status === 404) return out; // за день нет операций
+    if (res.status === 404) {
+      // По доке 404 = unknown_endpoint (счёт не найден / нет доступа). Раньше
+      // молча считали как «за день нет операций» — это маскировало настоящую
+      // ошибку и приводило к пустым выпискам без объяснения.
+      const txt = await res.text().catch(() => "");
+      console.warn(`[alfa] 404 ${accountNumber} ${dateISO} page=${page}: ${txt.slice(0, 300)}`);
+      if (page === 1) {
+        throw new BankApiError(
+          `Альфа: счёт или ресурс не найден (404) для ${accountNumber} на ${dateISO}: ${txt.slice(0, 200)}`,
+        );
+      }
+      // 404 на 2+ странице — пагинация закончилась, это валидный конец.
+      return out;
+    }
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
       throw new BankApiError(`Альфа вернула ошибку выписки ${res.status}: ${txt.slice(0, 200)}`);
