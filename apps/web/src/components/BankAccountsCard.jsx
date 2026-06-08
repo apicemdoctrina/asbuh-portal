@@ -394,23 +394,27 @@ export default function BankAccountsCard({
     }
     setConnectModal({ ...cm, busy: true, error: "" });
     try {
-      if (num !== cm.acc.accountNumber) {
+      const provider = effectiveProvider(cm.acc);
+      // Нормализуем запись: для старых счетов apiProvider в БД может быть null —
+      // на стороне бэкенда роут /authorize-url требует точного matches по apiProvider.
+      const needNumberUpdate = num !== cm.acc.accountNumber;
+      const needProviderUpdate = !cm.acc.apiProvider && !!provider;
+      if (needNumberUpdate || needProviderUpdate) {
+        const body = {
+          ...(needNumberUpdate ? { accountNumber: num } : {}),
+          ...(needProviderUpdate ? { apiProvider: provider } : {}),
+        };
         const upd = await api(`/api/organizations/${organizationId}/bank-accounts/${cm.acc.id}`, {
           method: "PUT",
-          body: JSON.stringify({ accountNumber: num }),
+          body: JSON.stringify(body),
         });
         if (!upd.ok) {
           const data = await upd.json().catch(() => ({}));
           throw new Error(data.error || "Не удалось сохранить номер счёта");
         }
       }
-      const path =
-        cm.acc.apiProvider === "alfa"
-          ? "alfa"
-          : cm.acc.apiProvider === "tochka"
-            ? "tochka"
-            : "sber";
-      const res = await api(`/api/statements/${path}/authorize-url?bankAccountId=${cm.acc.id}`);
+      if (!provider) throw new Error("У этого банка нет API-подключения");
+      const res = await api(`/api/statements/${provider}/authorize-url?bankAccountId=${cm.acc.id}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.url) throw new Error(data.error || "Не удалось начать подключение");
       window.location.href = data.url;
