@@ -22,17 +22,12 @@ import {
   BankConfigError,
   BankApiError,
 } from "../lib/bank-adapters/index.js";
-import { encrypt, decrypt } from "../lib/crypto.js";
+import { encrypt } from "../lib/crypto.js";
 import { getSberConfig } from "../lib/bank-adapters/sber-mtls.js";
 import { exchangeAuthCode } from "../lib/bank-adapters/sber-client.js";
 import { signSberState, verifySberState } from "../lib/bank-adapters/sber-oauth-state.js";
 import { getAlfaConfig } from "../lib/bank-adapters/alfa-mtls.js";
-import {
-  exchangeAuthCode as exchangeAlfaCode,
-  refreshAccessToken as refreshAlfaAccessToken,
-  fetchDayTransactions as fetchAlfaDayTransactions,
-} from "../lib/bank-adapters/alfa-client.js";
-import { alfaAdapter } from "../lib/bank-adapters/alfa.js";
+import { exchangeAuthCode as exchangeAlfaCode } from "../lib/bank-adapters/alfa-client.js";
 import { signAlfaState, verifyAlfaState } from "../lib/bank-adapters/alfa-oauth-state.js";
 import {
   getTochkaOAuthConfig,
@@ -1015,173 +1010,6 @@ router.get("/alfa/callback", async (req: Request, res) => {
     fail(msg, acc.organizationId);
   }
 });
-
-/**
- * Диагностика Альфа-выписки. Берёт refresh, обменивает на access, декодирует JWT
- * и пробует оба известных endpoint'а (v1 transactions JSON + v2 1C XML). Возвращает
- * сырой ответ, чтобы понять причину 404 без SSH в журнал.
- */
-router.get(
-  "/alfa/debug",
-  authenticate,
-  requirePermission("bank_statement", "connect"),
-  async (req: Request, res) => {
-    try {
-      const bankAccountId = (req.query.bankAccountId as string) || "";
-      const date = (req.query.date as string) || "2025-12-08";
-      const acc = await prisma.organizationBankAccount.findFirst({
-        where: {
-          id: bankAccountId,
-          apiProvider: "alfa",
-          ...(isPrivileged(req.user!.roles)
-            ? {}
-            : {
-                organization: {
-                  OR: [
-                    { section: { members: { some: { userId: req.user!.userId } } } },
-                    { members: { some: { userId: req.user!.userId } } },
-                  ],
-                },
-              }),
-        },
-        select: { id: true, accountNumber: true, apiToken: true },
-      });
-      if (!acc) {
-        res.status(404).json({ error: "Счёт Альфы не найден или нет доступа" });
-        return;
-      }
-      if (!acc.apiToken) {
-        res.status(400).json({ error: "Счёт не подключён через OAuth — нет refresh-токена" });
-        return;
-      }
-      const cfg = getAlfaConfig();
-      const refresh = decrypt(acc.apiToken);
-      const tokens = await refreshAlfaAccessToken(refresh, cfg);
-      // Альфа ротирует refresh — старый сразу инвалидируется. Сохраняем новый,
-      // иначе повторный клик «Диагностика» получит invalid_grant.
-      if (tokens.refreshToken && tokens.refreshToken !== refresh) {
-        await prisma.organizationBankAccount.update({
-          where: { id: acc.id },
-          data: { apiToken: encrypt(tokens.refreshToken) },
-        });
-      }
-
-      // Декодируем JWT payload без проверки подписи.
-      const jwtPart = tokens.accessToken.split(".")[1] || "";
-      const pad = "=".repeat((4 - (jwtPart.length % 4)) % 4);
-      let jwt: unknown = null;
-      try {
-        jwt = JSON.parse(
-          Buffer.from(jwtPart.replace(/-/g, "+").replace(/_/g, "/") + pad, "base64").toString(),
-        );
-      } catch {
-        jwt = "<failed to decode>";
-      }
-
-      const accountNumber = acc.accountNumber || "40702810102300000001";
-      const endpoints = [
-        {
-          name: "v1 transactions (JSON)",
-          url: `${cfg.apiBaseUrl}/jp/v1/statement/transactions?accountNumber=${accountNumber}&statementDate=${date}&page=1`,
-          accept: "application/json",
-        },
-        {
-          name: "v2 1C statement (XML)",
-          url: `${cfg.apiBaseUrl}/jp/v2/accounts/${accountNumber}/transactions/1C?executeDate=${date}`,
-          accept: "application/xml",
-        },
-      ];
-
-      const results = [];
-      for (const ep of endpoints) {
-        const r = await fetch(ep.url, {
-          method: "GET",
-          headers: { Authorization: `Bearer ${tokens.accessToken}`, Accept: ep.accept },
-          dispatcher: cfg.dispatcher,
-        } as RequestInit).catch((e) => ({
-          status: 0,
-          headers: new Headers(),
-          text: () => String(e),
-        }));
-        const headers: Record<string, string> = {};
-        for (const [k, v] of (r as Response).headers.entries()) headers[k] = v;
-        const body = await (r as Response).text();
-        results.push({
-          name: ep.name,
-          url: ep.url,
-          status: (r as Response).status,
-          headers,
-          body: body.slice(0, 4000),
-          bodyTruncated: body.length > 4000,
-        });
-      }
-
-      // Прямой вызов fetchDayTransactions — те же аргументы, что использует adapter.
-      let directFetch: unknown = null;
-      let directFetchError: string | null = null;
-      try {
-        const txs = await fetchAlfaDayTransactions(tokens.accessToken, accountNumber, date, cfg);
-        directFetch = {
-          count: txs.length,
-          firstKeys: txs[0] ? Object.keys(txs[0]) : null,
-          firstAmount: (txs[0] as { amount?: unknown })?.amount ?? null,
-          firstDirection: (txs[0] as { direction?: unknown })?.direction ?? null,
-        };
-      } catch (e) {
-        directFetchError = e instanceof Error ? e.message : String(e);
-      }
-
-      // Полный прогон через adapter — чтобы понять, теряет ли он операции.
-      // Используем САМЫЙ свежий refresh (только что сохранён выше) и саму
-      // прод-логику saveCredential, чтобы Альфа не отозвала токен.
-      const freshRefresh =
-        tokens.refreshToken && tokens.refreshToken !== refresh ? tokens.refreshToken : refresh;
-      let adapterResult: unknown = null;
-      let adapterError: string | null = null;
-      try {
-        const parsed = await alfaAdapter.fetchStatement({
-          accountNumber,
-          accountId: null,
-          start: date,
-          end: date,
-          credential: freshRefresh,
-          saveCredential: async (next: string) => {
-            await prisma.organizationBankAccount.update({
-              where: { id: acc.id },
-              data: { apiToken: encrypt(next) },
-            });
-          },
-        });
-        adapterResult = {
-          accounts: parsed.accounts.map((a) => ({
-            accountNumber: a.accountNumber,
-            operationsCount: a.operations.length,
-            totalIn: a.totalIn,
-            totalOut: a.totalOut,
-            firstOp: a.operations[0] ?? null,
-          })),
-        };
-      } catch (e) {
-        adapterError = e instanceof Error ? e.message : String(e);
-      }
-
-      res.json({
-        accountNumber,
-        date,
-        jwtPayload: jwt,
-        endpoints: results,
-        directFetch,
-        directFetchError,
-        adapter: adapterResult,
-        adapterError,
-      });
-    } catch (err) {
-      const m = mapBankError(err);
-      if (m.status === 500) console.error("Alfa debug error:", err);
-      res.status(m.status).json({ error: m.error });
-    }
-  },
-);
 
 /** Старт OAuth-онбординга Точки: получить consent + вернуть ссылку авторизации. */
 router.get(
