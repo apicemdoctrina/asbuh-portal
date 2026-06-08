@@ -93,7 +93,8 @@ function topCounterparties(
     else
       map.set(key, { name: t.counterparty || "—", inn: t.counterpartyInn, sum: round2(t.amount) });
   }
-  return [...map.values()].sort((a, b) => b.sum - a.sum).slice(0, 5);
+  // Возвращаем всех — frontend сам решит, сколько показывать (collapse/expand).
+  return [...map.values()].sort((a, b) => b.sum - a.sum);
 }
 
 /** Чистая агрегация оборотов для финансовой аналитики. */

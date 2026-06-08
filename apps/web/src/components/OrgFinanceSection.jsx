@@ -409,11 +409,16 @@ function OperationsBlock({
   );
 }
 
+const TOP_PREVIEW = 5;
+
 function TopList({ title, icon: Icon, items, color }) {
+  const [expanded, setExpanded] = useState(false);
   const cls =
     color === "emerald"
       ? "text-emerald-600 dark:text-emerald-300"
       : "text-red-600 dark:text-red-300";
+  const visible = expanded ? items : items.slice(0, TOP_PREVIEW);
+  const hasMore = items.length > TOP_PREVIEW;
   return (
     <div className="bg-surface rounded-2xl border border-line p-4">
       <div className={`flex items-center gap-2 text-sm font-medium mb-3 ${cls}`}>
@@ -422,14 +427,33 @@ function TopList({ title, icon: Icon, items, color }) {
       {items.length === 0 ? (
         <div className="text-subtle text-sm">—</div>
       ) : (
-        <ul className="space-y-1.5">
-          {items.map((it, i) => (
-            <li key={i} className="flex justify-between text-sm">
-              <span className="text-body truncate pr-2">{it.name}</span>
-              <span className={`font-medium ${cls}`}>{money(it.sum)} ₽</span>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="space-y-1.5">
+            {visible.map((it, i) => (
+              <li key={i} className="flex justify-between text-sm">
+                <span className="text-body truncate pr-2">{it.name}</span>
+                <span className={`font-medium ${cls}`}>{money(it.sum)} ₽</span>
+              </li>
+            ))}
+          </ul>
+          {hasMore && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="mt-3 w-full text-xs text-primary hover:text-[#5557E1] transition-colors flex items-center justify-center gap-1"
+            >
+              {expanded ? (
+                <>
+                  <ChevronUp size={12} /> Свернуть
+                </>
+              ) : (
+                <>
+                  <ChevronDown size={12} /> Показать все ({items.length})
+                </>
+              )}
+            </button>
+          )}
+        </>
       )}
     </div>
   );
