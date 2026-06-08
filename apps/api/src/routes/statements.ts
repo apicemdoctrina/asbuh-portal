@@ -143,18 +143,19 @@ export function buildAlfaAuthorizeUrl(
   cfg: { authBaseUrl: string; clientId: string; redirectUri: string; scope: string },
   state: string,
 ): string {
-  const qs = new URLSearchParams({
+  const params: Record<string, string> = {
     response_type: "code",
     client_id: cfg.clientId,
     redirect_uri: cfg.redirectUri,
     scope: cfg.scope,
     state,
-    // По доке ErrorScope: при insufficient_scope нужно повторить authorize
-    // с prompt=consent, чтобы клиент явно одобрил все запрашиваемые scopes.
-    // Без этого Альфа может маскировать insufficient_scope как 404 на endpoint.
-    prompt: "consent",
-  });
-  return `${cfg.authBaseUrl}/oidc/authorize?${qs.toString()}`;
+  };
+  // Для обычного ACF (B2B SaaS) — prompt=consent заставляет клиента явно
+  // одобрить scope; иначе Альфа может вернуть insufficient_scope как 404.
+  // Для H2H consent даётся один раз на 1800 дней — повторный prompt не
+  // нужен и может сбить флоу. Включается через ALFA_PROMPT_CONSENT=1.
+  if (process.env.ALFA_PROMPT_CONSENT === "1") params.prompt = "consent";
+  return `${cfg.authBaseUrl}/oidc/authorize?${new URLSearchParams(params).toString()}`;
 }
 
 /**
