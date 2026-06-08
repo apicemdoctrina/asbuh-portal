@@ -89,7 +89,7 @@ function bankBadgeCls(name) {
   return "bg-muted text-body";
 }
 
-const API_PROVIDER_LABELS = { tochka: "Точка", sber: "Сбер", alfa: "Альфа" };
+const API_PROVIDER_LABELS = { tochka: "Точка", sber: "Сбер", alfa: "Альфа", email: "Email" };
 
 // Банк однозначно определяет провайдера API — не дёргаем юзера лишним вопросом.
 const BANK_TO_PROVIDER = { Сбербанк: "sber", Альфа: "alfa", Точка: "tochka" };
@@ -591,20 +591,22 @@ export default function BankAccountsCard({
                     {acc.comment && <p className="text-subtle">{acc.comment}</p>}
                   </div>
                   <div className="flex items-center gap-2 ml-4 shrink-0">
-                    {canConnectBank && effectiveProvider(acc) && (
-                      <button
-                        onClick={() => openConnectModal(acc)}
-                        className="text-subtle hover:text-primary transition-colors"
-                        title={
-                          acc.apiToken
-                            ? `Переподключить ${API_PROVIDER_LABELS[effectiveProvider(acc)]}`
-                            : `Подключить ${API_PROVIDER_LABELS[effectiveProvider(acc)]}`
-                        }
-                      >
-                        <LogIn size={16} />
-                      </button>
-                    )}
-                    {canFetchStatements && acc.apiProvider && (
+                    {canConnectBank &&
+                      effectiveProvider(acc) &&
+                      effectiveProvider(acc) !== "email" && (
+                        <button
+                          onClick={() => openConnectModal(acc)}
+                          className="text-subtle hover:text-primary transition-colors"
+                          title={
+                            acc.apiToken
+                              ? `Переподключить ${API_PROVIDER_LABELS[effectiveProvider(acc)]}`
+                              : `Подключить ${API_PROVIDER_LABELS[effectiveProvider(acc)]}`
+                          }
+                        >
+                          <LogIn size={16} />
+                        </button>
+                      )}
+                    {canFetchStatements && acc.apiProvider && acc.apiProvider !== "email" && (
                       <button
                         onClick={() => openFetch(acc)}
                         className="text-subtle hover:text-primary transition-colors"
@@ -613,8 +615,17 @@ export default function BankAccountsCard({
                         <Download size={16} />
                       </button>
                     )}
+                    {acc.apiProvider === "email" && (
+                      <span
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30"
+                        title="Push-канал: банк присылает выписки на общий email"
+                      >
+                        📧 Email
+                      </span>
+                    )}
                     {canEdit &&
                       acc.apiProvider &&
+                      acc.apiProvider !== "email" &&
                       acc.accountNumber &&
                       (() => {
                         const autoOn = optimisticAuto[acc.id] ?? acc.autoFetchEnabled;
@@ -917,6 +928,34 @@ export default function BankAccountsCard({
                   onChange={(e) => setComment(e.target.value)}
                   className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-body mb-1">
+                  Способ получения выписок
+                </label>
+                <select
+                  value={apiProvider}
+                  onChange={(e) => setApiProvider(e.target.value)}
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                >
+                  <option value="">Без подключения (ручная загрузка файлов)</option>
+                  {BANK_TO_PROVIDER[bankName] && (
+                    <option value={BANK_TO_PROVIDER[bankName]}>
+                      API {API_PROVIDER_LABELS[BANK_TO_PROVIDER[bankName]]} (автоматически)
+                    </option>
+                  )}
+                  <option value="email">Email (банк присылает выписки на общий ящик)</option>
+                </select>
+                {apiProvider === "email" && (
+                  <div className="mt-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 p-3 text-xs text-blue-900 dark:text-blue-200">
+                    В личном кабинете банка настройте автоотправку выписок в формате{" "}
+                    <strong>1C (1CClientBankExchange)</strong> на общий адрес, указанный
+                    администратором сервиса. Письма с вложениями будут разбираться автоматически
+                    каждые ~10 минут. Кнопка «Забрать выписку из банка» в этом режиме недоступна —
+                    банк присылает выписку сам.
+                  </div>
+                )}
               </div>
 
               {showLogin && apiProvider === "tochka" && (

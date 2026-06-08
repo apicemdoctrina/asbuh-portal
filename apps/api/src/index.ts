@@ -14,6 +14,7 @@ import { initHealthAlerts } from "./lib/health-alerts.js";
 import { startWeeklyClientDigest } from "./lib/client-digest.js";
 import { startAutoStatementFetcher } from "./lib/auto-statement-fetch.js";
 import { startNearRealtimeBankSync } from "./lib/near-realtime-bank-sync.js";
+import { startImapStatementWatcher } from "./lib/imap-statement-watcher.js";
 
 const PORT = process.env.PORT || 3001;
 
@@ -68,3 +69,4 @@ startTemporarySectionRevoker();
 startWeeklyClientDigest();
 startAutoStatementFetcher();
 startNearRealtimeBankSync();
+startImapStatementWatcher();

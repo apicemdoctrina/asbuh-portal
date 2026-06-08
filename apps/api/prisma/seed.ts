@@ -221,6 +221,26 @@ async function main() {
   }
   console.log("Role-permission assignments seeded");
 
+  // Системный юзер для IMAP email-ingest (БСПБ и т.п.). Логин невозможен —
+  // passwordHash случайный, в формах /api/auth этот email никогда не сматчится.
+  // Используется только в BankStatement.uploadedById при автоматическом ингесте писем.
+  const systemImap = await prisma.user.upsert({
+    where: { email: "system-imap@asbuh.local" },
+    update: {},
+    create: {
+      email: "system-imap@asbuh.local",
+      passwordHash: await bcrypt.hash(`__nologin__${Math.random()}__`, 12),
+      firstName: "System",
+      lastName: "IMAP",
+    },
+  });
+  await prisma.userRole.upsert({
+    where: { userId_roleId: { userId: systemImap.id, roleId: roleRecords.accountant.id } },
+    update: {},
+    create: { userId: systemImap.id, roleId: roleRecords.accountant.id },
+  });
+  console.log("System IMAP user seeded: system-imap@asbuh.local");
+
   // Dev-only test users (admin + supervisor). On prod the singleton-admin
   // trigger blocks this and the real users already exist — skip unless
   // explicitly opted in via SEED_DEV_USERS=true.

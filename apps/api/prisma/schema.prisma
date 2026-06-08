@@ -1085,6 +1085,7 @@ model BankStatement {
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   uploadedBy   User          @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
   transactions StatementTransaction[]
+  imapLogs     ImapStatementLog[]
 
   @@index([organizationId])
   @@index([createdAt])
@@ -1121,4 +1122,33 @@ enum FlowDirection {
 enum ReconcileStatus {
   OK
   MISMATCH
+}
+
+enum ImapIngestStatus {
+  OK
+  NO_ATTACHMENT
+  UNKNOWN_ACCOUNT
+  PARSE_ERROR
+  OTHER_ERROR
+}
+
+model ImapStatementLog {
+  id            String           @id @default(uuid())
+  mailbox       String
+  uidValidity   BigInt           @map("uid_validity")
+  uid           Int
+  status        ImapIngestStatus
+  reason        String?
+  accountNumber String?          @map("account_number")
+  statementId   String?          @map("statement_id")
+  messageId     String?          @map("message_id")
+  subject       String?
+  fromAddress   String?          @map("from_address")
+  processedAt   DateTime         @default(now()) @map("processed_at")
+
+  statement BankStatement? @relation(fields: [statementId], references: [id], onDelete: SetNull)
+
+  @@unique([mailbox, uidValidity, uid])
+  @@index([status, processedAt])
+  @@map("imap_statement_log")
 }

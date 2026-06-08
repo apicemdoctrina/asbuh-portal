@@ -14,6 +14,7 @@ import { syncStatementTransactions } from "../lib/org-finance.js";
 import { parseStatement } from "../lib/statement-parser.js";
 import { reconcile } from "../lib/statement-reconcile.js";
 import { normalizeEdited } from "../lib/statement-edit.js";
+import { ingestStatement } from "../lib/statement-ingest.js";
 import { generate1c } from "../lib/statement-1c.js";
 import { generatePdf } from "../lib/statement-pdf.js";
 import {
@@ -88,13 +89,6 @@ async function detectOrg(
     select: { organization: { select: { id: true, name: true } } },
   });
   return bankAcc?.organization ?? null;
-}
-
-/** DD.MM.YYYY → Date (полночь UTC); пустое → текущая дата. */
-function parseRuDate(d: string | null): Date {
-  if (!d) return new Date();
-  const [dd, mm, yyyy] = d.split(".");
-  return new Date(`${yyyy}-${mm}-${dd}`);
 }
 
 /** Агрегаты для записи BankStatement из распарсенной выписки. */
@@ -338,32 +332,17 @@ router.post(
         return;
       }
 
-      const rec = reconcile(parsed);
-      const accountNumbers = parsed.accounts.map((a) => a.accountNumber).filter(Boolean);
-      const totalIn = rec.perAccount.reduce((s, p) => s + p.sumIn, 0);
-      const totalOut = rec.perAccount.reduce((s, p) => s + p.sumOut, 0);
-      const docCount = parsed.accounts.reduce((s, a) => s + a.operations.length, 0);
-      const openingBalance = parsed.accounts.reduce((s, a) => s + a.openingBalance, 0);
-      const closingBalance = parsed.accounts.reduce((s, a) => s + a.closingBalance, 0);
+      const result = await ingestStatement({
+        buffer: buf,
+        originalName: req.file.originalname,
+        organizationId,
+        uploadedById: req.user!.userId,
+        parsedHint: parsed,
+        storedFilename: req.file.filename,
+      });
 
-      const record = await prisma.bankStatement.create({
-        data: {
-          organizationId,
-          uploadedById: req.user!.userId,
-          bankName: parsed.meta.sender,
-          accountNumbers,
-          periodStart: parseRuDate(parsed.meta.dateStart),
-          periodEnd: parseRuDate(parsed.meta.dateEnd),
-          openingBalance: new Prisma.Decimal(openingBalance),
-          closingBalance: new Prisma.Decimal(closingBalance),
-          totalIn: new Prisma.Decimal(totalIn),
-          totalOut: new Prisma.Decimal(totalOut),
-          docCount,
-          reconcileStatus: rec.status,
-          reconcileDiff: new Prisma.Decimal(rec.totalDiff),
-          originalName: req.file.originalname,
-          originalPath: req.file.filename,
-        },
+      const record = await prisma.bankStatement.findUniqueOrThrow({
+        where: { id: result.statementId },
         include: { organization: { select: { id: true, name: true } } },
       });
 
@@ -372,15 +351,17 @@ router.post(
         userId: req.user!.userId,
         entity: "bank_statement",
         entityId: record.id,
-        details: { reconcile: rec.status, organizationId, accounts: accountNumbers },
+        details: {
+          reconcile: result.reconcile.status,
+          organizationId,
+          accounts: result.parsed.accounts.map((a) => a.accountNumber),
+        },
       });
-
-      await syncStatementTransactions(record.id);
 
       res.status(201).json({
         statement: record,
-        reconcile: rec,
-        accounts: parsed.accounts.map((a) => ({
+        reconcile: result.reconcile,
+        accounts: result.parsed.accounts.map((a) => ({
           accountNumber: a.accountNumber,
           openingBalance: a.openingBalance,
           closingBalance: a.closingBalance,
@@ -752,27 +733,18 @@ router.post(
       const buf = generate1c(parsed);
       const acc = parsed.accounts[0]?.accountNumber || "acc";
       const filename = `${apiProvider}_${acc}_${body.data.start}_${body.data.end}_${randomUUID()}.txt`;
-      fs.writeFileSync(path.join(UPLOADS_DIR, filename), buf);
 
-      const agg = aggregatesFrom(parsed);
-      const record = await prisma.bankStatement.create({
-        data: {
-          organizationId: body.data.organizationId,
-          uploadedById: req.user!.userId,
-          bankName: agg.bankName,
-          accountNumbers: agg.accountNumbers,
-          periodStart: parseRuDate(parsed.meta.dateStart),
-          periodEnd: parseRuDate(parsed.meta.dateEnd),
-          openingBalance: new Prisma.Decimal(agg.openingBalance),
-          closingBalance: new Prisma.Decimal(agg.closingBalance),
-          totalIn: new Prisma.Decimal(agg.totalIn),
-          totalOut: new Prisma.Decimal(agg.totalOut),
-          docCount: agg.docCount,
-          reconcileStatus: agg.rec.status,
-          reconcileDiff: new Prisma.Decimal(agg.rec.totalDiff),
-          originalName: `${agg.bankName || apiProvider} ${body.data.start}—${body.data.end}.txt`,
-          originalPath: filename,
-        },
+      const result = await ingestStatement({
+        buffer: buf,
+        originalName: `${parsed.meta.sender || apiProvider} ${body.data.start}—${body.data.end}.txt`,
+        organizationId: body.data.organizationId,
+        uploadedById: req.user!.userId,
+        parsedHint: parsed,
+        storedFilename: filename,
+      });
+
+      const record = await prisma.bankStatement.findUniqueOrThrow({
+        where: { id: result.statementId },
         include: { organization: { select: { id: true, name: true } } },
       });
 
@@ -791,18 +763,16 @@ router.post(
         entity: "bank_statement",
         entityId: record.id,
         details: {
-          reconcile: agg.rec.status,
+          reconcile: result.reconcile.status,
           organizationId: body.data.organizationId,
           period: `${body.data.start}..${body.data.end}`,
         },
       });
 
-      await syncStatementTransactions(record.id);
-
       res.status(201).json({
         statement: record,
-        reconcile: agg.rec,
-        accounts: parsed.accounts.map((a) => ({
+        reconcile: result.reconcile,
+        accounts: result.parsed.accounts.map((a) => ({
           accountNumber: a.accountNumber,
           openingBalance: a.openingBalance,
           closingBalance: a.closingBalance,
