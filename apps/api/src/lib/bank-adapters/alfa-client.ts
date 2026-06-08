@@ -94,10 +94,11 @@ export async function fetchDayTransactions(
       statementDate: dateISO,
       page: String(page),
     });
+    // ALFA_API_BASE уже включает /api (sandbox.alfabank.ru/api или baas.alfabank.ru/api).
     const res = await alfaFetch(
       cfg.apiBaseUrl,
       cfg,
-      `/api/jp/v1/statement/transactions?${qs.toString()}`,
+      `/jp/v1/statement/transactions?${qs.toString()}`,
       {
         method: "GET",
         headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
