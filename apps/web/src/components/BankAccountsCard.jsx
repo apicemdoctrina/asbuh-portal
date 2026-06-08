@@ -94,6 +94,11 @@ const API_PROVIDER_LABELS = { tochka: "Точка", sber: "Сбер", alfa: "А�
 // Банк однозначно определяет провайдера API — не дёргаем юзера лишним вопросом.
 const BANK_TO_PROVIDER = { Сбербанк: "sber", Альфа: "alfa", Точка: "tochka" };
 
+// Старые счета могут иметь apiProvider=null в БД — выводим из bankName.
+function effectiveProvider(acc) {
+  return acc.apiProvider || BANK_TO_PROVIDER[acc.bankName] || null;
+}
+
 const SECRET_DISPLAY_DURATION = 30_000;
 
 export default function BankAccountsCard({
@@ -549,10 +554,13 @@ export default function BankAccountsCard({
                         {acc.bankName}
                       </span>
                       {showLogin &&
-                        (acc.apiProvider ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                        (effectiveProvider(acc) ? (
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${bankBadgeCls(acc.bankName)}`}
+                          >
                             <PlugZap size={12} />
-                            API: {API_PROVIDER_LABELS[acc.apiProvider] || acc.apiProvider}
+                            API:{" "}
+                            {API_PROVIDER_LABELS[effectiveProvider(acc)] || effectiveProvider(acc)}
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-subtle">
@@ -560,14 +568,11 @@ export default function BankAccountsCard({
                             без API
                           </span>
                         ))}
-                      {(showLogin || canConnectBank) &&
-                        (acc.apiProvider === "sber" ||
-                          acc.apiProvider === "alfa" ||
-                          acc.apiProvider === "tochka") && (
-                          <span className="text-xs text-subtle">
-                            {acc.apiToken ? "· подключён" : "· не подключён"}
-                          </span>
-                        )}
+                      {(showLogin || canConnectBank) && effectiveProvider(acc) && (
+                        <span className="text-xs text-subtle">
+                          {acc.apiToken ? "· подключён" : "· не подключён"}
+                        </span>
+                      )}
                     </p>
                     {showLogin && displayLogin != null && (
                       <p>
@@ -582,22 +587,19 @@ export default function BankAccountsCard({
                     {acc.comment && <p className="text-subtle">{acc.comment}</p>}
                   </div>
                   <div className="flex items-center gap-2 ml-4 shrink-0">
-                    {canConnectBank &&
-                      (acc.apiProvider === "sber" ||
-                        acc.apiProvider === "alfa" ||
-                        acc.apiProvider === "tochka") && (
-                        <button
-                          onClick={() => openConnectModal(acc)}
-                          className="text-subtle hover:text-primary transition-colors"
-                          title={
-                            acc.apiToken
-                              ? `Переподключить ${API_PROVIDER_LABELS[acc.apiProvider]}`
-                              : `Подключить ${API_PROVIDER_LABELS[acc.apiProvider]}`
-                          }
-                        >
-                          <LogIn size={16} />
-                        </button>
-                      )}
+                    {canConnectBank && effectiveProvider(acc) && (
+                      <button
+                        onClick={() => openConnectModal(acc)}
+                        className="text-subtle hover:text-primary transition-colors"
+                        title={
+                          acc.apiToken
+                            ? `Переподключить ${API_PROVIDER_LABELS[effectiveProvider(acc)]}`
+                            : `Подключить ${API_PROVIDER_LABELS[effectiveProvider(acc)]}`
+                        }
+                      >
+                        <LogIn size={16} />
+                      </button>
+                    )}
                     {canFetchStatements && acc.apiProvider && (
                       <button
                         onClick={() => openFetch(acc)}
@@ -913,46 +915,21 @@ export default function BankAccountsCard({
                 />
               </div>
 
-              {showLogin && apiProvider && (
-                <div className="border-t border-line pt-4 space-y-4">
-                  <div className="text-xs font-semibold text-subtle uppercase tracking-wide">
-                    Подключение к API банка ({API_PROVIDER_LABELS[apiProvider] || apiProvider})
-                  </div>
-                  {apiProvider && (
-                    <>
-                      {apiProvider === "tochka" && (
-                        <div>
-                          <label className="block text-sm font-medium text-body mb-1">
-                            Идентификатор счёта (accountId)
-                          </label>
-                          <input
-                            type="text"
-                            value={apiAccountId}
-                            onChange={(e) => setApiAccountId(e.target.value)}
-                            placeholder="Если пусто — берётся номер счёта"
-                            className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                          />
-                        </div>
-                      )}
-                      <div>
-                        <label className="block text-sm font-medium text-body mb-1">
-                          {apiProvider === "sber"
-                            ? "Refresh-токен (СберБизнес)"
-                            : apiProvider === "alfa"
-                              ? "Refresh-токен (Alfa ID)"
-                              : "API-токен"}
-                        </label>
-                        <input
-                          type="password"
-                          value={apiToken}
-                          onChange={(e) => setApiToken(e.target.value)}
-                          placeholder={editingAccount ? "Оставьте пустым, чтобы не менять" : ""}
-                          autoComplete="new-password"
-                          className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                        />
-                      </div>
-                    </>
-                  )}
+              {showLogin && apiProvider === "tochka" && (
+                <div className="border-t border-line pt-4">
+                  <label className="block text-sm font-medium text-body mb-1">
+                    Идентификатор счёта Точки (accountId)
+                  </label>
+                  <input
+                    type="text"
+                    value={apiAccountId}
+                    onChange={(e) => setApiAccountId(e.target.value)}
+                    placeholder="Если пусто — берётся номер счёта"
+                    className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  />
+                  <p className="text-xs text-subtle mt-1">
+                    Подключение к API — через кнопку «Подключить» в карточке счёта.
+                  </p>
                 </div>
               )}
 
