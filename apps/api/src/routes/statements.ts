@@ -22,12 +22,15 @@ import {
   BankConfigError,
   BankApiError,
 } from "../lib/bank-adapters/index.js";
-import { encrypt } from "../lib/crypto.js";
+import { encrypt, decrypt } from "../lib/crypto.js";
 import { getSberConfig } from "../lib/bank-adapters/sber-mtls.js";
 import { exchangeAuthCode } from "../lib/bank-adapters/sber-client.js";
 import { signSberState, verifySberState } from "../lib/bank-adapters/sber-oauth-state.js";
 import { getAlfaConfig } from "../lib/bank-adapters/alfa-mtls.js";
-import { exchangeAuthCode as exchangeAlfaCode } from "../lib/bank-adapters/alfa-client.js";
+import {
+  exchangeAuthCode as exchangeAlfaCode,
+  refreshAccessToken as refreshAlfaAccessToken,
+} from "../lib/bank-adapters/alfa-client.js";
 import { signAlfaState, verifyAlfaState } from "../lib/bank-adapters/alfa-oauth-state.js";
 import {
   getTochkaOAuthConfig,
@@ -144,6 +147,10 @@ export function buildAlfaAuthorizeUrl(
     redirect_uri: cfg.redirectUri,
     scope: cfg.scope,
     state,
+    // По доке ErrorScope: при insufficient_scope нужно повторить authorize
+    // с prompt=consent, чтобы клиент явно одобрил все запрашиваемые scopes.
+    // Без этого Альфа может маскировать insufficient_scope как 404 на endpoint.
+    prompt: "consent",
   });
   return `${cfg.authBaseUrl}/oidc/authorize?${qs.toString()}`;
 }
@@ -1005,6 +1012,112 @@ router.get("/alfa/callback", async (req: Request, res) => {
     fail(msg, acc.organizationId);
   }
 });
+
+/**
+ * Диагностика Альфа-выписки. Берёт refresh, обменивает на access, декодирует JWT
+ * и пробует оба известных endpoint'а (v1 transactions JSON + v2 1C XML). Возвращает
+ * сырой ответ, чтобы понять причину 404 без SSH в журнал.
+ */
+router.get(
+  "/alfa/debug",
+  authenticate,
+  requirePermission("bank_statement", "connect"),
+  async (req: Request, res) => {
+    try {
+      const bankAccountId = (req.query.bankAccountId as string) || "";
+      const date = (req.query.date as string) || "2025-12-08";
+      const acc = await prisma.organizationBankAccount.findFirst({
+        where: {
+          id: bankAccountId,
+          apiProvider: "alfa",
+          ...(isPrivileged(req.user!.roles)
+            ? {}
+            : {
+                organization: {
+                  OR: [
+                    { section: { members: { some: { userId: req.user!.userId } } } },
+                    { members: { some: { userId: req.user!.userId } } },
+                  ],
+                },
+              }),
+        },
+        select: { id: true, accountNumber: true, apiToken: true },
+      });
+      if (!acc) {
+        res.status(404).json({ error: "Счёт Альфы не найден или нет доступа" });
+        return;
+      }
+      if (!acc.apiToken) {
+        res.status(400).json({ error: "Счёт не подключён через OAuth — нет refresh-токена" });
+        return;
+      }
+      const cfg = getAlfaConfig();
+      const refresh = decrypt(acc.apiToken);
+      const tokens = await refreshAlfaAccessToken(refresh, cfg);
+
+      // Декодируем JWT payload без проверки подписи.
+      const jwtPart = tokens.accessToken.split(".")[1] || "";
+      const pad = "=".repeat((4 - (jwtPart.length % 4)) % 4);
+      let jwt: unknown = null;
+      try {
+        jwt = JSON.parse(
+          Buffer.from(jwtPart.replace(/-/g, "+").replace(/_/g, "/") + pad, "base64").toString(),
+        );
+      } catch {
+        jwt = "<failed to decode>";
+      }
+
+      const accountNumber = acc.accountNumber || "40702810102300000001";
+      const endpoints = [
+        {
+          name: "v1 transactions (JSON)",
+          url: `${cfg.apiBaseUrl}/jp/v1/statement/transactions?accountNumber=${accountNumber}&statementDate=${date}&page=1`,
+          accept: "application/json",
+        },
+        {
+          name: "v2 1C statement (XML)",
+          url: `${cfg.apiBaseUrl}/jp/v2/accounts/${accountNumber}/transactions/1C?executeDate=${date}`,
+          accept: "application/xml",
+        },
+      ];
+
+      const results = [];
+      for (const ep of endpoints) {
+        const r = await fetch(ep.url, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${tokens.accessToken}`, Accept: ep.accept },
+          dispatcher: cfg.dispatcher,
+        } as RequestInit).catch((e) => ({
+          status: 0,
+          headers: new Headers(),
+          text: () => String(e),
+        }));
+        const headers: Record<string, string> = {};
+        for (const [k, v] of (r as Response).headers.entries()) headers[k] = v;
+        const body = await (r as Response).text();
+        results.push({
+          name: ep.name,
+          url: ep.url,
+          status: (r as Response).status,
+          headers,
+          body: body.slice(0, 4000),
+          bodyTruncated: body.length > 4000,
+        });
+      }
+
+      res.json({
+        accountNumber,
+        date,
+        jwtPayload: jwt,
+        endpoints: results,
+      });
+    } catch (err) {
+      const m = mapBankError(err);
+      if (m.status === 500) console.error("Alfa debug error:", err);
+      res.status(m.status).json({ error: m.error });
+    }
+  },
+);
 
 /** Старт OAuth-онбординга Точки: получить consent + вернуть ссылку авторизации. */
 router.get(

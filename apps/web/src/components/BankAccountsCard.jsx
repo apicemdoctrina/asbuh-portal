@@ -146,6 +146,20 @@ export default function BankAccountsCard({
 
   // Connect-bank modal state: { acc, accountNumber, busy, error } | null
   const [connectModal, setConnectModal] = useState(null);
+  // Alfa-debug modal state: { acc, busy, data, error } | null
+  const [alfaDebug, setAlfaDebug] = useState(null);
+
+  async function runAlfaDebug(acc) {
+    setAlfaDebug({ acc, busy: true, data: null, error: "" });
+    try {
+      const res = await api(`/api/statements/alfa/debug?bankAccountId=${acc.id}&date=2025-12-08`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Ошибка диагностики");
+      setAlfaDebug({ acc, busy: false, data, error: "" });
+    } catch (err) {
+      setAlfaDebug({ acc, busy: false, data: null, error: err.message });
+    }
+  }
 
   async function toggleStOps(stId) {
     const cur = stOps[stId];
@@ -604,6 +618,15 @@ export default function BankAccountsCard({
                         <LogIn size={16} />
                       </button>
                     )}
+                    {canConnectBank && effectiveProvider(acc) === "alfa" && acc.apiToken && (
+                      <button
+                        onClick={() => runAlfaDebug(acc)}
+                        className="text-subtle hover:text-primary transition-colors"
+                        title="Диагностика Альфа API"
+                      >
+                        <AlertTriangle size={16} />
+                      </button>
+                    )}
                     {canFetchStatements && acc.apiProvider && (
                       <button
                         onClick={() => openFetch(acc)}
@@ -1030,6 +1053,74 @@ export default function BankAccountsCard({
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {alfaDebug && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-3xl mx-4 p-6 max-h-[90vh] overflow-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-heading">Диагностика Альфа API</h2>
+              <button
+                onClick={() => setAlfaDebug(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            {alfaDebug.busy && (
+              <div className="flex items-center justify-center py-16 text-slate-400">
+                <Loader2 size={24} className="animate-spin" />
+              </div>
+            )}
+            {alfaDebug.error && (
+              <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm flex items-center gap-2">
+                <AlertTriangle size={16} /> {alfaDebug.error}
+              </div>
+            )}
+            {alfaDebug.data && (
+              <div className="space-y-4 text-sm">
+                <div>
+                  <h3 className="font-semibold mb-1">
+                    Счёт: {alfaDebug.data.accountNumber} · Дата: {alfaDebug.data.date}
+                  </h3>
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-1">JWT payload (scope/sub/aud):</h3>
+                  <pre className="bg-canvas p-3 rounded-lg overflow-auto text-xs max-h-60">
+                    {JSON.stringify(alfaDebug.data.jwtPayload, null, 2)}
+                  </pre>
+                </div>
+                {(alfaDebug.data.endpoints || []).map((ep, i) => (
+                  <div key={i}>
+                    <h3 className="font-semibold mb-1">
+                      {ep.name} —{" "}
+                      <span
+                        className={
+                          ep.status >= 200 && ep.status < 300 ? "text-emerald-600" : "text-red-600"
+                        }
+                      >
+                        HTTP {ep.status}
+                      </span>
+                    </h3>
+                    <div className="text-xs text-subtle mb-1 break-all">{ep.url}</div>
+                    <details className="mb-1">
+                      <summary className="cursor-pointer text-xs text-subtle">
+                        Headers ({Object.keys(ep.headers || {}).length})
+                      </summary>
+                      <pre className="bg-canvas p-3 rounded-lg overflow-auto text-xs max-h-40 mt-1">
+                        {JSON.stringify(ep.headers, null, 2)}
+                      </pre>
+                    </details>
+                    <pre className="bg-canvas p-3 rounded-lg overflow-auto text-xs max-h-60 whitespace-pre-wrap">
+                      {ep.body || "(empty body)"}
+                      {ep.bodyTruncated && "\n... (truncated)"}
+                    </pre>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
