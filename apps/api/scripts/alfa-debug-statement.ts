@@ -65,23 +65,35 @@ console.log("\n— Decoded JWT payload:");
 console.log(JSON.stringify(decodeJwt(tokens.accessToken), null, 2));
 
 const accountNumber = acc.accountNumber || "40702810102300000001";
-const url = `${cfg.apiBaseUrl}/jp/v1/statement/transactions?accountNumber=${accountNumber}&statementDate=${date}&page=1`;
-console.log(`\n— GET ${url}`);
 
-const res = await fetch(url, {
-  method: "GET",
-  headers: {
-    Authorization: `Bearer ${tokens.accessToken}`,
-    Accept: "application/json",
+// Пробуем оба endpoint'а подряд, чтобы выяснить какой из них реально живёт в sandbox.
+const endpoints = [
+  {
+    name: "v1 transactions (JSON)",
+    url: `${cfg.apiBaseUrl}/jp/v1/statement/transactions?accountNumber=${accountNumber}&statementDate=${date}&page=1`,
+    accept: "application/json",
   },
-  dispatcher: cfg.dispatcher,
-} as RequestInit);
+  {
+    name: "v2 1C statement (XML)",
+    url: `${cfg.apiBaseUrl}/jp/v2/accounts/${accountNumber}/transactions/1C?executeDate=${date}`,
+    accept: "application/xml",
+  },
+];
 
-console.log(`\nHTTP ${res.status} ${res.statusText}`);
-console.log("Response headers:");
-for (const [k, v] of res.headers.entries()) console.log(`  ${k}: ${v}`);
-const body = await res.text();
-console.log("\nBody:");
-console.log(body);
+for (const ep of endpoints) {
+  console.log(`\n========== ${ep.name} ==========`);
+  console.log(`GET ${ep.url}`);
+  const res = await fetch(ep.url, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${tokens.accessToken}`, Accept: ep.accept },
+    dispatcher: cfg.dispatcher,
+  } as RequestInit);
+  console.log(`HTTP ${res.status} ${res.statusText}`);
+  for (const [k, v] of res.headers.entries()) console.log(`  ${k}: ${v}`);
+  const body = await res.text();
+  console.log("Body:");
+  console.log(body.slice(0, 2000));
+  if (body.length > 2000) console.log(`... (${body.length - 2000} more bytes)`);
+}
 
 await prisma.$disconnect();
