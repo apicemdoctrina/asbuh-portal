@@ -31,6 +31,7 @@ import {
   exchangeAuthCode as exchangeAlfaCode,
   refreshAccessToken as refreshAlfaAccessToken,
 } from "../lib/bank-adapters/alfa-client.js";
+import { alfaAdapter } from "../lib/bank-adapters/alfa.js";
 import { signAlfaState, verifyAlfaState } from "../lib/bank-adapters/alfa-oauth-state.js";
 import {
   getTochkaOAuthConfig,
@@ -1105,11 +1106,38 @@ router.get(
         });
       }
 
+      // Полный прогон через adapter — чтобы понять, теряет ли он операции.
+      let adapterResult: unknown = null;
+      let adapterError: string | null = null;
+      try {
+        const parsed = await alfaAdapter.fetchStatement({
+          accountNumber,
+          accountId: null,
+          start: date,
+          end: date,
+          credential: refresh,
+          saveCredential: async () => {},
+        });
+        adapterResult = {
+          accounts: parsed.accounts.map((a) => ({
+            accountNumber: a.accountNumber,
+            operationsCount: a.operations.length,
+            totalIn: a.totalIn,
+            totalOut: a.totalOut,
+            firstOp: a.operations[0] ?? null,
+          })),
+        };
+      } catch (e) {
+        adapterError = e instanceof Error ? e.message : String(e);
+      }
+
       res.json({
         accountNumber,
         date,
         jwtPayload: jwt,
         endpoints: results,
+        adapter: adapterResult,
+        adapterError,
       });
     } catch (err) {
       const m = mapBankError(err);

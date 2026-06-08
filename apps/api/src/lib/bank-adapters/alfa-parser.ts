@@ -10,6 +10,8 @@ function isoToRu(iso: string): string {
 function toNum(v: unknown): number {
   if (typeof v === "number") return v;
   if (typeof v === "string") return parseFloat(v) || 0;
+  // Альфа в /transactions возвращает amount как объект {amount, currencyName}.
+  if (v && typeof v === "object" && "amount" in v) return toNum((v as { amount: unknown }).amount);
   return 0;
 }
 

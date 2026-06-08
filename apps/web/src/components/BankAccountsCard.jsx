@@ -1092,6 +1092,24 @@ export default function BankAccountsCard({
                     {JSON.stringify(alfaDebug.data.jwtPayload, null, 2)}
                   </pre>
                 </div>
+                {alfaDebug.data.adapter && (
+                  <div>
+                    <h3 className="font-semibold mb-1 text-emerald-600">
+                      Полный прогон через adapter
+                    </h3>
+                    <pre className="bg-canvas p-3 rounded-lg overflow-auto text-xs max-h-60">
+                      {JSON.stringify(alfaDebug.data.adapter, null, 2)}
+                    </pre>
+                  </div>
+                )}
+                {alfaDebug.data.adapterError && (
+                  <div>
+                    <h3 className="font-semibold mb-1 text-red-600">Adapter error</h3>
+                    <pre className="bg-canvas p-3 rounded-lg overflow-auto text-xs max-h-60">
+                      {alfaDebug.data.adapterError}
+                    </pre>
+                  </div>
+                )}
                 {(alfaDebug.data.endpoints || []).map((ep, i) => (
                   <div key={i}>
                     <h3 className="font-semibold mb-1">
