@@ -7,6 +7,8 @@ import {
   reportTelegramFailure,
   reportTelegramOk,
 } from "../lib/health-alerts.js";
+import prisma from "../lib/prisma.js";
+import { syncStatementTransactions } from "../lib/org-finance.js";
 
 const router = Router();
 
@@ -38,6 +40,33 @@ router.post("/test-alert", authenticate, requireRole("admin"), async (req, res) 
     res.json({ status: "dispatched", channel, mode: simulateRecovery ? "ok" : "failure" });
   } catch (err) {
     console.error("[health/test-alert] error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * Одноразовая ресинхронизация всех выписок: пересоздать StatementTransaction
+ * с применением текущей логики маппинга (включая fallback даты на periodStart).
+ * Нужно после изменения логики ruDate, чтобы старые записи с current-day-fallback
+ * получили корректные даты периода.
+ */
+router.post("/resync-statements", authenticate, requireRole("admin"), async (_req, res) => {
+  try {
+    const stmts = await prisma.bankStatement.findMany({ select: { id: true } });
+    let ok = 0;
+    let failed = 0;
+    for (const s of stmts) {
+      try {
+        await syncStatementTransactions(s.id);
+        ok++;
+      } catch (err) {
+        console.error("[health/resync] failed", s.id, err);
+        failed++;
+      }
+    }
+    res.json({ status: "done", total: stmts.length, ok, failed });
+  } catch (err) {
+    console.error("[health/resync-statements] error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

@@ -31,13 +31,16 @@ export function statementToTransactions(
   ctx: { organizationId: string; statementId: string },
 ): OrgTxInput[] {
   const rows: OrgTxInput[] = [];
+  // Если у операции нет своей даты — берём начало периода выписки, а НЕ текущий день.
+  // Иначе вся «безымянная» порция повиснет на сегодня и испортит аналитику by-month.
+  const fallbackDate = parsed.meta.dateStart || "";
   for (const acc of parsed.accounts) {
     for (const op of acc.operations) {
       const isIn = op.direction === "in";
       rows.push({
         organizationId: ctx.organizationId,
         statementId: ctx.statementId,
-        date: ruDate(op.date),
+        date: ruDate(op.date || fallbackDate),
         direction: isIn ? "IN" : "OUT",
         amount: round2(op.amount),
         counterparty: isIn ? op.payerName : op.payeeName,
