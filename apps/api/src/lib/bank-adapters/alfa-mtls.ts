@@ -36,10 +36,11 @@ export function getAlfaConfig(): AlfaConfig {
   const clientId = process.env.ALFA_CLIENT_ID || "";
   const clientSecret = process.env.ALFA_CLIENT_SECRET || "";
   const redirectUri = process.env.ALFA_REDIRECT_URI || "";
-  // Альфа просила в письме перечислять scope через пробел (стандарт OIDC).
-  const scope =
-    process.env.ALFA_SCOPE ||
-    "openid customer transactions signature profile email phone eio role inn";
+  // Минимум для выписок — openid + transactions. Прочие scope (customer,
+  // signature, ...) включай через ALFA_SCOPE только если они активированы
+  // у твоей интеграции в Developer Portal — иначе Альфа отдаст invalid_scope
+  // на authorize-запросе с prompt=consent.
+  const scope = process.env.ALFA_SCOPE || "openid transactions";
   const certPath = process.env.ALFA_CERT_PATH || "";
   const keyPath = process.env.ALFA_CERT_KEY_PATH || "";
   const passphrase = process.env.ALFA_CERT_PASSPHRASE || undefined;
