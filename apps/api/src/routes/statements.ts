@@ -30,6 +30,7 @@ import { getAlfaConfig } from "../lib/bank-adapters/alfa-mtls.js";
 import {
   exchangeAuthCode as exchangeAlfaCode,
   refreshAccessToken as refreshAlfaAccessToken,
+  fetchDayTransactions as fetchAlfaDayTransactions,
 } from "../lib/bank-adapters/alfa-client.js";
 import { alfaAdapter } from "../lib/bank-adapters/alfa.js";
 import { signAlfaState, verifyAlfaState } from "../lib/bank-adapters/alfa-oauth-state.js";
@@ -1106,6 +1107,21 @@ router.get(
         });
       }
 
+      // Прямой вызов fetchDayTransactions — те же аргументы, что использует adapter.
+      let directFetch: unknown = null;
+      let directFetchError: string | null = null;
+      try {
+        const txs = await fetchAlfaDayTransactions(tokens.accessToken, accountNumber, date, cfg);
+        directFetch = {
+          count: txs.length,
+          firstKeys: txs[0] ? Object.keys(txs[0]) : null,
+          firstAmount: (txs[0] as { amount?: unknown })?.amount ?? null,
+          firstDirection: (txs[0] as { direction?: unknown })?.direction ?? null,
+        };
+      } catch (e) {
+        directFetchError = e instanceof Error ? e.message : String(e);
+      }
+
       // Полный прогон через adapter — чтобы понять, теряет ли он операции.
       let adapterResult: unknown = null;
       let adapterError: string | null = null;
@@ -1136,6 +1152,8 @@ router.get(
         date,
         jwtPayload: jwt,
         endpoints: results,
+        directFetch,
+        directFetchError,
         adapter: adapterResult,
         adapterError,
       });

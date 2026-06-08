@@ -1092,6 +1092,24 @@ export default function BankAccountsCard({
                     {JSON.stringify(alfaDebug.data.jwtPayload, null, 2)}
                   </pre>
                 </div>
+                {alfaDebug.data.directFetch && (
+                  <div>
+                    <h3 className="font-semibold mb-1 text-emerald-600">
+                      Прямой fetchDayTransactions (как в adapter)
+                    </h3>
+                    <pre className="bg-canvas p-3 rounded-lg overflow-auto text-xs max-h-60">
+                      {JSON.stringify(alfaDebug.data.directFetch, null, 2)}
+                    </pre>
+                  </div>
+                )}
+                {alfaDebug.data.directFetchError && (
+                  <div>
+                    <h3 className="font-semibold mb-1 text-red-600">directFetch error</h3>
+                    <pre className="bg-canvas p-3 rounded-lg overflow-auto text-xs max-h-60">
+                      {alfaDebug.data.directFetchError}
+                    </pre>
+                  </div>
+                )}
                 {alfaDebug.data.adapter && (
                   <div>
                     <h3 className="font-semibold mb-1 text-emerald-600">
