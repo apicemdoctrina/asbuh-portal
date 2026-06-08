@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import {
   TrendingUp,
@@ -7,6 +7,8 @@ import {
   Upload,
   CheckCircle2,
   AlertTriangle,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -23,6 +25,10 @@ export default function OrgFinanceSection({ organizationId, financeVisibleToClie
   const [reloadKey, setReloadKey] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState(null); // { ok, status, diff, id } | { error }
+  const [opSearch, setOpSearch] = useState("");
+  const [opMin, setOpMin] = useState("");
+  const [opMax, setOpMax] = useState("");
+  const [opExpanded, setOpExpanded] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -220,40 +226,150 @@ export default function OrgFinanceSection({ organizationId, financeVisibleToClie
             <TopList title="Топ по расходу" icon={TrendingDown} items={s.topOut} color="red" />
           </div>
 
-          <div className="bg-surface rounded-2xl border border-line overflow-hidden">
-            <div className="px-4 py-3 border-b border-line text-sm font-medium text-body">
-              Операции
-            </div>
-            <table className="w-full text-sm">
-              <thead className="bg-muted text-subtle text-left">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Дата</th>
-                  <th className="px-4 py-2 font-medium">Контрагент</th>
-                  <th className="px-4 py-2 font-medium">Назначение</th>
-                  <th className="px-4 py-2 font-medium text-right">Сумма</th>
+          <OperationsBlock
+            transactions={data.transactions}
+            opSearch={opSearch}
+            setOpSearch={setOpSearch}
+            opMin={opMin}
+            setOpMin={setOpMin}
+            opMax={opMax}
+            setOpMax={setOpMax}
+            opExpanded={opExpanded}
+            setOpExpanded={setOpExpanded}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+const OPS_PREVIEW = 10;
+
+function OperationsBlock({
+  transactions,
+  opSearch,
+  setOpSearch,
+  opMin,
+  setOpMin,
+  opMax,
+  setOpMax,
+  opExpanded,
+  setOpExpanded,
+}) {
+  const filtered = useMemo(() => {
+    const q = opSearch.trim().toLowerCase();
+    const min = opMin === "" ? null : Number(opMin);
+    const max = opMax === "" ? null : Number(opMax);
+    return transactions.filter((t) => {
+      if (q) {
+        const hay = `${t.counterparty || ""} ${t.purpose || ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      const amt = Number(t.amount);
+      if (min !== null && amt < min) return false;
+      if (max !== null && amt > max) return false;
+      return true;
+    });
+  }, [transactions, opSearch, opMin, opMax]);
+
+  const visible = opExpanded ? filtered : filtered.slice(0, OPS_PREVIEW);
+  const hasMore = filtered.length > OPS_PREVIEW;
+  const filterActive = opSearch || opMin || opMax;
+
+  return (
+    <div className="bg-surface rounded-2xl border border-line overflow-hidden">
+      <div className="px-4 py-3 border-b border-line flex flex-wrap items-center gap-3">
+        <div className="text-sm font-medium text-body shrink-0">Операции</div>
+        <input
+          type="text"
+          placeholder="Контрагент или назначение"
+          value={opSearch}
+          onChange={(e) => setOpSearch(e.target.value)}
+          className="flex-1 min-w-[180px] px-2 py-1 rounded-md border border-line bg-canvas text-body text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+        />
+        <input
+          type="number"
+          inputMode="decimal"
+          placeholder="Сумма от"
+          value={opMin}
+          onChange={(e) => setOpMin(e.target.value)}
+          className="w-28 px-2 py-1 rounded-md border border-line bg-canvas text-body text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+        />
+        <input
+          type="number"
+          inputMode="decimal"
+          placeholder="до"
+          value={opMax}
+          onChange={(e) => setOpMax(e.target.value)}
+          className="w-24 px-2 py-1 rounded-md border border-line bg-canvas text-body text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+        />
+        {filterActive && (
+          <button
+            type="button"
+            onClick={() => {
+              setOpSearch("");
+              setOpMin("");
+              setOpMax("");
+            }}
+            className="text-xs text-subtle hover:text-primary transition-colors"
+          >
+            Сбросить
+          </button>
+        )}
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="py-8 text-center text-subtle text-sm">Ничего не найдено</div>
+      ) : (
+        <>
+          <table className="w-full text-sm">
+            <thead className="bg-muted text-subtle text-left">
+              <tr>
+                <th className="px-4 py-2 font-medium">Дата</th>
+                <th className="px-4 py-2 font-medium">Контрагент</th>
+                <th className="px-4 py-2 font-medium">Назначение</th>
+                <th className="px-4 py-2 font-medium text-right">Сумма</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((t) => (
+                <tr key={t.id} className="border-t border-line text-body">
+                  <td className="px-4 py-2 whitespace-nowrap">
+                    {new Date(t.date).toLocaleDateString("ru-RU")}
+                  </td>
+                  <td className="px-4 py-2">{t.counterparty || "—"}</td>
+                  <td className="px-4 py-2 text-subtle">{t.purpose || ""}</td>
+                  <td
+                    className={`px-4 py-2 text-right whitespace-nowrap ${
+                      t.direction === "IN"
+                        ? "text-emerald-600 dark:text-emerald-300"
+                        : "text-red-600 dark:text-red-300"
+                    }`}
+                  >
+                    {t.direction === "IN" ? "+" : "−"}
+                    {money(t.amount)}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {data.transactions.map((t) => (
-                  <tr key={t.id} className="border-t border-line text-body">
-                    <td className="px-4 py-2">{new Date(t.date).toLocaleDateString("ru-RU")}</td>
-                    <td className="px-4 py-2">{t.counterparty || "—"}</td>
-                    <td className="px-4 py-2 text-subtle">{t.purpose || ""}</td>
-                    <td
-                      className={`px-4 py-2 text-right ${
-                        t.direction === "IN"
-                          ? "text-emerald-600 dark:text-emerald-300"
-                          : "text-red-600 dark:text-red-300"
-                      }`}
-                    >
-                      {t.direction === "IN" ? "+" : "−"}
-                      {money(t.amount)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
+          {hasMore && (
+            <button
+              type="button"
+              onClick={() => setOpExpanded((v) => !v)}
+              className="w-full px-4 py-2 border-t border-line text-sm text-primary hover:bg-primary/5 transition-colors flex items-center justify-center gap-1.5"
+            >
+              {opExpanded ? (
+                <>
+                  <ChevronUp size={14} /> Свернуть
+                </>
+              ) : (
+                <>
+                  <ChevronDown size={14} /> Показать все ({filtered.length})
+                </>
+              )}
+            </button>
+          )}
         </>
       )}
     </div>
