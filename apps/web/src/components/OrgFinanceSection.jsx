@@ -224,8 +224,20 @@ export default function OrgFinanceSection({ organizationId, financeVisibleToClie
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <TopList title="Топ по приходу" icon={TrendingUp} items={s.topIn} color="emerald" />
-            <TopList title="Топ по расходу" icon={TrendingDown} items={s.topOut} color="red" />
+            <TopList
+              title="Топ по приходу"
+              icon={TrendingUp}
+              items={s.topIn}
+              color="emerald"
+              onItemClick={(it) => setOpSearch(it.inn || it.name || "")}
+            />
+            <TopList
+              title="Топ по расходу"
+              icon={TrendingDown}
+              items={s.topOut}
+              color="red"
+              onItemClick={(it) => setOpSearch(it.inn || it.name || "")}
+            />
           </div>
 
           <OperationsBlock
@@ -274,7 +286,8 @@ function OperationsBlock({
     const to = opTo ? new Date(opTo + "T23:59:59") : null;
     return transactions.filter((t) => {
       if (q) {
-        const hay = `${t.counterparty || ""} ${t.purpose || ""}`.toLowerCase();
+        const hay =
+          `${t.counterparty || ""} ${t.counterpartyInn || ""} ${t.purpose || ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       const amt = Number(t.amount);
@@ -299,7 +312,7 @@ function OperationsBlock({
         <div className="text-sm font-medium text-body shrink-0 mr-1">Операции</div>
         <input
           type="text"
-          placeholder="Контрагент или назначение"
+          placeholder="Контрагент, ИНН или назначение"
           value={opSearch}
           onChange={(e) => setOpSearch(e.target.value)}
           className="flex-1 min-w-[180px] px-2 py-1 rounded-md border border-line bg-canvas text-body text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
@@ -411,7 +424,7 @@ function OperationsBlock({
 
 const TOP_PREVIEW = 5;
 
-function TopList({ title, icon: Icon, items, color }) {
+function TopList({ title, icon: Icon, items, color, onItemClick }) {
   const [expanded, setExpanded] = useState(false);
   const cls =
     color === "emerald"
@@ -430,9 +443,16 @@ function TopList({ title, icon: Icon, items, color }) {
         <>
           <ul className="space-y-1.5">
             {visible.map((it, i) => (
-              <li key={i} className="flex justify-between text-sm">
+              <li
+                key={i}
+                onClick={() => onItemClick?.(it)}
+                className={`flex justify-between text-sm rounded px-2 -mx-2 py-0.5 ${
+                  onItemClick ? "cursor-pointer hover:bg-primary/5" : ""
+                }`}
+                title={onItemClick ? "Показать все операции этого контрагента" : undefined}
+              >
                 <span className="text-body truncate pr-2">{it.name}</span>
-                <span className={`font-medium ${cls}`}>{money(it.sum)} ₽</span>
+                <span className={`font-medium ${cls} whitespace-nowrap`}>{money(it.sum)} ₽</span>
               </li>
             ))}
           </ul>
