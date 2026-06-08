@@ -27,6 +27,15 @@ const money = (n) =>
 function isoDay(d) {
   return new Date(d).toISOString().slice(0, 10);
 }
+
+/** «1 мая 2026» — человекочитаемый формат для списков выписок. */
+function ruDay(d) {
+  return new Date(d).toLocaleDateString("ru-RU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
 function firstDayOfMonth() {
   const n = new Date();
   return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-01`;
@@ -217,6 +226,21 @@ export default function BankAccountsCard({
         delete next[acc.id];
         return next;
       });
+    }
+  }
+
+  async function deleteStatement(stId, acc) {
+    if (!confirm("Удалить выписку? Действие нельзя отменить.")) return;
+    try {
+      const res = await api(`/api/statements/${stId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Не удалось удалить выписку");
+      }
+      await loadAcctStatements(acc.id, true);
+      onDataChanged?.({ silent: true });
+    } catch (err) {
+      alert(err.message);
     }
   }
 
@@ -657,7 +681,7 @@ export default function BankAccountsCard({
                               )}
                               <FileText size={12} className="shrink-0" />
                               <span className="font-medium">
-                                {isoDay(st.periodStart)} — {isoDay(st.periodEnd)}
+                                {ruDay(st.periodStart)} — {ruDay(st.periodEnd)}
                               </span>
                               <span className="text-subtle">· {st.docCount} опер.</span>
                               {st.reconcileStatus !== "OK" && (
@@ -681,6 +705,15 @@ export default function BankAccountsCard({
                               >
                                 PDF
                               </button>
+                              {canEdit && (
+                                <button
+                                  onClick={() => deleteStatement(st.id, acc)}
+                                  className="px-1 py-0.5 rounded text-subtle hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                                  title="Удалить выписку"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              )}
                             </div>
                           </div>
                           {ops?.open && (
