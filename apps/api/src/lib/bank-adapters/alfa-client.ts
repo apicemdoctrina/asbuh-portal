@@ -110,17 +110,12 @@ export async function fetchDayTransactions(
       );
     }
     if (res.status === 404) {
-      // По доке 404 = unknown_endpoint (счёт не найден / нет доступа). Раньше
-      // молча считали как «за день нет операций» — это маскировало настоящую
-      // ошибку и приводило к пустым выпискам без объяснения.
+      // По доке Альфы 404 = unknown_endpoint / неактивен, но на практике sandbox
+      // и prod возвращают 404 и просто на дни без операций. Логируем тело для
+      // диагностики (если что-то странное) и считаем как «нет операций за день».
       const txt = await res.text().catch(() => "");
-      console.warn(`[alfa] 404 ${accountNumber} ${dateISO} page=${page}: ${txt.slice(0, 300)}`);
-      if (page === 1) {
-        throw new BankApiError(
-          `Альфа: счёт или ресурс не найден (404) для ${accountNumber} на ${dateISO}: ${txt.slice(0, 200)}`,
-        );
-      }
-      // 404 на 2+ странице — пагинация закончилась, это валидный конец.
+      if (txt)
+        console.warn(`[alfa] 404 ${accountNumber} ${dateISO} page=${page}: ${txt.slice(0, 300)}`);
       return out;
     }
     if (!res.ok) {
