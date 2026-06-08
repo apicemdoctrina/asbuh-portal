@@ -2362,7 +2362,11 @@ router.get(
       const where = { organizationId: org.id, ...dateWhere };
 
       const page = Math.max(1, Number(req.query.page) || 1);
-      const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
+      // Default — отдаём ВСЕ транзакции выбранного периода, чтобы клиентский
+      // фильтр в блоке «Операции» работал по полной выписке, а не по
+      // первым 50 строкам. 50000 — защита от крайних случаев, обычная орга
+      // не приближается даже к 1/10 этого.
+      const limit = Math.min(50000, Math.max(1, Number(req.query.limit) || 50000));
 
       const [all, transactions, total] = await Promise.all([
         prisma.statementTransaction.findMany({

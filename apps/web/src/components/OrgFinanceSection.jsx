@@ -28,6 +28,8 @@ export default function OrgFinanceSection({ organizationId, financeVisibleToClie
   const [opSearch, setOpSearch] = useState("");
   const [opMin, setOpMin] = useState("");
   const [opMax, setOpMax] = useState("");
+  const [opFrom, setOpFrom] = useState("");
+  const [opTo, setOpTo] = useState("");
   const [opExpanded, setOpExpanded] = useState(false);
 
   useEffect(() => {
@@ -234,6 +236,10 @@ export default function OrgFinanceSection({ organizationId, financeVisibleToClie
             setOpMin={setOpMin}
             opMax={opMax}
             setOpMax={setOpMax}
+            opFrom={opFrom}
+            setOpFrom={setOpFrom}
+            opTo={opTo}
+            setOpTo={setOpTo}
             opExpanded={opExpanded}
             setOpExpanded={setOpExpanded}
           />
@@ -253,6 +259,10 @@ function OperationsBlock({
   setOpMin,
   opMax,
   setOpMax,
+  opFrom,
+  setOpFrom,
+  opTo,
+  setOpTo,
   opExpanded,
   setOpExpanded,
 }) {
@@ -260,6 +270,8 @@ function OperationsBlock({
     const q = opSearch.trim().toLowerCase();
     const min = opMin === "" ? null : Number(opMin);
     const max = opMax === "" ? null : Number(opMax);
+    const from = opFrom ? new Date(opFrom + "T00:00:00") : null;
+    const to = opTo ? new Date(opTo + "T23:59:59") : null;
     return transactions.filter((t) => {
       if (q) {
         const hay = `${t.counterparty || ""} ${t.purpose || ""}`.toLowerCase();
@@ -268,24 +280,43 @@ function OperationsBlock({
       const amt = Number(t.amount);
       if (min !== null && amt < min) return false;
       if (max !== null && amt > max) return false;
+      if (from || to) {
+        const d = new Date(t.date);
+        if (from && d < from) return false;
+        if (to && d > to) return false;
+      }
       return true;
     });
-  }, [transactions, opSearch, opMin, opMax]);
+  }, [transactions, opSearch, opMin, opMax, opFrom, opTo]);
 
   const visible = opExpanded ? filtered : filtered.slice(0, OPS_PREVIEW);
   const hasMore = filtered.length > OPS_PREVIEW;
-  const filterActive = opSearch || opMin || opMax;
+  const filterActive = opSearch || opMin || opMax || opFrom || opTo;
 
   return (
     <div className="bg-surface rounded-2xl border border-line overflow-hidden">
-      <div className="px-4 py-3 border-b border-line flex flex-wrap items-center gap-3">
-        <div className="text-sm font-medium text-body shrink-0">Операции</div>
+      <div className="px-4 py-3 border-b border-line flex flex-wrap items-center gap-2">
+        <div className="text-sm font-medium text-body shrink-0 mr-1">Операции</div>
         <input
           type="text"
           placeholder="Контрагент или назначение"
           value={opSearch}
           onChange={(e) => setOpSearch(e.target.value)}
           className="flex-1 min-w-[180px] px-2 py-1 rounded-md border border-line bg-canvas text-body text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+        />
+        <input
+          type="date"
+          title="С даты"
+          value={opFrom}
+          onChange={(e) => setOpFrom(e.target.value)}
+          className="px-2 py-1 rounded-md border border-line bg-canvas text-body text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+        />
+        <input
+          type="date"
+          title="По дату"
+          value={opTo}
+          onChange={(e) => setOpTo(e.target.value)}
+          className="px-2 py-1 rounded-md border border-line bg-canvas text-body text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
         />
         <input
           type="number"
@@ -310,6 +341,8 @@ function OperationsBlock({
               setOpSearch("");
               setOpMin("");
               setOpMax("");
+              setOpFrom("");
+              setOpTo("");
             }}
             className="text-xs text-subtle hover:text-primary transition-colors"
           >
