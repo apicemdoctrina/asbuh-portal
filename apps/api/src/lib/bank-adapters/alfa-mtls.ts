@@ -26,39 +26,42 @@ let cached: AlfaConfig | null = null;
  */
 export function getAlfaConfig(): AlfaConfig {
   if (cached) return cached;
-  const authBaseUrl = process.env.ALFA_AUTH_BASE || "";
-  const tokenBaseUrl = process.env.ALFA_TOKEN_BASE || "";
-  const apiBaseUrl = process.env.ALFA_API_BASE || "";
+  // Sandbox-дефолты (developers.alfabank.ru → FAQ). В .env переопределяются для прода:
+  //   ALFA_AUTH_BASE=https://id.alfabank.ru
+  //   ALFA_TOKEN_BASE=https://baas.alfabank.ru
+  //   ALFA_API_BASE=https://baas.alfabank.ru/api
+  const authBaseUrl = process.env.ALFA_AUTH_BASE || "https://id-sandbox.alfabank.ru";
+  const tokenBaseUrl = process.env.ALFA_TOKEN_BASE || "https://sandbox.alfabank.ru";
+  const apiBaseUrl = process.env.ALFA_API_BASE || "https://sandbox.alfabank.ru/api";
   const clientId = process.env.ALFA_CLIENT_ID || "";
   const clientSecret = process.env.ALFA_CLIENT_SECRET || "";
   const redirectUri = process.env.ALFA_REDIRECT_URI || "";
+  // Альфа просила в письме перечислять scope через пробел (стандарт OIDC).
   const scope =
     process.env.ALFA_SCOPE ||
-    "openid,customer,transactions,signature,profile,email,phone,eio,role,inn";
+    "openid customer transactions signature profile email phone eio role inn";
   const certPath = process.env.ALFA_CERT_PATH || "";
   const keyPath = process.env.ALFA_CERT_KEY_PATH || "";
   const passphrase = process.env.ALFA_CERT_PASSPHRASE || undefined;
   const caPath = process.env.ALFA_CA_PATH || process.env.SBER_CA_PATH || "";
 
-  if (
-    !authBaseUrl ||
-    !tokenBaseUrl ||
-    !apiBaseUrl ||
-    !clientId ||
-    !clientSecret ||
-    !redirectUri ||
-    !certPath ||
-    !keyPath
-  ) {
+  const isPfx = /\.(p12|pfx)$/i.test(certPath);
+
+  if (!clientId || !clientSecret || !redirectUri || !certPath || (!isPfx && !keyPath)) {
     throw new BankConfigError("Альфа не сконфигурирована на сервере (ALFA_* env)");
   }
 
   let dispatcher: Agent;
   try {
-    const cert = fs.readFileSync(certPath);
-    const key = fs.readFileSync(keyPath);
     const ca = caPath ? fs.readFileSync(caPath) : undefined;
-    dispatcher = new Agent({ connect: { cert, key, passphrase, ca } });
+    if (isPfx) {
+      const pfx = fs.readFileSync(certPath);
+      dispatcher = new Agent({ connect: { pfx, passphrase, ca } });
+    } else {
+      const cert = fs.readFileSync(certPath);
+      const key = fs.readFileSync(keyPath);
+      dispatcher = new Agent({ connect: { cert, key, passphrase, ca } });
+    }
   } catch {
     throw new BankConfigError("Не удалось прочитать сертификат/ключ Альфы");
   }
