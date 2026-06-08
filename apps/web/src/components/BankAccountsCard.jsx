@@ -82,6 +82,9 @@ function bankBadgeCls(name) {
 
 const API_PROVIDER_LABELS = { tochka: "Точка", sber: "Сбер", alfa: "Альфа" };
 
+// Банк однозначно определяет провайдера API — не дёргаем юзера лишним вопросом.
+const BANK_TO_PROVIDER = { Сбербанк: "sber", Альфа: "alfa", Точка: "tochka" };
+
 const SECRET_DISPLAY_DURATION = 30_000;
 
 export default function BankAccountsCard({
@@ -263,7 +266,7 @@ export default function BankAccountsCard({
     setLogin("");
     setPassword("");
     setComment(acc.comment || "");
-    setApiProvider(acc.apiProvider || "");
+    setApiProvider(acc.apiProvider || BANK_TO_PROVIDER[acc.bankName || ""] || "");
     setApiAccountId(acc.apiAccountId || "");
     setApiToken("");
     setFormError("");
@@ -790,7 +793,10 @@ export default function BankAccountsCard({
                       <button
                         key={b.name}
                         type="button"
-                        onClick={() => setBankName(b.name)}
+                        onClick={() => {
+                          setBankName(b.name);
+                          setApiProvider(BANK_TO_PROVIDER[b.name] || "");
+                        }}
                         className={`px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all ${
                           bankName === b.name
                             ? `${b.bg} ${b.text} border-current ring-2 ring-current/20`
@@ -853,25 +859,10 @@ export default function BankAccountsCard({
                 />
               </div>
 
-              {showLogin && (
+              {showLogin && apiProvider && (
                 <div className="border-t border-line pt-4 space-y-4">
                   <div className="text-xs font-semibold text-subtle uppercase tracking-wide">
-                    Подключение к API банка
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-body mb-1">
-                      Провайдер API
-                    </label>
-                    <select
-                      value={apiProvider}
-                      onChange={(e) => setApiProvider(e.target.value)}
-                      className="w-full px-3 py-2 border border-line rounded-lg text-sm bg-surface text-body focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                    >
-                      <option value="">Нет (только загрузка файла)</option>
-                      <option value="tochka">Точка</option>
-                      <option value="sber">Сбербанк</option>
-                      <option value="alfa">Альфа-Банк</option>
-                    </select>
+                    Подключение к API банка ({API_PROVIDER_LABELS[apiProvider] || apiProvider})
                   </div>
                   {apiProvider && (
                     <>
