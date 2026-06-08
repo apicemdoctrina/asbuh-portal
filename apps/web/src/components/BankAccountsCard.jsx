@@ -118,6 +118,8 @@ export default function BankAccountsCard({
   const [apiToken, setApiToken] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [autoBusy, setAutoBusy] = useState({}); // { [accId]: true } while toggling
+  // Оптимистичное отображение: пока parent не обновил acc, показываем «нажатое» состояние.
+  const [optimisticAuto, setOptimisticAuto] = useState({}); // { [accId]: boolean }
   const [formError, setFormError] = useState("");
 
   // Fetch-from-bank modal state
@@ -207,11 +209,13 @@ export default function BankAccountsCard({
 
   async function toggleAutoFetch(acc) {
     if (autoBusy[acc.id]) return;
+    const next = !acc.autoFetchEnabled;
+    setOptimisticAuto((s) => ({ ...s, [acc.id]: next }));
     setAutoBusy((s) => ({ ...s, [acc.id]: true }));
     try {
       const res = await api(`/api/organizations/${organizationId}/bank-accounts/${acc.id}`, {
         method: "PUT",
-        body: JSON.stringify({ autoFetchEnabled: !acc.autoFetchEnabled }),
+        body: JSON.stringify({ autoFetchEnabled: next }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -219,12 +223,18 @@ export default function BankAccountsCard({
       }
       onDataChanged?.({ silent: true });
     } catch (err) {
+      // Откатываем оптимистичное состояние
+      setOptimisticAuto((s) => {
+        const next2 = { ...s };
+        delete next2[acc.id];
+        return next2;
+      });
       alert(err.message);
     } finally {
       setAutoBusy((s) => {
-        const next = { ...s };
-        delete next[acc.id];
-        return next;
+        const next2 = { ...s };
+        delete next2[acc.id];
+        return next2;
       });
     }
   }
@@ -597,24 +607,35 @@ export default function BankAccountsCard({
                         <Download size={16} />
                       </button>
                     )}
-                    {canEdit && acc.apiProvider && acc.accountNumber && (
-                      <button
-                        onClick={() => toggleAutoFetch(acc)}
-                        disabled={!!autoBusy[acc.id]}
-                        className={`transition-colors ${
-                          acc.autoFetchEnabled
-                            ? "text-emerald-600 dark:text-emerald-300 hover:text-emerald-700"
-                            : "text-subtle hover:text-primary"
-                        } disabled:opacity-50`}
-                        title={
-                          acc.autoFetchEnabled
-                            ? "Авто-выгрузка ВКЛ: ежедневно 09:00 GMT+2 + каждые 30 минут подтягиваем свежие операции дня. Нажмите, чтобы выключить."
-                            : "Авто-выгрузка выключена. Нажмите, чтобы включить (ежедневный синк за прошлый день в 09:00 GMT+2 и обновление операций каждые 30 минут в течение дня)."
-                        }
-                      >
-                        <CalendarClock size={16} />
-                      </button>
-                    )}
+                    {canEdit &&
+                      acc.apiProvider &&
+                      acc.accountNumber &&
+                      (() => {
+                        const autoOn = optimisticAuto[acc.id] ?? acc.autoFetchEnabled;
+                        return (
+                          <button
+                            onClick={() => toggleAutoFetch(acc)}
+                            disabled={!!autoBusy[acc.id]}
+                            className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border transition-colors disabled:opacity-50 ${
+                              autoOn
+                                ? "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/40 hover:bg-emerald-200/70 dark:hover:bg-emerald-500/25"
+                                : "bg-muted text-subtle border-line hover:bg-line/60"
+                            }`}
+                            title={
+                              autoOn
+                                ? "Авто-выгрузка ВКЛ: ежедневно 09:00 GMT+2 + каждые 30 минут подтягиваем свежие операции дня. Нажмите, чтобы выключить."
+                                : "Авто-выгрузка выключена. Нажмите, чтобы включить (ежедневный синк за прошлый день в 09:00 GMT+2 и обновление операций каждые 30 минут в течение дня)."
+                            }
+                          >
+                            {autoBusy[acc.id] ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                              <CalendarClock size={12} />
+                            )}
+                            Авто: {autoOn ? "ВКЛ" : "ВЫКЛ"}
+                          </button>
+                        );
+                      })()}
                     {canViewSecrets && (acc.login != null || acc.password != null) && (
                       <button
                         onClick={() => handleRevealSecrets(acc.id)}
