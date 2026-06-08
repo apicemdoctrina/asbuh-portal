@@ -380,6 +380,7 @@ model OrganizationBankAccount {
   apiToken        String?   @map("api_token")
   apiAccountId    String?   @map("api_account_id")
   lastFetchAt      DateTime? @map("last_fetch_at")
+  lastSberSync     DateTime? @map("last_sber_sync")
   autoFetchEnabled Boolean   @default(false) @map("auto_fetch_enabled")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")

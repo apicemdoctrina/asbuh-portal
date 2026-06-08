@@ -243,6 +243,74 @@ async function fetchSummary(
   }
 }
 
+/**
+ * Forward-формат datetime для /v2/statement/increment: YYYY-MM-DDTHH:mm:ss (без мс, локального ТЗ).
+ * Сбер не любит миллисекунды и Z, проще передавать в простом ISO-формате.
+ */
+function toSberDateTime(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+/**
+ * Incremental-выгрузка через /v2/statement/increment. Возвращает все ParsedOperation,
+ * изменённые после `since`. Если since не задано — Сбер возвращает текущий операционный день
+ * (имитируем это сами через statementDate=today).
+ *
+ * Контракт: scope GET_STATEMENT_ACCOUNT (есть). Rate limit 5 TPS.
+ */
+export async function fetchSberIncrement(
+  accessToken: string,
+  accountNumber: string,
+  since: Date | null,
+  cfg: SberConfig,
+): Promise<import("../statement-types.js").ParsedOperation[]> {
+  const auth = { Authorization: `Bearer ${accessToken}` };
+
+  // Сбор всех операций по страницам.
+  const transactions: SberTxn[] = [];
+  for (let page = 1; page <= 50; page++) {
+    let url: string;
+    if (since) {
+      url = `/fintech/api/v2/statement/increment?accountNumber=${accountNumber}&lastModifyDate=${toSberDateTime(since)}&page=${page}`;
+    } else {
+      // Первый прогон: курсора нет — берём сегодняшний день целиком.
+      const today = new Date().toISOString().slice(0, 10);
+      url = `/fintech/api/v2/statement/increment?accountNumber=${accountNumber}&statementDate=${today}&page=${page}`;
+    }
+    const r = await sberFetch(cfg.baseUrl, cfg, url, { method: "GET", headers: auth });
+    if (r.status === 401 || r.status === 403) {
+      throw new BankApiError("Сбер отклонил токен при incremental-запросе");
+    }
+    if (r.status === 404) {
+      // 404 на increment = нет операций со времени since → пусто.
+      return [];
+    }
+    if (!r.ok) {
+      const txt = await r.text().catch(() => "");
+      throw new BankApiError(
+        `Сбер вернул ошибку increment ${r.status}${txt ? `: ${txt.slice(0, 200)}` : ""}`,
+      );
+    }
+    const body = (await r.json().catch(() => null)) as {
+      transactions?: SberTxn[];
+      _links?: Array<{ rel?: string; href?: string }>;
+    } | null;
+    if (!body) break;
+    const pageTx = body.transactions ?? [];
+    transactions.push(...pageTx);
+    if (process.env.DEBUG_SBER) {
+      console.warn(
+        `[sber] incr acc=${accountNumber} since=${since ? toSberDateTime(since) : "today"} page=${page} count=${pageTx.length}`,
+      );
+    }
+    const hasNext = (body._links ?? []).some((l) => l.rel === "next" || l.rel === "nextPage");
+    if (!hasNext || pageTx.length === 0) break;
+  }
+
+  return transactions.map(toParsedOperation);
+}
+
 export async function fetchDailyFile(
   accessToken: string,
   accountNumber: string,
