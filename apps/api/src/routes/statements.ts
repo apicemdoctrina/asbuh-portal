@@ -943,12 +943,24 @@ router.get("/alfa/callback", async (req: Request, res) => {
   const appUrl = process.env.APP_URL || "http://localhost:5173";
   const code = (req.query.code as string) || "";
   const stateRaw = (req.query.state as string) || "";
+  const oauthError = (req.query.error as string) || "";
+  const oauthErrorDesc = (req.query.error_description as string) || "";
+
+  // Альфа может прислать ?error=...&error_description=... вместо ?code=...
+  // (отказ пользователя в consent, отозванный scope и т.п.).
+  const fail = (reason: string, orgId?: string) => {
+    const url = orgId
+      ? `${appUrl}/organizations/${orgId}?alfa=error&reason=${encodeURIComponent(reason)}`
+      : `${appUrl}/?alfa=error&reason=${encodeURIComponent(reason)}`;
+    res.redirect(url);
+  };
 
   let state;
   try {
     state = verifyAlfaState(stateRaw);
   } catch {
-    res.redirect(`${appUrl}/?alfa=error`);
+    console.error("Alfa callback: invalid state", { stateRaw });
+    fail("Неверный или просроченный state");
     return;
   }
 
@@ -957,13 +969,20 @@ router.get("/alfa/callback", async (req: Request, res) => {
     select: { id: true, organizationId: true },
   });
   if (!acc) {
-    res.redirect(`${appUrl}/?alfa=error`);
+    console.error("Alfa callback: bank account not found", state);
+    fail("Счёт не найден");
+    return;
+  }
+
+  if (oauthError) {
+    console.error("Alfa callback: oauth error", { oauthError, oauthErrorDesc });
+    fail(`${oauthError}: ${oauthErrorDesc || "без описания"}`, acc.organizationId);
     return;
   }
 
   try {
     if (!code) {
-      console.error("Alfa callback query:", req.query);
+      console.error("Alfa callback: no code", req.query);
       throw new BankApiError("Альфа не вернула код авторизации");
     }
     const cfg = getAlfaConfig();
@@ -982,7 +1001,8 @@ router.get("/alfa/callback", async (req: Request, res) => {
     res.redirect(`${appUrl}/organizations/${acc.organizationId}?alfa=connected`);
   } catch (err) {
     console.error("Alfa callback error:", err);
-    res.redirect(`${appUrl}/organizations/${acc.organizationId}?alfa=error`);
+    const msg = err instanceof Error ? err.message : "Неизвестная ошибка";
+    fail(msg, acc.organizationId);
   }
 });
 

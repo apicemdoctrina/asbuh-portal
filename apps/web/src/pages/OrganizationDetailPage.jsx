@@ -354,13 +354,27 @@ export default function OrganizationDetailPage() {
   const [sberMsg, setSberMsg] = useState(null); // { ok, text } | null
 
   useEffect(() => {
-    const sber = searchParams.get("sber");
-    if (!sber) return;
-    if (sber === "connected") setSberMsg({ ok: true, text: "Сбер подключён." });
-    else setSberMsg({ ok: false, text: "Не удалось подключить Сбер." });
-    fetchOrganization();
-    searchParams.delete("sber");
-    setSearchParams(searchParams, { replace: true });
+    const providers = { sber: "Сбер", alfa: "Альфа", tochka: "Точка" };
+    for (const [key, label] of Object.entries(providers)) {
+      const status = searchParams.get(key);
+      if (!status) continue;
+      const reason = searchParams.get("reason");
+      if (status === "connected") {
+        setSberMsg({ ok: true, text: `${label} подключён.` });
+      } else {
+        setSberMsg({
+          ok: false,
+          text: reason
+            ? `Не удалось подключить ${label}: ${reason}`
+            : `Не удалось подключить ${label}.`,
+        });
+      }
+      fetchOrganization();
+      searchParams.delete(key);
+      searchParams.delete("reason");
+      setSearchParams(searchParams, { replace: true });
+      break;
+    }
   }, []);
 
   const fetchOrgTasks = useCallback(async () => {
