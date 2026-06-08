@@ -44,7 +44,13 @@ export function getAlfaConfig(): AlfaConfig {
   const certPath = process.env.ALFA_CERT_PATH || "";
   const keyPath = process.env.ALFA_CERT_KEY_PATH || "";
   const passphrase = process.env.ALFA_CERT_PASSPHRASE || undefined;
-  const caPath = process.env.ALFA_CA_PATH || process.env.SBER_CA_PATH || "";
+  // ВАЖНО: НЕ fallback'имся на SBER_CA_PATH — у Сбера серверные сертификаты от
+  // УЦ Минцифры, у prod-Альфы (baas.alfabank.ru) — от Starfield/Amazon. Если
+  // явно подсунем Минцифру вторым CA, Node заменит system trust и отвергнет
+  // Starfield → SELF_SIGNED_CERT_IN_CHAIN. Для sandbox (sandbox.alfabank.ru,
+  // Минцифра) явно укажи ALFA_CA_PATH=./certs/russiantrustedca.pem. Для prod
+  // оставь ALFA_CA_PATH пустым — Node использует системные CA.
+  const caPath = process.env.ALFA_CA_PATH || "";
 
   const isPfx = /\.(p12|pfx)$/i.test(certPath);
 
