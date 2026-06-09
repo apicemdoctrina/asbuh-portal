@@ -8,6 +8,7 @@ import { authenticate, requirePermission } from "../middleware/auth.js";
 import { createKnowledgeItemSchema, updateKnowledgeItemSchema } from "../lib/validators.js";
 import { upload, UPLOADS_DIR } from "../lib/upload.js";
 import { parsePagination } from "../lib/route-helpers.js";
+import { typograph, typographHtml } from "../lib/typograph.js";
 
 const router = Router();
 
@@ -179,12 +180,12 @@ router.post(
 
       const item = await prisma.knowledgeItem.create({
         data: {
-          title,
+          title: typograph(title),
           type,
           audience,
           tags,
-          description: description ?? null,
-          content: type === "ARTICLE" ? (content ?? null) : null,
+          description: description ? typograph(description) : null,
+          content: type === "ARTICLE" ? (content ? typographHtml(content) : null) : null,
           url: type === "VIDEO" ? (url ?? null) : null,
           coverImagePath: coverImage ? coverImage.filename : null,
           coverImageName: coverImage
@@ -246,6 +247,11 @@ router.put(
       }
 
       const updateData: Record<string, unknown> = { ...parsed.data };
+      if (typeof updateData.title === "string") updateData.title = typograph(updateData.title);
+      if (typeof updateData.description === "string")
+        updateData.description = typograph(updateData.description);
+      if (typeof updateData.content === "string")
+        updateData.content = typographHtml(updateData.content);
 
       // If a new file is uploaded, replace the old one
       if (file) {

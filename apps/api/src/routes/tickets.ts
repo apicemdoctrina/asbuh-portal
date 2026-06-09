@@ -15,6 +15,7 @@ import {
   sendTicketClosedEmail,
   getClientUserIdsForOrg,
 } from "../lib/client-email.js";
+import { typograph } from "../lib/typograph.js";
 
 const router = Router();
 
@@ -250,6 +251,37 @@ router.get(
   },
 );
 
+// ==================== POST /api/tickets/:id/read ====================
+// Отмечает тикет «прочитанным» текущей стороной (staff / client).
+router.post(
+  "/:id/read",
+  authenticate,
+  requirePermission("ticket", "view"),
+  async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const scopedWhere = getTicketScopedWhere(req);
+
+      const exists = await prisma.ticket.findFirst({
+        where: { id, ...scopedWhere },
+        select: { id: true },
+      });
+      if (!exists) return res.status(404).json({ error: "Ticket not found" });
+
+      const clientOnly = isClientOnly(req);
+      const data = clientOnly
+        ? { lastReadByClientAt: new Date() }
+        : { lastReadByStaffAt: new Date() };
+
+      await prisma.ticket.update({ where: { id }, data });
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("POST /api/tickets/:id/read error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
 // ==================== POST /api/tickets ====================
 router.post(
   "/",
@@ -291,13 +323,13 @@ router.post(
 
       const ticket = await prisma.ticket.create({
         data: {
-          subject,
+          subject: typograph(subject),
           type: (type as any) || "QUESTION",
           organizationId,
           createdById: userId,
           assignedToId,
           messages: {
-            create: { body, authorId: userId },
+            create: { body: typograph(body), authorId: userId },
           },
         },
         include: {
@@ -534,7 +566,7 @@ router.post(
       const files = (req.files as Express.Multer.File[]) || [];
       const message = await prisma.ticketMessage.create({
         data: {
-          body: msgBody.trim(),
+          body: typograph(msgBody.trim()),
           isInternal: internal,
           ticketId: id,
           authorId: userId,

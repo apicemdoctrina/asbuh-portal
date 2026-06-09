@@ -3,6 +3,7 @@ import prisma from "../lib/prisma.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
 import { sendMessage } from "../lib/telegram.js";
 import { isNotificationEnabled } from "../lib/notification-prefs.js";
+import { typograph, typographHtml } from "../lib/typograph.js";
 
 const router = Router();
 
@@ -82,8 +83,8 @@ router.post("/", authenticate, requireRole("admin"), async (req, res) => {
 
     const announcement = await prisma.announcement.create({
       data: {
-        title: title.trim(),
-        body: body.trim(),
+        title: typograph(title.trim()),
+        body: typographHtml(body.trim()),
         type: announcementType as "FEATURE" | "FIX" | "CHANGE" | "REMOVAL",
         audience: announcementAudience as "STAFF" | "CLIENT",
         authorId: req.user!.userId,

@@ -4,6 +4,7 @@ import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { upload } from "../lib/upload.js";
 import { createNotification } from "../lib/notify.js";
+import { typograph } from "../lib/typograph.js";
 
 const router = Router();
 
@@ -138,6 +139,8 @@ router.post("/threads", authenticate, async (req, res) => {
     }
     const user = req.user!;
     const userIsStaff = isStaff(user.roles);
+    parsed.data.subject = typograph(parsed.data.subject);
+    parsed.data.body = typograph(parsed.data.body);
     const thread = await prisma.supportThread.create({
       data: {
         subject: parsed.data.subject,
@@ -260,7 +263,7 @@ router.post("/threads/:id/messages", authenticate, async (req, res) => {
     const message = await prisma.supportMessage.create({
       data: {
         threadId: found.thread.id,
-        body: parsed.data.body,
+        body: typograph(parsed.data.body),
         authorId: user.userId,
         isStaff: userIsStaff,
         attachments: parsed.data.attachments ?? undefined,
