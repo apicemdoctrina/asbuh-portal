@@ -29,7 +29,6 @@ import NotificationBell from "./NotificationBell.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
 import AnnouncementsPanel from "./AnnouncementsPanel.jsx";
 import AnnouncementsWelcomeModal from "./AnnouncementsWelcomeModal.jsx";
-import SupportModal from "./SupportModal.jsx";
 import { api } from "../lib/api.js";
 
 const navItems = [
@@ -170,7 +169,6 @@ export default function Layout() {
   const [announcementsOpen, setAnnouncementsOpen] = useState(false);
   const [unreadAnnouncements, setUnreadAnnouncements] = useState(0);
   const [welcomeItems, setWelcomeItems] = useState(null); // null = not checked yet
-  const [supportOpen, setSupportOpen] = useState(false);
 
   // On mount: fetch unread announcements; show welcome modal once per session
   const checkAnnouncements = useCallback(async () => {
@@ -325,16 +323,10 @@ export default function Layout() {
           })}
 
           <div className="mt-2 pt-2 border-t border-line">
-            <button
-              onClick={() => {
-                setSupportOpen(true);
-                setSidebarOpen(false);
-              }}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-body hover:bg-muted hover:text-heading transition-colors"
-            >
+            <NavLink to="/support" className={linkClass} onClick={() => setSidebarOpen(false)}>
               <LifeBuoy size={18} />
               Техподдержка
-            </button>
+            </NavLink>
           </div>
         </nav>
       </aside>
@@ -372,8 +364,6 @@ export default function Layout() {
           }}
         />
       )}
-
-      {supportOpen && <SupportModal onClose={() => setSupportOpen(false)} />}
     </div>
   );
 }

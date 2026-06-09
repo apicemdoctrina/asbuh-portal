@@ -59,6 +59,8 @@ model User {
   filedReportEntries   ReportEntry[]
   consents             UserConsent[]
   bankStatements       BankStatement[]
+  supportThreads       SupportThread[]        @relation("SupportThreadAuthor")
+  supportMessages      SupportMessage[]       @relation("SupportMessageAuthor")
 
   @@map("users")
 }
@@ -1130,6 +1132,51 @@ enum ImapIngestStatus {
   UNKNOWN_ACCOUNT
   PARSE_ERROR
   OTHER_ERROR
+}
+
+enum SupportThreadStatus {
+  OPEN
+  RESOLVED
+  CLOSED
+}
+
+model SupportThread {
+  id        String              @id @default(uuid())
+  subject   String
+  status    SupportThreadStatus @default(OPEN)
+
+  userId String @map("user_id")
+  user   User   @relation("SupportThreadAuthor", fields: [userId], references: [id], onDelete: Cascade)
+
+  lastMessageAt DateTime  @default(now()) @map("last_message_at")
+  closedAt      DateTime? @map("closed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  messages SupportMessage[]
+
+  @@index([userId, status])
+  @@index([status, lastMessageAt])
+  @@map("support_threads")
+}
+
+model SupportMessage {
+  id       String @id @default(uuid())
+  body     String
+  isStaff  Boolean @default(false) @map("is_staff")
+
+  threadId String        @map("thread_id")
+  thread   SupportThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  authorId String @map("author_id")
+  author   User   @relation("SupportMessageAuthor", fields: [authorId], references: [id])
+
+  attachments Json? // [{fileName, fileKey, fileSize, mimeType}]
+  readAt      DateTime? @map("read_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([threadId, createdAt])
+  @@map("support_messages")
 }
 
 model ImapStatementLog {

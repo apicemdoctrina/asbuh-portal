@@ -39,6 +39,7 @@ const MessageTemplatesPage = lazy(() => import("./pages/MessageTemplatesPage.jsx
 const TicketDetailPage = lazy(() => import("./pages/TicketDetailPage.jsx"));
 const ReportingPage = lazy(() => import("./pages/ReportingPage.jsx"));
 const ClientGroupDetailPage = lazy(() => import("./pages/ClientGroupDetailPage.jsx"));
+const SupportPage = lazy(() => import("./pages/SupportPage.jsx"));
 
 export default function App() {
   return (
@@ -90,6 +91,8 @@ export default function App() {
                   <Route path="reporting" element={<ReportingPage />} />
                   <Route path="message-templates" element={<MessageTemplatesPage />} />
                   <Route path="profile" element={<ProfilePage />} />
+                  <Route path="support" element={<SupportPage />} />
+                  <Route path="support/:id" element={<SupportPage />} />
                 </Route>
               </Route>
               <Route path="*" element={<NotFoundPage />} />
