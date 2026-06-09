@@ -232,14 +232,6 @@ export default function Layout() {
         </div>
         <div className="flex items-center gap-3">
           <ThemeToggle />
-          <button
-            onClick={() => setSupportOpen(true)}
-            className="p-1.5 rounded-lg text-subtle hover:text-primary hover:bg-primary/5 transition-colors"
-            title="Техподдержка сервиса"
-            aria-label="Техподдержка сервиса"
-          >
-            <LifeBuoy size={20} />
-          </button>
           {/* Announcements bell */}
           <button
             onClick={() => setAnnouncementsOpen(true)}
@@ -331,6 +323,19 @@ export default function Layout() {
               </NavLink>
             );
           })}
+
+          <div className="mt-2 pt-2 border-t border-line">
+            <button
+              onClick={() => {
+                setSupportOpen(true);
+                setSidebarOpen(false);
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-body hover:bg-muted hover:text-heading transition-colors"
+            >
+              <LifeBuoy size={18} />
+              Техподдержка
+            </button>
+          </div>
         </nav>
       </aside>
 
