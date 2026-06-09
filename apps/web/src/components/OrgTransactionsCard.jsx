@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../lib/api.js";
 import {
-  DollarSign,
+  Wallet,
   Loader2,
   ChevronLeft,
   ChevronRight,
@@ -9,6 +9,8 @@ import {
   RotateCcw,
   Plus,
   Trash2,
+  AlertCircle,
+  CheckCircle2,
 } from "lucide-react";
 
 function fmtMoney(val) {
@@ -46,6 +48,8 @@ export default function OrgTransactionsCard({
   organizationId,
   clientGroupId,
   showOrgName = false,
+  debtAmount = null,
+  monthlyPayment = null,
 }) {
   const [transactions, setTransactions] = useState([]);
   const [total, setTotal] = useState(0);
@@ -112,30 +116,63 @@ export default function OrgTransactionsCard({
   const totalPages = Math.ceil(total / limit);
   const totalAmount = transactions.reduce((s, t) => s + Number(t.amount || 0), 0);
 
+  const debt = debtAmount != null ? Number(debtAmount) : null;
+  const hasDebt = debt != null && debt > 0;
+  const isPaidUp = debt != null && debt <= 0;
+
   return (
     <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden">
-      <div className="px-6 py-4 border-b border-line flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <DollarSign size={16} className="text-primary" />
-          <h2 className="text-base font-bold text-heading">Банковские транзакции</h2>
-          {total > 0 && <span className="text-xs text-subtle ml-1">({total})</span>}
+      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-line flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <Wallet size={16} className="text-primary shrink-0" />
+          <h2 className="text-sm sm:text-base font-bold text-heading leading-tight">
+            Оплаты за бухгалтерию ASBUH
+          </h2>
+          {total > 0 && <span className="text-xs text-subtle">({total})</span>}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          {monthlyPayment != null && Number(monthlyPayment) > 0 && (
+            <span className="hidden sm:inline text-xs text-subtle">
+              {fmtMoney(monthlyPayment)} / мес
+            </span>
+          )}
+          {debt != null && (
+            <span
+              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold tabular-nums ${
+                hasDebt
+                  ? "bg-red-500/10 text-red-600 dark:text-red-300"
+                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+              }`}
+              style={
+                hasDebt
+                  ? { boxShadow: "0 0 10px 0 rgba(239,68,68,0.35)" }
+                  : { boxShadow: "0 0 10px 0 rgba(16,185,129,0.25)" }
+              }
+            >
+              {hasDebt ? <AlertCircle size={12} /> : <CheckCircle2 size={12} />}
+              {hasDebt ? `Долг ${fmtMoney(debt)}` : "Без долга"}
+            </span>
+          )}
           {total > 0 && (
-            <div className="text-sm text-subtle">
-              Итого на странице:{" "}
-              <span className="font-semibold text-body">{fmtMoney(totalAmount)}</span>
+            <div className="hidden md:block text-sm text-subtle">
+              На странице: <span className="font-semibold text-body">{fmtMoney(totalAmount)}</span>
             </div>
           )}
           <button
             onClick={() => setShowAddForm((v) => !v)}
-            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary border border-primary/20 rounded-lg hover:bg-primary/5 transition-colors"
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary border border-primary/20 rounded-lg hover:bg-primary/5 transition-colors shrink-0"
           >
             <Plus size={14} />
             Добавить
           </button>
         </div>
       </div>
+
+      {isPaidUp && monthlyPayment != null && Number(monthlyPayment) > 0 && (
+        <div className="px-4 sm:px-6 py-2.5 bg-emerald-50 dark:bg-emerald-500/10 border-b border-emerald-200/50 dark:border-emerald-500/20 text-xs text-emerald-700 dark:text-emerald-300">
+          ✓ Все оплаты получены. Тариф {fmtMoney(monthlyPayment)} / мес.
+        </div>
+      )}
 
       {showAddForm && (
         <ManualTxForm onSubmit={handleAddManual} onCancel={() => setShowAddForm(false)} />
@@ -146,7 +183,7 @@ export default function OrgTransactionsCard({
           <Loader2 size={24} className="animate-spin" />
         </div>
       ) : transactions.length === 0 ? (
-        <div className="text-sm text-subtle text-center py-8">Транзакций нет</div>
+        <div className="text-sm text-subtle text-center py-8">Оплат пока не было</div>
       ) : (
         <>
           <div className="overflow-x-auto">
