@@ -14,6 +14,9 @@ import {
   EyeOff,
   Trash2,
   ChevronUp,
+  SlidersHorizontal,
+  Check,
+  CheckCheck,
 } from "lucide-react";
 
 const STATUS_LABELS = {
@@ -57,10 +60,24 @@ export default function TicketDetailPage() {
 
   const [staff, setStaff] = useState([]);
 
+  // Mobile: открыть панель управления (статус/приоритет/исполнитель) как bottom-sheet
+  const [mobileManageOpen, setMobileManageOpen] = useState(false);
+
   const isStaff =
     hasRole("admin") || hasRole("supervisor") || hasRole("manager") || hasRole("accountant");
   const canEdit = hasPermission("ticket", "edit");
   const canDeleteMsg = hasRole("admin") || hasRole("supervisor") || hasRole("manager");
+
+  // Кого мы ждём в качестве «читателя» (для индикатора ✓✓ на наших сообщениях)
+  const otherSideReadAt = isStaff ? ticket?.lastReadByClientAt : ticket?.lastReadByStaffAt;
+  // id моего последнего НЕ-внутреннего сообщения (только на нём показываем индикатор)
+  const myLastVisibleMessageId = (() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const m = messages[i];
+      if (m.author?.id === user?.id && !m.isInternal && !m.deletedAt) return m.id;
+    }
+    return null;
+  })();
 
   const fetchTicket = useCallback(
     async (cursorId) => {
@@ -96,6 +113,21 @@ export default function TicketDetailPage() {
     fetchTicket();
   }, [fetchTicket]);
 
+  // Отметить тикет прочитанным текущей стороной (после первой успешной загрузки)
+  const markRead = useCallback(async () => {
+    try {
+      await api(`/api/tickets/${id}/read`, { method: "POST" });
+    } catch {
+      // не критично — индикатор просто не обновится
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (!loading && ticket) {
+      markRead();
+    }
+  }, [loading, ticket, markRead]);
+
   useEffect(() => {
     if (!isStaff) return;
     api("/api/users?limit=200")
@@ -106,8 +138,16 @@ export default function TicketDetailPage() {
       .catch(() => {});
   }, [isStaff]);
 
+  const initialScrollDone = useRef(false);
   useEffect(() => {
-    if (!loading) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (loading) return;
+    // First load: оставляем пользователя у шапки тикета, не дёргаем страницу
+    if (!initialScrollDone.current) {
+      initialScrollDone.current = true;
+      return;
+    }
+    // Последующие обновления (новое сообщение / отправили своё) — догоняем к низу
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length, loading]);
 
   async function handleSend(e) {
@@ -133,7 +173,9 @@ export default function TicketDetailPage() {
       setMsgBody("");
       setFiles([]);
       setIsInternal(false);
-      // Refresh ticket for updated status
+      // Своё сообщение → мы его «видели». Чтобы свежие индикаторы были корректны, маркаем read.
+      markRead();
+      // Refresh ticket for updated status / read timestamps
       const ticketRes = await api(`/api/tickets/${id}?limit=0`);
       if (ticketRes.ok) {
         const data = await ticketRes.json();
@@ -225,35 +267,47 @@ export default function TicketDetailPage() {
   const apiBase = import.meta.env.VITE_API_URL || "";
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6">
+    <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
       {/* Main chat area */}
       <div className="flex-1 min-w-0">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-start gap-2 sm:gap-3 mb-3 sm:mb-4">
           <Link
             to="/tickets"
-            className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
+            className="p-2 -ml-1 mt-0.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors shrink-0"
+            aria-label="Назад к списку тикетов"
           >
             <ArrowLeft size={20} />
           </Link>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-subtle font-mono">#{ticket.number}</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-subtle font-mono tabular-nums">#{ticket.number}</span>
               <span
-                className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[ticket.status]}`}
+                className={`text-xs px-2 py-0.5 rounded-full font-semibold ${STATUS_COLORS[ticket.status]}`}
               >
                 {STATUS_LABELS[ticket.status]}
               </span>
             </div>
-            <h1 className="text-lg font-bold text-heading truncate">{ticket.subject}</h1>
+            <h1 className="text-base sm:text-lg font-bold text-heading leading-snug break-words">
+              {ticket.subject}
+            </h1>
           </div>
+          {/* Mobile: открыть управление (только для staff с правами) */}
+          {isStaff && canEdit && (
+            <button
+              type="button"
+              onClick={() => setMobileManageOpen(true)}
+              className="lg:hidden p-2 -mr-1 mt-0.5 rounded-lg text-subtle hover:text-primary hover:bg-primary/5 transition-colors shrink-0"
+              aria-label="Управление"
+              title="Управление"
+            >
+              <SlidersHorizontal size={20} />
+            </button>
+          )}
         </div>
 
         {/* Messages */}
-        <div
-          className="bg-surface rounded-2xl shadow-lg border border-line flex flex-col"
-          style={{ height: "calc(100vh - 280px)" }}
-        >
+        <div className="bg-surface sm:rounded-2xl sm:shadow-lg sm:border sm:border-line flex flex-col h-[calc(100dvh-13rem)] sm:h-[calc(100vh-280px)] -mx-3 sm:mx-0 border-y border-line sm:border-y">
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {hasMore && (
               <button
@@ -274,6 +328,11 @@ export default function TicketDetailPage() {
             {messages.map((msg) => {
               const isOwn = msg.author?.id === user?.id;
               const isDeleted = !!msg.deletedAt;
+              const showReceipt = isOwn && !msg.isInternal && msg.id === myLastVisibleMessageId;
+              const seenByOther =
+                showReceipt &&
+                otherSideReadAt &&
+                new Date(otherSideReadAt) > new Date(msg.createdAt);
 
               if (isDeleted) {
                 return (
@@ -358,6 +417,25 @@ export default function TicketDetailPage() {
                         ))}
                       </div>
                     )}
+
+                    {/* Read receipt — только на последнем своём сообщении */}
+                    {showReceipt && (
+                      <div
+                        className={`flex items-center justify-end gap-1 mt-1.5 text-[11px] ${isOwn ? "text-white/70" : "text-subtle"}`}
+                      >
+                        {seenByOther ? (
+                          <>
+                            <CheckCheck size={13} />
+                            <span>Прочитано</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check size={13} />
+                            <span>Отправлено</span>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -389,17 +467,18 @@ export default function TicketDetailPage() {
                 </div>
               )}
 
-              <div className="flex items-end gap-2">
+              <div className="flex items-end gap-1.5 sm:gap-2">
                 {isStaff && (
                   <button
                     type="button"
                     onClick={() => setIsInternal(!isInternal)}
-                    className={`p-2 rounded-lg transition-colors ${isInternal ? "bg-yellow-100 dark:bg-yellow-500/15 text-yellow-700 dark:text-yellow-300" : "text-subtle hover:text-body hover:bg-muted"}`}
+                    className={`p-2.5 sm:p-2 rounded-lg transition-colors shrink-0 ${isInternal ? "bg-yellow-100 dark:bg-yellow-500/15 text-yellow-700 dark:text-yellow-300" : "text-subtle hover:text-body hover:bg-muted"}`}
                     title={
                       isInternal
                         ? "Внутренняя заметка (видна только сотрудникам)"
                         : "Обычное сообщение"
                     }
+                    aria-label={isInternal ? "Внутренняя заметка" : "Обычное сообщение"}
                   >
                     {isInternal ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -407,8 +486,9 @@ export default function TicketDetailPage() {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="p-2 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
+                  className="p-2.5 sm:p-2 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors shrink-0"
                   title="Прикрепить файл"
+                  aria-label="Прикрепить файл"
                 >
                   <Paperclip size={18} />
                 </button>
@@ -435,7 +515,7 @@ export default function TicketDetailPage() {
                     }
                   }}
                   placeholder={isInternal ? "Внутренняя заметка..." : "Введите сообщение..."}
-                  className={`flex-1 px-3 py-2 border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary ${
+                  className={`flex-1 min-w-0 px-3 py-2.5 sm:py-2 border rounded-lg text-base sm:text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary ${
                     isInternal
                       ? "border-yellow-300 dark:border-yellow-500/30 bg-yellow-50 dark:bg-yellow-500/15"
                       : "border-line"
@@ -444,7 +524,8 @@ export default function TicketDetailPage() {
                 <button
                   type="submit"
                   disabled={sending || (!msgBody.trim() && files.length === 0)}
-                  className="p-2 rounded-lg bg-primary text-white hover:bg-[#5557E1] disabled:opacity-50 transition-colors"
+                  className="p-2.5 sm:p-2 rounded-lg bg-primary text-white hover:bg-[#5557E1] disabled:opacity-50 transition-colors shrink-0"
+                  aria-label="Отправить"
                 >
                   {sending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
                 </button>
@@ -459,9 +540,9 @@ export default function TicketDetailPage() {
         </div>
       </div>
 
-      {/* Sidebar (staff only) */}
+      {/* Desktop sidebar (staff only) */}
       {isStaff && (
-        <div className="w-full lg:w-72 space-y-4">
+        <div className="hidden lg:flex w-72 flex-col gap-4">
           <div className="bg-surface rounded-2xl shadow-lg border border-line p-4 space-y-4">
             <h3 className="text-sm font-bold text-heading">Информация</h3>
             <div>
@@ -495,7 +576,7 @@ export default function TicketDetailPage() {
                 <select
                   value={ticket.status}
                   onChange={(e) => handleStatusChange(e.target.value)}
-                  className="w-full px-2 py-1.5 border border-line rounded-lg text-sm"
+                  className="w-full px-2 py-1.5 border border-line rounded-lg text-sm bg-surface"
                 >
                   {Object.entries(STATUS_LABELS).map(([k, v]) => (
                     <option key={k} value={k}>
@@ -509,7 +590,7 @@ export default function TicketDetailPage() {
                 <select
                   value={ticket.priority}
                   onChange={(e) => handlePriorityChange(e.target.value)}
-                  className="w-full px-2 py-1.5 border border-line rounded-lg text-sm"
+                  className="w-full px-2 py-1.5 border border-line rounded-lg text-sm bg-surface"
                 >
                   {Object.entries(PRIORITY_LABELS).map(([k, v]) => (
                     <option key={k} value={k}>
@@ -523,7 +604,7 @@ export default function TicketDetailPage() {
                 <select
                   value={ticket.assignedToId || ""}
                   onChange={(e) => handleAssignChange(e.target.value)}
-                  className="w-full px-2 py-1.5 border border-line rounded-lg text-sm"
+                  className="w-full px-2 py-1.5 border border-line rounded-lg text-sm bg-surface"
                 >
                   <option value="">Не назначен</option>
                   {staff.map((s) => (
@@ -535,6 +616,108 @@ export default function TicketDetailPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Mobile: bottom-sheet с управлением */}
+      {isStaff && mobileManageOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-50 flex items-end justify-center bg-black/40"
+          onClick={() => setMobileManageOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-surface w-full max-h-[88vh] rounded-t-3xl shadow-2xl border-x border-t border-line flex flex-col animate-slide-up"
+          >
+            <div className="pt-2 pb-1 flex justify-center shrink-0">
+              <div className="w-10 h-1 rounded-full bg-line" />
+            </div>
+            <div className="flex items-center justify-between px-5 pt-2 pb-3 border-b border-line shrink-0">
+              <h2 className="text-base font-bold text-heading">Управление</h2>
+              <button
+                type="button"
+                onClick={() => setMobileManageOpen(false)}
+                className="p-2 -mr-1 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
+                aria-label="Закрыть"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              {/* Информация */}
+              <div className="space-y-2">
+                <div>
+                  <label className="text-xs text-subtle">Организация</label>
+                  <Link
+                    to={`/organizations/${ticket.organization?.id}`}
+                    className="block text-sm text-primary hover:underline"
+                  >
+                    {ticket.organization?.name}
+                  </Link>
+                </div>
+                <div>
+                  <label className="text-xs text-subtle">Автор</label>
+                  <p className="text-sm text-heading">
+                    {ticket.createdBy?.firstName} {ticket.createdBy?.lastName}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-xs text-subtle">Создан</label>
+                  <p className="text-sm text-heading">
+                    {new Date(ticket.createdAt).toLocaleString("ru")}
+                  </p>
+                </div>
+              </div>
+
+              {canEdit && (
+                <div className="space-y-3 pt-3 border-t border-line">
+                  <div>
+                    <label className="text-xs text-subtle mb-1 block">Статус</label>
+                    <select
+                      value={ticket.status}
+                      onChange={(e) => handleStatusChange(e.target.value)}
+                      className="w-full px-3 py-3 border border-line rounded-lg text-base bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    >
+                      {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-subtle mb-1 block">Приоритет</label>
+                    <select
+                      value={ticket.priority}
+                      onChange={(e) => handlePriorityChange(e.target.value)}
+                      className="w-full px-3 py-3 border border-line rounded-lg text-base bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    >
+                      {Object.entries(PRIORITY_LABELS).map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-subtle mb-1 block">Назначен</label>
+                    <select
+                      value={ticket.assignedToId || ""}
+                      onChange={(e) => handleAssignChange(e.target.value)}
+                      className="w-full px-3 py-3 border border-line rounded-lg text-base bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    >
+                      <option value="">Не назначен</option>
+                      {staff.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.firstName} {s.lastName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
