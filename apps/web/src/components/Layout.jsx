@@ -22,12 +22,14 @@ import {
   Ticket,
   FileSpreadsheet,
   FolderOpen,
+  LifeBuoy,
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import NotificationBell from "./NotificationBell.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
 import AnnouncementsPanel from "./AnnouncementsPanel.jsx";
 import AnnouncementsWelcomeModal from "./AnnouncementsWelcomeModal.jsx";
+import SupportModal from "./SupportModal.jsx";
 import { api } from "../lib/api.js";
 
 const navItems = [
@@ -168,6 +170,7 @@ export default function Layout() {
   const [announcementsOpen, setAnnouncementsOpen] = useState(false);
   const [unreadAnnouncements, setUnreadAnnouncements] = useState(0);
   const [welcomeItems, setWelcomeItems] = useState(null); // null = not checked yet
+  const [supportOpen, setSupportOpen] = useState(false);
 
   // On mount: fetch unread announcements; show welcome modal once per session
   const checkAnnouncements = useCallback(async () => {
@@ -229,6 +232,14 @@ export default function Layout() {
         </div>
         <div className="flex items-center gap-3">
           <ThemeToggle />
+          <button
+            onClick={() => setSupportOpen(true)}
+            className="p-1.5 rounded-lg text-subtle hover:text-primary hover:bg-primary/5 transition-colors"
+            title="Техподдержка сервиса"
+            aria-label="Техподдержка сервиса"
+          >
+            <LifeBuoy size={20} />
+          </button>
           {/* Announcements bell */}
           <button
             onClick={() => setAnnouncementsOpen(true)}
@@ -356,6 +367,8 @@ export default function Layout() {
           }}
         />
       )}
+
+      {supportOpen && <SupportModal onClose={() => setSupportOpen(false)} />}
     </div>
   );
 }
