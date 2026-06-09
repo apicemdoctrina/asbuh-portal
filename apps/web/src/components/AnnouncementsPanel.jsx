@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from "react";
-import { X, Plus, Megaphone, Loader2, Trash2, ChevronUp } from "lucide-react";
+import { X, Plus, Megaphone, Loader2, Trash2, ChevronUp, Send } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
@@ -291,6 +291,29 @@ export default function AnnouncementsPanel({ onClose, onUnreadChange }) {
               })}
             </div>
           )}
+        </div>
+
+        {/* Footer — TG channel CTA */}
+        <div className="px-5 py-4 border-t border-line bg-gradient-to-br from-[#229ED9]/10 via-canvas to-[#229ED9]/5 flex-shrink-0">
+          <a
+            href="https://t.me/asbuhhh"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-[#229ED9] to-[#1a8ac4] hover:from-[#1a8ac4] hover:to-[#147ab0] text-white shadow-lg shadow-[#229ED9]/30 hover:shadow-xl hover:shadow-[#229ED9]/40 transition-all"
+          >
+            <div className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+              <Send size={20} className="-ml-0.5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold leading-tight">Подпишитесь на наш Telegram</div>
+              <div className="text-xs text-white/85 leading-tight mt-0.5">
+                Все анонсы и обновления — там первыми
+              </div>
+            </div>
+            <div className="text-xs font-medium bg-white/20 px-2.5 py-1 rounded-full shrink-0">
+              @asbuhhh
+            </div>
+          </a>
         </div>
       </div>
     </div>
