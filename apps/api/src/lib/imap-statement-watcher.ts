@@ -177,7 +177,7 @@ function errMsg(e: unknown): string {
 
 async function notifyAdmins(outcome: ProcessOutcome): Promise<void> {
   const admins = await prisma.user.findMany({
-    where: { roles: { some: { role: { name: "admin" } } } },
+    where: { userRoles: { some: { role: { name: "admin" } } } },
     select: { id: true },
   });
   const title =
@@ -252,7 +252,7 @@ export function startImapStatementWatcher(): void {
         lastConnectFailNotify = now;
         try {
           const admins = await prisma.user.findMany({
-            where: { roles: { some: { role: { name: "admin" } } } },
+            where: { userRoles: { some: { role: { name: "admin" } } } },
             select: { id: true },
           });
           for (const a of admins) {

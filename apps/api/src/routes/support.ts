@@ -68,7 +68,7 @@ async function notifyOthers(opts: {
   } else {
     // клиент пишет → уведомляем всех admin
     const admins = await prisma.user.findMany({
-      where: { roles: { some: { role: { name: "admin" } } } },
+      where: { userRoles: { some: { role: { name: "admin" } } } },
       select: { id: true },
     });
     for (const a of admins) {
