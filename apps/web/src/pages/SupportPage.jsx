@@ -634,34 +634,38 @@ export default function SupportPage() {
             </div>
           ) : (
             <>
-              <header className="p-3 sm:p-4 border-b border-line flex items-start gap-2 sm:gap-3 flex-wrap">
-                <Link
-                  to="/support"
-                  className="lg:hidden shrink-0 -ml-1 p-1.5 rounded-lg text-subtle hover:text-primary hover:bg-primary/5 transition-colors"
-                  aria-label="К списку обращений"
-                >
-                  <ChevronLeft size={20} />
-                </Link>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <h2 className="text-lg font-bold text-heading">{thread.subject}</h2>
-                    <span
-                      className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ${STATUS_LABEL[thread.status].cls}`}
-                    >
-                      {STATUS_LABEL[thread.status].text}
-                    </span>
-                  </div>
-                  <div className="text-xs text-subtle">
-                    Открыто {formatTime(thread.createdAt)}
-                    {isStaff && ` · ${fullName(thread.user)}`}
+              <header className="p-3 sm:p-4 border-b border-line flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+                <div className="flex items-start gap-2 flex-1 min-w-0">
+                  <Link
+                    to="/support"
+                    className="lg:hidden shrink-0 -ml-1 p-1.5 rounded-lg text-subtle hover:text-primary hover:bg-primary/5 transition-colors"
+                    aria-label="К списку обращений"
+                  >
+                    <ChevronLeft size={20} />
+                  </Link>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-base sm:text-lg font-bold text-heading truncate flex-1 min-w-0">
+                        {thread.subject}
+                      </h2>
+                      <span
+                        className={`shrink-0 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ${STATUS_LABEL[thread.status].cls}`}
+                      >
+                        {STATUS_LABEL[thread.status].text}
+                      </span>
+                    </div>
+                    <div className="text-xs text-subtle mt-0.5 truncate">
+                      Открыто {formatTime(thread.createdAt)}
+                      {isStaff && ` · ${fullName(thread.user)}`}
+                    </div>
                   </div>
                 </div>
                 {isStaff && thread.status !== "CLOSED" && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 sm:shrink-0">
                     {thread.status === "OPEN" && (
                       <button
                         onClick={() => changeStatus("RESOLVED")}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200/70 dark:hover:bg-emerald-500/25 transition-colors"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200/70 dark:hover:bg-emerald-500/25 transition-colors"
                       >
                         <CheckCircle2 size={14} />
                         Решено
@@ -669,7 +673,7 @@ export default function SupportPage() {
                     )}
                     <button
                       onClick={() => changeStatus("CLOSED")}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-body hover:bg-line transition-colors"
+                      className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-body hover:bg-line transition-colors"
                     >
                       Закрыть
                     </button>
@@ -678,7 +682,7 @@ export default function SupportPage() {
                 {isStaff && thread.status === "CLOSED" && (
                   <button
                     onClick={() => changeStatus("OPEN")}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-body hover:bg-line transition-colors"
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-body hover:bg-line transition-colors sm:shrink-0"
                   >
                     Переоткрыть
                   </button>
