@@ -110,10 +110,23 @@ router.get("/threads", authenticate, async (req, res) => {
   }
 });
 
-const createThreadSchema = z.object({
-  subject: z.string().trim().min(3).max(200),
-  body: z.string().trim().min(1).max(10_000),
+const attachmentInputSchema = z.object({
+  fileName: z.string(),
+  fileKey: z.string(),
+  originalName: z.string().optional(),
+  fileSize: z.number().int().nonnegative().optional(),
+  mimeType: z.string().optional(),
 });
+
+const createThreadSchema = z
+  .object({
+    subject: z.string().trim().min(3).max(200),
+    body: z.string().trim().max(10_000).optional().default(""),
+    attachments: z.array(attachmentInputSchema).max(10).optional(),
+  })
+  .refine((d) => (d.body && d.body.length > 0) || (d.attachments && d.attachments.length > 0), {
+    message: "Нужен текст или хотя бы одно вложение",
+  });
 
 /** POST /api/support/threads — создать тред с первым сообщением. */
 router.post("/threads", authenticate, async (req, res) => {
@@ -134,6 +147,7 @@ router.post("/threads", authenticate, async (req, res) => {
             body: parsed.data.body,
             authorId: user.userId,
             isStaff: userIsStaff,
+            attachments: parsed.data.attachments ?? undefined,
           },
         },
       },
@@ -211,18 +225,14 @@ router.get("/threads/:id", authenticate, async (req, res) => {
   }
 });
 
-const attachmentSchema = z.object({
-  fileName: z.string(),
-  fileKey: z.string(),
-  originalName: z.string().optional(),
-  fileSize: z.number().int().nonnegative().optional(),
-  mimeType: z.string().optional(),
-});
-
-const addMessageSchema = z.object({
-  body: z.string().trim().min(1).max(10_000),
-  attachments: z.array(attachmentSchema).max(10).optional(),
-});
+const addMessageSchema = z
+  .object({
+    body: z.string().trim().max(10_000).optional().default(""),
+    attachments: z.array(attachmentInputSchema).max(10).optional(),
+  })
+  .refine((d) => (d.body && d.body.length > 0) || (d.attachments && d.attachments.length > 0), {
+    message: "Нужен текст или хотя бы одно вложение",
+  });
 
 /** POST /api/support/threads/:id/messages — добавить сообщение. */
 router.post("/threads/:id/messages", authenticate, async (req, res) => {
