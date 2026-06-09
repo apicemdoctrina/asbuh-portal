@@ -29,6 +29,7 @@ import NotificationBell from "./NotificationBell.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
 import AnnouncementsPanel from "./AnnouncementsPanel.jsx";
 import AnnouncementsWelcomeModal from "./AnnouncementsWelcomeModal.jsx";
+import BugReportButton from "./BugReportButton.jsx";
 import { api } from "../lib/api.js";
 
 const navItems = [
@@ -360,6 +361,8 @@ export default function Layout() {
           onUnreadChange={setUnreadAnnouncements}
         />
       )}
+
+      <BugReportButton />
 
       {/* Welcome modal — shown once per session when there are unread announcements */}
       {welcomeItems && welcomeItems.length > 0 && (
