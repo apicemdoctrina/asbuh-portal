@@ -20,6 +20,8 @@ import {
   List,
   Columns3,
   ChevronRight,
+  ChevronDown,
+  Filter,
 } from "lucide-react";
 import TaskCommentsModal from "../components/TaskCommentsModal.jsx";
 import TaskChecklistModal from "../components/TaskChecklistModal.jsx";
@@ -103,7 +105,6 @@ function isOverdue(task) {
 
 const INPUT_CLS =
   "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface";
-const SELECT_CLS = INPUT_CLS;
 const LABEL_CLS = "block text-sm font-medium text-body mb-1";
 
 const EMPTY_FORM = {
@@ -128,6 +129,22 @@ export default function TasksPage() {
 
   // View mode
   const [viewMode, setViewMode] = useState("kanban");
+
+  // Mobile detection (matches Tailwind sm breakpoint)
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches,
+  );
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 639px)");
+    const handler = (e) => setIsMobile(e.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
+
+  // Mobile-only: collapse advanced fields in create modal
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  // Mobile-only: collapse secondary filters
+  const [showFilters, setShowFilters] = useState(false);
 
   // Filters
   const [statusTab, setStatusTab] = useState("");
@@ -262,6 +279,7 @@ export default function TasksPage() {
     }
     setForm(merged);
     setFormError(null);
+    setShowAdvanced(false);
     setShowModal(true);
   }
 
@@ -282,6 +300,7 @@ export default function TasksPage() {
       userTouchedVisible: false,
     });
     setFormError(null);
+    setShowAdvanced(true); // editing: show all fields right away
     setShowModal(true);
   }
 
@@ -449,7 +468,7 @@ export default function TasksPage() {
   }, [filtered]);
 
   const isArchiveMode = statusTab === "ARCHIVED";
-  const effectiveViewMode = isArchiveMode ? "list" : viewMode;
+  const effectiveViewMode = isArchiveMode || isMobile ? "list" : viewMode;
 
   function handleDrop(newStatus) {
     if (!newStatus) return;
@@ -466,12 +485,12 @@ export default function TasksPage() {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-5">
-        <h1 className="text-2xl font-bold text-heading">Задачи</h1>
+      <div className="flex items-center justify-between mb-4 sm:mb-5 gap-2">
+        <h1 className="text-xl sm:text-2xl font-bold text-heading">Задачи</h1>
         <div className="flex items-center gap-2">
-          {/* View toggle */}
+          {/* View toggle — desktop only */}
           {!isArchiveMode && (
-            <div className="flex gap-0.5 bg-muted rounded-lg p-0.5">
+            <div className="hidden sm:flex gap-0.5 bg-muted rounded-lg p-0.5">
               <button
                 onClick={() => setViewMode("list")}
                 className={`p-1.5 rounded-md transition-colors ${viewMode === "list" ? "bg-surface shadow text-primary" : "text-subtle hover:text-body"}`}
@@ -488,10 +507,11 @@ export default function TasksPage() {
               </button>
             </div>
           )}
+          {/* Desktop create button (mobile uses FAB) */}
           {canCreate && (
             <button
               onClick={() => openCreate()}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all"
+              className="hidden sm:inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all"
             >
               <Plus size={16} />
               Создать задачу
@@ -500,25 +520,34 @@ export default function TasksPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3 mb-5">
+      {/* Filters — status tabs scroll horizontally on mobile */}
+      <div className="mb-3 sm:mb-5">
         {/* Status tabs — hidden in kanban (columns are the statuses) */}
         {effectiveViewMode === "list" && (
-          <div className="flex gap-1 bg-surface border border-line rounded-xl p-1">
-            {STATUS_TABS.filter(
-              (t) => t.key !== "ARCHIVED" || hasRole("admin") || hasRole("supervisor"),
-            ).map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setStatusTab(t.key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  statusTab === t.key ? "bg-primary text-white" : "text-subtle hover:text-heading"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
+          <>
+            {/* Mobile: single pill dropdown */}
+            <StatusTabsDropdown
+              value={statusTab}
+              onChange={setStatusTab}
+              showArchived={hasRole("admin") || hasRole("supervisor")}
+            />
+            {/* Desktop: full pill row */}
+            <div className="hidden sm:flex flex-wrap gap-1 bg-surface border border-line rounded-xl p-1">
+              {STATUS_TABS.filter(
+                (t) => t.key !== "ARCHIVED" || hasRole("admin") || hasRole("supervisor"),
+              ).map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setStatusTab(t.key)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    statusTab === t.key ? "bg-primary text-white" : "text-subtle hover:text-heading"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </>
         )}
         {effectiveViewMode === "kanban" && (hasRole("admin") || hasRole("supervisor")) && (
           <button
@@ -532,45 +561,74 @@ export default function TasksPage() {
           </button>
         )}
 
-        {/* Category filter */}
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="px-3 py-2 border border-line rounded-lg text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30"
-        >
-          <option value="">Все категории</option>
-          {Object.entries(TASK_CATEGORY_LABELS).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
-        </select>
+        {/* Secondary filters — collapsible on mobile, inline on sm+ */}
+        <div className="mt-2 sm:mt-3 flex flex-wrap items-center gap-2 sm:gap-3">
+          {/* Mobile toggle */}
+          <button
+            type="button"
+            onClick={() => setShowFilters((v) => !v)}
+            className="sm:hidden inline-flex items-center gap-1.5 px-3 py-2 border border-line rounded-lg text-xs font-medium bg-surface text-body"
+            aria-expanded={showFilters}
+          >
+            <Filter size={14} />
+            Фильтры
+            {(categoryFilter || assigneeFilter) && (
+              <span className="ml-0.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-white text-[10px] font-bold">
+                {(categoryFilter ? 1 : 0) + (assigneeFilter ? 1 : 0)}
+              </span>
+            )}
+            <ChevronDown
+              size={14}
+              className={`transition-transform ${showFilters ? "rotate-180" : ""}`}
+            />
+          </button>
 
-        {/* Assignee filter — only for managers and above */}
-        {(hasRole("admin") || hasRole("supervisor") || hasRole("manager")) &&
-          assigneesFromTasks.length > 0 && (
+          {/* Date sort — always visible */}
+          <button
+            onClick={() => setDateSort((s) => (s === "desc" ? "asc" : "desc"))}
+            className="flex items-center gap-1.5 px-3 py-2 border border-line rounded-lg text-xs sm:text-sm bg-surface text-body hover:text-heading transition-colors"
+          >
+            <ArrowUpDown size={14} />
+            <span className="hidden xs:inline sm:inline">
+              {dateSort === "desc" ? "Сначала новые" : "Сначала старые"}
+            </span>
+            <span className="xs:hidden sm:hidden">{dateSort === "desc" ? "Новые" : "Старые"}</span>
+          </button>
+
+          {/* Category + Assignee selects — full-width below on mobile when expanded */}
+          <div
+            className={`${showFilters ? "flex" : "hidden"} sm:flex w-full sm:w-auto flex-col sm:flex-row gap-2 sm:gap-3`}
+          >
             <select
-              value={assigneeFilter}
-              onChange={(e) => setAssigneeFilter(e.target.value)}
-              className="px-3 py-2 border border-line rounded-lg text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="px-3 py-2 border border-line rounded-lg text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto"
             >
-              <option value="">Все ответственные</option>
-              {assigneesFromTasks.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.lastName} {u.firstName}
+              <option value="">Все категории</option>
+              {Object.entries(TASK_CATEGORY_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
                 </option>
               ))}
             </select>
-          )}
 
-        {/* Date sort */}
-        <button
-          onClick={() => setDateSort((s) => (s === "desc" ? "asc" : "desc"))}
-          className="flex items-center gap-1.5 px-3 py-2 border border-line rounded-lg text-sm bg-surface text-body hover:text-heading hover:border-line transition-colors"
-        >
-          <ArrowUpDown size={14} />
-          {dateSort === "desc" ? "Сначала новые" : "Сначала старые"}
-        </button>
+            {(hasRole("admin") || hasRole("supervisor") || hasRole("manager")) &&
+              assigneesFromTasks.length > 0 && (
+                <select
+                  value={assigneeFilter}
+                  onChange={(e) => setAssigneeFilter(e.target.value)}
+                  className="px-3 py-2 border border-line rounded-lg text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto"
+                >
+                  <option value="">Все ответственные</option>
+                  {assigneesFromTasks.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.lastName} {u.firstName}
+                    </option>
+                  ))}
+                </select>
+              )}
+          </div>
+        </div>
       </div>
 
       {/* Content */}
@@ -703,22 +761,35 @@ export default function TasksPage() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal — centered card on sm+, bottom-sheet on mobile */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-lg">
-            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-line">
-              <h2 className="text-base font-bold text-heading">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 sm:bg-black/30 sm:p-4">
+          <form
+            onSubmit={handleSubmit}
+            className="bg-surface w-full sm:max-w-lg max-h-[92vh] sm:max-h-[90vh] rounded-t-3xl sm:rounded-2xl shadow-2xl border-x border-t sm:border border-line flex flex-col animate-slide-up sm:animate-none"
+          >
+            {/* Drag handle (mobile only) */}
+            <div className="sm:hidden pt-2 pb-1 flex justify-center shrink-0">
+              <div className="w-10 h-1 rounded-full bg-line" />
+            </div>
+
+            {/* Sticky header */}
+            <div className="flex items-center justify-between px-5 pt-2 sm:pt-4 pb-3 border-b border-line shrink-0">
+              <h2 className="text-base sm:text-base font-bold text-heading">
                 {editingTask ? "Редактировать задачу" : "Новая задача"}
               </h2>
               <button
+                type="button"
                 onClick={() => setShowModal(false)}
-                className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
+                className="p-2 -mr-1 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
+                aria-label="Закрыть"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="px-5 py-4 space-y-3">
+
+            {/* Scrollable body */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
               <div>
                 <label className={LABEL_CLS}>Заголовок *</label>
                 <input
@@ -726,8 +797,9 @@ export default function TasksPage() {
                   autoFocus
                   value={form.title}
                   onChange={(e) => setField("title", e.target.value)}
-                  className={INPUT_CLS}
+                  className="w-full px-3 py-3 sm:py-2 border border-line rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
                   placeholder="Например: Сдать отчёт по НДС"
+                  enterKeyHint="next"
                 />
               </div>
               <div>
@@ -736,150 +808,181 @@ export default function TasksPage() {
                   rows={2}
                   value={form.description}
                   onChange={(e) => setField("description", e.target.value)}
-                  className={INPUT_CLS}
+                  className="w-full px-3 py-3 sm:py-2 border border-line rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
+                  placeholder="Можно надиктовать голосом"
                 />
               </div>
-              <div className="flex items-start gap-2.5 py-0.5">
+
+              {/* Mobile: Дедлайн всегда на виду; Подробнее раскрывает остальное */}
+              <div className="sm:hidden">
+                <label className={LABEL_CLS}>Дедлайн</label>
                 <input
-                  id="visibleToClient"
-                  type="checkbox"
-                  checked={form.visibleToClient}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      visibleToClient: e.target.checked,
-                      userTouchedVisible: true,
-                    }))
-                  }
-                  className="mt-0.5 h-4 w-4 rounded accent-[#6567F1] cursor-pointer"
+                  type="date"
+                  value={form.dueDate}
+                  onChange={(e) => setField("dueDate", e.target.value)}
+                  className="w-full px-3 py-3 border border-line rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
                 />
-                <div>
-                  <label
-                    htmlFor="visibleToClient"
-                    className="block text-sm font-medium text-body cursor-pointer"
-                  >
-                    Показывать клиенту в ленте
-                  </label>
-                  <p className="text-xs text-subtle mt-0.5">
-                    После закрытия задача появится у клиента в разделе «Что мы для вас делаем».
-                    Заголовок задачи будет показан клиенту дословно — например, «Сдана декларация
-                    УСН за Q1».
-                  </p>
-                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={LABEL_CLS}>Приоритет</label>
-                  <select
-                    value={form.priority}
-                    onChange={(e) => setField("priority", e.target.value)}
-                    className={SELECT_CLS}
-                  >
-                    {Object.entries(TASK_PRIORITY_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={LABEL_CLS}>Категория</label>
-                  <select
-                    value={form.category}
-                    onChange={(e) => {
-                      const newCat = e.target.value;
+
+              {/* Toggle for advanced fields — mobile only */}
+              <button
+                type="button"
+                onClick={() => setShowAdvanced((v) => !v)}
+                className="sm:hidden w-full flex items-center justify-between gap-2 px-3 py-2.5 -mx-1 rounded-lg text-sm font-medium text-primary hover:bg-primary/5 transition-colors"
+                aria-expanded={showAdvanced}
+              >
+                <span>{showAdvanced ? "Свернуть" : "Подробнее"}</span>
+                <ChevronDown
+                  size={16}
+                  className={`transition-transform ${showAdvanced ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              {/* Advanced fields — always visible on sm+, behind toggle on mobile */}
+              <div className={`${showAdvanced ? "block" : "hidden"} sm:block space-y-3`}>
+                <div className="flex items-start gap-2.5 py-0.5">
+                  <input
+                    id="visibleToClient"
+                    type="checkbox"
+                    checked={form.visibleToClient}
+                    onChange={(e) =>
                       setForm((f) => ({
                         ...f,
-                        category: newCat,
-                        visibleToClient:
-                          !editingTask && !f.userTouchedVisible
-                            ? newCat === "REPORTING"
-                            : f.visibleToClient,
-                      }));
-                    }}
-                    className={SELECT_CLS}
-                  >
-                    {Object.entries(TASK_CATEGORY_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={LABEL_CLS}>Дедлайн</label>
-                  <input
-                    type="date"
-                    value={form.dueDate}
-                    onChange={(e) => setField("dueDate", e.target.value)}
-                    className={INPUT_CLS}
+                        visibleToClient: e.target.checked,
+                        userTouchedVisible: true,
+                      }))
+                    }
+                    className="mt-0.5 h-5 w-5 sm:h-4 sm:w-4 rounded accent-[#6567F1] cursor-pointer shrink-0"
                   />
-                </div>
-                <div>
-                  <label className={LABEL_CLS}>Повторение</label>
-                  <select
-                    value={form.recurrence}
-                    onChange={(e) => setField("recurrence", e.target.value)}
-                    className={SELECT_CLS}
-                  >
-                    {RECURRENCE_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className={LABEL_CLS}>{editingTask ? "Организация" : "Организации"}</label>
-                {editingTask ? (
-                  <>
-                    <select
-                      value={form.organizationId}
-                      onChange={(e) => {
-                        setField("organizationId", e.target.value);
-                        setField("assignedToIds", []);
-                      }}
-                      className={SELECT_CLS}
+                  <div>
+                    <label
+                      htmlFor="visibleToClient"
+                      className="block text-sm font-medium text-body cursor-pointer"
                     >
-                      <option value="">Без организации</option>
-                      {orgs.map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {o.name}
+                      Показывать клиенту в ленте
+                    </label>
+                    <p className="text-xs text-subtle mt-0.5">
+                      После закрытия задача появится у клиента в разделе «Что мы для вас делаем».
+                      Заголовок задачи будет показан клиенту дословно — например, «Сдана декларация
+                      УСН за Q1».
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={LABEL_CLS}>Приоритет</label>
+                    <select
+                      value={form.priority}
+                      onChange={(e) => setField("priority", e.target.value)}
+                      className="w-full px-3 py-3 sm:py-2 border border-line rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
+                    >
+                      {Object.entries(TASK_PRIORITY_LABELS).map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v}
                         </option>
                       ))}
                     </select>
-                    <div className="mt-2">
-                      <label className="block text-xs font-medium text-subtle mb-1">
-                        Добавить ещё организации (создаст копии задачи)
-                      </label>
-                      <OrgMultiSelect
-                        options={orgs.filter((o) => o.id !== form.organizationId)}
-                        value={form.addOrganizationIds || []}
-                        onChange={(ids) => setField("addOrganizationIds", ids)}
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <OrgMultiSelect
-                    options={orgs}
-                    value={form.organizationIds}
-                    onChange={(ids) => {
-                      setField("organizationIds", ids);
-                      setField("assignedToIds", []);
-                    }}
+                  </div>
+                  <div>
+                    <label className={LABEL_CLS}>Категория</label>
+                    <select
+                      value={form.category}
+                      onChange={(e) => {
+                        const newCat = e.target.value;
+                        setForm((f) => ({
+                          ...f,
+                          category: newCat,
+                          visibleToClient:
+                            !editingTask && !f.userTouchedVisible
+                              ? newCat === "REPORTING"
+                              : f.visibleToClient,
+                        }));
+                      }}
+                      className="w-full px-3 py-3 sm:py-2 border border-line rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
+                    >
+                      {Object.entries(TASK_CATEGORY_LABELS).map(([k, v]) => (
+                        <option key={k} value={k}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Дедлайн дублируется только для desktop (на мобилке выше) */}
+                  <div className="hidden sm:block">
+                    <label className={LABEL_CLS}>Дедлайн</label>
+                    <input
+                      type="date"
+                      value={form.dueDate}
+                      onChange={(e) => setField("dueDate", e.target.value)}
+                      className={INPUT_CLS}
+                    />
+                  </div>
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className={LABEL_CLS}>Повторение</label>
+                    <select
+                      value={form.recurrence}
+                      onChange={(e) => setField("recurrence", e.target.value)}
+                      className="w-full px-3 py-3 sm:py-2 border border-line rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
+                    >
+                      {RECURRENCE_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className={LABEL_CLS}>{editingTask ? "Организация" : "Организации"}</label>
+                  {editingTask ? (
+                    <>
+                      <select
+                        value={form.organizationId}
+                        onChange={(e) => {
+                          setField("organizationId", e.target.value);
+                          setField("assignedToIds", []);
+                        }}
+                        className="w-full px-3 py-3 sm:py-2 border border-line rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
+                      >
+                        <option value="">Без организации</option>
+                        {orgs.map((o) => (
+                          <option key={o.id} value={o.id}>
+                            {o.name}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="mt-2">
+                        <label className="block text-xs font-medium text-subtle mb-1">
+                          Добавить ещё организации (создаст копии задачи)
+                        </label>
+                        <OrgMultiSelect
+                          options={orgs.filter((o) => o.id !== form.organizationId)}
+                          value={form.addOrganizationIds || []}
+                          onChange={(ids) => setField("addOrganizationIds", ids)}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <OrgMultiSelect
+                      options={orgs}
+                      value={form.organizationIds}
+                      onChange={(ids) => {
+                        setField("organizationIds", ids);
+                        setField("assignedToIds", []);
+                      }}
+                    />
+                  )}
+                </div>
+                <div>
+                  <label className={LABEL_CLS}>Исполнители</label>
+                  <AssigneeMultiSelect
+                    options={users}
+                    value={form.assignedToIds}
+                    onChange={(ids) => setField("assignedToIds", ids)}
                   />
-                )}
-              </div>
-              <div>
-                <label className={LABEL_CLS}>Исполнители</label>
-                <AssigneeMultiSelect
-                  options={users}
-                  value={form.assignedToIds}
-                  onChange={(ids) => setField("assignedToIds", ids)}
-                />
+                </div>
               </div>
 
               {formError && (
@@ -887,26 +990,27 @@ export default function TasksPage() {
                   {formError}
                 </div>
               )}
+            </div>
 
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
-                >
-                  <Save size={16} />
-                  {saving ? "Сохранение..." : "Сохранить"}
-                </button>
-              </div>
-            </form>
-          </div>
+            {/* Sticky footer */}
+            <div className="flex gap-2 sm:gap-3 px-5 py-3 border-t border-line bg-surface shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="px-4 py-3 sm:py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
+              >
+                <Save size={16} />
+                {saving ? "Сохранение..." : "Сохранить"}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
@@ -931,6 +1035,18 @@ export default function TasksPage() {
             )
           }
         />
+      )}
+
+      {/* Mobile FAB — quick task creation; placed above the bug-report FAB */}
+      {canCreate && !showModal && (
+        <button
+          type="button"
+          onClick={() => openCreate()}
+          aria-label="Создать задачу"
+          className="sm:hidden fixed z-40 bottom-4 right-4 w-14 h-14 rounded-full bg-gradient-to-br from-[#6567F1] to-[#5557E1] text-white shadow-xl shadow-[#6567F1]/40 active:scale-95 active:shadow-md transition-all flex items-center justify-center"
+        >
+          <Plus size={26} strokeWidth={2.5} />
+        </button>
       )}
     </>
   );
@@ -1229,11 +1345,14 @@ function KanbanCard({
       </div>
 
       {/* Title */}
-      <p
-        className={`text-sm font-medium leading-snug mb-1.5 ${cancelled ? "line-through text-subtle" : isReport ? "text-purple-900 dark:text-purple-300" : "text-heading"}`}
+      <button
+        type="button"
+        onClick={() => onComment(task)}
+        className={`block text-left w-full text-sm font-medium leading-snug mb-1.5 hover:text-primary transition-colors ${cancelled ? "line-through text-subtle" : isReport ? "text-purple-900 dark:text-purple-300" : "text-heading"}`}
+        title="Открыть карточку задачи"
       >
         {task.title}
-      </p>
+      </button>
 
       {/* Report progress bar */}
       {isReport && checklistTotal > 0 && (
@@ -1594,6 +1713,13 @@ const PRIORITY_BAR = {
   URGENT: "bg-red-500",
 };
 
+const PRIORITY_BORDER = {
+  LOW: "border-l-slate-300",
+  MEDIUM: "border-l-yellow-400",
+  HIGH: "border-l-orange-400",
+  URGENT: "border-l-red-500",
+};
+
 function TaskCard({
   task,
   canEdit,
@@ -1611,91 +1737,109 @@ function TaskCard({
   const cancelled = task.status === "CANCELLED";
   const isReport = !!task.reportType;
 
+  const borderColorCls = isReport
+    ? "border-l-purple-400"
+    : overdue
+      ? "border-l-red-500"
+      : PRIORITY_BORDER[task.priority];
+
   return (
     <div
-      className={`group flex items-center gap-3 border rounded-xl px-3 py-2.5 transition-shadow hover:shadow-md ${
+      className={`group border border-l-4 rounded-xl transition-shadow hover:shadow-md flex flex-col sm:flex-row sm:items-center sm:gap-3 sm:px-3 sm:py-2.5 ${borderColorCls} ${
         isReport
           ? "bg-gradient-to-r from-purple-50/80 to-white dark:from-purple-500/10 dark:to-surface border-purple-200/60 dark:border-purple-500/30 ring-1 ring-purple-100/50 dark:ring-purple-500/20"
           : overdue
-            ? "bg-surface border-red-200 dark:border-red-500/30 bg-red-50/30 dark:bg-red-500/15"
+            ? "bg-red-50/30 dark:bg-red-500/15 border-red-200 dark:border-red-500/30"
             : "bg-surface border-line"
       }`}
     >
-      {/* Priority bar */}
-      <div
-        className={`w-1 h-8 rounded-full shrink-0 ${isReport ? "bg-purple-400" : PRIORITY_BAR[task.priority]}`}
-        title={isReport ? "Отчётность" : TASK_PRIORITY_LABELS[task.priority]}
-      />
-
-      {/* Category badge */}
-      <span
-        className={`hidden sm:inline-flex shrink-0 text-[10px] px-1.5 py-0.5 rounded font-semibold tracking-wide uppercase ${CATEGORY_COLORS[task.category]}`}
-      >
-        {TASK_CATEGORY_LABELS[task.category]}
-      </span>
-
       {/* Title + meta */}
-      <div className="flex-1 min-w-0">
-        <p
-          className={`text-sm font-medium leading-tight truncate ${cancelled ? "line-through text-subtle" : isReport ? "text-purple-900 dark:text-purple-300" : "text-heading"}`}
+      <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0 px-3 pt-3 sm:p-0">
+        {/* Category badge — desktop only (mobile shows it inline in meta) */}
+        <span
+          className={`hidden sm:inline-flex shrink-0 text-[10px] px-1.5 py-0.5 rounded font-semibold tracking-wide uppercase ${CATEGORY_COLORS[task.category]}`}
         >
-          {task.title}
-        </p>
-        <div className="flex items-center gap-2.5 mt-0.5 text-[11px] text-subtle flex-wrap">
-          {isReport && checklistTotal > 0 && (
-            <span className="flex items-center gap-0.5 font-medium text-purple-600 dark:text-purple-300">
-              <Building2 size={10} />
-              {checklistDone}/{checklistTotal} орг.
-            </span>
-          )}
-          {!isReport && task.organization && (
-            <Link
-              to={`/organizations/${task.organization.id}`}
-              className="flex items-center gap-0.5 hover:text-primary transition-colors truncate max-w-[160px]"
-            >
-              <Building2 size={10} />
-              <span className="truncate">{task.organization.name}</span>
-            </Link>
-          )}
-          {task.assignees?.length > 0 && (
+          {TASK_CATEGORY_LABELS[task.category]}
+        </span>
+
+        <div className="flex-1 min-w-0">
+          <button
+            type="button"
+            onClick={() => onComment(task)}
+            className={`block text-left w-full text-[15px] sm:text-sm font-semibold sm:font-medium leading-snug hover:text-primary transition-colors ${cancelled ? "line-through text-subtle" : isReport ? "text-purple-900 dark:text-purple-300" : "text-heading"}`}
+            title="Открыть карточку задачи"
+          >
+            {task.title}
+          </button>
+          <div className="flex items-center gap-x-2 gap-y-1 mt-1.5 sm:mt-0.5 text-[11px] text-subtle flex-wrap">
             <span
-              className="flex items-center gap-0.5 truncate max-w-[140px]"
-              title={task.assignees.map((a) => `${a.user.lastName} ${a.user.firstName}`).join(", ")}
+              className={`sm:hidden inline-flex shrink-0 text-[10px] px-1.5 py-0.5 rounded font-semibold tracking-wide uppercase ${CATEGORY_COLORS[task.category]}`}
             >
-              <User size={10} />
-              <span className="truncate">
-                {task.assignees.map((a) => a.user.firstName).join(", ")}
+              {TASK_CATEGORY_LABELS[task.category]}
+            </span>
+            {isReport && checklistTotal > 0 && (
+              <span className="flex items-center gap-0.5 font-medium text-purple-600 dark:text-purple-300">
+                <Building2 size={11} />
+                {checklistDone}/{checklistTotal}
               </span>
-            </span>
-          )}
-          {task.dueDate && (
-            <span
-              className={`flex items-center gap-0.5 shrink-0 ${overdue ? "text-red-500 dark:text-red-400 font-semibold" : ""}`}
-            >
-              <CalendarDays size={10} />
-              {formatDueDate(task.dueDate)}
-              {overdue && " ⚠"}
-            </span>
-          )}
-          {task.recurrenceType && (
-            <span
-              className="flex items-center gap-0.5 text-primary shrink-0"
-              title={RECURRENCE_LABELS[`${task.recurrenceType}:${task.recurrenceInterval}`]}
-            >
-              <RefreshCw size={10} />
-              {RECURRENCE_LABELS[`${task.recurrenceType}:${task.recurrenceInterval}`]}
-            </span>
-          )}
+            )}
+            {!isReport && task.organization && (
+              <Link
+                to={`/organizations/${task.organization.id}`}
+                className="flex items-center gap-0.5 hover:text-primary transition-colors truncate max-w-[160px]"
+              >
+                <Building2 size={11} />
+                <span className="truncate">{task.organization.name}</span>
+              </Link>
+            )}
+            {task.dueDate && (
+              <span
+                className={`flex items-center gap-0.5 shrink-0 tabular-nums ${overdue ? "text-red-500 dark:text-red-400 font-semibold" : ""}`}
+              >
+                <CalendarDays size={11} />
+                {formatDueDate(task.dueDate)}
+                {overdue && " ⚠"}
+              </span>
+            )}
+            {task.assignees?.length > 0 && (
+              <span
+                className="flex items-center gap-0.5 truncate max-w-[160px]"
+                title={task.assignees
+                  .map((a) => `${a.user.lastName} ${a.user.firstName}`)
+                  .join(", ")}
+              >
+                <User size={11} />
+                <span className="truncate">
+                  {task.assignees.map((a) => a.user.firstName).join(", ")}
+                </span>
+              </span>
+            )}
+            {task.recurrenceType && (
+              <span
+                className="flex items-center gap-0.5 text-primary shrink-0"
+                title={RECURRENCE_LABELS[`${task.recurrenceType}:${task.recurrenceInterval}`]}
+              >
+                <RefreshCw size={11} />
+                <span className="hidden sm:inline">
+                  {RECURRENCE_LABELS[`${task.recurrenceType}:${task.recurrenceInterval}`]}
+                </span>
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-1 shrink-0">
+      {/* Actions row — divider above on mobile, inline on sm+ */}
+      <div className="flex items-center gap-1 mt-2 sm:mt-0 px-2 py-1.5 sm:p-0 border-t sm:border-t-0 border-line/60">
         {canEdit && nextStatuses.length > 0 ? (
           <select
             value={task.status}
             onChange={(e) => onStatusChange(task, e.target.value)}
-            className={`text-[11px] border rounded-lg px-2 py-1 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer font-medium ${STATUS_COLORS[task.status]}`}
+            className={`text-xs sm:text-[11px] border-0 rounded-full pl-3 pr-7 py-1.5 sm:py-1 focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer font-semibold appearance-none bg-[length:14px] bg-no-repeat bg-[right_0.5rem_center] bg-[image:var(--chevron-svg)] ${STATUS_COLORS[task.status]}`}
+            style={{
+              backgroundImage:
+                "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>\")",
+            }}
           >
             <option value={task.status}>{TASK_STATUS_LABELS[task.status]}</option>
             {nextStatuses.map((s) => (
@@ -1706,71 +1850,77 @@ function TaskCard({
           </select>
         ) : (
           <span
-            className={`text-[11px] px-2 py-1 rounded-lg font-medium ${STATUS_COLORS[task.status]}`}
+            className={`text-xs sm:text-[11px] px-2.5 py-1.5 sm:py-1 rounded-full font-semibold ${STATUS_COLORS[task.status]}`}
           >
             {TASK_STATUS_LABELS[task.status]}
           </span>
         )}
 
-        {isReport && checklistTotal > 0 ? (
+        <div className="ml-auto flex items-center gap-0.5">
+          {isReport && checklistTotal > 0 ? (
+            <button
+              onClick={() => onChecklist(task)}
+              className="flex items-center gap-1 px-2.5 py-1.5 sm:py-1 rounded-full bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 text-xs sm:text-[11px] font-semibold hover:bg-purple-200 transition-colors"
+              title="Организации"
+            >
+              <CheckSquare size={13} />
+              {checklistDone}/{checklistTotal}
+            </button>
+          ) : (
+            <button
+              onClick={() => onChecklist(task)}
+              className="relative p-2 sm:p-1.5 text-subtle hover:text-primary transition-colors rounded-lg hover:bg-muted"
+              title="Чек-лист"
+              aria-label="Чек-лист"
+            >
+              <CheckSquare size={16} className="sm:size-[14px]" />
+              {checklistTotal > 0 && (
+                <span
+                  className={`absolute top-0.5 right-0.5 w-3.5 h-3.5 text-white text-[8px] font-bold rounded-full flex items-center justify-center leading-none ${checklistDone === checklistTotal ? "bg-emerald-500" : "bg-slate-400"}`}
+                >
+                  {checklistDone === checklistTotal ? "✓" : checklistTotal}
+                </span>
+              )}
+            </button>
+          )}
+
           <button
-            onClick={() => onChecklist(task)}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 text-[11px] font-semibold hover:bg-purple-200 transition-colors"
-            title="Организации"
+            onClick={() => onComment(task)}
+            className={`relative p-2 sm:p-1.5 transition-colors hover:text-primary rounded-lg hover:bg-muted ${task.hasUnreadComments ? "text-orange-500 dark:text-orange-400" : task._count?.comments > 0 ? "text-primary" : "text-subtle"}`}
+            title={`Комментарии${task._count?.comments > 0 ? ` (${task._count.comments})` : ""}${task.hasUnreadComments ? " · новые" : ""}`}
+            aria-label="Комментарии"
           >
-            <CheckSquare size={12} />
-            {checklistDone}/{checklistTotal}
-          </button>
-        ) : (
-          <button
-            onClick={() => onChecklist(task)}
-            className="relative p-1.5 text-subtle hover:text-primary transition-colors"
-            title="Чек-лист"
-          >
-            <CheckSquare size={14} />
-            {checklistTotal > 0 && (
+            <MessageSquare size={16} className="sm:size-[14px]" />
+            {task._count?.comments > 0 && (
               <span
-                className={`absolute -top-0.5 -right-0.5 w-3.5 h-3.5 text-white text-[8px] font-bold rounded-full flex items-center justify-center leading-none ${checklistDone === checklistTotal ? "bg-emerald-500" : "bg-slate-400"}`}
+                className={`absolute top-0.5 right-0.5 w-3.5 h-3.5 text-white text-[8px] font-bold rounded-full flex items-center justify-center leading-none ${task.hasUnreadComments ? "bg-orange-500" : "bg-primary"}`}
               >
-                {checklistDone === checklistTotal ? "✓" : checklistTotal}
+                {task._count.comments > 9 ? "9+" : task._count.comments}
               </span>
             )}
           </button>
-        )}
 
-        <button
-          onClick={() => onComment(task)}
-          className={`relative p-1.5 transition-colors hover:text-primary ${task.hasUnreadComments ? "text-orange-500 dark:text-orange-400" : task._count?.comments > 0 ? "text-primary" : "text-subtle"}`}
-          title={`Комментарии${task._count?.comments > 0 ? ` (${task._count.comments})` : ""}${task.hasUnreadComments ? " · новые" : ""}`}
-        >
-          <MessageSquare size={14} />
-          {task._count?.comments > 0 && (
-            <span
-              className={`absolute -top-0.5 -right-0.5 w-3.5 h-3.5 text-white text-[8px] font-bold rounded-full flex items-center justify-center leading-none ${task.hasUnreadComments ? "bg-orange-500" : "bg-primary"}`}
+          {canEdit && (
+            <button
+              onClick={() => onEdit(task)}
+              className="p-2 sm:p-1.5 text-subtle hover:text-primary transition-colors rounded-lg hover:bg-muted sm:opacity-0 sm:group-hover:opacity-100"
+              title="Редактировать"
+              aria-label="Редактировать"
             >
-              {task._count.comments > 9 ? "9+" : task._count.comments}
-            </span>
+              <Pencil size={16} className="sm:size-[14px]" />
+            </button>
           )}
-        </button>
-
-        {canEdit && (
-          <button
-            onClick={() => onEdit(task)}
-            className="p-1.5 text-subtle hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
-            title="Редактировать"
-          >
-            <Pencil size={14} />
-          </button>
-        )}
-        {canDelete && (
-          <button
-            onClick={() => onDelete(task)}
-            className="p-1.5 text-subtle hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
-            title="Удалить"
-          >
-            <Trash2 size={14} />
-          </button>
-        )}
+          {canDelete && (
+            <button
+              onClick={() => onDelete(task)}
+              className="p-2 sm:p-1.5 text-subtle hover:text-red-500 dark:hover:text-red-400 transition-colors rounded-lg hover:bg-muted sm:opacity-0 sm:group-hover:opacity-100"
+              title="Удалить"
+              aria-label="Удалить"
+            >
+              <Trash2 size={16} className="sm:size-[14px]" />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1893,6 +2043,69 @@ function AssigneeMultiSelect({ options, value, onChange }) {
               </label>
             ))
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatusTabsDropdown({ value, onChange, showArchived }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    if (!open) return;
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [open]);
+
+  const options = STATUS_TABS.filter((t) => t.key !== "ARCHIVED" || showArchived);
+  const current = options.find((t) => t.key === value) || options[0];
+
+  return (
+    <div ref={ref} className="sm:hidden relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-xl text-sm font-medium shadow-sm shadow-primary/20 active:scale-95 transition-transform"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span>{current.label}</span>
+        <ChevronDown size={14} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div
+          role="listbox"
+          className="absolute z-30 left-0 top-full mt-1.5 min-w-[180px] bg-surface border border-line rounded-xl shadow-xl overflow-hidden py-1"
+        >
+          {options.map((t) => {
+            const active = t.key === value;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                role="option"
+                aria-selected={active}
+                onClick={() => {
+                  onChange(t.key);
+                  setOpen(false);
+                }}
+                className={`w-full text-left px-3 py-2 text-sm font-medium transition-colors ${
+                  active ? "bg-primary/10 text-primary" : "text-body hover:bg-muted"
+                }`}
+              >
+                {t.label}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
