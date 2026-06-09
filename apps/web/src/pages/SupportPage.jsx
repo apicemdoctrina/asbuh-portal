@@ -696,11 +696,11 @@ export default function SupportPage() {
                     items={replyAttachments}
                     onRemove={(idx) => setReplyAttachments((p) => p.filter((_, i) => i !== idx))}
                   />
-                  <div className="flex items-end gap-2">
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => replyFileInputRef.current?.click()}
-                      className="p-2 h-[44px] w-[44px] flex items-center justify-center rounded-lg text-subtle hover:text-primary hover:bg-primary/5 transition-colors"
+                      className="shrink-0 h-11 w-11 flex items-center justify-center rounded-lg text-subtle hover:text-primary hover:bg-primary/5 transition-colors"
                       title="Прикрепить файл (или Ctrl+V для скрина)"
                     >
                       {uploadingCount > 0 ? (
@@ -730,9 +730,9 @@ export default function SupportPage() {
                         }
                       }}
                       placeholder="Ответ… (Ctrl+V — вставить скрин, Ctrl+Enter — отправить)"
-                      rows={2}
+                      rows={1}
                       maxLength={10_000}
-                      className="flex-1 px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
+                      className="flex-1 h-11 px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none leading-6"
                     />
                     <button
                       type="submit"
@@ -741,7 +741,7 @@ export default function SupportPage() {
                         uploadingCount > 0 ||
                         (!body.trim() && replyAttachments.length === 0)
                       }
-                      className="flex items-center justify-center gap-1 px-4 py-2 h-[44px] rounded-lg bg-gradient-to-r from-[#6567F1] to-[#5557E1] text-white text-sm font-medium shadow-lg shadow-[#6567F1]/30 hover:from-[#5557E1] hover:to-[#4547D1] disabled:opacity-50 transition-all"
+                      className="shrink-0 h-11 w-11 flex items-center justify-center rounded-lg bg-gradient-to-r from-[#6567F1] to-[#5557E1] text-white shadow-lg shadow-[#6567F1]/30 hover:from-[#5557E1] hover:to-[#4547D1] disabled:opacity-50 transition-all"
                     >
                       {sending ? (
                         <Loader2 size={16} className="animate-spin" />
