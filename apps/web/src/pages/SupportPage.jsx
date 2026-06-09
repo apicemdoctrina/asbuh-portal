@@ -485,9 +485,26 @@ export default function SupportPage() {
             )}
           </div>
           {!isStaff && (
-            <div className="p-3 border-t border-line bg-canvas text-[11px] text-subtle flex items-center gap-2">
-              <Mail size={12} />
-              <span className="truncate">Альтернативно: support@asbuh.com</span>
+            <div className="border-t border-line bg-canvas/60 p-3 flex flex-col gap-2">
+              <div className="text-[11px] uppercase tracking-wide text-subtle font-medium">
+                Не работает чат? Напишите напрямую
+              </div>
+              <a
+                href="mailto:support@asbuh.com"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg border border-line bg-surface hover:border-primary/40 hover:text-primary transition-colors text-sm text-body group"
+              >
+                <Mail size={16} className="text-subtle group-hover:text-primary shrink-0" />
+                <span className="truncate">support@asbuh.com</span>
+              </a>
+              <a
+                href="https://t.me/apicem_doctrina"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg border border-line bg-surface hover:border-primary/40 hover:text-primary transition-colors text-sm text-body group"
+              >
+                <Send size={16} className="text-subtle group-hover:text-primary shrink-0" />
+                <span className="truncate">Telegram: @apicem_doctrina</span>
+              </a>
             </div>
           )}
         </aside>
