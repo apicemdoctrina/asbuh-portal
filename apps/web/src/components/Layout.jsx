@@ -11,6 +11,7 @@ import {
   BookOpen,
   ScrollText,
   TrendingUp,
+  Wallet,
   ClipboardList,
   Mail,
   ChevronDown,
@@ -23,6 +24,7 @@ import {
   FileSpreadsheet,
   FolderOpen,
   LifeBuoy,
+  Lightbulb,
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import NotificationBell from "./NotificationBell.jsx";
@@ -30,6 +32,7 @@ import ThemeToggle from "./ThemeToggle.jsx";
 import AnnouncementsPanel from "./AnnouncementsPanel.jsx";
 import AnnouncementsWelcomeModal from "./AnnouncementsWelcomeModal.jsx";
 import BugReportButton from "./BugReportButton.jsx";
+import SuggestionButton from "./SuggestionButton.jsx";
 import { api } from "../lib/api.js";
 
 const navItems = [
@@ -44,6 +47,7 @@ const navItems = [
     permission: ["reporting", "view"],
   },
   { to: "/management", label: "Управление", icon: TrendingUp, roles: ["admin", "supervisor"] },
+  { to: "/finance", label: "Финансы", icon: Wallet, roles: ["admin", "supervisor"] },
   { to: "/staff", label: "Сотрудники", icon: Users, roles: ["admin", "supervisor"] },
   {
     to: "/organizations",
@@ -330,11 +334,22 @@ export default function Layout() {
             );
           })}
 
-          <div className="mt-2 pt-2 border-t border-line">
+          <div className="mt-2 pt-2 border-t border-line flex flex-col gap-1">
             <NavLink to="/support" className={linkClass} onClick={() => setSidebarOpen(false)}>
               <LifeBuoy size={18} />
               Техподдержка
             </NavLink>
+            <SuggestionButton />
+            {hasRole("admin") && (
+              <NavLink
+                to="/admin/suggestions"
+                className={linkClass}
+                onClick={() => setSidebarOpen(false)}
+              >
+                <Lightbulb size={18} />
+                Предложения от пользователей
+              </NavLink>
+            )}
           </div>
         </nav>
       </aside>

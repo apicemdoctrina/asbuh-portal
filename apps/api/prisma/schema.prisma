@@ -61,6 +61,7 @@ model User {
   bankStatements       BankStatement[]
   supportThreads       SupportThread[]        @relation("SupportThreadAuthor")
   supportMessages      SupportMessage[]       @relation("SupportMessageAuthor")
+  suggestions          Suggestion[]           @relation("SuggestionAuthor")
 
   @@map("users")
 }
@@ -840,6 +841,10 @@ model Ticket {
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
 
+  // Read receipts (two-sided): when staff/client last opened this ticket
+  lastReadByStaffAt  DateTime? @map("last_read_by_staff_at")
+  lastReadByClientAt DateTime? @map("last_read_by_client_at")
+
   messages TicketMessage[]
 
   @@index([organizationId, status])
@@ -1198,4 +1203,18 @@ model ImapStatementLog {
   @@unique([mailbox, uidValidity, uid])
   @@index([status, processedAt])
   @@map("imap_statement_log")
+}
+
+model Suggestion {
+  id        String   @id @default(uuid())
+  body      String
+  pageUrl   String?  @map("page_url")
+  userId    String?  @map("user_id")
+  user      User?    @relation("SuggestionAuthor", fields: [userId], references: [id], onDelete: SetNull)
+  readAt    DateTime? @map("read_at")
+  archivedAt DateTime? @map("archived_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([archivedAt, createdAt])
+  @@map("suggestions")
 }

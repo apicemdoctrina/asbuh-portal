@@ -31,6 +31,7 @@ const AuditLogPage = lazy(() => import("./pages/AuditLogPage.jsx"));
 const KnowledgePage = lazy(() => import("./pages/KnowledgePage.jsx"));
 const KnowledgeArticlePage = lazy(() => import("./pages/KnowledgeArticlePage.jsx"));
 const ManagementPage = lazy(() => import("./pages/ManagementPage.jsx"));
+const FinancePage = lazy(() => import("./pages/FinancePage.jsx"));
 const PaymentsPage = lazy(() => import("./pages/PaymentsPage.jsx"));
 const MyPaymentsPage = lazy(() => import("./pages/MyPaymentsPage.jsx"));
 const MyDocumentsPage = lazy(() => import("./pages/MyDocumentsPage.jsx"));
@@ -40,6 +41,7 @@ const TicketDetailPage = lazy(() => import("./pages/TicketDetailPage.jsx"));
 const ReportingPage = lazy(() => import("./pages/ReportingPage.jsx"));
 const ClientGroupDetailPage = lazy(() => import("./pages/ClientGroupDetailPage.jsx"));
 const SupportPage = lazy(() => import("./pages/SupportPage.jsx"));
+const AdminSuggestionsPage = lazy(() => import("./pages/AdminSuggestionsPage.jsx"));
 
 export default function App() {
   return (
@@ -82,6 +84,7 @@ export default function App() {
                   <Route path="knowledge/:id" element={<KnowledgeArticlePage />} />
                   <Route path="audit-log" element={<AuditLogPage />} />
                   <Route path="management" element={<ManagementPage />} />
+                  <Route path="finance" element={<FinancePage />} />
                   <Route path="payments" element={<PaymentsPage />} />
                   <Route path="my-payments" element={<MyPaymentsPage />} />
                   <Route path="my-documents" element={<MyDocumentsPage />} />
@@ -93,6 +96,7 @@ export default function App() {
                   <Route path="profile" element={<ProfilePage />} />
                   <Route path="support" element={<SupportPage />} />
                   <Route path="support/:id" element={<SupportPage />} />
+                  <Route path="admin/suggestions" element={<AdminSuggestionsPage />} />
                 </Route>
               </Route>
               <Route path="*" element={<NotFoundPage />} />
