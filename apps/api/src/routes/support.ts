@@ -16,8 +16,35 @@ const authorSelect = {
   email: true,
   firstName: true,
   lastName: true,
-  avatarUrl: true,
+  avatarPath: true,
 } as const;
+
+type AuthorWithPath = {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  avatarPath: string | null;
+};
+
+function withAvatarUrl<T extends { user?: AuthorWithPath | null; author?: AuthorWithPath | null }>(
+  obj: T,
+): T {
+  const out: Record<string, unknown> = { ...obj };
+  if (obj.user) {
+    out.user = {
+      ...obj.user,
+      avatarUrl: obj.user.avatarPath ? `/uploads/${obj.user.avatarPath}` : null,
+    };
+  }
+  if (obj.author) {
+    out.author = {
+      ...obj.author,
+      avatarUrl: obj.author.avatarPath ? `/uploads/${obj.author.avatarPath}` : null,
+    };
+  }
+  return out as T;
+}
 
 async function notifyOthers(opts: {
   threadId: string;
@@ -76,7 +103,7 @@ router.get("/threads", authenticate, async (req, res) => {
       },
       take: 200,
     });
-    res.json(threads);
+    res.json(threads.map((t) => withAvatarUrl(t)));
   } catch (err) {
     console.error("support threads list:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -122,7 +149,10 @@ router.post("/threads", authenticate, async (req, res) => {
       threadUserId: thread.userId,
       subject: thread.subject,
     });
-    res.status(201).json(thread);
+    res.status(201).json({
+      ...withAvatarUrl(thread),
+      messages: thread.messages.map((m) => withAvatarUrl(m)),
+    });
   } catch (err) {
     console.error("support thread create:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -171,7 +201,10 @@ router.get("/threads/:id", authenticate, async (req, res) => {
       data: { readAt: new Date() },
     });
 
-    res.json({ ...found.thread, messages });
+    res.json({
+      ...withAvatarUrl(found.thread),
+      messages: messages.map((m) => withAvatarUrl(m)),
+    });
   } catch (err) {
     console.error("support thread get:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -239,7 +272,7 @@ router.post("/threads/:id/messages", authenticate, async (req, res) => {
       threadUserId: found.thread.userId,
       subject: found.thread.subject,
     });
-    res.status(201).json(message);
+    res.status(201).json(withAvatarUrl(message));
   } catch (err) {
     console.error("support message create:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -271,7 +304,7 @@ router.patch("/threads/:id", authenticate, async (req, res) => {
       },
       include: { user: { select: authorSelect } },
     });
-    res.json(thread);
+    res.json(withAvatarUrl(thread));
   } catch (err) {
     console.error("support thread patch:", err);
     res.status(500).json({ error: "Internal server error" });
