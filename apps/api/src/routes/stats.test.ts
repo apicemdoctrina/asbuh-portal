@@ -50,6 +50,16 @@ vi.mock("../lib/prisma.js", () => {
       update: vi.fn(),
       delete: vi.fn(),
     },
+    task: {
+      count: vi.fn(),
+      findMany: vi.fn(),
+    },
+    reportType: {
+      findMany: vi.fn(),
+    },
+    reportEntry: {
+      findMany: vi.fn(),
+    },
   };
   return { default: mockPrisma };
 });
@@ -111,12 +121,14 @@ describe("GET /api/stats", () => {
     (prisma.organizationDocument.count as ReturnType<typeof vi.fn>).mockResolvedValue(120);
     (prisma.organization.findMany as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce(recentOrgs) // recent orgs
-      .mockResolvedValueOnce([]); // completeness data
+      .mockResolvedValueOnce([]) // completeness data
+      .mockResolvedValueOnce([]); // scopedOrgs for reportingProgress
     (prisma.section.count as ReturnType<typeof vi.fn>).mockResolvedValue(8);
     (prisma.user.count as ReturnType<typeof vi.fn>).mockResolvedValue(15);
     (prisma.organization.aggregate as ReturnType<typeof vi.fn>).mockResolvedValue({
       _sum: { monthlyPayment: 500000 },
     });
+    (prisma.reportType.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
     const res = await request(app).get("/api/stats").set("Authorization", `Bearer ${adminToken}`);
 
@@ -142,8 +154,10 @@ describe("GET /api/stats", () => {
     (prisma.organizationDocument.count as ReturnType<typeof vi.fn>).mockResolvedValue(25);
     (prisma.organization.findMany as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce(recentOrgs) // recent orgs
-      .mockResolvedValueOnce([]); // completeness data
+      .mockResolvedValueOnce([]) // completeness data
+      .mockResolvedValueOnce([]); // scopedOrgs for reportingProgress
     (prisma.section.count as ReturnType<typeof vi.fn>).mockResolvedValue(3);
+    (prisma.reportType.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
     const res = await request(app).get("/api/stats").set("Authorization", `Bearer ${managerToken}`);
 
