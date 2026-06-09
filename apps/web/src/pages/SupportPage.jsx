@@ -10,6 +10,8 @@ import {
   Mail,
   Paperclip,
   FileText,
+  Check,
+  CheckCheck,
 } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -659,13 +661,28 @@ export default function SupportPage() {
                           className={`max-w-[78%] ${mine ? "items-end" : "items-start"} flex flex-col gap-0.5`}
                         >
                           <div
-                            className={`text-[11px] text-subtle ${mine ? "text-right" : "text-left"}`}
+                            className={`text-[11px] text-subtle flex items-center gap-1 ${mine ? "justify-end" : "justify-start"}`}
                           >
-                            {fullName(m.author)}
+                            <span>{fullName(m.author)}</span>
                             {m.isStaff && (
-                              <span className="ml-1 text-primary font-medium">(поддержка)</span>
+                              <span className="text-primary font-medium">(поддержка)</span>
                             )}
-                            <span className="ml-2">{formatTime(m.createdAt)}</span>
+                            <span>·</span>
+                            <span>{formatTime(m.createdAt)}</span>
+                            {mine && (
+                              <span
+                                className="inline-flex items-center"
+                                title={
+                                  m.readAt ? `Прочитано ${formatTime(m.readAt)}` : "Отправлено"
+                                }
+                              >
+                                {m.readAt ? (
+                                  <CheckCheck size={13} className="text-primary" />
+                                ) : (
+                                  <Check size={13} />
+                                )}
+                              </span>
+                            )}
                           </div>
                           {m.body && (
                             <div
