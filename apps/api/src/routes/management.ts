@@ -1,6 +1,49 @@
 import { Router } from "express";
 import prisma from "../lib/prisma.js";
 import { authenticate, requireRole } from "../middleware/auth.js";
+import { isReportApplicable } from "../lib/report-task-generator.js";
+
+// 17 полей карточки — синхронизировано со stats.ts
+const COMPLETENESS_TOTAL = 17;
+type OrgCompletenessFields = {
+  inn: string | null;
+  form: string | null;
+  ogrn: string | null;
+  sectionId: string | null;
+  taxSystems: string[];
+  legalAddress: string | null;
+  digitalSignature: string | null;
+  reportingChannel: string | null;
+  serviceType: string | null;
+  monthlyPayment: unknown;
+  paymentDestination: string | null;
+  checkingAccount: string | null;
+  bik: string | null;
+  correspondentAccount: string | null;
+  requisitesBank: string | null;
+  _count: { contacts: number; members: number };
+};
+function calcOrgScore(org: OrgCompletenessFields): number {
+  return [
+    !!org.inn,
+    !!org.form,
+    !!org.ogrn,
+    !!org.sectionId,
+    org.taxSystems.length > 0,
+    !!org.legalAddress,
+    !!org.digitalSignature,
+    !!org.reportingChannel,
+    !!org.serviceType,
+    org.monthlyPayment != null,
+    !!org.paymentDestination,
+    !!org.checkingAccount,
+    !!org.bik,
+    !!org.correspondentAccount,
+    !!org.requisitesBank,
+    org._count.contacts > 0,
+    org._count.members > 0,
+  ].filter(Boolean).length;
+}
 
 const router = Router();
 
@@ -496,6 +539,7 @@ router.get(
           userRoles: { include: { role: { select: { name: true } } } },
           sectionMembers: {
             select: {
+              sectionId: true,
               section: {
                 select: {
                   _count: {
@@ -526,6 +570,127 @@ router.get(
         },
       });
 
+      // ── Per-staff KPI: заполненность карточек и % сданной отчётности ───────
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
+      const lastClosedMonth = currentMonth - 1; // 0..11
+      const lastClosedQuarter = Math.floor((currentMonth - 1) / 3); // 0..3
+
+      // Все активные орг с полями для completeness + applicability
+      const allActiveOrgs = await prisma.organization.findMany({
+        where: { status: { notIn: ["left", "closed", "ceased", "own"] } },
+        select: {
+          id: true,
+          sectionId: true,
+          form: true,
+          taxSystems: true,
+          employeeCount: true,
+          inn: true,
+          ogrn: true,
+          legalAddress: true,
+          digitalSignature: true,
+          reportingChannel: true,
+          serviceType: true,
+          monthlyPayment: true,
+          paymentDestination: true,
+          checkingAccount: true,
+          bik: true,
+          correspondentAccount: true,
+          requisitesBank: true,
+          _count: { select: { contacts: true, members: true } },
+        },
+      });
+
+      // Группировка орг по секции
+      const orgsBySectionId: Record<string, typeof allActiveOrgs> = {};
+      for (const o of allActiveOrgs) {
+        if (!o.sectionId) continue;
+        (orgsBySectionId[o.sectionId] ||= []).push(o);
+      }
+
+      // Active monthly/quarterly report types
+      const reportTypesForMetric =
+        lastClosedMonth > 0 || lastClosedQuarter > 0
+          ? await prisma.reportType.findMany({
+              where: { isActive: true, frequency: { in: ["MONTHLY", "QUARTERLY"] } },
+              select: { id: true, code: true, frequency: true },
+            })
+          : [];
+
+      // Все релевантные entries за currentYear (для всех орг — отфильтруем per-user)
+      const allEntries = reportTypesForMetric.length
+        ? await prisma.reportEntry.findMany({
+            where: {
+              year: currentYear,
+              status: { in: ["SUBMITTED", "ACCEPTED", "NOT_APPLICABLE"] },
+            },
+            select: {
+              organizationId: true,
+              reportTypeId: true,
+              period: true,
+              status: true,
+            },
+          })
+        : [];
+
+      // Индекс entries: orgId → rtId → period → status
+      const entriesByOrg: Record<string, Record<string, Record<number, string>>> = {};
+      for (const e of allEntries) {
+        ((entriesByOrg[e.organizationId] ||= {})[e.reportTypeId] ||= {})[e.period] = e.status;
+      }
+
+      function computePerUserMetrics(sectionIds: string[]) {
+        // Дедупликация орг (на случай если юзер в нескольких секциях)
+        const orgIds = new Set<string>();
+        const userOrgs: typeof allActiveOrgs = [];
+        for (const sid of sectionIds) {
+          for (const o of orgsBySectionId[sid] || []) {
+            if (!orgIds.has(o.id)) {
+              orgIds.add(o.id);
+              userOrgs.push(o);
+            }
+          }
+        }
+        if (userOrgs.length === 0) {
+          return { avgCompleteness: null, reportingProgress: null };
+        }
+
+        // Completeness
+        let totalScore = 0;
+        for (const o of userOrgs) totalScore += calcOrgScore(o);
+        const avgCompleteness = Math.round(
+          (totalScore / (userOrgs.length * COMPLETENESS_TOTAL)) * 100,
+        );
+
+        // Reporting progress
+        let reportingProgress: { submitted: number; total: number; percent: number } | null = null;
+        if (reportTypesForMetric.length && (lastClosedMonth > 0 || lastClosedQuarter > 0)) {
+          let total = 0;
+          let submitted = 0;
+          for (const org of userOrgs) {
+            for (const rt of reportTypesForMetric) {
+              const applicable = isReportApplicable(rt.code, {
+                form: org.form,
+                taxSystems: (org.taxSystems as string[]) ?? [],
+                employeeCount: org.employeeCount,
+              });
+              if (!applicable) continue;
+              const lastPeriod = rt.frequency === "MONTHLY" ? lastClosedMonth : lastClosedQuarter;
+              for (let p = 1; p <= lastPeriod; p++) {
+                const status = entriesByOrg[org.id]?.[rt.id]?.[p];
+                if (status === "NOT_APPLICABLE") continue;
+                total++;
+                if (status === "SUBMITTED" || status === "ACCEPTED") submitted++;
+              }
+            }
+          }
+          const percent = total > 0 ? Math.round((submitted / total) * 100) : 100;
+          reportingProgress = { submitted, total, percent };
+        }
+
+        return { avgCompleteness, reportingProgress };
+      }
+
       const workload = staffUsers.map((u) => {
         const tasks = u.taskAssignees.map((a) => a.task);
         const open = tasks.filter((t) => t.status !== "DONE" && t.status !== "CANCELLED");
@@ -552,6 +717,9 @@ router.get(
           0,
         );
 
+        const sectionIds = u.sectionMembers.map((sm) => sm.sectionId);
+        const { avgCompleteness, reportingProgress } = computePerUserMetrics(sectionIds);
+
         return {
           userId: u.id,
           name: `${u.lastName} ${u.firstName}`,
@@ -561,6 +729,8 @@ router.get(
           overdueTasks: overdue.length,
           doneLast30d: doneLast30.length,
           avgCompletionDays,
+          avgCompleteness,
+          reportingProgress,
         };
       });
 

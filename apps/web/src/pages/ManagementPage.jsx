@@ -7,8 +7,6 @@ import {
   TrendingDown,
   DollarSign,
   Users,
-  BarChart2,
-  Percent,
   AlertCircle,
   Plus,
   Trash2,
@@ -16,7 +14,6 @@ import {
   Check,
   X as XIcon,
   Minus,
-  RefreshCw,
   UserPlus,
   Map,
   ChevronDown,
@@ -24,27 +21,11 @@ import {
   UserMinus,
   Loader2,
   Search,
-  Wallet,
-  CreditCard,
-  Banknote,
 } from "lucide-react";
 import SectionIcon from "../components/SectionIcon.jsx";
 import AnimalPicker from "../components/AnimalPicker.jsx";
-import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  ComposedChart,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from "recharts";
 
-const MONTHS_RU = [
+export const MONTHS_RU = [
   "янв",
   "фев",
   "мар",
@@ -59,22 +40,22 @@ const MONTHS_RU = [
   "дек",
 ];
 
-const fmt = (n) =>
+export const fmt = (n) =>
   new Intl.NumberFormat("ru-RU", {
     style: "currency",
     currency: "RUB",
     maximumFractionDigits: 0,
   }).format(n);
 
-const fmtShort = (n) => {
+export const fmtShort = (n) => {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
   return String(Math.round(n));
 };
 
-const ROLE_LABELS = { admin: "Администратор", manager: "Менеджер", accountant: "Бухгалтер" };
+export const ROLE_LABELS = { admin: "Администратор", manager: "Менеджер", accountant: "Бухгалтер" };
 
-function MarginBadge({ margin }) {
+export function MarginBadge({ margin }) {
   if (margin >= 40)
     return <span className="text-emerald-600 dark:text-emerald-300 font-semibold">{margin}%</span>;
   if (margin >= 20)
@@ -84,12 +65,12 @@ function MarginBadge({ margin }) {
   return <span className="text-red-600 dark:text-red-300 font-bold">{margin}%</span>;
 }
 
-function calcGrowth(current, prev) {
+export function calcGrowth(current, prev) {
   if (prev == null || prev === 0) return null;
   return ((current - prev) / Math.abs(prev)) * 100;
 }
 
-const tooltipStyle = {
+export const tooltipStyle = {
   borderRadius: 8,
   border: "1px solid var(--color-line)",
   backgroundColor: "var(--color-surface)",
@@ -97,17 +78,17 @@ const tooltipStyle = {
   fontSize: 12,
   boxShadow: "0 6px 16px -4px rgba(0,0,0,0.35)",
 };
-const tooltipLabelStyle = { color: "var(--color-body)" };
-const tooltipItemStyle = { color: "var(--color-heading)" };
+export const tooltipLabelStyle = { color: "var(--color-body)" };
+export const tooltipItemStyle = { color: "var(--color-heading)" };
 
 // Theme-agnostic chart accents (resolve as SVG attributes, so no CSS vars here):
 // faint neutral grid + a soft primary "glow" cursor behind the hovered bar.
-const chartGridStroke = "rgba(148,163,184,0.25)";
-const chartCursorFill = { fill: "rgba(101,103,241,0.12)" };
+export const chartGridStroke = "rgba(148,163,184,0.25)";
+export const chartCursorFill = { fill: "rgba(101,103,241,0.12)" };
 
 // ─── GrowthBadge ──────────────────────────────────────────────────────────────
 
-function GrowthBadge({ pct, absolute }) {
+export function GrowthBadge({ pct, absolute }) {
   if (pct == null) return null;
   const isZero = Math.abs(pct) < 0.5;
   const isPositive = pct > 0;
@@ -130,7 +111,7 @@ function GrowthBadge({ pct, absolute }) {
 
 // ─── KpiCard ─────────────────────────────────────────────────────────────────
 
-function KpiCard({ icon: Icon, label, value, sub, positive, growth, absoluteGrowth }) {
+export function KpiCard({ icon: Icon, label, value, sub, positive, growth, absoluteGrowth }) {
   const color =
     positive === undefined
       ? "text-primary"
@@ -138,14 +119,16 @@ function KpiCard({ icon: Icon, label, value, sub, positive, growth, absoluteGrow
         ? "text-emerald-600 dark:text-emerald-300"
         : "text-red-500 dark:text-red-400";
   return (
-    <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
+    <div className="bg-surface rounded-2xl shadow-lg border border-line p-4 sm:p-5">
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm text-subtle">{label}</span>
         <div className={`p-2 rounded-lg bg-canvas ${color}`}>
           <Icon size={18} />
         </div>
       </div>
-      <div className={`text-xl font-bold leading-tight ${color}`}>{value}</div>
+      <div className={`text-lg sm:text-xl font-bold leading-tight ${color} break-words`}>
+        {value}
+      </div>
       <GrowthBadge pct={growth} absolute={absoluteGrowth} />
       {sub && <div className="text-xs text-subtle mt-1">{sub}</div>}
     </div>
@@ -261,7 +244,7 @@ function ExpenseRow({ expense, onDelete, onUpdate }) {
 
 // ─── ExpensesBlock ────────────────────────────────────────────────────────────
 
-function ExpensesBlock({ title, type, expenses, onAdd, onDelete, onUpdate }) {
+export function ExpensesBlock({ title, type, expenses, onAdd, onDelete, onUpdate }) {
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newAmount, setNewAmount] = useState("");
@@ -472,7 +455,7 @@ function IncomeRow({ income, onDelete, onUpdate }) {
 
 // ─── IncomeBlock ──────────────────────────────────────────────────────────────
 
-function IncomeBlock({ incomes, onAdd, onDelete, onUpdate }) {
+export function IncomeBlock({ incomes, onAdd, onDelete, onUpdate }) {
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newAmount, setNewAmount] = useState("");
@@ -584,7 +567,7 @@ const SECTION_ROLE_LABELS = {
   supervisor: "Руководитель",
 };
 
-function SectionsBlock({ sections, onRefresh }) {
+export function SectionsBlock({ sections, onRefresh }) {
   const [expandedId, setExpandedId] = useState(null);
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -738,9 +721,9 @@ function SectionsBlock({ sections, onRefresh }) {
 
   return (
     <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden">
-      <div className="px-6 py-4 border-b border-line flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Map size={16} className="text-subtle" />
+      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-line flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Map size={16} className="text-subtle shrink-0" />
           <h2 className="text-base font-semibold text-heading">Участки</h2>
           <span className="text-xs text-subtle bg-muted px-2 py-0.5 rounded-full">
             {sections.length}
@@ -748,7 +731,7 @@ function SectionsBlock({ sections, onRefresh }) {
         </div>
         <button
           onClick={() => setCreating((v) => !v)}
-          className="flex items-center gap-1.5 text-sm text-primary hover:bg-primary/5 px-3 py-1.5 rounded-lg transition-colors"
+          className="flex items-center gap-1.5 text-sm text-primary hover:bg-primary/5 px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors shrink-0"
         >
           <Plus size={14} />
           Добавить
@@ -757,25 +740,25 @@ function SectionsBlock({ sections, onRefresh }) {
 
       {/* Create form */}
       {creating && (
-        <div className="px-6 py-4 border-b border-line bg-canvas/50 flex flex-wrap items-end gap-3">
-          <div>
+        <div className="px-4 sm:px-6 py-4 border-b border-line bg-canvas/50 flex flex-wrap items-end gap-3">
+          <div className="w-20">
             <label className="block text-xs text-subtle mb-1">Номер *</label>
             <input
               type="number"
               value={newNumber}
               onChange={(e) => setNewNumber(e.target.value)}
-              className="w-20 px-3 py-1.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              className="w-full px-3 py-1.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               placeholder="1"
               autoFocus
             />
           </div>
-          <div>
+          <div className="flex-1 min-w-[140px]">
             <label className="block text-xs text-subtle mb-1">Название</label>
             <input
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              className="w-48 px-3 py-1.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              className="w-full px-3 py-1.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               placeholder="Необязательно"
             />
           </div>
@@ -823,7 +806,7 @@ function SectionsBlock({ sections, onRefresh }) {
             return (
               <div key={s.id}>
                 {/* Section row */}
-                <div className="px-6 py-3.5 flex items-center gap-3 hover:bg-canvas/50 transition-colors">
+                <div className="px-4 sm:px-6 py-3 sm:py-3.5 flex items-center gap-2 sm:gap-3 hover:bg-canvas/50 transition-colors">
                   {isEditing ? (
                     <div className="flex items-center gap-2 flex-1 flex-wrap">
                       <input
@@ -837,7 +820,7 @@ function SectionsBlock({ sections, onRefresh }) {
                         type="text"
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
-                        className="w-48 px-2 py-1 border border-line rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                        className="flex-1 min-w-[140px] sm:w-48 sm:flex-none px-2 py-1 border border-line rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                         placeholder="Название"
                       />
                       <AnimalPicker
@@ -867,41 +850,51 @@ function SectionsBlock({ sections, onRefresh }) {
                     </div>
                   ) : (
                     <>
-                      <div className="flex items-center gap-3 flex-1 min-w-0 flex-wrap">
-                        <span className="text-sm font-semibold text-heading flex items-center gap-2">
-                          <SectionIcon section={s} size={15} className="text-primary shrink-0" />№
-                          {s.number}
-                          {s.name ? ` — ${s.name}` : ""}
+                      <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center sm:gap-3 gap-1">
+                        <span className="text-sm font-semibold text-heading flex items-center gap-2 truncate">
+                          <SectionIcon section={s} size={15} className="text-primary shrink-0" />
+                          <span className="truncate">
+                            №{s.number}
+                            {s.name ? ` — ${s.name}` : ""}
+                          </span>
                         </span>
-                        <span className="flex items-center gap-1 text-xs text-subtle">
-                          <Users size={11} />
-                          {s._count.members} чел.
-                        </span>
-                        <span className="flex items-center gap-1.5 text-xs text-subtle bg-muted px-2 py-0.5 rounded-full">
-                          {s._count.organizations} орг.
-                          {s.formCounts?.IP > 0 && (
-                            <span className="text-sky-600 dark:text-sky-300 font-medium">
-                              {s.formCounts.IP} ИП
-                            </span>
-                          )}
-                          {s.formCounts?.OOO > 0 && (
-                            <span className="text-primary font-medium">{s.formCounts.OOO} ООО</span>
-                          )}
-                        </span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="flex items-center gap-1 text-xs text-subtle">
+                            <Users size={11} />
+                            {s._count.members} чел.
+                          </span>
+                          <span className="flex items-center gap-1.5 text-xs text-subtle bg-muted px-2 py-0.5 rounded-full">
+                            {s._count.organizations} орг.
+                            {s.formCounts?.IP > 0 && (
+                              <span className="text-sky-600 dark:text-sky-300 font-medium">
+                                {s.formCounts.IP} ИП
+                              </span>
+                            )}
+                            {s.formCounts?.OOO > 0 && (
+                              <span className="text-primary font-medium">
+                                {s.formCounts.OOO} ООО
+                              </span>
+                            )}
+                          </span>
+                        </div>
                       </div>
                       <button
                         onClick={() => startEdit(s)}
-                        className="p-1.5 text-subtle hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
+                        className="p-1.5 text-subtle hover:text-primary hover:bg-primary/5 rounded-lg transition-colors shrink-0"
                         title="Редактировать"
+                        aria-label="Редактировать"
                       >
                         <Pencil size={13} />
                       </button>
                       <button
                         onClick={() => toggleExpand(s.id)}
-                        className="flex items-center gap-1 text-xs text-subtle hover:text-primary px-2 py-1.5 rounded-lg hover:bg-primary/5 transition-colors"
+                        className="flex items-center gap-1 text-xs text-subtle hover:text-primary px-2 py-1.5 rounded-lg hover:bg-primary/5 transition-colors shrink-0"
+                        aria-label={isExpanded ? "Свернуть" : "Состав"}
                       >
                         {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                        {isExpanded ? "Свернуть" : "Состав"}
+                        <span className="hidden sm:inline">
+                          {isExpanded ? "Свернуть" : "Состав"}
+                        </span>
                       </button>
                     </>
                   )}
@@ -909,7 +902,7 @@ function SectionsBlock({ sections, onRefresh }) {
 
                 {/* Expanded members panel */}
                 {isExpanded && (
-                  <div className="px-6 pb-4 bg-canvas/40 border-t border-line">
+                  <div className="px-4 sm:px-6 pb-4 bg-canvas/40 border-t border-line">
                     {detailLoading ? (
                       <div className="flex items-center justify-center py-4 text-subtle">
                         <Loader2 size={16} className="animate-spin" />
@@ -1050,16 +1043,11 @@ export default function ManagementPage() {
   const { hasRole } = useAuth();
   const navigate = useNavigate();
 
-  const [dashboard, setDashboard] = useState(null);
-  const [snapshots, setSnapshots] = useState([]);
-  const [expenses, setExpenses] = useState([]);
-  const [incomes, setIncomes] = useState([]);
-  const [sectionProfitability, setSectionProfitability] = useState([]);
   const [sections, setSections] = useState([]);
+  const [staffByRole, setStaffByRole] = useState([]);
   const [bankStats, setBankStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [capturing, setCapturing] = useState(false);
 
   useEffect(() => {
     if (!hasRole("admin") && !hasRole("supervisor")) {
@@ -1073,118 +1061,24 @@ export default function ManagementPage() {
     setLoading(true);
     setError(null);
     try {
-      const [dashRes, snapsRes, expsRes, incsRes, analyticsRes, sectionsRes, bankStatsRes] =
-        await Promise.all([
-          api("/api/management/dashboard"),
-          api("/api/management/snapshots"),
-          api("/api/management/expenses"),
-          api("/api/management/incomes"),
-          api("/api/management/analytics"),
-          api("/api/sections?limit=100"),
-          api("/api/management/bank-stats"),
-        ]);
-      if (!dashRes.ok) throw new Error("Ошибка загрузки данных");
-      const [dash, snaps, exps, incs, analytics, sectionsData, bankStatsData] = await Promise.all([
-        dashRes.json(),
-        snapsRes.ok ? snapsRes.json() : Promise.resolve([]),
-        expsRes.ok ? expsRes.json() : Promise.resolve([]),
-        incsRes.ok ? incsRes.json() : Promise.resolve([]),
-        analyticsRes.ok ? analyticsRes.json() : Promise.resolve(null),
-        sectionsRes.ok ? sectionsRes.json() : Promise.resolve({ sections: [] }),
-        bankStatsRes.ok ? bankStatsRes.json() : Promise.resolve(null),
+      const [sectionsRes, dashRes, bankRes] = await Promise.all([
+        api("/api/sections?limit=100"),
+        api("/api/management/dashboard"),
+        api("/api/management/bank-stats"),
       ]);
-      setDashboard(dash);
-      setSnapshots(snaps);
-      setExpenses(exps);
-      setIncomes(incs);
-      setSectionProfitability(analytics?.sectionProfitability ?? []);
+      if (!sectionsRes.ok) throw new Error("Ошибка загрузки участков");
+      const sectionsData = await sectionsRes.json();
       setSections(sectionsData.sections ?? []);
-      setBankStats(bankStatsData);
+      if (dashRes.ok) {
+        const dash = await dashRes.json();
+        setStaffByRole(dash?.staff?.byRole ?? []);
+      }
+      if (bankRes.ok) setBankStats(await bankRes.json());
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  }
-
-  async function reloadDashboard() {
-    const res = await api("/api/management/dashboard");
-    if (res.ok) setDashboard(await res.json());
-  }
-
-  async function captureSnapshot() {
-    setCapturing(true);
-    try {
-      const res = await api("/api/management/snapshots/capture", { method: "POST" });
-      if (!res.ok) throw new Error("Не удалось обновить снимок");
-      const [snapsRes, dashRes] = await Promise.all([
-        api("/api/management/snapshots"),
-        api("/api/management/dashboard"),
-      ]);
-      const [snaps, dash] = await Promise.all([snapsRes.json(), dashRes.json()]);
-      setSnapshots(snaps);
-      setDashboard(dash);
-    } catch (e) {
-      alert(e.message);
-    } finally {
-      setCapturing(false);
-    }
-  }
-
-  async function handleAddExpense(data) {
-    const res = await api("/api/management/expenses", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error("Ошибка добавления расхода");
-    const created = await res.json();
-    setExpenses((prev) => [...prev, created]);
-    await reloadDashboard();
-  }
-
-  async function handleDeleteExpense(id) {
-    await api(`/api/management/expenses/${id}`, { method: "DELETE" });
-    setExpenses((prev) => prev.filter((e) => e.id !== id));
-    await reloadDashboard();
-  }
-
-  async function handleUpdateExpense(id, data) {
-    const res = await api(`/api/management/expenses/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error("Ошибка обновления расхода");
-    const updated = await res.json();
-    setExpenses((prev) => prev.map((e) => (e.id === id ? updated : e)));
-    await reloadDashboard();
-  }
-
-  async function handleAddIncome(data) {
-    const res = await api("/api/management/incomes", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error("Ошибка добавления дохода");
-    const created = await res.json();
-    setIncomes((prev) => [created, ...prev]);
-    await reloadDashboard();
-  }
-
-  async function handleDeleteIncome(id) {
-    await api(`/api/management/incomes/${id}`, { method: "DELETE" });
-    setIncomes((prev) => prev.filter((i) => i.id !== id));
-    await reloadDashboard();
-  }
-
-  async function handleUpdateIncome(id, data) {
-    const res = await api(`/api/management/incomes/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error("Ошибка обновления дохода");
-    const updated = await res.json();
-    setIncomes((prev) => prev.map((i) => (i.id === id ? updated : i)));
-    await reloadDashboard();
   }
 
   if (loading)
@@ -1198,817 +1092,137 @@ export default function ManagementPage() {
         {error}
       </div>
     );
-  if (!dashboard) return null;
-
-  // ── Chart & growth data ──────────────────────────────────────────────────
-
-  // Previous month snapshot for MoM growth
-  const prevSnap = snapshots.length > 0 ? snapshots[snapshots.length - 1] : null;
-  const growths = prevSnap
-    ? {
-        revenue: calcGrowth(dashboard.revenue.total, Number(prevSnap.totalRevenue)),
-        profit: calcGrowth(dashboard.profit.gross, Number(prevSnap.grossProfit)),
-        payroll: calcGrowth(dashboard.payroll.total, Number(prevSnap.payrollTotal)),
-        margin: dashboard.profit.margin - Number(prevSnap.margin),
-        avgCheck: calcGrowth(dashboard.revenue.avgCheck, Number(prevSnap.avgCheck)),
-      }
-    : {};
-
-  // Historical chart data from snapshots
-  const histData = snapshots.map((s) => ({
-    label: `${MONTHS_RU[s.month - 1]} '${String(s.year).slice(2)}`,
-    revenue: Number(s.totalRevenue),
-    profit: Number(s.grossProfit),
-    payroll: Number(s.payrollTotal),
-    expenses: Number(s.recurringExpenses),
-    margin: Number(s.margin),
-    orgCount: s.orgCount,
-    clientsNew: s.clientsNew,
-  }));
-
-  // Current-month chart data for "Динамика выручки" (fallback to snapshots)
-  const orgFormChartData = dashboard.byOrgForm
-    .filter((d) => d.revenue > 0)
-    .sort((a, b) => b.revenue - a.revenue);
-  const recurringExpenses = expenses.filter((e) => e.type === "RECURRING");
-  const oneTimeExpenses = expenses.filter((e) => e.type === "ONE_TIME");
-  const grossPositive = dashboard.profit.gross >= 0;
-
-  const hasHistory = histData.length > 1;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-heading">Управление</h1>
-          {prevSnap && (
-            <p className="text-xs text-subtle mt-0.5">
-              Сравнение с {MONTHS_RU[prevSnap.month - 1]} {prevSnap.year}
-            </p>
-          )}
+          <h1 className="text-xl sm:text-2xl font-bold text-heading">Управление</h1>
+          <p className="text-xs sm:text-sm text-subtle mt-0.5 sm:mt-1">
+            Участки, команда, организационная структура
+          </p>
         </div>
         <button
-          onClick={captureSnapshot}
-          disabled={capturing}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg text-sm font-medium shadow-lg shadow-[#6567F1]/30 disabled:opacity-50 transition-all"
+          type="button"
+          onClick={() => navigate("/finance")}
+          className="self-start inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-primary/20 text-primary hover:bg-primary/5 text-sm font-medium transition-colors"
         >
-          <RefreshCw size={15} className={capturing ? "animate-spin" : ""} />
-          {capturing ? "Обновление..." : "Обновить снимок"}
+          <DollarSign size={16} />
+          Финансовая аналитика
         </button>
       </div>
 
       {/* Sections */}
       <SectionsBlock sections={sections} onRefresh={loadAll} />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <KpiCard
-          icon={DollarSign}
-          label="Выручка"
-          value={fmt(dashboard.revenue.total)}
-          sub={`${dashboard.revenue.orgCount} орг.`}
-          growth={growths.revenue}
-        />
-        <KpiCard
-          icon={BarChart2}
-          label="Ср. чек"
-          value={fmt(dashboard.revenue.avgCheck)}
-          sub={`${dashboard.revenue.orgsWithPayment} с оплатой`}
-          growth={growths.avgCheck}
-        />
-        <KpiCard
-          icon={Users}
-          label="ФОТ"
-          value={fmt(dashboard.payroll.total)}
-          sub={`${dashboard.payroll.staffCount} сотр.`}
-          growth={growths.payroll}
-        />
-        <KpiCard
-          icon={TrendingUp}
-          label="Прибыль"
-          value={fmt(dashboard.profit.gross)}
-          sub="После ФОТ и пост. расходов"
-          positive={grossPositive}
-          growth={growths.profit}
-        />
-        <KpiCard
-          icon={Percent}
-          label="Маржа"
-          value={`${dashboard.profit.margin.toFixed(1)}%`}
-          positive={grossPositive}
-          growth={growths.margin}
-          absoluteGrowth
-        />
-      </div>
-
-      {/* Clients KPI row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KpiCard icon={Users} label="Активных клиентов" value={dashboard.clients.active} />
-        <KpiCard
-          icon={UserPlus}
-          label="Новых в этом месяце"
-          value={dashboard.clients.new}
-          positive={dashboard.clients.new > 0}
-        />
-        <KpiCard
-          icon={DollarSign}
-          label="Пост. расходы"
-          value={fmt(dashboard.expenses.recurringTotal)}
-        />
-        <KpiCard
-          icon={DollarSign}
-          label="Разовые доходы"
-          value={fmt(dashboard.incomes.total)}
-          positive={dashboard.incomes.total > 0}
-        />
-      </div>
-
-      {/* Payment destinations */}
-      {dashboard.byPaymentDest && (
-        <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Wallet size={18} className="text-primary" />
-            <h2 className="text-base font-semibold text-heading">Куда поступают платежи</h2>
-          </div>
-          <div className="grid grid-cols-3 gap-4">
-            {[
-              {
-                key: "BANK_TOCHKA",
-                label: "Банк (Точка)",
-                icon: Banknote,
-                color: "text-emerald-600 dark:text-emerald-300",
-                bg: "bg-emerald-50 dark:bg-emerald-500/15",
-                ring: "hover:ring-emerald-300",
-                link: "/payments",
-              },
-              {
-                key: "CARD",
-                label: "Карта",
-                icon: CreditCard,
-                color: "text-blue-600 dark:text-blue-300",
-                bg: "bg-blue-50 dark:bg-blue-500/15",
-                ring: "hover:ring-blue-300",
-                link: "/payments?tab=cashcard",
-              },
-              {
-                key: "CASH",
-                label: "Наличные",
-                icon: DollarSign,
-                color: "text-amber-600 dark:text-amber-300",
-                bg: "bg-amber-50 dark:bg-amber-500/15",
-                ring: "hover:ring-amber-300",
-                link: "/payments?tab=cashcard",
-              },
-            ].map(({ key, label, icon: Icon, color, bg, ring, link }) => {
-              const item = dashboard.byPaymentDest.find((d) => d.destination === key);
-              const revenue = item?.revenue ?? 0;
-              const count = item?.count ?? 0;
-              return (
-                <div
-                  key={key}
-                  className={`${bg} rounded-xl p-4 cursor-pointer hover:ring-2 ${ring} transition-all`}
-                  onClick={() => navigate(link)}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <Icon size={16} className={color} />
-                    <span className="text-sm font-medium text-body">{label}</span>
-                  </div>
-                  <div className={`text-lg font-bold ${color}`}>
-                    {revenue.toLocaleString("ru-RU")} ₽
-                  </div>
-                  <div className="text-xs text-subtle mt-1">{count} орг.</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Debt block */}
-      {dashboard.debt.total > 0 && (
-        <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <AlertCircle size={18} className="text-red-500 dark:text-red-400" />
-            <h2 className="text-base font-semibold text-heading">
-              Долг клиентов:{" "}
-              <span className="text-red-500 dark:text-red-400">{fmt(dashboard.debt.total)}</span>
-            </h2>
-          </div>
-          {dashboard.debt.topDebtors.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-subtle border-b border-line">
-                    <th className="pb-2 font-medium">Организация</th>
-                    <th className="pb-2 font-medium text-right">Долг</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {dashboard.debt.topDebtors.map((d) => (
-                    <tr key={d.id}>
-                      <td className="py-2 text-body">{d.name}</td>
-                      <td className="py-2 text-right font-medium text-red-500 dark:text-red-400">
-                        {fmt(d.debtAmount)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Charts row — current period */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Revenue dynamics (historical) */}
-        <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
-          <h2 className="text-base font-semibold text-heading mb-4">Динамика выручки</h2>
-          {histData.length === 0 ? (
-            <div className="h-48 flex items-center justify-center text-subtle text-sm">
-              Данные появятся после первого сохранения снимка
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={histData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 11, fill: "#94a3b8" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: "#94a3b8" }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={fmtShort}
-                  width={52}
-                />
-                <Tooltip
-                  formatter={(v) => [fmt(v), "Выручка"]}
-                  contentStyle={tooltipStyle}
-                  labelStyle={tooltipLabelStyle}
-                  itemStyle={tooltipItemStyle}
-                  cursor={chartCursorFill}
-                />
-                <Bar dataKey="revenue" fill="#6567F1" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        {/* By org form */}
-        <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
-          <h2 className="text-base font-semibold text-heading mb-4">
-            Структура по форме организации
-          </h2>
-          {orgFormChartData.length === 0 ? (
-            <div className="h-48 flex items-center justify-center text-subtle text-sm">
-              Нет данных
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart
-                data={orgFormChartData}
-                layout="vertical"
-                margin={{ top: 4, right: 10, left: 4, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} horizontal={false} />
-                <XAxis
-                  type="number"
-                  tick={{ fontSize: 11, fill: "#94a3b8" }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={fmtShort}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="form"
-                  tick={{ fontSize: 12, fill: "#475569" }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={36}
-                />
-                <Tooltip
-                  formatter={(v, _n, props) => [
-                    `${fmt(v)} (${props.payload.count} орг.)`,
-                    "Выручка",
-                  ]}
-                  contentStyle={tooltipStyle}
-                  labelStyle={tooltipLabelStyle}
-                  itemStyle={tooltipItemStyle}
-                  cursor={chartCursorFill}
-                />
-                <Bar dataKey="revenue" fill="#5557E1" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-      </div>
-
-      {/* ── Historical analytics ─────────────────────────────────────────────── */}
-      {hasHistory && (
-        <div className="space-y-4">
-          <h2 className="text-lg font-bold text-heading border-t border-line pt-4">
-            История показателей
-          </h2>
-
-          {/* Chart 1: Revenue & Profit comparison */}
-          <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
-            <h3 className="text-sm font-semibold text-body mb-4">Выручка и прибыль</h3>
-            <ResponsiveContainer width="100%" height={220}>
-              <ComposedChart data={histData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 11, fill: "#94a3b8" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: "#94a3b8" }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={fmtShort}
-                  width={52}
-                />
-                <Tooltip
-                  formatter={(v, name) => [fmt(v), name === "revenue" ? "Выручка" : "Прибыль"]}
-                  contentStyle={tooltipStyle}
-                  labelStyle={tooltipLabelStyle}
-                  itemStyle={tooltipItemStyle}
-                  cursor={chartCursorFill}
-                />
-                <Legend
-                  formatter={(v) => (v === "revenue" ? "Выручка" : "Прибыль")}
-                  iconSize={10}
-                  wrapperStyle={{ fontSize: 12 }}
-                />
-                <Bar dataKey="revenue" fill="#6567F1" radius={[4, 4, 0, 0]} opacity={0.85} />
-                <Line
-                  dataKey="profit"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                  dot={{ r: 3, fill: "#10b981" }}
-                  activeDot={{ r: 5 }}
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Charts row 2: Revenue vs Payroll | Margin */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Revenue vs Payroll */}
-            <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
-              <h3 className="text-sm font-semibold text-body mb-4">Выручка vs ФОТ vs Расходы</h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={histData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fontSize: 11, fill: "#94a3b8" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: "#94a3b8" }}
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={fmtShort}
-                    width={52}
-                  />
-                  <Tooltip
-                    formatter={(v, name) => [
-                      fmt(v),
-                      name === "revenue" ? "Выручка" : name === "payroll" ? "ФОТ" : "Пост. расходы",
-                    ]}
-                    contentStyle={tooltipStyle}
-                    labelStyle={tooltipLabelStyle}
-                    itemStyle={tooltipItemStyle}
-                    cursor={chartCursorFill}
-                  />
-                  <Legend
-                    formatter={(v) =>
-                      v === "revenue" ? "Выручка" : v === "payroll" ? "ФОТ" : "Пост. расходы"
-                    }
-                    iconSize={10}
-                    wrapperStyle={{ fontSize: 12 }}
-                  />
-                  <Bar dataKey="revenue" fill="#6567F1" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="payroll" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="expenses" fill="#f87171" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Margin % */}
-            <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
-              <h3 className="text-sm font-semibold text-body mb-4">Маржинальность %</h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={histData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fontSize: 11, fill: "#94a3b8" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: "#94a3b8" }}
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(v) => `${v.toFixed(0)}%`}
-                    width={44}
-                  />
-                  <Tooltip
-                    formatter={(v) => [`${Number(v).toFixed(1)}%`, "Маржа"]}
-                    contentStyle={tooltipStyle}
-                    labelStyle={tooltipLabelStyle}
-                    itemStyle={tooltipItemStyle}
-                  />
-                  <Line
-                    dataKey="margin"
-                    stroke="#6567F1"
-                    strokeWidth={2}
-                    dot={{ r: 3, fill: "#6567F1" }}
-                    activeDot={{ r: 5 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Chart 3: Client count */}
-          <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
-            <h3 className="text-sm font-semibold text-body mb-4">Клиентская база</h3>
-            <ResponsiveContainer width="100%" height={180}>
-              <ComposedChart data={histData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 11, fill: "#94a3b8" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: "#94a3b8" }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={32}
-                  allowDecimals={false}
-                />
-                <Tooltip
-                  formatter={(v, name) => [
-                    v,
-                    name === "orgCount" ? "Активных клиентов" : "Новых за месяц",
-                  ]}
-                  contentStyle={tooltipStyle}
-                  labelStyle={tooltipLabelStyle}
-                  itemStyle={tooltipItemStyle}
-                  cursor={chartCursorFill}
-                />
-                <Legend
-                  formatter={(v) => (v === "orgCount" ? "Активных клиентов" : "Новых за месяц")}
-                  iconSize={10}
-                  wrapperStyle={{ fontSize: 12 }}
-                />
-                <Bar dataKey="clientsNew" fill="#a5f3fc" radius={[4, 4, 0, 0]} />
-                <Line
-                  dataKey="orgCount"
-                  stroke="#6567F1"
-                  strokeWidth={2}
-                  dot={{ r: 3, fill: "#6567F1" }}
-                  activeDot={{ r: 5 }}
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* History table */}
-          <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
-            <h3 className="text-sm font-semibold text-body mb-4">Таблица истории</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-subtle border-b border-line">
-                    <th className="pb-2 font-medium pr-4">Период</th>
-                    <th className="pb-2 font-medium text-right pr-4">Выручка</th>
-                    <th className="pb-2 font-medium text-right pr-4">ФОТ</th>
-                    <th className="pb-2 font-medium text-right pr-4">Пост. расходы</th>
-                    <th className="pb-2 font-medium text-right pr-4">Прибыль</th>
-                    <th className="pb-2 font-medium text-right pr-4">Маржа</th>
-                    <th className="pb-2 font-medium text-right pr-4">Клиентов</th>
-                    <th className="pb-2 font-medium text-right">Новых</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {[...snapshots].reverse().map((s) => {
-                    const gross = Number(s.grossProfit);
-                    const isPos = gross >= 0;
-                    return (
-                      <tr key={s.id} className="hover:bg-canvas transition-colors">
-                        <td className="py-2.5 pr-4 text-body font-medium whitespace-nowrap">
-                          {MONTHS_RU[s.month - 1]} {s.year}
-                        </td>
-                        <td className="py-2.5 pr-4 text-right text-heading">
-                          {fmt(Number(s.totalRevenue))}
-                        </td>
-                        <td className="py-2.5 pr-4 text-right text-amber-600 dark:text-amber-300">
-                          {fmt(Number(s.payrollTotal))}
-                        </td>
-                        <td className="py-2.5 pr-4 text-right text-red-400">
-                          {fmt(Number(s.recurringExpenses))}
-                        </td>
-                        <td
-                          className={`py-2.5 pr-4 text-right font-medium ${isPos ? "text-emerald-600 dark:text-emerald-300" : "text-red-500 dark:text-red-400"}`}
-                        >
-                          {fmt(gross)}
-                        </td>
-                        <td
-                          className={`py-2.5 pr-4 text-right ${isPos ? "text-emerald-600 dark:text-emerald-300" : "text-red-500 dark:text-red-400"}`}
-                        >
-                          {Number(s.margin).toFixed(1)}%
-                        </td>
-                        <td className="py-2.5 pr-4 text-right text-body">{s.orgCount}</td>
-                        <td className="py-2.5 text-right text-primary">+{s.clientsNew}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Section profitability */}
-      {sectionProfitability.length > 0 && (
-        <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden">
-          <div className="px-6 py-4 border-b border-line flex items-center gap-2">
-            <Map size={16} className="text-subtle" />
-            <h2 className="text-base font-semibold text-heading">Маржинальность участков</h2>
-            <span className="text-xs text-subtle ml-1">Выручка vs ФОТ (активные организации)</span>
-          </div>
-          {/* Visual bars */}
-          <div className="px-6 py-4 space-y-3 border-b border-line">
-            {sectionProfitability.map((s) => {
-              const maxRev = Math.max(...sectionProfitability.map((x) => x.revenue), 1);
-              const revPct = (s.revenue / maxRev) * 100;
-              const payPct = (s.payroll / maxRev) * 100;
-              return (
-                <div key={s.sectionId}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium text-body">
-                      №{s.number}
-                      {s.name ? ` — ${s.name}` : ""}
-                    </span>
-                    <MarginBadge margin={s.margin} />
-                  </div>
-                  <div className="flex-1 space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2.5 bg-primary/20 rounded-full overflow-hidden flex-1">
-                        <div
-                          className="h-full bg-primary rounded-full"
-                          style={{ width: `${revPct}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-subtle w-24 text-right tabular-nums">
-                        {fmt(s.revenue)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="h-2.5 bg-red-100 dark:bg-red-500/15 rounded-full overflow-hidden flex-1">
-                        <div
-                          className="h-full bg-red-400 rounded-full"
-                          style={{ width: `${payPct}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-subtle w-24 text-right tabular-nums">
-                        {fmt(s.payroll)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            <div className="flex items-center gap-4 pt-2 text-xs text-subtle">
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-2 rounded bg-primary" /> Выручка
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-3 h-2 rounded bg-red-400" /> ФОТ
-              </span>
-            </div>
-          </div>
-          {/* Table */}
+      {/* Персонал по ролям */}
+      {staffByRole.length > 0 && (
+        <div className="bg-surface rounded-2xl shadow-lg border border-line p-4 sm:p-5">
+          <h2 className="text-base font-semibold text-heading mb-4">Персонал по ролям</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-line bg-canvas/50">
-                  <th className="text-left px-4 py-3 font-medium text-subtle">Участок</th>
-                  <th className="text-center px-4 py-3 font-medium text-subtle">Орг-ций</th>
-                  <th className="text-right px-4 py-3 font-medium text-subtle">Выручка</th>
-                  <th className="text-right px-4 py-3 font-medium text-subtle hidden sm:table-cell">
-                    ФОТ
-                  </th>
-                  <th className="text-right px-4 py-3 font-medium text-subtle hidden md:table-cell">
-                    Прибыль
-                  </th>
-                  <th className="text-center px-4 py-3 font-medium text-subtle">Маржа</th>
+                <tr className="text-left text-xs text-subtle border-b border-line">
+                  <th className="pb-2 font-medium">Роль</th>
+                  <th className="pb-2 font-medium text-right">Кол-во</th>
+                  <th className="pb-2 font-medium text-right">ФОТ</th>
                 </tr>
               </thead>
-              <tbody>
-                {sectionProfitability.map((s) => (
-                  <tr key={s.sectionId} className="border-b border-line hover:bg-canvas/50">
-                    <td className="px-4 py-3 font-medium text-heading">
-                      №{s.number}
-                      {s.name ? ` — ${s.name}` : ""}
-                    </td>
-                    <td className="px-4 py-3 text-center text-body">{s.orgCount}</td>
-                    <td className="px-4 py-3 text-right text-heading font-medium tabular-nums">
-                      {fmt(s.revenue)}
-                    </td>
-                    <td className="px-4 py-3 text-right text-body tabular-nums hidden sm:table-cell">
-                      {fmt(s.payroll)}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums hidden md:table-cell">
-                      <span
-                        className={
-                          s.profit >= 0
-                            ? "text-emerald-600 dark:text-emerald-300"
-                            : "text-red-600 dark:text-red-300"
-                        }
-                      >
-                        {s.profit >= 0 ? "+" : ""}
-                        {fmt(s.profit)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <MarginBadge margin={s.margin} />
-                    </td>
+              <tbody className="divide-y divide-line">
+                {staffByRole.map((r) => (
+                  <tr key={r.role}>
+                    <td className="py-2.5 text-body">{ROLE_LABELS[r.role] ?? r.role}</td>
+                    <td className="py-2.5 text-right text-body">{r.count}</td>
+                    <td className="py-2.5 text-right font-medium text-heading">{fmt(r.payroll)}</td>
                   </tr>
                 ))}
-                <tr className="bg-canvas font-semibold">
-                  <td className="px-4 py-3 text-body">Итого</td>
-                  <td className="px-4 py-3 text-center text-body">
-                    {sectionProfitability.reduce((s, x) => s + x.orgCount, 0)}
-                  </td>
-                  <td className="px-4 py-3 text-right text-heading tabular-nums">
-                    {fmt(sectionProfitability.reduce((s, x) => s + x.revenue, 0))}
-                  </td>
-                  <td className="px-4 py-3 text-right text-body tabular-nums hidden sm:table-cell">
-                    {fmt(sectionProfitability.reduce((s, x) => s + x.payroll, 0))}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums hidden md:table-cell">
-                    {(() => {
-                      const total =
-                        sectionProfitability.reduce((s, x) => s + x.revenue, 0) -
-                        sectionProfitability.reduce((s, x) => s + x.payroll, 0);
-                      return (
-                        <span
-                          className={
-                            total >= 0
-                              ? "text-emerald-600 dark:text-emerald-300"
-                              : "text-red-600 dark:text-red-300"
-                          }
-                        >
-                          {total >= 0 ? "+" : ""}
-                          {fmt(total)}
-                        </span>
-                      );
-                    })()}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {(() => {
-                      const totalRev = sectionProfitability.reduce((s, x) => s + x.revenue, 0);
-                      const totalPay = sectionProfitability.reduce((s, x) => s + x.payroll, 0);
-                      const m =
-                        totalRev > 0
-                          ? Math.round(((totalRev - totalPay) / totalRev) * 1000) / 10
-                          : 0;
-                      return <MarginBadge margin={m} />;
-                    })()}
-                  </td>
-                </tr>
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* Expenses & Incomes */}
-      <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
-        <h2 className="text-base font-semibold text-heading mb-5">Расходы и доходы</h2>
-        <div className="flex gap-8 flex-col sm:flex-row">
-          <ExpensesBlock
-            title="Постоянные расходы"
-            type="RECURRING"
-            expenses={recurringExpenses}
-            onAdd={handleAddExpense}
-            onDelete={handleDeleteExpense}
-            onUpdate={handleUpdateExpense}
-          />
-          <div className="hidden sm:block w-px bg-muted self-stretch" />
-          <ExpensesBlock
-            title="Разовые расходы"
-            type="ONE_TIME"
-            expenses={oneTimeExpenses}
-            onAdd={handleAddExpense}
-            onDelete={handleDeleteExpense}
-            onUpdate={handleUpdateExpense}
-          />
-          <div className="hidden sm:block w-px bg-muted self-stretch" />
-          <IncomeBlock
-            incomes={incomes}
-            onAdd={handleAddIncome}
-            onDelete={handleDeleteIncome}
-            onUpdate={handleUpdateIncome}
-          />
-        </div>
-      </div>
-
-      {/* Staff by role */}
-      {dashboard.staff.byRole.length > 0 && (
-        <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
-          <h2 className="text-base font-semibold text-heading mb-4">Персонал по ролям</h2>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs text-subtle border-b border-line">
-                <th className="pb-2 font-medium">Роль</th>
-                <th className="pb-2 font-medium text-right">Кол-во</th>
-                <th className="pb-2 font-medium text-right">ФОТ</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {dashboard.staff.byRole.map((r) => (
-                <tr key={r.role}>
-                  <td className="py-2.5 text-body">{ROLE_LABELS[r.role] ?? r.role}</td>
-                  <td className="py-2.5 text-right text-body">{r.count}</td>
-                  <td className="py-2.5 text-right font-medium text-heading">{fmt(r.payroll)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
+      {/* Банки клиентов */}
       {bankStats && bankStats.banks.length > 0 && (
-        <div className="bg-surface rounded-2xl shadow-lg border border-line p-6">
+        <div className="bg-surface rounded-2xl shadow-lg border border-line p-4 sm:p-6">
           <h2 className="text-lg font-bold text-heading mb-4">Банки клиентов</h2>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <div className="rounded-lg border border-line p-3">
               <div className="text-xs text-subtle">Всего счетов</div>
-              <div className="text-2xl font-bold text-heading mt-1">
+              <div className="text-xl sm:text-2xl font-bold text-heading mt-1">
                 {bankStats.totals.accounts}
               </div>
             </div>
             <div className="rounded-lg border border-line p-3">
               <div className="text-xs text-subtle">Организаций</div>
-              <div className="text-2xl font-bold text-heading mt-1">
+              <div className="text-xl sm:text-2xl font-bold text-heading mt-1">
                 {bankStats.totals.organizations}
               </div>
             </div>
             <div className="rounded-lg border border-line p-3">
               <div className="text-xs text-subtle">Подключено к API</div>
-              <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-300 mt-1">
+              <div className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-300 mt-1">
                 {bankStats.totals.apiConnected}
               </div>
             </div>
             <div className="rounded-lg border border-line p-3">
               <div className="text-xs text-subtle">Авто-выгрузка ВКЛ</div>
-              <div className="text-2xl font-bold text-primary mt-1">
+              <div className="text-xl sm:text-2xl font-bold text-primary mt-1">
                 {bankStats.totals.autoFetch}
               </div>
             </div>
           </div>
 
-          <table className="w-full text-sm">
-            <thead className="text-subtle border-b border-line">
-              <tr className="text-left">
-                <th className="pb-2 font-medium">Банк</th>
-                <th className="pb-2 font-medium text-right">Счетов</th>
-                <th className="pb-2 font-medium text-right">Организаций</th>
-                <th className="pb-2 font-medium text-right">API подключено</th>
-                <th className="pb-2 font-medium text-right">Авто-выгрузка</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {bankStats.banks.map((b) => (
-                <tr key={b.bankName}>
-                  <td className="py-2.5 text-body font-medium">{b.bankName}</td>
-                  <td className="py-2.5 text-right text-body">{b.accounts}</td>
-                  <td className="py-2.5 text-right text-body">{b.organizations}</td>
-                  <td className="py-2.5 text-right text-emerald-600 dark:text-emerald-300">
+          {/* Mobile: card list */}
+          <div className="sm:hidden divide-y divide-line border-t border-line -mx-4">
+            {bankStats.banks.map((b) => (
+              <div key={b.bankName} className="px-4 py-3">
+                <div className="text-sm font-semibold text-heading mb-1.5">{b.bankName}</div>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                  <div className="text-subtle">Счетов</div>
+                  <div className="text-right text-body tabular-nums">{b.accounts}</div>
+                  <div className="text-subtle">Организаций</div>
+                  <div className="text-right text-body tabular-nums">{b.organizations}</div>
+                  <div className="text-subtle">API подключено</div>
+                  <div className="text-right tabular-nums text-emerald-600 dark:text-emerald-300">
                     {b.apiConnected || "—"}
-                  </td>
-                  <td className="py-2.5 text-right text-primary">{b.autoFetch || "—"}</td>
+                  </div>
+                  <div className="text-subtle">Авто-выгрузка</div>
+                  <div className="text-right tabular-nums text-primary">{b.autoFetch || "—"}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* sm+: full table */}
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-subtle border-b border-line">
+                <tr className="text-left">
+                  <th className="pb-2 font-medium">Банк</th>
+                  <th className="pb-2 font-medium text-right">Счетов</th>
+                  <th className="pb-2 font-medium text-right">Организаций</th>
+                  <th className="pb-2 font-medium text-right">API подключено</th>
+                  <th className="pb-2 font-medium text-right">Авто-выгрузка</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {bankStats.banks.map((b) => (
+                  <tr key={b.bankName}>
+                    <td className="py-2.5 text-body font-medium">{b.bankName}</td>
+                    <td className="py-2.5 text-right text-body">{b.accounts}</td>
+                    <td className="py-2.5 text-right text-body">{b.organizations}</td>
+                    <td className="py-2.5 text-right text-emerald-600 dark:text-emerald-300">
+                      {b.apiConnected || "—"}
+                    </td>
+                    <td className="py-2.5 text-right text-primary">{b.autoFetch || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
