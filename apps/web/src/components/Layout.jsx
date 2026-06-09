@@ -213,28 +213,33 @@ export default function Layout() {
   return (
     <div className="min-h-screen bg-canvas">
       {/* Header */}
-      <header className="fixed top-0 z-50 w-full h-20 bg-surface/80 backdrop-blur-md border-b border-line flex items-center justify-between px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-4">
+      <header className="fixed top-0 z-50 w-full h-16 sm:h-20 bg-surface/80 backdrop-blur-md border-b border-line flex items-center justify-between px-3 sm:px-6 lg:px-8 gap-2">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           <button
-            className="lg:hidden p-1.5 rounded-lg text-body hover:text-heading hover:bg-muted transition-colors"
+            className="lg:hidden p-1.5 rounded-lg text-body hover:text-heading hover:bg-muted transition-colors shrink-0"
             onClick={() => setSidebarOpen(!sidebarOpen)}
+            aria-label="Меню"
           >
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <img src="/logo.png" alt="ASBUH AUTOPILOT" className="h-8 w-auto" />
-            <span className="text-xl font-bold text-heading">
+          <Link
+            to="/"
+            className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity min-w-0"
+          >
+            <img src="/logo.png" alt="ASBUH" className="h-7 sm:h-8 w-auto shrink-0" />
+            <span className="text-base sm:text-xl font-bold text-heading hidden xs:inline sm:inline truncate">
               ASBUH <span className="text-primary">AUTOPILOT</span>
             </span>
           </Link>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1 sm:gap-3 shrink-0">
           <ThemeToggle />
           {/* Announcements bell */}
           <button
             onClick={() => setAnnouncementsOpen(true)}
             className="relative p-1.5 rounded-lg text-subtle hover:text-primary hover:bg-primary/5 transition-colors"
             title="Обновления сервиса"
+            aria-label="Обновления сервиса"
           >
             <Megaphone size={20} />
             {unreadAnnouncements > 0 && (
@@ -247,6 +252,7 @@ export default function Layout() {
           <Link
             to="/profile"
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            aria-label="Профиль"
           >
             {user?.avatarUrl ? (
               <img
@@ -260,13 +266,14 @@ export default function Layout() {
                 {(user?.lastName?.[0] || "").toUpperCase()}
               </div>
             )}
-            <span className="text-sm text-body hidden sm:inline">
+            <span className="text-sm text-body hidden md:inline">
               {user?.firstName} {user?.lastName}
             </span>
           </Link>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1 text-sm text-subtle hover:text-primary transition-colors"
+            className="flex items-center gap-1 p-1.5 sm:p-0 text-sm text-subtle hover:text-primary transition-colors"
+            aria-label="Выйти"
           >
             <LogOut size={16} />
             <span className="hidden sm:inline">Выйти</span>
@@ -284,7 +291,7 @@ export default function Layout() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-20 left-0 z-40 h-[calc(100vh-5rem)] w-60 bg-surface border-r border-line p-4 transition-transform lg:translate-x-0 ${
+        className={`fixed top-16 sm:top-20 left-0 z-40 h-[calc(100vh-4rem)] sm:h-[calc(100vh-5rem)] w-60 bg-surface border-r border-line p-4 transition-transform lg:translate-x-0 overflow-y-auto ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -332,8 +339,8 @@ export default function Layout() {
       </aside>
 
       {/* Main content */}
-      <main className="pt-20 lg:pl-60">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="pt-16 sm:pt-20 lg:pl-60">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
           <Suspense
             fallback={
               <div className="flex items-center justify-center py-16 text-subtle">

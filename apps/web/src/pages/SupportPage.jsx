@@ -12,6 +12,7 @@ import {
   FileText,
   Check,
   CheckCheck,
+  ChevronLeft,
 } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -383,16 +384,24 @@ export default function SupportPage() {
     }
   }
 
+  // На мобилке показываем один режим за раз: список ИЛИ чат ИЛИ форму.
+  // На lg+ — две колонки одновременно.
+  const showListMobile = !id && !showNewForm;
+  const showRightMobile = !!id || showNewForm;
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-            <LifeBuoy size={22} />
+    <div className="flex flex-col gap-3 sm:gap-4">
+      <div className="flex items-center justify-between flex-wrap gap-2 sm:gap-3">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <LifeBuoy size={18} className="sm:hidden" />
+            <LifeBuoy size={22} className="hidden sm:block" />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-heading">Техподдержка сервиса</h1>
-            <p className="text-sm text-subtle">
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-2xl font-bold text-heading leading-tight truncate">
+              Техподдержка сервиса
+            </h1>
+            <p className="text-xs sm:text-sm text-subtle hidden sm:block">
               {isStaff
                 ? "Все обращения пользователей по работе сайта"
                 : "Чат с разработчиками — баги, ошибки, проблемы с сайтом"}
@@ -402,10 +411,11 @@ export default function SupportPage() {
         {!isStaff && (
           <button
             onClick={() => setShowNewForm(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-[#6567F1] to-[#5557E1] text-white text-sm font-medium shadow-lg shadow-[#6567F1]/30 hover:from-[#5557E1] hover:to-[#4547D1] transition-all"
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg bg-gradient-to-r from-[#6567F1] to-[#5557E1] text-white text-sm font-medium shadow-lg shadow-[#6567F1]/30 hover:from-[#5557E1] hover:to-[#4547D1] transition-all whitespace-nowrap"
           >
             <Plus size={16} />
-            Новое обращение
+            <span className="hidden sm:inline">Новое обращение</span>
+            <span className="sm:hidden">Новое</span>
           </button>
         )}
       </div>
@@ -419,9 +429,13 @@ export default function SupportPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4 min-h-[calc(100vh-260px)]">
+      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-3 sm:gap-4 lg:min-h-[calc(100vh-260px)]">
         {/* Список тредов */}
-        <aside className="bg-surface rounded-2xl shadow-sm border border-line overflow-hidden flex flex-col">
+        <aside
+          className={`bg-surface rounded-2xl shadow-sm border border-line overflow-hidden lg:flex flex-col min-h-[calc(100vh-180px)] lg:min-h-0 ${
+            showListMobile ? "flex" : "hidden"
+          }`}
+        >
           <div className="p-3 border-b border-line text-xs font-medium text-subtle uppercase tracking-wide">
             {isStaff ? "Все обращения" : "Мои обращения"}
           </div>
@@ -510,7 +524,11 @@ export default function SupportPage() {
         </aside>
 
         {/* Окно треда */}
-        <section className="bg-surface rounded-2xl shadow-sm border border-line flex flex-col overflow-hidden">
+        <section
+          className={`bg-surface rounded-2xl shadow-sm border border-line lg:flex flex-col overflow-hidden min-h-[calc(100vh-180px)] lg:min-h-0 ${
+            showRightMobile ? "flex" : "hidden"
+          }`}
+        >
           {showNewForm ? (
             <form onSubmit={submitNewThread} className="p-6 flex flex-col gap-4">
               <div className="flex items-center justify-between">
@@ -616,7 +634,14 @@ export default function SupportPage() {
             </div>
           ) : (
             <>
-              <header className="p-4 border-b border-line flex items-start gap-3 flex-wrap">
+              <header className="p-3 sm:p-4 border-b border-line flex items-start gap-2 sm:gap-3 flex-wrap">
+                <Link
+                  to="/support"
+                  className="lg:hidden shrink-0 -ml-1 p-1.5 rounded-lg text-subtle hover:text-primary hover:bg-primary/5 transition-colors"
+                  aria-label="К списку обращений"
+                >
+                  <ChevronLeft size={20} />
+                </Link>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <h2 className="text-lg font-bold text-heading">{thread.subject}</h2>
@@ -660,7 +685,7 @@ export default function SupportPage() {
                 )}
               </header>
 
-              <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 bg-canvas/50">
+              <div className="flex-1 overflow-y-auto p-3 sm:p-4 flex flex-col gap-3 bg-canvas/50">
                 {loadingThread && !thread.messages ? (
                   <div className="flex items-center justify-center py-8 text-subtle">
                     <Loader2 size={20} className="animate-spin" />
