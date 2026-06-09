@@ -16,9 +16,11 @@ import {
   Clock,
   AlertCircle,
   Ban,
+  Search,
 } from "lucide-react";
 
 const FREQUENCY_LABELS = { MONTHLY: "Ежемесячно", QUARTERLY: "Ежеквартально", YEARLY: "Ежегодно" };
+const FREQUENCY_SHORT = { MONTHLY: "Мес.", QUARTERLY: "Кв.", YEARLY: "Год" };
 const FREQUENCY_OPTIONS = ["QUARTERLY", "MONTHLY", "YEARLY"];
 
 const STATUS_OPTIONS = [
@@ -83,7 +85,7 @@ function getCurrentPeriod(frequency) {
 }
 
 // ─── Status Cell ───
-function StatusCell({ entry, orgId, rtId, year, period, canEdit, onUpdate }) {
+function StatusCell({ entry, orgId, rtId, year, period, canEdit, onUpdate, compact = true }) {
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -134,6 +136,8 @@ function StatusCell({ entry, orgId, rtId, year, period, canEdit, onUpdate }) {
     );
   }
 
+  const labelCls = compact ? "hidden xl:inline" : "inline";
+
   // Read-only
   if (!canEdit) {
     if (isNA)
@@ -141,10 +145,10 @@ function StatusCell({ entry, orgId, rtId, year, period, canEdit, onUpdate }) {
     const Icon = info.icon;
     return (
       <div
-        className={`w-full flex items-center justify-center gap-1 text-xs font-medium rounded-md px-1 py-1.5 ${info.color}`}
+        className={`w-full flex items-center justify-center gap-1 text-xs font-medium rounded-md px-2 py-1.5 ${info.color}`}
       >
         <Icon size={14} />
-        <span className="hidden xl:inline">{info.label}</span>
+        <span className={labelCls}>{info.label}</span>
       </div>
     );
   }
@@ -156,7 +160,7 @@ function StatusCell({ entry, orgId, rtId, year, period, canEdit, onUpdate }) {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className={`w-full flex items-center justify-center gap-1 text-xs font-medium rounded-md px-1 py-1.5 transition-colors ${
+        className={`w-full flex items-center justify-center gap-1 text-xs font-medium rounded-md px-2 py-1.5 transition-colors ${
           isNA ? "text-subtle hover:text-subtle" : `${info.color} hover:opacity-80`
         }`}
       >
@@ -165,13 +169,13 @@ function StatusCell({ entry, orgId, rtId, year, period, canEdit, onUpdate }) {
         ) : (
           <>
             <Icon size={14} />
-            <span className="hidden xl:inline">{info.label}</span>
+            <span className={labelCls}>{info.label}</span>
           </>
         )}
       </button>
 
       {open && (
-        <div className="absolute z-50 top-full left-1/2 -translate-x-1/2 mt-1 w-40 bg-surface rounded-xl shadow-xl border border-line py-1 animate-in fade-in zoom-in-95 duration-100">
+        <div className="absolute z-50 top-full right-0 mt-1 w-44 bg-surface rounded-xl shadow-xl border border-line py-1 animate-in fade-in zoom-in-95 duration-100">
           {STATUS_OPTIONS.map((opt) => {
             const OptIcon = opt.icon;
             const active = opt.value === status;
@@ -209,6 +213,15 @@ function ReportTypesModal({ onClose, onSaved }) {
 
   useEffect(() => {
     loadTypes();
+  }, []);
+
+  // Lock body scroll while modal is open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
   }, []);
 
   async function loadTypes() {
@@ -254,21 +267,26 @@ function ReportTypesModal({ onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-      <div className="bg-surface rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 sm:bg-black/30 sm:p-4">
+      <div className="bg-surface w-full sm:max-w-2xl max-h-[92vh] sm:max-h-[80vh] rounded-t-3xl sm:rounded-2xl shadow-2xl border-x border-t sm:border border-line flex flex-col animate-slide-up sm:animate-none">
+        {/* Drag handle (mobile only) */}
+        <div className="sm:hidden pt-2 pb-1 flex justify-center shrink-0">
+          <div className="w-10 h-1 rounded-full bg-line" />
+        </div>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-line">
-          <h2 className="text-lg font-semibold text-heading">Типы отчётов</h2>
+        <div className="flex items-center justify-between px-5 sm:px-6 pt-2 sm:pt-4 pb-3 sm:pb-4 border-b border-line shrink-0">
+          <h2 className="text-base sm:text-lg font-semibold text-heading">Типы отчётов</h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
+            className="p-2 -mr-1 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
+            aria-label="Закрыть"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           {loading ? (
             <div className="flex items-center justify-center py-16 text-subtle">
               <Loader2 size={24} className="animate-spin" />
@@ -278,36 +296,42 @@ function ReportTypesModal({ onClose, onSaved }) {
               {types.map((t) => (
                 <div
                   key={t.id}
-                  className="flex items-center gap-3 p-3 rounded-lg border border-line hover:border-line transition-colors"
+                  className="flex items-start gap-2 p-3 rounded-lg border border-line transition-colors"
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-heading">{t.name}</span>
-                      <span className="text-xs text-subtle bg-muted rounded px-1.5 py-0.5">
+                    <div className="font-medium text-heading break-words leading-snug">
+                      {t.name}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                      <span className="text-[11px] text-subtle bg-muted rounded px-1.5 py-0.5 font-mono">
                         {t.code}
                       </span>
                       <span
-                        className={`text-xs px-1.5 py-0.5 rounded ${t.isActive ? "bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300" : "bg-muted text-subtle"}`}
+                        className={`text-[11px] px-1.5 py-0.5 rounded font-medium ${t.isActive ? "bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300" : "bg-muted text-subtle"}`}
                       >
                         {t.isActive ? "Активен" : "Выключен"}
                       </span>
-                    </div>
-                    <div className="text-xs text-subtle mt-0.5">
-                      {FREQUENCY_LABELS[t.frequency]} · Порядок: {t.order}
+                      <span className="text-[11px] text-subtle">
+                        {FREQUENCY_LABELS[t.frequency]} · №{t.order}
+                      </span>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setForm({ ...t })}
-                    className="p-1.5 rounded-lg text-subtle hover:text-primary hover:bg-primary/5 transition-colors"
-                  >
-                    <Pencil size={16} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(t.id)}
-                    className="p-1.5 rounded-lg text-subtle hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/15 transition-colors"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <button
+                      onClick={() => setForm({ ...t })}
+                      className="p-2 rounded-lg text-subtle hover:text-primary hover:bg-primary/5 transition-colors"
+                      aria-label="Редактировать"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(t.id)}
+                      className="p-2 rounded-lg text-subtle hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/15 transition-colors"
+                      aria-label="Удалить"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -319,7 +343,7 @@ function ReportTypesModal({ onClose, onSaved }) {
               <h3 className="text-sm font-semibold text-heading">
                 {form.id ? "Редактировать" : "Новый тип"}
               </h3>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <input
                   className="border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                   placeholder="Название"
@@ -416,6 +440,8 @@ export default function ReportingPage() {
   const [loading, setLoading] = useState(true);
   const [showTypes, setShowTypes] = useState(false);
   const [sectionFilter, setSectionFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [onlyProblems, setOnlyProblems] = useState(false);
 
   const periods = getPeriods(frequency);
 
@@ -488,9 +514,32 @@ export default function ReportingPage() {
       })()
     : [];
 
-  // Filter organizations by section
-  const filteredOrgs =
-    data?.organizations?.filter((o) => !sectionFilter || o.section?.id === sectionFilter) ?? [];
+  // Filter organizations by section, search query, and "only problems"
+  const searchNorm = search.trim().toLowerCase();
+  const filteredOrgs = (() => {
+    let list =
+      data?.organizations?.filter((o) => !sectionFilter || o.section?.id === sectionFilter) ?? [];
+    if (searchNorm) {
+      list = list.filter((o) => {
+        const name = (o.name || "").toLowerCase();
+        const inn = (o.inn || "").toLowerCase();
+        return name.includes(searchNorm) || inn.includes(searchNorm);
+      });
+    }
+    if (onlyProblems && data) {
+      list = list.filter((o) => {
+        for (const rt of data.reportTypes || []) {
+          const key = `${o.id}_${rt.id}`;
+          const applicable = data.applicability?.[key] !== false;
+          if (!applicable) continue;
+          const status = data.entries[key]?.status || "NOT_SUBMITTED";
+          if (status === "NOT_SUBMITTED" || status === "REJECTED") return true;
+        }
+        return false;
+      });
+    }
+    return list;
+  })();
 
   // Stats (based on filtered orgs)
   const stats = data
@@ -515,58 +564,61 @@ export default function ReportingPage() {
   return (
     <div>
       {/* Page header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-heading">Трекер отчётности</h1>
-          <p className="text-sm text-subtle mt-1">Контроль сдачи отчётов по организациям</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-heading">Трекер отчётности</h1>
+          <p className="text-xs sm:text-sm text-subtle mt-0.5 sm:mt-1">
+            Контроль сдачи отчётов по организациям
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          {isAdmin && (
-            <button
-              onClick={() => setShowTypes(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-primary/20 text-primary text-sm font-medium hover:bg-primary/5 transition-colors"
-            >
-              <Settings size={16} />
-              Типы отчётов
-            </button>
-          )}
-        </div>
+        {isAdmin && (
+          <button
+            onClick={() => setShowTypes(true)}
+            className="self-start flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-primary/20 text-primary text-sm font-medium hover:bg-primary/5 transition-colors"
+          >
+            <Settings size={16} />
+            Типы отчётов
+          </button>
+        )}
       </div>
 
       {/* Filters bar */}
-      <div className="bg-surface rounded-2xl shadow-lg border border-line p-4 mb-6">
-        <div className="flex flex-wrap items-center gap-4">
-          {/* Frequency tabs */}
+      <div className="bg-surface rounded-2xl shadow-lg border border-line p-3 sm:p-4 mb-4 sm:mb-6">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+          {/* Frequency tabs — короткие подписи на мобилке */}
           <div className="flex bg-muted rounded-lg p-0.5">
             {FREQUENCY_OPTIONS.map((f) => (
               <button
                 key={f}
                 onClick={() => setFrequency(f)}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                className={`px-2.5 sm:px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-colors ${
                   frequency === f
                     ? "bg-surface text-primary shadow-sm"
                     : "text-subtle hover:text-body"
                 }`}
               >
-                {FREQUENCY_LABELS[f]}
+                <span className="sm:hidden">{FREQUENCY_SHORT[f]}</span>
+                <span className="hidden sm:inline">{FREQUENCY_LABELS[f]}</span>
               </button>
             ))}
           </div>
 
           {/* Period navigation */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 sm:gap-1">
             <button
               onClick={handlePrevPeriod}
-              className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
+              className="p-2 sm:p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
+              aria-label="Предыдущий период"
             >
               <ChevronLeft size={18} />
             </button>
-            <div className="px-3 py-1.5 text-sm font-semibold text-heading min-w-[140px] text-center">
+            <div className="px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-semibold text-heading min-w-[110px] sm:min-w-[140px] text-center">
               {periodLabel(frequency, period)} {year}
             </div>
             <button
               onClick={handleNextPeriod}
-              className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
+              className="p-2 sm:p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
+              aria-label="Следующий период"
             >
               <ChevronRight size={18} />
             </button>
@@ -574,9 +626,10 @@ export default function ReportingPage() {
 
           {/* Year quick select */}
           <select
-            className="border border-line rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="border border-line rounded-lg px-2 sm:px-3 py-1.5 text-xs sm:text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30"
             value={year}
             onChange={(e) => setYear(Number(e.target.value))}
+            aria-label="Год"
           >
             {[2024, 2025, 2026, 2027].map((y) => (
               <option key={y} value={y}>
@@ -590,36 +643,84 @@ export default function ReportingPage() {
             <select
               value={sectionFilter}
               onChange={(e) => setSectionFilter(e.target.value)}
-              className="border border-line rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="border border-line rounded-lg px-2 sm:px-3 py-1.5 text-xs sm:text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto"
+              aria-label="Участок"
             >
               <option value="">Все участки</option>
               {sections.map((s) => (
                 <option key={s.id} value={s.id}>
-                  §{s.number}
+                  №{s.number}
                   {s.name ? ` — ${s.name}` : ""}
                 </option>
               ))}
             </select>
           )}
-
-          {/* Stats badges */}
-          {stats && (
-            <div className="flex items-center gap-2 ml-auto">
-              <span className="text-xs px-2 py-1 rounded-full bg-muted text-body">
-                Всего: {stats.total}
-              </span>
-              <span className="text-xs px-2 py-1 rounded-full bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300">
-                Принято: {stats.accepted}
-              </span>
-              <span className="text-xs px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300">
-                Сдано: {stats.submitted}
-              </span>
-              <span className="text-xs px-2 py-1 rounded-full bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300">
-                Отклонено: {stats.rejected}
-              </span>
-            </div>
-          )}
         </div>
+
+        {/* Search + problem filter — для длинных списков организаций */}
+        <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-line">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Найти организацию по названию или ИНН..."
+              className="w-full pl-9 pr-9 py-2 sm:py-1.5 border border-line rounded-lg text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-subtle hover:text-body"
+                aria-label="Очистить поиск"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setOnlyProblems((v) => !v)}
+            className={`inline-flex items-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium border transition-colors ${
+              onlyProblems
+                ? "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30"
+                : "bg-surface text-body border-line hover:bg-muted"
+            }`}
+            aria-pressed={onlyProblems}
+          >
+            <AlertCircle size={14} />
+            Только с пропусками
+          </button>
+        </div>
+
+        {/* Stats badges — отдельной строкой, переносятся */}
+        {stats && (
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-3 pt-3 border-t border-line">
+            <span className="text-[11px] sm:text-xs px-2 py-1 rounded-full bg-muted text-body">
+              Всего: {stats.total}
+            </span>
+            <span className="text-[11px] sm:text-xs px-2 py-1 rounded-full bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300">
+              Принято: {stats.accepted}
+            </span>
+            <span className="text-[11px] sm:text-xs px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300">
+              Сдано: {stats.submitted}
+            </span>
+            <span className="text-[11px] sm:text-xs px-2 py-1 rounded-full bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300">
+              Отклонено: {stats.rejected}
+            </span>
+            {stats.notSubmitted > 0 && (
+              <span className="text-[11px] sm:text-xs px-2 py-1 rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                Не сдано: {stats.notSubmitted}
+              </span>
+            )}
+            <span className="ml-auto text-[11px] sm:text-xs text-subtle">
+              Показано: {filteredOrgs.length}
+              {data?.organizations?.length > filteredOrgs.length &&
+                ` из ${data.organizations.length}`}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Matrix table */}
@@ -628,10 +729,29 @@ export default function ReportingPage() {
           <Loader2 size={24} className="animate-spin" />
         </div>
       ) : !data || filteredOrgs.length === 0 ? (
-        <div className="bg-surface rounded-2xl shadow-lg border border-line p-12 text-center">
+        <div className="bg-surface rounded-2xl shadow-lg border border-line p-8 sm:p-12 text-center">
           <FileSpreadsheet size={48} className="mx-auto text-subtle mb-4" />
-          <h3 className="text-lg font-semibold text-body mb-1">Нет организаций</h3>
-          <p className="text-sm text-subtle">Для выбранного периода нет доступных организаций</p>
+          <h3 className="text-lg font-semibold text-body mb-1">
+            {search || onlyProblems ? "Ничего не найдено" : "Нет организаций"}
+          </h3>
+          <p className="text-sm text-subtle">
+            {search || onlyProblems
+              ? "Попробуйте изменить запрос или снять фильтр"
+              : "Для выбранного периода нет доступных организаций"}
+          </p>
+          {(search || onlyProblems) && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setOnlyProblems(false);
+              }}
+              className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm text-primary border-2 border-primary/20 hover:bg-primary/5 transition-colors"
+            >
+              <X size={14} />
+              Сбросить фильтры
+            </button>
+          )}
         </div>
       ) : data.reportTypes?.length === 0 ? (
         <div className="bg-surface rounded-2xl shadow-lg border border-line p-12 text-center">
@@ -642,48 +762,33 @@ export default function ReportingPage() {
           </p>
         </div>
       ) : (
-        <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden">
-          <div className="overflow-auto max-h-[calc(100vh-260px)]">
-            <table className="w-full text-sm border-separate border-spacing-0">
-              <thead>
-                <tr>
-                  <th className="text-left px-4 py-3 font-semibold text-body sticky top-0 left-0 bg-canvas z-30 min-w-[200px] border-b border-line">
-                    Организация
-                  </th>
-                  {data.reportTypes.map((rt) => (
-                    <th
-                      key={rt.id}
-                      className="text-center px-2 py-3 font-medium text-body min-w-[100px] sticky top-0 bg-canvas z-20 border-b border-line"
-                    >
-                      <div className="text-xs leading-tight">{rt.name}</div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredOrgs.map((org, idx) => (
-                  <tr key={org.id} className={idx % 2 === 0 ? "bg-surface" : "bg-canvas/50"}>
-                    <td className="px-4 py-2 sticky left-0 z-10 bg-inherit border-b border-line">
-                      <div
-                        className="font-medium text-heading truncate max-w-[240px]"
-                        title={org.name}
-                      >
-                        {org.name}
-                      </div>
-                      <div className="text-xs text-subtle flex items-center gap-2">
-                        {org.inn && <span>ИНН {org.inn}</span>}
-                        {org.section && <span className="text-primary">§{org.section.number}</span>}
-                      </div>
-                    </td>
-                    {data.reportTypes.map((rt) => {
-                      const key = `${org.id}_${rt.id}`;
-                      const entry = data.entries[key];
-                      const applicable = data.applicability?.[key] !== false;
-                      // Non-applicable cells default to NOT_APPLICABLE but are still editable
-                      const effectiveEntry =
-                        entry || (!applicable ? { status: "NOT_APPLICABLE" } : null);
-                      return (
-                        <td key={rt.id} className="px-1.5 py-1.5 border-b border-line">
+        <>
+          {/* Mobile: card-per-org */}
+          <div className="md:hidden space-y-3">
+            {filteredOrgs.map((org) => (
+              <div
+                key={org.id}
+                className="bg-surface rounded-2xl shadow-sm border border-line overflow-hidden"
+              >
+                <div className="px-4 py-3 border-b border-line bg-canvas/40">
+                  <div className="font-semibold text-heading break-words" title={org.name}>
+                    {org.name}
+                  </div>
+                  <div className="text-xs text-subtle flex items-center gap-2 mt-0.5">
+                    {org.inn && <span className="tabular-nums">ИНН {org.inn}</span>}
+                  </div>
+                </div>
+                <ul className="divide-y divide-line">
+                  {data.reportTypes.map((rt) => {
+                    const key = `${org.id}_${rt.id}`;
+                    const entry = data.entries[key];
+                    const applicable = data.applicability?.[key] !== false;
+                    const effectiveEntry =
+                      entry || (!applicable ? { status: "NOT_APPLICABLE" } : null);
+                    return (
+                      <li key={rt.id} className="flex items-center gap-3 px-4 py-2.5">
+                        <span className="text-sm text-body flex-1 min-w-0 truncate">{rt.name}</span>
+                        <div className="shrink-0 min-w-[110px]">
                           <StatusCell
                             entry={effectiveEntry}
                             orgId={org.id}
@@ -692,16 +797,77 @@ export default function ReportingPage() {
                             period={data.period}
                             canEdit={canEdit}
                             onUpdate={handleEntryUpdate}
+                            compact={false}
                           />
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
           </div>
-        </div>
+
+          {/* Desktop / tablet: matrix table */}
+          <div className="hidden md:block bg-surface rounded-2xl shadow-lg border border-line overflow-hidden">
+            <div className="overflow-auto max-h-[calc(100vh-260px)]">
+              <table className="w-full text-sm border-separate border-spacing-0">
+                <thead>
+                  <tr>
+                    <th className="text-left px-4 py-3 font-semibold text-body sticky top-0 left-0 bg-canvas z-30 min-w-[200px] border-b border-line">
+                      Организация
+                    </th>
+                    {data.reportTypes.map((rt) => (
+                      <th
+                        key={rt.id}
+                        className="text-center px-2 py-3 font-medium text-body min-w-[100px] sticky top-0 bg-canvas z-20 border-b border-line"
+                      >
+                        <div className="text-xs leading-tight">{rt.name}</div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredOrgs.map((org, idx) => (
+                    <tr key={org.id} className={idx % 2 === 0 ? "bg-surface" : "bg-canvas/50"}>
+                      <td className="px-4 py-2 sticky left-0 z-10 bg-inherit border-b border-line">
+                        <div
+                          className="font-medium text-heading truncate max-w-[240px]"
+                          title={org.name}
+                        >
+                          {org.name}
+                        </div>
+                        <div className="text-xs text-subtle flex items-center gap-2">
+                          {org.inn && <span>ИНН {org.inn}</span>}
+                        </div>
+                      </td>
+                      {data.reportTypes.map((rt) => {
+                        const key = `${org.id}_${rt.id}`;
+                        const entry = data.entries[key];
+                        const applicable = data.applicability?.[key] !== false;
+                        const effectiveEntry =
+                          entry || (!applicable ? { status: "NOT_APPLICABLE" } : null);
+                        return (
+                          <td key={rt.id} className="px-1.5 py-1.5 border-b border-line">
+                            <StatusCell
+                              entry={effectiveEntry}
+                              orgId={org.id}
+                              rtId={rt.id}
+                              year={data.year}
+                              period={data.period}
+                              canEdit={canEdit}
+                              onUpdate={handleEntryUpdate}
+                            />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Report Types Manager */}
