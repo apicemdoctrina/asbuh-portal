@@ -27,6 +27,13 @@ import {
   LinkIcon,
   Unlink,
   Banknote,
+  Calculator,
+  FileText,
+  ShieldCheck,
+  Receipt,
+  Users as UsersIcon,
+  CalendarClock,
+  RefreshCw as RefreshIcon,
 } from "lucide-react";
 import SectionIcon from "../components/SectionIcon.jsx";
 
@@ -1248,6 +1255,303 @@ function OrgTable({ orgs, visibleCols }) {
   );
 }
 
+// ─── Filters panel (collapsible on mobile) ────────────────────────────────────
+
+function FiltersPanel({ children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mb-4 sm:mb-6">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="sm:hidden w-full mb-3 inline-flex items-center justify-between px-3 py-2 border border-line rounded-lg text-sm font-medium text-body bg-surface"
+        aria-expanded={open}
+      >
+        <span className="inline-flex items-center gap-2">
+          <Filter size={15} className="text-subtle" />
+          Фильтры и столбцы
+        </span>
+        {open ? <ChevronDown size={16} /> : <ChevronRightIcon size={16} />}
+      </button>
+      <div className={open ? "block" : "hidden sm:block"}>{children}</div>
+    </div>
+  );
+}
+
+// ─── Mobile org card ───────────────────────────────────────────────────────────
+
+// Цветовая палитра по статусу: акцент слева, aurora-блик, рамка
+const STATUS_ACCENT = {
+  active: {
+    bar: "linear-gradient(180deg, #10b981 0%, #06b6d4 100%)",
+    aurora: "#10b981",
+    ring: "rgba(16,185,129,0.45)",
+    nameGrad: "linear-gradient(90deg, #6567F1, #06b6d4)",
+  },
+  new: {
+    bar: "linear-gradient(180deg, #06b6d4 0%, #6567F1 100%)",
+    aurora: "#06b6d4",
+    ring: "rgba(6,182,212,0.45)",
+    nameGrad: "linear-gradient(90deg, #6567F1, #06b6d4)",
+  },
+  liquidating: {
+    bar: "linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%)",
+    aurora: "#fbbf24",
+    ring: "rgba(245,158,11,0.45)",
+    nameGrad: "linear-gradient(90deg, #a855f7, #f59e0b)",
+  },
+  not_paying: {
+    bar: "linear-gradient(180deg, #fb7185 0%, #ef4444 100%)",
+    aurora: "#fb7185",
+    ring: "rgba(239,68,68,0.45)",
+    nameGrad: "linear-gradient(90deg, #ef4444, #a855f7)",
+  },
+  blacklisted: {
+    bar: "linear-gradient(180deg, #475569 0%, #1e293b 100%)",
+    aurora: "#64748b",
+    ring: "rgba(71,85,105,0.45)",
+    nameGrad: "linear-gradient(90deg, #64748b, #1e293b)",
+  },
+  left: {
+    bar: "linear-gradient(180deg, #94a3b8 0%, #64748b 100%)",
+    aurora: "#94a3b8",
+    ring: "rgba(148,163,184,0.35)",
+    nameGrad: "linear-gradient(90deg, #94a3b8, #64748b)",
+  },
+};
+STATUS_ACCENT.closed = STATUS_ACCENT.left;
+STATUS_ACCENT.ceased = STATUS_ACCENT.left;
+STATUS_ACCENT.own = {
+  bar: "linear-gradient(180deg, #a855f7 0%, #6567F1 100%)",
+  aurora: "#a855f7",
+  ring: "rgba(168,85,247,0.45)",
+  nameGrad: "linear-gradient(90deg, #a855f7, #6567F1)",
+};
+
+function MobileOrgCard({ org, index, isSelected, canSelect, onToggleSelect }) {
+  const expiry = renderCell("digitalSignatureExpiry", org);
+  const debt = Number(org.debtAmount) || 0;
+  const showDebt = debt > 0;
+  const showPaymentDest = !INACTIVE_STATUSES.has(org.status) && org.paymentDestination;
+  const accent = STATUS_ACCENT[org.status] || STATUS_ACCENT.new;
+
+  return (
+    <div
+      className={`relative bg-surface border rounded-2xl pl-4 pr-3 py-3 overflow-hidden transition-all duration-200 ${
+        isSelected ? "border-primary/50 shadow-lg" : "border-line hover:shadow-md"
+      }`}
+      style={
+        isSelected
+          ? { boxShadow: `0 0 0 1px ${accent.ring}, 0 10px 24px -8px ${accent.ring}` }
+          : undefined
+      }
+    >
+      {/* Status accent bar — left edge */}
+      <div
+        className="pointer-events-none absolute top-0 left-0 bottom-0 w-1"
+        style={{ background: accent.bar, boxShadow: `0 0 12px 0 ${accent.ring}` }}
+      />
+      {/* Aurora glow — top right */}
+      <div
+        className="pointer-events-none absolute -top-12 -right-12 w-40 h-40 rounded-full opacity-30 dark:opacity-25 blur-3xl"
+        style={{ background: `radial-gradient(circle, ${accent.aurora} 0%, transparent 70%)` }}
+      />
+
+      <div className="relative flex items-start gap-2.5">
+        {canSelect && (
+          <input
+            type="checkbox"
+            className="w-4 h-4 mt-1 rounded border-line text-primary focus:ring-primary/30 shrink-0"
+            checked={isSelected}
+            onChange={onToggleSelect}
+            aria-label="Выбрать"
+          />
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-[10px] text-subtle tabular-nums font-medium tracking-wider">
+                #{index}
+              </div>
+              <Link
+                to={`/organizations/${org.id}`}
+                className="text-base font-bold leading-tight block hover:opacity-80 transition-opacity"
+                style={{
+                  background: accent.nameGrad,
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                }}
+              >
+                {org.name}
+              </Link>
+              {org.clientGroup && (
+                <Link
+                  to={`/client-groups/${org.clientGroup.id}`}
+                  className="mt-0.5 text-[11px] text-subtle hover:text-primary inline-flex items-center gap-1"
+                >
+                  <Layers size={10} />
+                  {org.clientGroup.name}
+                </Link>
+              )}
+            </div>
+            <span
+              className={`shrink-0 px-2 py-0.5 rounded-full text-[11px] font-semibold ${statusBadge(org.status)}`}
+              style={{ boxShadow: `0 0 8px 0 ${accent.ring}` }}
+            >
+              {STATUS_LABELS[org.status] || org.status}
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2 text-xs">
+            {org.inn && (
+              <span className="text-subtle tabular-nums">
+                <span className="text-[10px] uppercase tracking-wider opacity-70">ИНН </span>
+                {org.inn}
+              </span>
+            )}
+            {org.form && (
+              <span className="px-1.5 py-0.5 rounded-md bg-primary/10 text-primary text-[11px] font-semibold">
+                {ORG_FORM_LABELS[org.form]}
+              </span>
+            )}
+            {org.section && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-canvas border border-line text-body text-[11px] font-medium">
+                <SectionIcon section={org.section} size={11} className="text-primary" />№
+                {org.section.number}
+              </span>
+            )}
+            {org.serviceType && (
+              <span className="text-subtle text-[11px]">
+                · {SERVICE_TYPE_LABELS[org.serviceType]}
+              </span>
+            )}
+          </div>
+
+          {/* Meta facts strip: tax systems, reporting, signature, cash, employees, payment freq */}
+          {(org.taxSystems?.length ||
+            org.reportingChannel ||
+            org.digitalSignature ||
+            org.hasCashRegister ||
+            org.employeeCount != null ||
+            org.paymentFrequency) && (
+            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+              {org.taxSystems?.length > 0 && (
+                <span
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-primary/10 text-primary"
+                  title="Система налогообложения"
+                >
+                  <Calculator size={10} />
+                  {org.taxSystems.map((k) => TAX_SYSTEM_LABELS[k] || k).join(", ")}
+                </span>
+              )}
+              {org.reportingChannel && (
+                <span
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-sky-500/10 text-sky-600 dark:text-sky-300"
+                  title="Канал отчётности"
+                >
+                  <FileText size={10} />
+                  {REPORTING_CHANNEL_LABELS[org.reportingChannel]}
+                </span>
+              )}
+              {org.digitalSignature && org.digitalSignature !== "NONE" && (
+                <span
+                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-medium ${
+                    org.digitalSignature === "US"
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+                      : "bg-amber-500/10 text-amber-600 dark:text-amber-300"
+                  }`}
+                  title="ЭЦП"
+                >
+                  <ShieldCheck size={10} />
+                  ЭЦП: {DIGITAL_SIGNATURE_LABELS[org.digitalSignature]}
+                </span>
+              )}
+              {org.hasCashRegister && (
+                <span
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-300"
+                  title="Онлайн-касса"
+                >
+                  <Receipt size={10} />
+                  Касса
+                </span>
+              )}
+              {org.employeeCount != null && org.employeeCount > 0 && (
+                <span
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-canvas border border-line text-body"
+                  title="Сотрудников"
+                >
+                  <UsersIcon size={10} />
+                  {org.employeeCount}
+                </span>
+              )}
+              {org.paymentFrequency && org.paymentFrequency !== "MONTHLY" && (
+                <span
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-canvas border border-line text-subtle"
+                  title="Частота оплаты"
+                >
+                  <RefreshIcon size={10} />
+                  {PAYMENT_FREQ_LABELS[org.paymentFrequency]}
+                </span>
+              )}
+              {org.serviceStartDate && (
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] text-subtle"
+                  title="Начало обслуживания"
+                >
+                  <CalendarClock size={10} />с{" "}
+                  {new Date(org.serviceStartDate).toLocaleDateString("ru-RU", {
+                    month: "short",
+                    year: "2-digit",
+                  })}
+                </span>
+              )}
+            </div>
+          )}
+
+          {(showDebt || showPaymentDest || org.monthlyPayment) && (
+            <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 mt-2 text-xs">
+              {org.monthlyPayment != null && (
+                <span className="inline-flex items-baseline gap-1 text-body tabular-nums font-semibold">
+                  {fmtMoney(org.monthlyPayment)}
+                  <span className="text-[10px] text-subtle font-normal">/ мес</span>
+                </span>
+              )}
+              {showDebt && (
+                <span
+                  className="px-1.5 py-0.5 rounded-md font-bold tabular-nums text-red-600 dark:text-red-200 bg-red-500/10"
+                  style={{ boxShadow: "0 0 10px 0 rgba(239,68,68,0.35)" }}
+                >
+                  Долг {fmtMoney(debt)}
+                </span>
+              )}
+              {showPaymentDest && (
+                <span className="text-subtle">→ {PAYMENT_DEST_LABELS[org.paymentDestination]}</span>
+              )}
+            </div>
+          )}
+
+          {expiry?.__expiry && (
+            <div className="mt-1.5 text-xs">
+              <span className="text-subtle">ЭЦП до </span>
+              <span className={expiry.cls}>{expiry.label}</span>
+            </div>
+          )}
+
+          {org.members?.length > 0 && (
+            <div className="mt-2 text-xs text-subtle truncate">
+              <span className="text-[10px] uppercase tracking-wider opacity-70">Отв. </span>
+              <span className="text-body">
+                {org.members.map((m) => `${m.user.lastName} ${m.user.firstName[0]}.`).join(", ")}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
 export default function OrganizationsPage() {
@@ -1459,171 +1763,174 @@ export default function OrganizationsPage() {
 
   return (
     <>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-heading">Организации</h1>
+      <div className="flex items-center justify-between gap-3 mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-heading">Организации</h1>
         <div className="flex items-center gap-2">
           {(hasRole("manager") || hasRole("accountant")) && (
             <Link
               to="/my-payments"
-              className="inline-flex items-center gap-2 px-4 py-2 border-2 border-primary/20 text-primary rounded-lg text-sm font-medium hover:bg-primary/5 transition-colors"
+              className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 border-2 border-primary/20 text-primary rounded-lg text-sm font-medium hover:bg-primary/5 transition-colors whitespace-nowrap"
             >
               <Banknote size={16} />
-              Оплаты
+              <span className="hidden sm:inline">Оплаты</span>
             </Link>
           )}
           {hasPermission("organization", "create") && !archiveMode && (
             <button
               onClick={() => setShowCreate(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all"
+              className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all whitespace-nowrap"
             >
               <Plus size={16} />
-              Создать организацию
+              <span className="hidden sm:inline">Создать организацию</span>
+              <span className="sm:hidden">Создать</span>
             </button>
           )}
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6 flex-wrap">
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
-          <input
-            type="text"
-            placeholder="Поиск по названию или ИНН..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            className="w-full sm:w-72 pl-9 pr-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-          />
-        </div>
-        {!archiveMode && (
+      <FiltersPanel>
+        <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
           <div className="relative">
-            <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
-            <select
-              value={statusFilter}
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
+            <input
+              type="text"
+              placeholder="Поиск по названию или ИНН..."
+              value={search}
               onChange={(e) => {
-                setStatusFilter(e.target.value);
+                setSearch(e.target.value);
                 setPage(1);
               }}
-              className="pl-9 pr-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
-            >
-              <option value="">Все статусы</option>
-              {Object.entries(STATUS_LABELS)
-                .filter(([k]) => k !== "left" && k !== "closed" && k !== "ceased")
-                .map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-            </select>
+              className="w-full sm:w-72 pl-9 pr-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            />
           </div>
-        )}
-        {!archiveMode && (
-          <select
-            value={taxSystem}
-            onChange={(e) => {
-              setTaxSystem(e.target.value);
-              setPage(1);
-            }}
-            className="px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
-          >
-            <option value="">Все системы Н/О</option>
-            {Object.entries(TAX_SYSTEM_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
-            ))}
-          </select>
-        )}
-        <select
-          value={archiveMode ? "__archive__" : sectionId}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (v === "__archive__") {
-              setArchiveMode(true);
-              setSectionId("");
-              setStatusFilter("");
-            } else {
-              setArchiveMode(false);
-              setSectionId(v);
-            }
-            setPage(1);
-          }}
-          className="px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
-        >
-          <option value="">Все участки</option>
-          {sections.map((s) => (
-            <option key={s.id} value={s.id}>
-              №{s.number} {s.name || ""}
-            </option>
-          ))}
-          <option value="__archive__">Архив</option>
-        </select>
-
-        {!archiveMode && clientGroups.length > 0 && (
-          <select
-            value={clientGroupFilter}
-            onChange={(e) => {
-              setClientGroupFilter(e.target.value);
-              setPage(1);
-            }}
-            className="px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
-          >
-            <option value="">Все клиенты</option>
-            {clientGroups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </select>
-        )}
-        {!archiveMode && (
-          <select
-            value={paymentDestFilter}
-            onChange={(e) => {
-              setPaymentDestFilter(e.target.value);
-              setPage(1);
-            }}
-            className="px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
-          >
-            <option value="">Все платежи</option>
-            {Object.entries(PAYMENT_DEST_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
-            ))}
-          </select>
-        )}
-        {!archiveMode && hasPermission("organization", "create") && (
-          <button
-            onClick={() => setShowManageGroups(true)}
-            className="inline-flex items-center gap-2 px-3 py-2 border border-line text-body hover:bg-canvas rounded-lg text-sm font-medium transition-colors"
-            title="Управление группами клиентов"
-          >
-            <Settings2 size={15} />
-            Группы
-          </button>
-        )}
-
-        <div className="sm:ml-auto flex items-center gap-2">
-          {!archiveMode && clientGroups.length > 0 && (
-            <button
-              onClick={() => setGroupByClient((v) => !v)}
-              className={`inline-flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium transition-colors ${
-                groupByClient
-                  ? "border-primary text-primary bg-primary/5"
-                  : "border-line text-body hover:bg-canvas"
-              }`}
+          {!archiveMode && (
+            <div className="relative">
+              <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(1);
+                }}
+                className="pl-9 pr-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
+              >
+                <option value="">Все статусы</option>
+                {Object.entries(STATUS_LABELS)
+                  .filter(([k]) => k !== "left" && k !== "closed" && k !== "ceased")
+                  .map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
+          {!archiveMode && (
+            <select
+              value={taxSystem}
+              onChange={(e) => {
+                setTaxSystem(e.target.value);
+                setPage(1);
+              }}
+              className="px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
             >
-              <Layers size={15} />
-              По клиентам
+              <option value="">Все системы Н/О</option>
+              {Object.entries(TAX_SYSTEM_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          )}
+          <select
+            value={archiveMode ? "__archive__" : sectionId}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === "__archive__") {
+                setArchiveMode(true);
+                setSectionId("");
+                setStatusFilter("");
+              } else {
+                setArchiveMode(false);
+                setSectionId(v);
+              }
+              setPage(1);
+            }}
+            className="px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
+          >
+            <option value="">Все участки</option>
+            {sections.map((s) => (
+              <option key={s.id} value={s.id}>
+                №{s.number} {s.name || ""}
+              </option>
+            ))}
+            <option value="__archive__">Архив</option>
+          </select>
+
+          {!archiveMode && clientGroups.length > 0 && (
+            <select
+              value={clientGroupFilter}
+              onChange={(e) => {
+                setClientGroupFilter(e.target.value);
+                setPage(1);
+              }}
+              className="px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
+            >
+              <option value="">Все клиенты</option>
+              {clientGroups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          )}
+          {!archiveMode && (
+            <select
+              value={paymentDestFilter}
+              onChange={(e) => {
+                setPaymentDestFilter(e.target.value);
+                setPage(1);
+              }}
+              className="px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
+            >
+              <option value="">Все платежи</option>
+              {Object.entries(PAYMENT_DEST_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          )}
+          {!archiveMode && hasPermission("organization", "create") && (
+            <button
+              onClick={() => setShowManageGroups(true)}
+              className="inline-flex items-center gap-2 px-3 py-2 border border-line text-body hover:bg-canvas rounded-lg text-sm font-medium transition-colors"
+              title="Управление группами клиентов"
+            >
+              <Settings2 size={15} />
+              Группы
             </button>
           )}
-          <ColumnPicker visibleCols={visibleCols} onChange={handleColsChange} />
+
+          <div className="sm:ml-auto flex items-center gap-2">
+            {!archiveMode && clientGroups.length > 0 && (
+              <button
+                onClick={() => setGroupByClient((v) => !v)}
+                className={`inline-flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium transition-colors ${
+                  groupByClient
+                    ? "border-primary text-primary bg-primary/5"
+                    : "border-line text-body hover:bg-canvas"
+                }`}
+              >
+                <Layers size={15} />
+                По клиентам
+              </button>
+            )}
+            <ColumnPicker visibleCols={visibleCols} onChange={handleColsChange} />
+          </div>
         </div>
-      </div>
+      </FiltersPanel>
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
@@ -1652,7 +1959,29 @@ export default function OrganizationsPage() {
         />
       ) : (
         <>
-          <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden overflow-x-auto">
+          {/* Mobile: card list */}
+          <div className="lg:hidden space-y-2">
+            {organizations.map((org, i) => (
+              <MobileOrgCard
+                key={org.id}
+                org={org}
+                index={(page - 1) * limit + i + 1}
+                isSelected={selectedIds.has(org.id)}
+                canSelect={hasRole("admin")}
+                onToggleSelect={() =>
+                  setSelectedIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(org.id)) next.delete(org.id);
+                    else next.add(org.id);
+                    return next;
+                  })
+                }
+              />
+            ))}
+          </div>
+
+          {/* Desktop: full table */}
+          <div className="hidden lg:block bg-surface rounded-2xl shadow-lg border border-line overflow-hidden overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-line bg-canvas/50">
@@ -1843,32 +2172,38 @@ export default function OrganizationsPage() {
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3 bg-surface rounded-2xl shadow-xl border border-line">
-          <span className="text-sm font-medium text-body">
-            Выбрано: <span className="text-primary font-bold">{selectedIds.size}</span>
+        <div className="fixed bottom-4 sm:bottom-6 left-2 right-2 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-40 flex items-center justify-between sm:justify-start gap-2 sm:gap-3 px-3 sm:px-5 py-2.5 sm:py-3 bg-surface rounded-2xl shadow-xl border border-line">
+          <span className="text-sm font-medium text-body whitespace-nowrap">
+            <span className="hidden sm:inline">Выбрано: </span>
+            <span className="text-primary font-bold">{selectedIds.size}</span>
           </span>
-          <div className="w-px h-5 bg-line" />
-          <button
-            onClick={() => setBulkModal("assign")}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg text-sm font-medium transition-all shadow-md shadow-[#6567F1]/30"
-          >
-            <UserCheck size={15} />
-            Назначить
-          </button>
-          <button
-            onClick={() => setBulkModal("remove")}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/15 rounded-lg text-sm font-medium transition-colors"
-          >
-            <UserMinus size={15} />
-            Снять
-          </button>
-          <button
-            onClick={() => setSelectedIds(new Set())}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
-          >
-            <X size={14} />
-            Снять выделение
-          </button>
+          <div className="hidden sm:block w-px h-5 bg-line" />
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => setBulkModal("assign")}
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg text-sm font-medium transition-all shadow-md shadow-[#6567F1]/30"
+              aria-label="Назначить"
+            >
+              <UserCheck size={15} />
+              <span className="hidden sm:inline">Назначить</span>
+            </button>
+            <button
+              onClick={() => setBulkModal("remove")}
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/15 rounded-lg text-sm font-medium transition-colors"
+              aria-label="Снять"
+            >
+              <UserMinus size={15} />
+              <span className="hidden sm:inline">Снять</span>
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
+              aria-label="Снять выделение"
+            >
+              <X size={14} />
+              <span className="hidden sm:inline">Снять выделение</span>
+            </button>
+          </div>
         </div>
       )}
 

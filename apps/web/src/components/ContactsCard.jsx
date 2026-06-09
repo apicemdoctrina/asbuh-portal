@@ -1,6 +1,17 @@
 import { useState } from "react";
 import { api } from "../lib/api.js";
-import { Plus, Pencil, Trash2, X } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Phone, Mail, Send } from "lucide-react";
+
+function normalizePhone(raw) {
+  return raw.replace(/[^\d+]/g, "");
+}
+
+function telegramHandle(raw) {
+  return raw
+    .trim()
+    .replace(/^@+/, "")
+    .replace(/^https?:\/\/(t\.me|telegram\.me)\//i, "");
+}
 
 export default function ContactsCard({ organizationId, contacts, canEdit, onDataChanged }) {
   const [showModal, setShowModal] = useState(false);
@@ -103,11 +114,36 @@ export default function ContactsCard({ organizationId, contacts, canEdit, onData
         <div className="space-y-2">
           {contacts.map((c) => (
             <div key={c.id} className="flex items-center justify-between bg-canvas rounded-lg p-3">
-              <div className="text-sm text-body space-y-0.5">
+              <div className="text-sm text-body space-y-1 min-w-0 flex-1">
                 <p className="font-medium text-heading">{c.contactPerson}</p>
-                {c.phone && <p>Тел: {c.phone}</p>}
-                {c.email && <p>Email: {c.email}</p>}
-                {c.telegram && <p>Telegram: {c.telegram}</p>}
+                {c.phone && (
+                  <a
+                    href={`tel:${normalizePhone(c.phone)}`}
+                    className="inline-flex items-center gap-1.5 text-primary hover:underline break-all"
+                  >
+                    <Phone size={13} className="shrink-0" />
+                    {c.phone}
+                  </a>
+                )}
+                {c.email && (
+                  <a
+                    href={`mailto:${c.email.trim()}`}
+                    className="flex items-center gap-1.5 text-primary hover:underline break-all"
+                  >
+                    <Mail size={13} className="shrink-0" />
+                    {c.email}
+                  </a>
+                )}
+                {c.telegram && (
+                  <a
+                    href={`https://t.me/${telegramHandle(c.telegram)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-primary hover:underline break-all"
+                  >
+                    <Send size={13} className="shrink-0" />@{telegramHandle(c.telegram)}
+                  </a>
+                )}
                 {c.comment && <p className="text-subtle">{c.comment}</p>}
               </div>
               {canEdit && (

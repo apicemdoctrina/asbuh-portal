@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../lib/api.js";
 import OrgFinanceSection from "../components/OrgFinanceSection.jsx";
@@ -13,13 +13,9 @@ import {
   Link2,
   Copy,
   Check,
-  Plus,
   CalendarDays,
-  User,
   MessageSquare,
   ClipboardList,
-  RefreshCw,
-  CheckSquare,
   Loader2,
 } from "lucide-react";
 import TaskCommentsModal from "../components/TaskCommentsModal.jsx";
@@ -28,8 +24,6 @@ import SystemAccessesCard from "../components/SystemAccessesCard.jsx";
 import ContactsCard from "../components/ContactsCard.jsx";
 import DocumentsCard from "../components/DocumentsCard.jsx";
 import OrgCompletenessCard from "../components/OrgCompletenessCard.jsx";
-import MessageHistoryCard from "../components/MessageHistoryCard.jsx";
-import SendMessageModal from "../components/SendMessageModal.jsx";
 import OrgTransactionsCard from "../components/OrgTransactionsCard.jsx";
 
 const TAX_SYSTEM_LABELS = {
@@ -113,14 +107,36 @@ function formatDate(val) {
 /** Compact key-value field for read mode. */
 function Field({ label, value }) {
   const empty = value == null || value === "" || value === "—";
+  if (empty) {
+    // Hide empty fields on mobile entirely — desktop keeps the "—" placeholder
+    return (
+      <div className="hidden sm:block min-w-0">
+        <dt className="text-[11px] font-semibold text-subtle uppercase tracking-wide leading-none">
+          {label}
+        </dt>
+        <dd className="text-sm text-body mt-1 leading-snug">
+          <span className="text-subtle">—</span>
+        </dd>
+      </div>
+    );
+  }
+
   return (
     <div className="min-w-0">
-      <dt className="text-[11px] font-semibold text-subtle uppercase tracking-wide leading-none">
-        {label}
-      </dt>
-      <dd className="text-sm text-body mt-1 leading-snug break-words">
-        {empty ? <span className="text-subtle">—</span> : value}
-      </dd>
+      {/* Mobile: inline label + value on one line */}
+      <div className="flex sm:hidden items-baseline gap-2 text-sm leading-snug">
+        <dt className="text-[10px] font-semibold text-subtle uppercase tracking-wide shrink-0">
+          {label}
+        </dt>
+        <dd className="text-body break-words flex-1 min-w-0">{value}</dd>
+      </div>
+      {/* Desktop: stacked */}
+      <div className="hidden sm:block">
+        <dt className="text-[11px] font-semibold text-subtle uppercase tracking-wide leading-none">
+          {label}
+        </dt>
+        <dd className="text-sm text-body mt-1 leading-snug break-words">{value}</dd>
+      </div>
     </div>
   );
 }
@@ -228,7 +244,7 @@ const INITIAL_FORM = {
 export default function OrganizationDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, hasPermission, hasRole } = useAuth();
+  const { hasPermission, hasRole } = useAuth();
   const isAdmin = hasRole("admin") || hasRole("supervisor");
 
   const [organization, setOrganization] = useState(null);
@@ -260,12 +276,9 @@ export default function OrganizationDetailPage() {
   const [inviteEmailSent, setInviteEmailSent] = useState(false);
   const [inviteEmailWarning, setInviteEmailWarning] = useState("");
 
-  // Tasks for this org (shared between banner and OrgTasksCard)
+  // Tasks for this org (shown in OrgOpenTasksBanner)
   const [orgTasks, setOrgTasks] = useState([]);
-  const [orgTasksLoading, setOrgTasksLoading] = useState(false);
   const [commentTask, setCommentTask] = useState(null);
-  const [showSendMessage, setShowSendMessage] = useState(false);
-  const [messageHistoryKey, setMessageHistoryKey] = useState(0);
   const [priceHistoryOpen, setPriceHistoryOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -379,14 +392,11 @@ export default function OrganizationDetailPage() {
 
   const fetchOrgTasks = useCallback(async () => {
     if (!hasPermission("task", "view")) return;
-    setOrgTasksLoading(true);
     try {
       const res = await api(`/api/tasks?organizationId=${id}`);
       if (res.ok) setOrgTasks(await res.json());
     } catch {
       // silent
-    } finally {
-      setOrgTasksLoading(false);
     }
   }, [id, hasPermission]);
 
@@ -617,28 +627,30 @@ export default function OrganizationDetailPage() {
       )}
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-        <div className="flex items-center gap-2.5 flex-wrap min-w-0">
-          <h1 className="text-xl font-bold text-heading leading-tight">{org.name}</h1>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+        <div className="flex items-start gap-2 flex-wrap min-w-0">
+          <h1 className="text-lg sm:text-xl font-bold text-heading leading-tight break-words">
+            {org.name}
+          </h1>
           {org.form && (
-            <span className="shrink-0 px-2 py-0.5 bg-muted text-body rounded text-xs font-semibold">
+            <span className="shrink-0 px-2 py-0.5 bg-muted text-body rounded text-xs font-semibold mt-0.5">
               {ORG_FORM_LABELS[org.form] || org.form}
             </span>
           )}
           <span
-            className={`shrink-0 px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE_COLORS[org.status] || "bg-muted text-subtle"}`}
+            className={`shrink-0 px-2.5 py-0.5 rounded-full text-xs font-medium mt-0.5 ${STATUS_BADGE_COLORS[org.status] || "bg-muted text-subtle"}`}
           >
             {STATUS_LABELS[org.status] || org.status}
           </span>
           {saveMsg && (
             <span
-              className={`text-sm font-medium ${saveMsg === "Сохранено" ? "text-green-600 dark:text-green-300" : "text-red-600 dark:text-red-300"}`}
+              className={`text-sm font-medium mt-0.5 ${saveMsg === "Сохранено" ? "text-green-600 dark:text-green-300" : "text-red-600 dark:text-red-300"}`}
             >
               {saveMsg}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 -mx-1 sm:mx-0 overflow-x-auto sm:overflow-visible">
           {canEdit && !editing && (
             <button
               onClick={() => {
@@ -647,9 +659,11 @@ export default function OrganizationDetailPage() {
                 setInviteError("");
                 setCopied(false);
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-line text-body hover:bg-canvas rounded-lg text-sm font-medium transition-colors"
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 border border-line text-body hover:bg-canvas rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+              aria-label="Пригласить"
             >
-              <Link2 size={14} /> Пригласить
+              <Link2 size={14} />
+              <span className="hidden sm:inline">Пригласить</span>
             </button>
           )}
           {canEdit && !editing && (
@@ -659,17 +673,22 @@ export default function OrganizationDetailPage() {
                 setEditing(true);
                 setSaveMsg("");
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg text-sm font-medium shadow-md shadow-[#6567F1]/20 transition-all"
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg text-sm font-medium shadow-md shadow-[#6567F1]/20 transition-all whitespace-nowrap"
+              aria-label="Изменить"
             >
-              <Pencil size={14} /> Изменить
+              <Pencil size={14} />
+              <span className="hidden sm:inline">Изменить</span>
+              <span className="sm:hidden">Изменить</span>
             </button>
           )}
           {isAdmin && !editing && (
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/15 rounded-lg text-sm font-medium transition-colors"
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/15 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+              aria-label="Удалить"
             >
-              <Trash2 size={14} /> Удалить
+              <Trash2 size={14} />
+              <span className="hidden sm:inline">Удалить</span>
             </button>
           )}
         </div>
@@ -689,7 +708,7 @@ export default function OrganizationDetailPage() {
         /* ══════════════════ EDIT MODE ══════════════════ */
         <form onSubmit={handleSave} className="space-y-4">
           {/* Основная информация */}
-          <div className="bg-surface rounded-2xl shadow-lg border border-line p-6">
+          <div className="bg-surface rounded-2xl shadow-lg border border-line p-4 sm:p-6">
             <h2 className="text-base font-bold text-heading mb-4">Основная информация</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
@@ -871,7 +890,7 @@ export default function OrganizationDetailPage() {
           {/* Реквизиты + Бухгалтерия + Финансы — скрыты для архивных статусов */}
           {!ARCHIVED_STATUSES.includes(form.status) && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="bg-surface rounded-2xl shadow-lg border border-line p-6">
+              <div className="bg-surface rounded-2xl shadow-lg border border-line p-4 sm:p-6">
                 <h2 className="text-base font-bold text-heading mb-4">Реквизиты</h2>
                 <div className="space-y-3">
                   <div>
@@ -915,7 +934,7 @@ export default function OrganizationDetailPage() {
                 </div>
               </div>
 
-              <div className="bg-surface rounded-2xl shadow-lg border border-line p-6">
+              <div className="bg-surface rounded-2xl shadow-lg border border-line p-4 sm:p-6">
                 <h2 className="text-base font-bold text-heading mb-4">Бухгалтерия</h2>
                 <div className="space-y-3">
                   <div>
@@ -975,7 +994,7 @@ export default function OrganizationDetailPage() {
                 </div>
               </div>
 
-              <div className="bg-surface rounded-2xl shadow-lg border border-line p-6">
+              <div className="bg-surface rounded-2xl shadow-lg border border-line p-4 sm:p-6">
                 <h2 className="text-base font-bold text-heading mb-4">Финансы</h2>
                 <div className="space-y-3">
                   <div>
@@ -1040,11 +1059,11 @@ export default function OrganizationDetailPage() {
             </div>
           )}
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 sticky bottom-2 sm:static z-30 bg-canvas/90 sm:bg-transparent backdrop-blur sm:backdrop-blur-none -mx-3 sm:mx-0 px-3 sm:px-0 py-2 sm:py-0 rounded-xl">
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
             >
               <Save size={16} />
               {saving ? "Сохранение..." : "Сохранить"}
@@ -1055,7 +1074,7 @@ export default function OrganizationDetailPage() {
                 populateForm(org);
                 setEditing(false);
               }}
-              className="inline-flex items-center gap-2 px-4 py-2 border-2 border-line text-body hover:bg-canvas rounded-lg text-sm font-medium transition-colors"
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 border-2 border-line text-body hover:bg-canvas rounded-lg text-sm font-medium transition-colors"
             >
               <X size={16} />
               Отмена
@@ -1064,11 +1083,11 @@ export default function OrganizationDetailPage() {
         </form>
       ) : /* ══════════════════ READ MODE ══════════════════ */
       ARCHIVED_STATUSES.includes(org.status) ? (
-        <div className="mb-4 bg-surface rounded-2xl shadow-lg border border-line p-6">
+        <div className="mb-4 bg-surface rounded-2xl shadow-lg border border-line p-4 sm:p-6">
           <div className="mb-4 px-4 py-2.5 bg-muted border border-line rounded-xl text-sm text-body font-medium">
             Организация в архиве — {STATUS_LABELS[org.status]}
           </div>
-          <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
+          <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-1 sm:gap-y-3">
             <Field label="ИНН" value={org.inn} />
             <Field label="ОГРН" value={org.ogrn} />
             <Field
@@ -1079,14 +1098,24 @@ export default function OrganizationDetailPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+          {/* Mobile-only: Contacts above main data so they're visible right away */}
+          <div className="lg:hidden">
+            <ContactsCard
+              organizationId={id}
+              contacts={org.contacts || []}
+              canEdit={canEdit}
+              onDataChanged={fetchOrganization}
+            />
+          </div>
+
           {/* ── Left: all org data in one card ── */}
           <div className="lg:col-span-2 bg-surface rounded-2xl shadow-lg border border-line divide-y divide-line">
             {/* Основные сведения */}
-            <div className="p-5">
-              <h3 className="text-[11px] font-semibold text-subtle uppercase tracking-widest mb-3">
+            <div className="p-4 sm:p-5">
+              <h3 className="text-[11px] font-semibold text-subtle uppercase tracking-widest mb-2 sm:mb-3">
                 Основные сведения
               </h3>
-              <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
+              <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-1 sm:gap-y-3">
                 <Field label="ИНН" value={org.inn} />
                 <Field label="ОГРН" value={org.ogrn} />
                 {org.form !== "IP" && <Field label="КПП" value={org.kpp} />}
@@ -1138,11 +1167,11 @@ export default function OrganizationDetailPage() {
             </div>
 
             {/* Бухгалтерия */}
-            <div className="p-5">
-              <h3 className="text-[11px] font-semibold text-subtle uppercase tracking-widest mb-3">
+            <div className="p-4 sm:p-5">
+              <h3 className="text-[11px] font-semibold text-subtle uppercase tracking-widest mb-2 sm:mb-3">
                 Бухгалтерия
               </h3>
-              <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
+              <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-1 sm:gap-y-3">
                 <Field label="ЭЦП" value={DIGITAL_SIGNATURE_LABELS[org.digitalSignature] || null} />
                 <Field label="Срок ЭЦП" value={formatDate(org.digitalSignatureExpiry)} />
                 <Field
@@ -1157,11 +1186,11 @@ export default function OrganizationDetailPage() {
             </div>
 
             {/* Финансы */}
-            <div className="p-5">
-              <h3 className="text-[11px] font-semibold text-subtle uppercase tracking-widest mb-3">
+            <div className="p-4 sm:p-5">
+              <h3 className="text-[11px] font-semibold text-subtle uppercase tracking-widest mb-2 sm:mb-3">
                 Финансы
               </h3>
-              <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
+              <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-1 sm:gap-y-3">
                 <div className="min-w-0">
                   <dt className="text-[11px] font-semibold text-subtle uppercase tracking-wide leading-none">
                     Ежемес. платёж
@@ -1240,11 +1269,11 @@ export default function OrganizationDetailPage() {
 
             {/* Реквизиты (only if any filled) */}
             {hasRequisites && (
-              <div className="p-5">
-                <h3 className="text-[11px] font-semibold text-subtle uppercase tracking-widest mb-3">
+              <div className="p-4 sm:p-5">
+                <h3 className="text-[11px] font-semibold text-subtle uppercase tracking-widest mb-2 sm:mb-3">
                   Реквизиты
                 </h3>
-                <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
+                <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-1 sm:gap-y-3">
                   <Field label="Р/С" value={org.checkingAccount} />
                   <Field label="БИК" value={org.bik} />
                   <Field label="К/С" value={org.correspondentAccount} />
@@ -1260,7 +1289,7 @@ export default function OrganizationDetailPage() {
             {!hasRole("client") && <OrgCompletenessCard org={org} />}
 
             {/* Members */}
-            <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
+            <div className="bg-surface rounded-2xl shadow-lg border border-line p-4 sm:p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-body">Участники</h3>
                 {hasRole("admin") && (
@@ -1302,20 +1331,22 @@ export default function OrganizationDetailPage() {
               )}
             </div>
 
-            {/* Contacts */}
-            <ContactsCard
-              organizationId={id}
-              contacts={org.contacts || []}
-              canEdit={canEdit}
-              onDataChanged={fetchOrganization}
-            />
+            {/* Contacts — desktop only (mobile version is rendered above the grid) */}
+            <div className="hidden lg:block">
+              <ContactsCard
+                organizationId={id}
+                contacts={org.contacts || []}
+                canEdit={canEdit}
+                onDataChanged={fetchOrganization}
+              />
+            </div>
           </div>
         </div>
       )}
 
       {/* ── Always visible: Bank accounts + Documents + Tasks (full width) ── */}
       <div className="space-y-4">
-        <div className="bg-surface rounded-2xl shadow-lg border border-line p-6">
+        <div className="bg-surface rounded-2xl shadow-lg border border-line p-4 sm:p-6">
           <h2 className="text-base font-bold text-heading mb-4">Финансы</h2>
           <OrgFinanceSection
             organizationId={id}
@@ -1353,54 +1384,18 @@ export default function OrganizationDetailPage() {
           canDelete={hasPermission("document", "delete") && canEdit}
           onDataChanged={fetchOrganization}
         />
-        {hasPermission("task", "view") && (
-          <OrgTasksCard
-            organizationId={id}
-            tasks={orgTasks}
-            loading={orgTasksLoading}
-            onTasksChanged={fetchOrgTasks}
-            onComment={setCommentTask}
-            canCreate={hasPermission("task", "create")}
-            canEditAny={
-              hasPermission("task", "edit") &&
-              (hasRole("admin") || hasRole("supervisor") || hasRole("manager"))
-            }
-            canEditOwn={hasPermission("task", "edit")}
-            canDeleteAny={
-              hasPermission("task", "delete") &&
-              (hasRole("admin") || hasRole("supervisor") || hasRole("manager"))
-            }
-            canDeleteOwn={hasPermission("task", "delete")}
-            members={org?.members || []}
-          />
-        )}
-        {hasPermission("message", "view") && (
-          <MessageHistoryCard
-            key={messageHistoryKey}
-            orgId={id}
-            onSendClick={
-              hasPermission("message", "send") ? () => setShowSendMessage(true) : undefined
-            }
-          />
-        )}
         {(hasRole("admin") ||
           hasRole("supervisor") ||
           hasRole("manager") ||
-          hasRole("accountant")) && <OrgTransactionsCard organizationId={id} />}
+          hasRole("accountant")) && (
+          <OrgTransactionsCard
+            organizationId={id}
+            debtAmount={org.debtAmount}
+            monthlyPayment={org.monthlyPayment}
+          />
+        )}
         {/* <OrgTicketsCard organizationId={id} /> — hidden until ticket system is released */}
       </div>
-
-      {/* ── Send Message Modal ── */}
-      {showSendMessage && (
-        <SendMessageModal
-          orgId={id}
-          orgName={org.name}
-          contacts={org.contacts || []}
-          senderName={user ? `${user.firstName} ${user.lastName}` : ""}
-          onClose={() => setShowSendMessage(false)}
-          onSent={() => setMessageHistoryKey((k) => k + 1)}
-        />
-      )}
 
       {/* ── Invite Client Modal ── */}
       {showInvite && (
@@ -1550,7 +1545,13 @@ export default function OrganizationDetailPage() {
         </div>
       )}
 
-      {commentTask && <TaskCommentsModal task={commentTask} onClose={() => setCommentTask(null)} />}
+      {commentTask && (
+        <TaskCommentsModal
+          task={commentTask}
+          onClose={() => setCommentTask(null)}
+          onUpdated={fetchOrgTasks}
+        />
+      )}
 
       {/* ── Delete confirmation modal ── */}
       {showDeleteConfirm && (
@@ -1660,7 +1661,7 @@ function OrgTicketsCard({ organizationId }) {
   };
 
   return (
-    <div className="bg-surface rounded-2xl shadow-lg border border-line p-6">
+    <div className="bg-surface rounded-2xl shadow-lg border border-line p-4 sm:p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-bold text-heading">Тикеты</h3>
         <div className="flex items-center gap-2">
@@ -1731,662 +1732,54 @@ function OrgOpenTasksBanner({ tasks, onComment }) {
             task.status !== "CANCELLED" &&
             new Date(task.dueDate) < new Date();
           return (
-            <div key={task.id} className="flex items-center gap-2 text-sm">
-              <span
-                className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${BANNER_STATUS_COLORS[task.status]}`}
-              >
-                {BANNER_STATUS_LABELS[task.status]}
-              </span>
-              <span
-                className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${BANNER_PRIORITY_COLORS[task.priority]}`}
-              >
-                {BANNER_PRIORITY_LABELS[task.priority]}
-              </span>
-              <span className="flex-1 text-heading font-medium truncate">{task.title}</span>
-              {task.dueDate && (
+            <button
+              key={task.id}
+              type="button"
+              onClick={() => onComment(task)}
+              className="w-full text-left px-2 -mx-2 py-1.5 rounded-lg hover:bg-primary/10 transition-colors"
+              title="Открыть карточку задачи"
+            >
+              {/* Title row */}
+              <div className="flex items-center gap-2 text-sm">
+                <span className="flex-1 text-heading font-medium truncate">{task.title}</span>
                 <span
-                  className={`shrink-0 flex items-center gap-1 text-xs ${overdue ? "text-red-600 dark:text-red-300 font-semibold" : "text-subtle"}`}
+                  className="shrink-0 relative inline-flex items-center justify-center text-subtle"
+                  aria-hidden="true"
                 >
-                  <CalendarDays size={11} />
-                  {new Date(task.dueDate).toLocaleDateString("ru-RU")}
-                  {overdue && " ⚠"}
+                  <MessageSquare size={13} />
+                  {task._count?.comments > 0 && (
+                    <span className="absolute -top-1 -right-1.5 w-3 h-3 bg-primary text-white text-[7px] font-bold rounded-full flex items-center justify-center leading-none">
+                      {task._count.comments > 9 ? "9+" : task._count.comments}
+                    </span>
+                  )}
                 </span>
-              )}
-              <button
-                onClick={() => onComment(task)}
-                className="shrink-0 relative p-1 text-subtle hover:text-primary transition-colors"
-                title="Комментарии"
-              >
-                <MessageSquare size={13} />
-                {task._count?.comments > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-primary text-white text-[7px] font-bold rounded-full flex items-center justify-center leading-none">
-                    {task._count.comments > 9 ? "9+" : task._count.comments}
+              </div>
+              {/* Meta row */}
+              <div className="flex items-center flex-wrap gap-1 mt-1">
+                <span
+                  className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${BANNER_STATUS_COLORS[task.status]}`}
+                >
+                  {BANNER_STATUS_LABELS[task.status]}
+                </span>
+                <span
+                  className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${BANNER_PRIORITY_COLORS[task.priority]}`}
+                >
+                  {BANNER_PRIORITY_LABELS[task.priority]}
+                </span>
+                {task.dueDate && (
+                  <span
+                    className={`shrink-0 inline-flex items-center gap-1 text-[11px] ${overdue ? "text-red-600 dark:text-red-300 font-semibold" : "text-subtle"}`}
+                  >
+                    <CalendarDays size={11} />
+                    {new Date(task.dueDate).toLocaleDateString("ru-RU")}
+                    {overdue && " ⚠"}
                   </span>
                 )}
-              </button>
-            </div>
+              </div>
+            </button>
           );
         })}
       </div>
-    </div>
-  );
-}
-
-// ── Task constants (reused from TasksPage) ──
-const TASK_STATUS_LABELS = {
-  OPEN: "Открыта",
-  IN_PROGRESS: "В работе",
-  DONE: "Выполнена",
-  CANCELLED: "Отменена",
-};
-const TASK_PRIORITY_LABELS = {
-  LOW: "Низкий",
-  MEDIUM: "Средний",
-  HIGH: "Высокий",
-  URGENT: "Срочно",
-};
-const TASK_CATEGORY_LABELS = {
-  REPORTING: "Отчётность",
-  DOCUMENTS: "Документы",
-  PAYMENT: "Оплата",
-  OTHER: "Прочее",
-};
-const TASK_STATUS_COLORS = {
-  OPEN: "bg-muted text-body",
-  IN_PROGRESS: "bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300",
-  DONE: "bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300",
-  CANCELLED: "bg-muted text-subtle",
-};
-const TASK_PRIORITY_COLORS = {
-  LOW: "bg-muted text-subtle",
-  MEDIUM: "bg-yellow-100 dark:bg-yellow-500/15 text-yellow-700 dark:text-yellow-300",
-  HIGH: "bg-orange-100 dark:bg-orange-500/15 text-orange-700 dark:text-orange-300",
-  URGENT: "bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300",
-};
-
-const TASK_INPUT_CLS =
-  "w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface";
-const TASK_LABEL_CLS = "block text-sm font-medium text-body mb-1";
-const TASK_EMPTY_FORM = {
-  title: "",
-  description: "",
-  priority: "MEDIUM",
-  category: "OTHER",
-  dueDate: "",
-  assignedToIds: [],
-};
-
-function isTaskOverdue(task) {
-  if (!task.dueDate || task.status === "DONE" || task.status === "CANCELLED") return false;
-  return new Date(task.dueDate) < new Date();
-}
-
-function OrgTasksCard({
-  organizationId,
-  tasks,
-  loading,
-  onTasksChanged,
-  onComment,
-  canCreate,
-  canEditAny,
-  canEditOwn,
-  canDeleteAny,
-  canDeleteOwn,
-  members,
-}) {
-  const { user } = useAuth();
-
-  function canEditTask(task) {
-    if (canEditAny) return true;
-    if (canEditOwn) return task.createdBy?.id === user?.id;
-    return false;
-  }
-
-  function canDeleteTask(task) {
-    if (canDeleteAny) return true;
-    if (canDeleteOwn) return task.createdBy?.id === user?.id;
-    return false;
-  }
-
-  const assignableUsers = (members || []).filter((m) => m.role !== "client").map((m) => m.user);
-
-  const [showModal, setShowModal] = useState(false);
-  const [editingTask, setEditingTask] = useState(null);
-  const [form, setForm] = useState(TASK_EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState(null);
-
-  // Generate tasks preview modal
-  const [showGenerate, setShowGenerate] = useState(false);
-  const [preview, setPreview] = useState([]);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const [generateResult, setGenerateResult] = useState(null);
-
-  async function openGenerateModal() {
-    setShowGenerate(true);
-    setGenerateResult(null);
-    setPreviewLoading(true);
-    try {
-      const res = await api(`/api/organizations/${organizationId}/generate-tasks/preview`);
-      if (res.ok) setPreview(await res.json());
-    } finally {
-      setPreviewLoading(false);
-    }
-  }
-
-  async function handleGenerate() {
-    setGenerating(true);
-    try {
-      const res = await api(`/api/organizations/${organizationId}/generate-tasks`, {
-        method: "POST",
-      });
-      if (res.ok) {
-        const result = await res.json();
-        setGenerateResult(result);
-        onTasksChanged();
-      }
-    } finally {
-      setGenerating(false);
-    }
-  }
-
-  function openCreate() {
-    setEditingTask(null);
-    setForm({
-      ...TASK_EMPTY_FORM,
-      assignedToIds: assignableUsers.length === 1 ? [assignableUsers[0].id] : [],
-    });
-    setFormError(null);
-    setShowModal(true);
-  }
-
-  function openEdit(task) {
-    setEditingTask(task);
-    setForm({
-      title: task.title,
-      description: task.description || "",
-      priority: task.priority,
-      category: task.category,
-      dueDate: task.dueDate ? task.dueDate.slice(0, 10) : "",
-      assignedToIds: task.assignees?.map((a) => a.userId) ?? [],
-    });
-    setFormError(null);
-    setShowModal(true);
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!form.title.trim()) {
-      setFormError("Заголовок обязателен");
-      return;
-    }
-    setSaving(true);
-    setFormError(null);
-    try {
-      const body = {
-        title: form.title.trim(),
-        description: form.description || null,
-        priority: form.priority,
-        category: form.category,
-        dueDate: form.dueDate || null,
-        organizationId,
-        assignedToIds: form.assignedToIds,
-      };
-      if (editingTask) {
-        const res = await api(`/api/tasks/${editingTask.id}`, {
-          method: "PUT",
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) throw new Error();
-      } else {
-        const res = await api("/api/tasks", { method: "POST", body: JSON.stringify(body) });
-        if (!res.ok) throw new Error();
-      }
-      setShowModal(false);
-      onTasksChanged();
-    } catch {
-      setFormError("Не удалось сохранить задачу");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleStatusChange(task, newStatus) {
-    try {
-      await api(`/api/tasks/${task.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ status: newStatus }),
-      });
-      onTasksChanged();
-    } catch {
-      /* silent */
-    }
-  }
-
-  async function handleDelete(task) {
-    if (!confirm(`Удалить задачу «${task.title}»?`)) return;
-    try {
-      await api(`/api/tasks/${task.id}`, { method: "DELETE" });
-      onTasksChanged();
-    } catch {
-      /* silent */
-    }
-  }
-
-  return (
-    <>
-      <div className="bg-surface rounded-2xl shadow-lg border border-line p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-body">Задачи</h3>
-          {canCreate && (
-            <div className="flex items-center gap-3">
-              <button
-                onClick={openGenerateModal}
-                className="inline-flex items-center gap-1 text-xs text-subtle hover:text-primary font-medium transition-colors"
-                title="Сгенерировать стандартные задачи по параметрам организации"
-              >
-                <RefreshCw size={12} /> Сгенерировать
-              </button>
-              <button
-                onClick={openCreate}
-                className="inline-flex items-center gap-1 text-xs text-primary hover:text-[#5557E1] font-medium"
-              >
-                <Plus size={13} /> Добавить
-              </button>
-            </div>
-          )}
-        </div>
-
-        {loading ? (
-          <p className="text-xs text-subtle">Загрузка...</p>
-        ) : tasks.length === 0 ? (
-          <p className="text-xs text-subtle">Нет задач</p>
-        ) : (
-          <div className="space-y-2">
-            {tasks.map((task) => {
-              const overdue = isTaskOverdue(task);
-              return (
-                <div
-                  key={task.id}
-                  className="flex items-start gap-2 py-2 border-b border-line last:border-0"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap gap-1 mb-0.5">
-                      <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${TASK_STATUS_COLORS[task.status]}`}
-                      >
-                        {TASK_STATUS_LABELS[task.status]}
-                      </span>
-                      <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${TASK_PRIORITY_COLORS[task.priority]}`}
-                      >
-                        {TASK_PRIORITY_LABELS[task.priority]}
-                      </span>
-                    </div>
-                    <p
-                      className={`text-sm font-medium leading-snug ${task.status === "CANCELLED" ? "line-through text-subtle" : "text-heading"}`}
-                    >
-                      {task.title}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-3 mt-0.5 text-xs text-subtle">
-                      {task.assignees?.length > 0 && (
-                        <span className="flex items-center gap-1">
-                          <User size={11} />
-                          {task.assignees
-                            .map((a) => `${a.user.lastName} ${a.user.firstName}`)
-                            .join(", ")}
-                        </span>
-                      )}
-                      {task.dueDate && (
-                        <span
-                          className={`flex items-center gap-1 ${overdue ? "text-red-500 dark:text-red-400 font-medium" : ""}`}
-                        >
-                          <CalendarDays size={11} />
-                          {new Date(task.dueDate).toLocaleDateString("ru-RU")}
-                          {overdue && " — просрочено"}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {canEditTask(task) && (
-                      <select
-                        value={task.status}
-                        onChange={(e) => handleStatusChange(task, e.target.value)}
-                        className="text-[10px] border border-line rounded-lg px-1.5 py-1 bg-surface focus:outline-none cursor-pointer"
-                      >
-                        {Object.entries(TASK_STATUS_LABELS).map(([k, v]) => (
-                          <option key={k} value={k}>
-                            {v}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                    <button
-                      onClick={() => onComment(task)}
-                      className="relative p-1 text-subtle hover:text-primary transition-colors"
-                      title="Комментарии"
-                    >
-                      <MessageSquare size={13} />
-                      {task._count?.comments > 0 && (
-                        <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-primary text-white text-[7px] font-bold rounded-full flex items-center justify-center leading-none">
-                          {task._count.comments > 9 ? "9+" : task._count.comments}
-                        </span>
-                      )}
-                    </button>
-                    {canEditTask(task) && (
-                      <button
-                        onClick={() => openEdit(task)}
-                        className="p-1 text-subtle hover:text-primary transition-colors"
-                      >
-                        <Pencil size={13} />
-                      </button>
-                    )}
-                    {canDeleteTask(task) && (
-                      <button
-                        onClick={() => handleDelete(task)}
-                        className="p-1 text-subtle hover:text-red-500 dark:hover:text-red-400 transition-colors"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Task modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-lg">
-            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-line">
-              <h2 className="text-lg font-bold text-heading">
-                {editingTask ? "Редактировать задачу" : "Новая задача"}
-              </h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className={TASK_LABEL_CLS}>Заголовок *</label>
-                <input
-                  autoFocus
-                  type="text"
-                  value={form.title}
-                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                  className={TASK_INPUT_CLS}
-                />
-              </div>
-              <div>
-                <label className={TASK_LABEL_CLS}>Описание</label>
-                <textarea
-                  rows={2}
-                  value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  className={TASK_INPUT_CLS}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={TASK_LABEL_CLS}>Приоритет</label>
-                  <select
-                    value={form.priority}
-                    onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
-                    className={TASK_INPUT_CLS}
-                  >
-                    {Object.entries(TASK_PRIORITY_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={TASK_LABEL_CLS}>Категория</label>
-                  <select
-                    value={form.category}
-                    onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                    className={TASK_INPUT_CLS}
-                  >
-                    {Object.entries(TASK_CATEGORY_LABELS).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className={TASK_LABEL_CLS}>Дедлайн</label>
-                <input
-                  type="date"
-                  value={form.dueDate}
-                  onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
-                  className={TASK_INPUT_CLS}
-                />
-              </div>
-              <div>
-                <label className={TASK_LABEL_CLS}>Исполнители</label>
-                <OrgAssigneeMultiSelect
-                  options={assignableUsers}
-                  value={form.assignedToIds}
-                  onChange={(ids) => setForm((f) => ({ ...f, assignedToIds: ids }))}
-                />
-              </div>
-              {formError && (
-                <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
-                  {formError}
-                </div>
-              )}
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
-                >
-                  <Save size={16} />
-                  {saving ? "Сохранение..." : "Сохранить"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Generate tasks preview modal */}
-      {showGenerate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-lg flex flex-col max-h-[85vh]">
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-line">
-              <div>
-                <h2 className="text-base font-bold text-heading">Сгенерировать задачи</h2>
-                <p className="text-xs text-subtle mt-0.5">На основе параметров организации</p>
-              </div>
-              <button
-                onClick={() => setShowGenerate(false)}
-                className="text-subtle hover:text-body transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
-              {previewLoading ? (
-                <div className="space-y-2">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="h-10 bg-muted rounded-lg animate-pulse" />
-                  ))}
-                </div>
-              ) : generateResult ? (
-                <div className="text-center py-6">
-                  <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-500/15 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <CheckSquare size={22} className="text-emerald-600 dark:text-emerald-300" />
-                  </div>
-                  <p className="text-base font-semibold text-heading">Готово!</p>
-                  <p className="text-sm text-subtle mt-1">
-                    Создано задач:{" "}
-                    <span className="font-medium text-emerald-600 dark:text-emerald-300">
-                      {generateResult.generated}
-                    </span>
-                    {generateResult.skipped > 0 && (
-                      <>
-                        , пропущено (уже существуют):{" "}
-                        <span className="font-medium">{generateResult.skipped}</span>
-                      </>
-                    )}
-                  </p>
-                </div>
-              ) : preview.length === 0 ? (
-                <p className="text-sm text-subtle text-center py-6">
-                  Нет параметров для генерации задач. Заполните карточку организации (система Н/О,
-                  тип обслуживания, ЭЦП).
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {preview.map((t, i) => (
-                    <div
-                      key={i}
-                      className={`flex items-start gap-3 p-3 rounded-xl border ${
-                        t.alreadyExists
-                          ? "bg-canvas border-line opacity-50"
-                          : "bg-surface border-line"
-                      }`}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className={`text-sm font-medium ${t.alreadyExists ? "line-through text-subtle" : "text-heading"}`}
-                        >
-                          {t.title}
-                        </p>
-                        {t.description && (
-                          <p className="text-xs text-subtle mt-0.5 line-clamp-1">{t.description}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
-                        {t.recurrenceType && (
-                          <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
-                            ↺
-                          </span>
-                        )}
-                        {t.alreadyExists && (
-                          <span className="text-[10px] text-subtle bg-muted px-1.5 py-0.5 rounded-full">
-                            есть
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {!generateResult && (
-              <div className="px-6 py-4 border-t border-line flex justify-end gap-3">
-                <button
-                  onClick={() => setShowGenerate(false)}
-                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Отмена
-                </button>
-                <button
-                  onClick={handleGenerate}
-                  disabled={generating || previewLoading || preview.every((t) => t.alreadyExists)}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-40"
-                >
-                  <RefreshCw size={14} />
-                  {generating
-                    ? "Создание..."
-                    : `Создать ${preview.filter((t) => !t.alreadyExists).length} задач`}
-                </button>
-              </div>
-            )}
-            {generateResult && (
-              <div className="px-6 py-4 border-t border-line flex justify-end">
-                <button
-                  onClick={() => setShowGenerate(false)}
-                  className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] text-white rounded-lg text-sm font-medium"
-                >
-                  Закрыть
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
-function OrgAssigneeMultiSelect({ options, value, onChange }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  function toggle(id) {
-    onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
-  }
-
-  const selectedLabels = options
-    .filter((u) => value.includes(u.id))
-    .map((u) => `${u.lastName} ${u.firstName}`)
-    .join(", ");
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full px-3 py-2 border border-line rounded-lg text-sm text-left bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary flex items-center justify-between"
-      >
-        <span className={selectedLabels ? "text-heading" : "text-subtle"}>
-          {selectedLabels || "Не назначено"}
-        </span>
-        <span className="text-subtle text-xs">▾</span>
-      </button>
-      {open && (
-        <div className="absolute z-50 w-full bottom-full mb-1 bg-surface border border-line rounded-lg shadow-lg max-h-48 overflow-y-auto">
-          {options.length === 0 ? (
-            <div className="px-3 py-2 text-sm text-subtle">Нет сотрудников</div>
-          ) : (
-            options.map((u) => (
-              <label
-                key={u.id}
-                className="flex items-center gap-2 px-3 py-2 hover:bg-canvas cursor-pointer text-sm"
-              >
-                <input
-                  type="checkbox"
-                  checked={value.includes(u.id)}
-                  onChange={() => toggle(u.id)}
-                  className="accent-[#6567F1]"
-                />
-                {u.lastName} {u.firstName}
-              </label>
-            ))
-          )}
-        </div>
-      )}
     </div>
   );
 }
