@@ -161,16 +161,15 @@ export default function BugReportButton() {
 
   return (
     <>
-      {/* FAB — скрыт во время съёмки модалки (data-bug-report-skip="1" заодно убирает из скриншота) */}
+      {/* FAB — компактный круг 36px (data-bug-report-skip="1" убирает из скриншота) */}
       <button
         data-bug-report-skip="1"
         onClick={openModal}
-        className="fixed z-40 bottom-4 right-4 sm:bottom-6 sm:right-6 group flex items-center gap-2 h-12 sm:h-13 pl-3 pr-3 sm:pr-4 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 hover:scale-105 transition-all"
+        className="fixed z-40 bottom-4 right-4 w-9 h-9 flex items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md shadow-orange-500/30 hover:shadow-lg hover:shadow-orange-500/40 hover:scale-110 transition-all"
         title="Сообщить о баге"
         aria-label="Сообщить о баге"
       >
-        <Bug size={20} className="shrink-0" />
-        <span className="text-sm font-medium hidden sm:inline">Сообщить о баге</span>
+        <Bug size={16} />
       </button>
 
       {open && (
