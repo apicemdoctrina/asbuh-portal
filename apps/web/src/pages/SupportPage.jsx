@@ -429,10 +429,10 @@ export default function SupportPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-3 sm:gap-4 lg:min-h-[calc(100vh-260px)]">
+      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-3 sm:gap-4">
         {/* Список тредов */}
         <aside
-          className={`bg-surface rounded-2xl shadow-sm border border-line overflow-hidden lg:flex flex-col min-h-[calc(100vh-180px)] lg:min-h-0 ${
+          className={`bg-surface rounded-2xl shadow-sm border border-line overflow-hidden lg:flex flex-col h-[calc(100vh-180px)] sm:h-[calc(100vh-220px)] lg:h-[calc(100vh-220px)] ${
             showListMobile ? "flex" : "hidden"
           }`}
         >
@@ -525,7 +525,7 @@ export default function SupportPage() {
 
         {/* Окно треда */}
         <section
-          className={`bg-surface rounded-2xl shadow-sm border border-line lg:flex flex-col overflow-hidden min-h-[calc(100vh-180px)] lg:min-h-0 ${
+          className={`bg-surface rounded-2xl shadow-sm border border-line lg:flex flex-col overflow-hidden h-[calc(100vh-180px)] sm:h-[calc(100vh-220px)] lg:h-[calc(100vh-220px)] ${
             showRightMobile ? "flex" : "hidden"
           }`}
         >
@@ -788,7 +788,7 @@ export default function SupportPage() {
                           submitReply(e);
                         }
                       }}
-                      placeholder="Ответ… (Ctrl+V — вставить скрин, Ctrl+Enter — отправить)"
+                      placeholder=""
                       rows={1}
                       maxLength={10_000}
                       className="flex-1 h-11 px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none leading-6"
