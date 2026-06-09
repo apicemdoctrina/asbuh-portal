@@ -159,18 +159,23 @@ export default function BugReportButton() {
     }
   }
 
+  // На /tasks и /tickets вместо жучка показываем FAB создания (см. TasksPage / TicketsPage)
+  const hideFab = location.pathname === "/tasks" || location.pathname === "/tickets";
+
   return (
     <>
       {/* FAB — компактный круг 36px (data-bug-report-skip="1" убирает из скриншота) */}
-      <button
-        data-bug-report-skip="1"
-        onClick={openModal}
-        className="fixed z-40 bottom-4 right-4 w-9 h-9 flex items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md shadow-orange-500/30 hover:shadow-lg hover:shadow-orange-500/40 hover:scale-110 transition-all"
-        title="Сообщить о баге"
-        aria-label="Сообщить о баге"
-      >
-        <Bug size={16} />
-      </button>
+      {!hideFab && (
+        <button
+          data-bug-report-skip="1"
+          onClick={openModal}
+          className="fixed z-40 bottom-4 right-4 w-9 h-9 flex items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md shadow-orange-500/30 hover:shadow-lg hover:shadow-orange-500/40 hover:scale-110 transition-all"
+          title="Сообщить о баге"
+          aria-label="Сообщить о баге"
+        >
+          <Bug size={16} />
+        </button>
+      )}
 
       {open && (
         <div

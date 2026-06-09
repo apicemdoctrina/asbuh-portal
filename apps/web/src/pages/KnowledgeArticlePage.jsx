@@ -88,7 +88,7 @@ export default function KnowledgeArticlePage() {
   const embedUrl = item.type === "VIDEO" ? getEmbedUrl(item.url) : null;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
       {/* Back link */}
       <Link
         to="/knowledge"
@@ -100,7 +100,7 @@ export default function KnowledgeArticlePage() {
 
       {/* Cover image */}
       {item.coverImagePath && (
-        <div className="rounded-2xl overflow-hidden mb-6 h-56">
+        <div className="rounded-2xl overflow-hidden mb-4 sm:mb-6 h-40 sm:h-56">
           <img
             src={`/uploads/${item.coverImagePath}`}
             alt=""
@@ -125,7 +125,9 @@ export default function KnowledgeArticlePage() {
             {AUDIENCE_LABELS[item.audience]}
           </span>
         </div>
-        <h1 className="text-2xl font-bold text-heading mb-2">{item.title}</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-heading mb-2 leading-tight">
+          {item.title}
+        </h1>
         {item.description && <p className="text-subtle">{item.description}</p>}
         {/* Tags */}
         {item.tags?.length > 0 && (
@@ -181,7 +183,7 @@ export default function KnowledgeArticlePage() {
 
       {/* ARTICLE content */}
       {item.type === "ARTICLE" && item.content && (
-        <div className="bg-surface rounded-2xl shadow-lg border border-line p-6 sm:p-8">
+        <div className="bg-surface rounded-2xl shadow-lg border border-line p-4 sm:p-8">
           <div
             className="tiptap-content text-body"
             dangerouslySetInnerHTML={{ __html: item.content }}

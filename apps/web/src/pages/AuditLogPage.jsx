@@ -1,7 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { useDebouncedEffect } from "../hooks/useDebouncedEffect.js";
 import { api } from "../lib/api.js";
-import { Search, Loader2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Search,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal,
+} from "lucide-react";
 
 // Human-readable Russian labels and colors for known actions
 const ACTION_META = {
@@ -229,6 +237,8 @@ export default function AuditLogPage() {
   const [to, setTo] = useState("");
   const [expandedId, setExpandedId] = useState(null);
   const [actionOptions, setActionOptions] = useState([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilters = (entity ? 1 : 0) + (action ? 1 : 0) + (from ? 1 : 0) + (to ? 1 : 0);
 
   // Load distinct actions for the filter dropdown
   useEffect(() => {
@@ -295,125 +305,254 @@ export default function AuditLogPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-heading mb-6">Журнал действий</h1>
+      <h1 className="text-xl sm:text-2xl font-bold text-heading mb-4 sm:mb-6">Журнал действий</h1>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3 mb-6">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
-          <input
-            type="text"
-            placeholder="Поиск по действию, ID, IP, браузеру..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-          />
+      <div className="mb-4 sm:mb-6">
+        <div className="flex gap-2 mb-2 sm:mb-3">
+          <div className="relative flex-1">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
+            <input
+              type="text"
+              placeholder="Поиск..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((v) => !v)}
+            className={`sm:hidden inline-flex items-center gap-1.5 px-3 py-2.5 border rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+              filtersOpen || activeFilters > 0
+                ? "border-primary text-primary bg-primary/5"
+                : "border-line text-body"
+            }`}
+            aria-expanded={filtersOpen}
+          >
+            <SlidersHorizontal size={15} />
+            {activeFilters > 0 && (
+              <span className="bg-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+                {activeFilters}
+              </span>
+            )}
+          </button>
         </div>
 
-        <select
-          value={entity}
-          onChange={(e) => setEntity(e.target.value)}
-          className="px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
+        <div
+          className={`${filtersOpen ? "grid" : "hidden"} sm:flex grid-cols-2 gap-2 sm:gap-3 sm:flex-wrap`}
         >
-          {ENTITY_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+          <select
+            value={entity}
+            onChange={(e) => setEntity(e.target.value)}
+            className="px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
+          >
+            {ENTITY_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
 
-        <select
-          value={action}
-          onChange={(e) => setAction(e.target.value)}
-          className="px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
-        >
-          <option value="">Все действия</option>
-          {actionOptions.map((a) => (
-            <option key={a} value={a}>
-              {ACTION_META[a]?.label ?? a}
-            </option>
-          ))}
-        </select>
+          <select
+            value={action}
+            onChange={(e) => setAction(e.target.value)}
+            className="px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
+          >
+            <option value="">Все действия</option>
+            {actionOptions.map((a) => (
+              <option key={a} value={a}>
+                {ACTION_META[a]?.label ?? a}
+              </option>
+            ))}
+          </select>
 
-        <input
-          type="date"
-          value={from}
-          onChange={(e) => setFrom(e.target.value)}
-          className="px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-        />
-        <input
-          type="date"
-          value={to}
-          onChange={(e) => setTo(e.target.value)}
-          className="px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-        />
+          <input
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            className="px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          />
+          <input
+            type="date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          />
+          {activeFilters > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setEntity("");
+                setAction("");
+                setFrom("");
+                setTo("");
+              }}
+              className="col-span-2 sm:col-span-1 text-xs text-subtle hover:text-primary self-center"
+            >
+              Сбросить
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center py-12 text-subtle">
-            <Loader2 size={24} className="animate-spin" />
+      {loading ? (
+        <div className="flex items-center justify-center py-12 text-subtle">
+          <Loader2 size={24} className="animate-spin" />
+        </div>
+      ) : logs.length === 0 ? (
+        <div className="text-center py-12 text-subtle text-sm bg-surface rounded-2xl border border-line">
+          Нет записей
+        </div>
+      ) : (
+        <>
+          {/* Mobile: card list */}
+          <div className="lg:hidden space-y-1.5">
+            {logs.map((log) => (
+              <LogCard
+                key={log.id}
+                log={log}
+                expanded={expandedId === log.id}
+                onToggle={() => setExpandedId(expandedId === log.id ? null : log.id)}
+                formatDateTime={formatDateTime}
+                userName={userName}
+                userEmail={userEmail}
+              />
+            ))}
           </div>
-        ) : logs.length === 0 ? (
-          <div className="text-center py-12 text-subtle text-sm">Нет записей</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-line text-left text-xs text-subtle uppercase tracking-wide">
-                  <th className="px-5 py-3 font-medium whitespace-nowrap">Дата / Время</th>
-                  <th className="px-5 py-3 font-medium">Пользователь</th>
-                  <th className="px-5 py-3 font-medium">Действие</th>
-                  <th className="px-5 py-3 font-medium">Объект</th>
-                  <th className="px-5 py-3 font-medium">Что изменилось</th>
-                  <th className="px-5 py-3 font-medium">IP</th>
-                  <th className="px-5 py-3 font-medium w-8"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.map((log) => (
-                  <LogRow
-                    key={log.id}
-                    log={log}
-                    expanded={expandedId === log.id}
-                    onToggle={() => setExpandedId(expandedId === log.id ? null : log.id)}
-                    formatDateTime={formatDateTime}
-                    userName={userName}
-                    userEmail={userEmail}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
 
-        {/* Pagination */}
-        {!loading && total > 0 && (
-          <div className="flex items-center justify-between px-6 py-3 border-t border-line text-sm text-subtle">
-            <span>Всего {total} записей</span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="p-1.5 rounded-lg hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <span className="text-body font-medium">
-                Стр {page} из {totalPages}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                className="p-1.5 rounded-lg hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight size={16} />
-              </button>
+          {/* Desktop: table */}
+          <div className="hidden lg:block bg-surface rounded-2xl shadow-lg border border-line overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-line text-left text-xs text-subtle uppercase tracking-wide">
+                    <th className="px-5 py-3 font-medium whitespace-nowrap">Дата / Время</th>
+                    <th className="px-5 py-3 font-medium">Пользователь</th>
+                    <th className="px-5 py-3 font-medium">Действие</th>
+                    <th className="px-5 py-3 font-medium">Объект</th>
+                    <th className="px-5 py-3 font-medium">Что изменилось</th>
+                    <th className="px-5 py-3 font-medium">IP</th>
+                    <th className="px-5 py-3 font-medium w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {logs.map((log) => (
+                    <LogRow
+                      key={log.id}
+                      log={log}
+                      expanded={expandedId === log.id}
+                      onToggle={() => setExpandedId(expandedId === log.id ? null : log.id)}
+                      formatDateTime={formatDateTime}
+                      userName={userName}
+                      userEmail={userEmail}
+                    />
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
+
+          {/* Pagination */}
+          {total > 0 && (
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3 mt-2 sm:mt-0 bg-surface rounded-2xl lg:rounded-t-none lg:border-t border border-line lg:border-x lg:border-b text-sm text-subtle">
+              <span className="text-xs sm:text-sm">
+                <span className="hidden sm:inline">Всего </span>
+                {total} <span className="hidden sm:inline">записей</span>
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="p-1.5 rounded-lg hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  aria-label="Назад"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="text-body font-medium text-xs sm:text-sm tabular-nums">
+                  {page} / {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="p-1.5 rounded-lg hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  aria-label="Вперёд"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function LogCard({ log, expanded, onToggle, formatDateTime, userName, userEmail }) {
+  const hasDetails =
+    (log.details && Object.keys(log.details).length > 0) || log.userAgent || log.entityId;
+  const { date, time } = formatDateTime(log.createdAt);
+  const email = userEmail(log.user);
+  const entityLabel = log.entity ? (ENTITY_LABELS[log.entity] ?? log.entity) : null;
+  const objectName =
+    log.details?.name ?? log.details?.title ?? log.details?.email ?? log.details?.organizationName;
+  const dateCompact = date.slice(0, 5); // dd.mm
+
+  return (
+    <div
+      className={`bg-surface border rounded-xl transition-colors ${
+        expanded ? "border-primary/30 bg-canvas/60" : "border-line"
+      } ${hasDetails ? "cursor-pointer" : ""}`}
+      onClick={hasDetails ? onToggle : undefined}
+    >
+      <div className="px-3 py-2">
+        {/* Line 1: time + action badge + chevron */}
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-subtle tabular-nums shrink-0">
+            <span className="text-body font-medium">{dateCompact}</span> {time.slice(0, 5)}
+          </span>
+          <ActionBadge action={log.action} />
+          {hasDetails && (
+            <span className="ml-auto text-subtle shrink-0">
+              {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            </span>
+          )}
+        </div>
+
+        {/* Line 2: user + (entity · object) */}
+        <div className="mt-1 flex items-baseline gap-1.5 text-xs min-w-0">
+          <span className="text-body font-medium truncate">{userName(log.user)}</span>
+          {(entityLabel || objectName) && (
+            <span className="text-subtle truncate">
+              · {entityLabel}
+              {objectName && `: ${String(objectName)}`}
+            </span>
+          )}
+        </div>
+
+        {/* Line 3: summary (only if details exist and is informative) */}
+        {log.details && Object.keys(log.details).length > 0 && (
+          <div className="mt-1">
+            <DetailsSummary details={log.details} />
+          </div>
+        )}
+
+        {/* Line 4 (faint): email + IP */}
+        {(email || log.ipAddress) && (
+          <div className="mt-1 flex items-center gap-2 text-[10px] text-subtle truncate">
+            {email && <span className="truncate">{email}</span>}
+            {email && log.ipAddress && <span>·</span>}
+            {log.ipAddress && <span className="font-mono">{log.ipAddress}</span>}
+          </div>
         )}
       </div>
+
+      {expanded && hasDetails && (
+        <div className="px-3 pb-3 pt-2 border-t border-line" onClick={(e) => e.stopPropagation()}>
+          <DetailsPanel log={log} />
+        </div>
+      )}
     </div>
   );
 }
@@ -422,14 +561,16 @@ function ActionBadge({ action }) {
   const meta = ACTION_META[action];
   if (meta) {
     return (
-      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${meta.color}`}>
+      <span
+        className={`inline-block px-1.5 py-0 rounded text-[11px] font-medium leading-5 truncate ${meta.color}`}
+      >
         {meta.label}
       </span>
     );
   }
   // Unknown action: generic badge
   return (
-    <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+    <span className="inline-block px-1.5 py-0 rounded text-[11px] font-medium leading-5 truncate bg-primary/10 text-primary border border-primary/20">
       {action}
     </span>
   );
@@ -534,39 +675,36 @@ function DetailsPanel({ log }) {
       {hasDetails && (
         <div>
           <div className="text-xs font-medium text-subtle mb-1.5">Детали</div>
-          <div className="bg-surface border border-line rounded-2xl overflow-hidden">
-            <table className="w-full text-xs">
-              <tbody>
-                {Object.entries(details)
-                  .filter(([k]) => !SKIP_DETAIL_KEYS.has(k))
-                  .map(([k, v]) => {
-                    const label = DETAIL_LABELS[k] ?? k;
-                    let display = v;
-                    if (k === "status") display = STATUS_LABELS[v] ?? v;
-                    if (k === "priority") display = PRIORITY_LABELS[v] ?? v;
-                    if (Array.isArray(v)) display = v.join(", ");
-                    return (
-                      <tr key={k} className="border-b border-line last:border-0">
-                        <td className="px-3 py-2 text-subtle font-medium w-40 align-top">
-                          {label}
-                        </td>
-                        <td className="px-3 py-2 text-body break-all">
-                          {v === null || v === undefined ? (
-                            <span className="text-subtle italic">пусто</span>
-                          ) : typeof v === "object" ? (
-                            <pre className="font-mono text-xs whitespace-pre-wrap">
-                              {JSON.stringify(v, null, 2)}
-                            </pre>
-                          ) : (
-                            String(display)
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-              </tbody>
-            </table>
-          </div>
+          <dl className="bg-surface border border-line rounded-xl overflow-hidden divide-y divide-line">
+            {Object.entries(details)
+              .filter(([k]) => !SKIP_DETAIL_KEYS.has(k))
+              .map(([k, v]) => {
+                const label = DETAIL_LABELS[k] ?? k;
+                let display = v;
+                if (k === "status") display = STATUS_LABELS[v] ?? v;
+                if (k === "priority") display = PRIORITY_LABELS[v] ?? v;
+                if (Array.isArray(v)) display = v.join(", ");
+                return (
+                  <div
+                    key={k}
+                    className="flex flex-col sm:flex-row gap-0.5 sm:gap-2 px-3 py-2 text-xs"
+                  >
+                    <dt className="text-subtle font-medium sm:w-40 sm:shrink-0">{label}</dt>
+                    <dd className="text-body break-all min-w-0">
+                      {v === null || v === undefined ? (
+                        <span className="text-subtle italic">пусто</span>
+                      ) : typeof v === "object" ? (
+                        <pre className="font-mono text-xs whitespace-pre-wrap break-all">
+                          {JSON.stringify(v, null, 2)}
+                        </pre>
+                      ) : (
+                        String(display)
+                      )}
+                    </dd>
+                  </div>
+                );
+              })}
+          </dl>
         </div>
       )}
 

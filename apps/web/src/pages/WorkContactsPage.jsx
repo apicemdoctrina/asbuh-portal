@@ -2,7 +2,11 @@ import { useState, useCallback } from "react";
 import { useDebouncedEffect } from "../hooks/useDebouncedEffect.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
-import { Search, Plus, X, Loader2, Pencil, Trash2 } from "lucide-react";
+import { Search, Plus, X, Loader2, Pencil, Trash2, Phone, Briefcase } from "lucide-react";
+
+function normalizePhone(raw) {
+  return raw.replace(/[^\d+]/g, "");
+}
 
 export default function WorkContactsPage() {
   const { hasPermission } = useAuth();
@@ -59,24 +63,25 @@ export default function WorkContactsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-heading">Рабочие контакты</h1>
+      <div className="flex items-center justify-between mb-4 sm:mb-6 gap-3">
+        <h1 className="text-xl sm:text-2xl font-bold text-heading">Рабочие контакты</h1>
         {canCreate && (
           <button
             onClick={() => {
               setEditingContact(null);
               setShowModal(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white shadow-lg shadow-[#6567F1]/30 transition-all"
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white shadow-lg shadow-[#6567F1]/30 transition-all whitespace-nowrap"
           >
             <Plus size={16} />
-            Добавить контакт
+            <span className="hidden sm:inline">Добавить контакт</span>
+            <span className="sm:hidden">Добавить</span>
           </button>
         )}
       </div>
 
       {/* Search */}
-      <div className="relative mb-6">
+      <div className="relative mb-4 sm:mb-6">
         <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
         <input
           type="text"
@@ -87,35 +92,110 @@ export default function WorkContactsPage() {
         />
       </div>
 
-      {/* Table */}
-      <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center py-12 text-subtle">
-            <Loader2 size={24} className="animate-spin" />
+      {loading ? (
+        <div className="flex items-center justify-center py-12 text-subtle">
+          <Loader2 size={24} className="animate-spin" />
+        </div>
+      ) : contacts.length === 0 ? (
+        <div className="text-center py-12 text-subtle text-sm">
+          {search ? "Ничего не найдено" : "Нет контактов"}
+        </div>
+      ) : (
+        <>
+          {/* Mobile: card list */}
+          <div className="sm:hidden space-y-2">
+            {contacts.map((c) => (
+              <div key={c.id} className="bg-surface border border-line rounded-2xl p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-bold text-heading leading-tight">{c.name}</div>
+                    {c.position && (
+                      <div className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-md bg-primary/10 text-primary text-[11px] font-medium">
+                        <Briefcase size={10} />
+                        {c.position}
+                      </div>
+                    )}
+                  </div>
+                  {(canEdit || canDelete) && (
+                    <div className="flex items-center gap-0.5 shrink-0 -mr-1">
+                      {canEdit && (
+                        <button
+                          onClick={() => {
+                            setEditingContact(c);
+                            setShowModal(true);
+                          }}
+                          aria-label="Редактировать"
+                          className="p-2 text-subtle hover:text-primary rounded-lg transition-colors"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={() => handleDelete(c)}
+                          aria-label="Удалить"
+                          className="p-2 text-subtle hover:text-red-500 dark:hover:text-red-400 rounded-lg transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {c.phone && (
+                  <a
+                    href={`tel:${normalizePhone(c.phone)}`}
+                    className="mt-2 inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                  >
+                    <Phone size={13} />
+                    {c.phone}
+                  </a>
+                )}
+                {c.comment && (
+                  <p className="mt-2 text-xs text-subtle whitespace-pre-wrap break-words">
+                    {c.comment}
+                  </p>
+                )}
+              </div>
+            ))}
+            {total > contacts.length && (
+              <div className="text-center text-xs text-subtle pt-2">
+                Показано {contacts.length} из {total}
+              </div>
+            )}
           </div>
-        ) : contacts.length === 0 ? (
-          <div className="text-center py-12 text-subtle text-sm">
-            {search ? "Ничего не найдено" : "Нет контактов"}
-          </div>
-        ) : (
-          <>
+
+          {/* Desktop: table */}
+          <div className="hidden sm:block bg-surface rounded-2xl shadow-lg border border-line overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-line text-left text-subtle">
+                <tr className="border-b border-line text-left text-subtle bg-canvas/30">
                   <th className="px-6 py-3 font-medium">Имя</th>
                   <th className="px-6 py-3 font-medium">Должность</th>
                   <th className="px-6 py-3 font-medium">Телефон</th>
                   <th className="px-6 py-3 font-medium hidden md:table-cell">Комментарий</th>
-                  {(canEdit || canDelete) && <th className="px-6 py-3 font-medium">Действия</th>}
+                  {(canEdit || canDelete) && <th className="px-6 py-3 font-medium w-24"></th>}
                 </tr>
               </thead>
               <tbody>
                 {contacts.map((c) => (
-                  <tr key={c.id} className="border-b border-line hover:bg-canvas/50">
+                  <tr key={c.id} className="border-b border-line last:border-0 hover:bg-canvas/50">
                     <td className="px-6 py-3 font-medium text-heading">{c.name}</td>
                     <td className="px-6 py-3 text-body">{c.position || "—"}</td>
-                    <td className="px-6 py-3 text-body">{c.phone || "—"}</td>
-                    <td className="px-6 py-3 text-subtle hidden md:table-cell">
+                    <td className="px-6 py-3 text-body">
+                      {c.phone ? (
+                        <a
+                          href={`tel:${normalizePhone(c.phone)}`}
+                          className="inline-flex items-center gap-1.5 text-primary hover:underline"
+                        >
+                          <Phone size={13} />
+                          {c.phone}
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="px-6 py-3 text-subtle hidden md:table-cell max-w-[300px] truncate">
                       {c.comment || "—"}
                     </td>
                     {(canEdit || canDelete) && (
@@ -129,6 +209,7 @@ export default function WorkContactsPage() {
                               }}
                               className="p-1.5 text-subtle hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
                               title="Редактировать"
+                              aria-label="Редактировать"
                             >
                               <Pencil size={16} />
                             </button>
@@ -138,6 +219,7 @@ export default function WorkContactsPage() {
                               onClick={() => handleDelete(c)}
                               className="p-1.5 text-subtle hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/15 rounded-lg transition-colors"
                               title="Удалить"
+                              aria-label="Удалить"
                             >
                               <Trash2 size={16} />
                             </button>
@@ -154,9 +236,9 @@ export default function WorkContactsPage() {
                 Показано {contacts.length} из {total}
               </div>
             )}
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      )}
 
       {showModal && (
         <ContactModal

@@ -103,22 +103,23 @@ export default function MessageTemplatesPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-heading">Шаблоны сообщений</h1>
-          <p className="text-sm text-subtle mt-1">
+      <div className="flex items-start justify-between mb-4 sm:mb-6 gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-heading">Шаблоны сообщений</h1>
+          <p className="text-xs sm:text-sm text-subtle mt-0.5 sm:mt-1 hidden sm:block">
             Шаблоны для быстрой отправки email и Telegram-сообщений клиентам
           </p>
         </div>
         {canCreate && (
           <button
             onClick={openCreate}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all"
+            className="shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all whitespace-nowrap"
           >
             <Plus size={16} />
-            Новый шаблон
+            <span className="hidden sm:inline">Новый шаблон</span>
+            <span className="sm:hidden">Шаблон</span>
           </button>
         )}
       </div>
@@ -142,42 +143,52 @@ export default function MessageTemplatesPage() {
           {templates.map((t) => {
             const Icon = CHANNEL_ICONS[t.channel] || Mail;
             return (
-              <div key={t.id} className="bg-surface rounded-2xl shadow-lg border border-line p-5">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className="mt-0.5 p-2 bg-primary/10 rounded-lg">
-                      <Icon size={18} className="text-primary" />
+              <div
+                key={t.id}
+                className="bg-surface rounded-2xl shadow-lg border border-line p-4 sm:p-5"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2.5 sm:gap-3 min-w-0 flex-1">
+                    <div className="mt-0.5 p-2 bg-primary/10 rounded-lg shrink-0">
+                      <Icon size={16} className="text-primary sm:hidden" />
+                      <Icon size={18} className="text-primary hidden sm:block" />
                     </div>
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-heading">{t.name}</h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs font-medium">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold text-heading text-sm sm:text-base leading-tight">
+                        {t.name}
+                      </h3>
+                      <div className="flex items-center flex-wrap gap-1.5 mt-1">
+                        <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-[11px] font-medium">
                           {CHANNEL_LABELS[t.channel]}
                         </span>
                         {t.subject && (
-                          <span className="text-xs text-subtle truncate">Тема: {t.subject}</span>
+                          <span className="text-[11px] text-subtle truncate max-w-[180px] sm:max-w-none">
+                            Тема: {t.subject}
+                          </span>
                         )}
                       </div>
-                      <p className="text-sm text-subtle mt-2 line-clamp-2 whitespace-pre-line">
+                      <p className="text-xs sm:text-sm text-subtle mt-2 line-clamp-2 whitespace-pre-line break-words">
                         {t.body}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 ml-4 shrink-0">
+                  <div className="flex items-center gap-0.5 shrink-0 -mr-1">
                     {canEdit && (
                       <button
                         onClick={() => openEdit(t)}
-                        className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
+                        aria-label="Редактировать"
+                        className="p-2 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
                       >
-                        <Pencil size={16} />
+                        <Pencil size={15} />
                       </button>
                     )}
                     {canDelete && (
                       <button
                         onClick={() => handleDelete(t.id)}
-                        className="p-1.5 rounded-lg text-subtle hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/15 transition-colors"
+                        aria-label="Удалить"
+                        className="p-2 rounded-lg text-subtle hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/15 transition-colors"
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={15} />
                       </button>
                     )}
                   </div>

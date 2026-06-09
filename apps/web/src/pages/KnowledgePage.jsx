@@ -14,6 +14,7 @@ import {
   Video,
   File,
   ImagePlus,
+  SlidersHorizontal,
 } from "lucide-react";
 
 const RichTextEditor = lazy(() => import("../components/RichTextEditor.jsx"));
@@ -51,6 +52,8 @@ export default function KnowledgePage() {
   const canCreate = hasPermission("knowledge_item", "create");
   const canEdit = hasPermission("knowledge_item", "edit");
   const canDelete = hasPermission("knowledge_item", "delete");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilters = (typeFilter ? 1 : 0) + (audienceFilter ? 1 : 0) + (tagFilter ? 1 : 0);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -103,8 +106,8 @@ export default function KnowledgePage() {
 
   return (
     <div className="relative">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-heading">
+      <div className="flex items-center justify-between mb-4 sm:mb-6 gap-3">
+        <h1 className="text-xl sm:text-2xl font-bold text-heading">
           {isClient ? "Материалы" : "База знаний"}
         </h1>
         {canCreate && (
@@ -113,7 +116,7 @@ export default function KnowledgePage() {
               setEditingItem(null);
               setShowModal(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white shadow-lg shadow-[#6567F1]/30 transition-all"
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white shadow-lg shadow-[#6567F1]/30 transition-all whitespace-nowrap"
           >
             <Plus size={16} />
             Добавить
@@ -122,50 +125,86 @@ export default function KnowledgePage() {
       </div>
 
       {/* Search + Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="relative flex-1">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
-          <input
-            type="text"
-            placeholder="Поиск по названию или описанию..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-          />
+      <div className="mb-4 sm:mb-6">
+        <div className="flex gap-2 mb-2 sm:mb-3">
+          <div className="relative flex-1">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
+            <input
+              type="text"
+              placeholder="Поиск..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((v) => !v)}
+            className={`sm:hidden inline-flex items-center gap-1.5 px-3 py-2.5 border rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+              filtersOpen || activeFilters > 0
+                ? "border-primary text-primary bg-primary/5"
+                : "border-line text-body"
+            }`}
+            aria-expanded={filtersOpen}
+          >
+            <SlidersHorizontal size={15} />
+            {activeFilters > 0 && (
+              <span className="bg-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+                {activeFilters}
+              </span>
+            )}
+          </button>
         </div>
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className="px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
+        <div
+          className={`${filtersOpen ? "grid" : "hidden"} sm:flex grid-cols-1 gap-2 sm:gap-3 sm:flex-row`}
         >
-          <option value="">Все типы</option>
-          <option value="ARTICLE">Статья</option>
-          <option value="VIDEO">Видео</option>
-          <option value="FILE">Файл</option>
-        </select>
-        {!isClient && (
           <select
-            value={audienceFilter}
-            onChange={(e) => setAudienceFilter(e.target.value)}
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
             className="px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
           >
-            <option value="">Вся аудитория</option>
-            <option value="STAFF">Сотрудники</option>
-            <option value="CLIENT">Клиенты</option>
+            <option value="">Все типы</option>
+            <option value="ARTICLE">Статья</option>
+            <option value="VIDEO">Видео</option>
+            <option value="FILE">Файл</option>
           </select>
-        )}
-        <select
-          value={tagFilter}
-          onChange={(e) => setTagFilter(e.target.value)}
-          className="px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
-        >
-          <option value="">Все теги</option>
-          {[...new Set([...PRESET_TAGS, ...allTags])].map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
+          {!isClient && (
+            <select
+              value={audienceFilter}
+              onChange={(e) => setAudienceFilter(e.target.value)}
+              className="px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
+            >
+              <option value="">Вся аудитория</option>
+              <option value="STAFF">Сотрудники</option>
+              <option value="CLIENT">Клиенты</option>
+            </select>
+          )}
+          <select
+            value={tagFilter}
+            onChange={(e) => setTagFilter(e.target.value)}
+            className="px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
+          >
+            <option value="">Все теги</option>
+            {[...new Set([...PRESET_TAGS, ...allTags])].map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+          {activeFilters > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setTypeFilter("");
+                setAudienceFilter("");
+                setTagFilter("");
+              }}
+              className="text-xs text-subtle hover:text-primary self-center sm:self-auto sm:px-2"
+            >
+              Сбросить
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Card Grid */}
@@ -181,7 +220,7 @@ export default function KnowledgePage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
             {items.map((item) => {
               const Icon = TYPE_ICONS[item.type] || FileText;
               const gradientColors = TYPE_COLORS[item.type] || TYPE_COLORS.ARTICLE;
@@ -193,7 +232,7 @@ export default function KnowledgePage() {
                 >
                   {/* Cover image or fallback */}
                   <div
-                    className={`h-40 relative overflow-hidden ${!item.coverImagePath ? `bg-gradient-to-br ${gradientColors}` : ""}`}
+                    className={`h-32 sm:h-40 relative overflow-hidden ${!item.coverImagePath ? `bg-gradient-to-br ${gradientColors}` : ""}`}
                   >
                     {item.coverImagePath ? (
                       <img

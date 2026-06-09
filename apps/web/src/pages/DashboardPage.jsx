@@ -5,12 +5,12 @@ import {
   Map,
   Users,
   UserCheck,
-  FileText,
   Plus,
   ArrowRight,
   TrendingUp,
   ClipboardList,
   Banknote,
+  FileSpreadsheet,
 } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -47,19 +47,25 @@ function textColor(pct) {
   return "text-red-600 dark:text-red-300";
 }
 
-function StatCard({ icon: Icon, label, value, color, to }) {
+function StatCard({ icon: Icon, label, value, color, to, wide }) {
   return (
     <Link
       to={to}
-      className="bg-surface rounded-2xl shadow-lg border border-line p-6 hover:shadow-xl transition-shadow"
+      className={`group bg-surface rounded-2xl shadow-lg border border-line p-4 sm:p-6 hover:shadow-xl hover:border-primary/30 transition-all ${
+        wide ? "col-span-2 sm:col-span-1" : ""
+      }`}
     >
-      <div className="flex items-center gap-4">
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
-          <Icon size={22} />
+      <div className="flex items-center gap-3 sm:gap-4">
+        <div
+          className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0 ${color}`}
+        >
+          <Icon className="size-[18px] sm:size-[22px]" />
         </div>
-        <div>
-          <p className="text-2xl font-bold text-heading">{value ?? "—"}</p>
-          <p className="text-sm text-subtle">{label}</p>
+        <div className="min-w-0 flex-1">
+          <p className="text-xl sm:text-2xl font-bold text-heading tabular-nums leading-tight truncate">
+            {value ?? "—"}
+          </p>
+          <p className="text-xs sm:text-sm text-subtle leading-tight mt-0.5 truncate">{label}</p>
         </div>
       </div>
     </Link>
@@ -68,12 +74,12 @@ function StatCard({ icon: Icon, label, value, color, to }) {
 
 function SkeletonCard() {
   return (
-    <div className="bg-surface rounded-2xl shadow-lg border border-line p-6 animate-pulse">
-      <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-xl bg-line" />
-        <div className="space-y-2">
-          <div className="h-6 w-16 bg-line rounded" />
-          <div className="h-4 w-24 bg-line rounded" />
+    <div className="bg-surface rounded-2xl shadow-lg border border-line p-4 sm:p-6 animate-pulse">
+      <div className="flex items-center gap-3 sm:gap-4">
+        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-line shrink-0" />
+        <div className="space-y-2 flex-1">
+          <div className="h-5 sm:h-6 w-16 bg-line rounded" />
+          <div className="h-3 sm:h-4 w-20 bg-line rounded" />
         </div>
       </div>
     </div>
@@ -122,10 +128,12 @@ export default function DashboardPage() {
   return (
     <>
       {/* Greeting */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-heading">Добро пожаловать, {user?.firstName}</h1>
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-bold text-heading leading-tight">
+          Добро пожаловать, {user?.firstName}
+        </h1>
         <div className="mt-2">
-          <span className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium">
+          <span className="inline-flex bg-primary/10 text-primary px-3 py-1 rounded-full text-xs sm:text-sm font-medium">
             {roleLabel}
           </span>
         </div>
@@ -139,7 +147,7 @@ export default function DashboardPage() {
       )}
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
         {loading ? (
           <>
             <SkeletonCard />
@@ -191,15 +199,9 @@ export default function DashboardPage() {
                 value={stats.monthlyRevenue.toLocaleString("ru-RU") + " ₽"}
                 color="bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
                 to="/organizations"
+                wide
               />
             )}
-            <StatCard
-              icon={FileText}
-              label="Документы"
-              value={stats.documents}
-              color="bg-purple-500/10 text-purple-500 dark:text-purple-400"
-              to="/organizations"
-            />
           </>
         ) : null}
       </div>
@@ -207,7 +209,7 @@ export default function DashboardPage() {
       {/* Completeness KPI — hidden for clients */}
       {!hasRole("client") &&
         (loading ? (
-          <div className="bg-surface rounded-2xl shadow-lg border border-line p-5 mb-8 animate-pulse">
+          <div className="bg-surface rounded-2xl shadow-lg border border-line p-4 sm:p-5 mb-6 sm:mb-8 animate-pulse">
             <div className="flex justify-between mb-3">
               <div className="h-4 w-48 bg-line rounded" />
               <div className="h-4 w-8 bg-line rounded" />
@@ -216,7 +218,7 @@ export default function DashboardPage() {
             <div className="h-3 w-40 bg-line rounded" />
           </div>
         ) : stats?.avgCompleteness != null ? (
-          <div className="bg-surface rounded-2xl shadow-lg border border-line p-5 mb-8">
+          <div className="bg-surface rounded-2xl shadow-lg border border-line p-4 sm:p-5 mb-6 sm:mb-8">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-sm font-semibold text-body">
                 Заполненность карточек организаций
@@ -241,20 +243,74 @@ export default function DashboardPage() {
           </div>
         ) : null)}
 
+      {/* Reporting progress — staff only (admin/supervisor/manager/accountant), via reporting:view */}
+      {!hasRole("client") &&
+        hasPermission("reporting", "view") &&
+        (loading ? (
+          <div className="bg-surface rounded-2xl shadow-lg border border-line p-4 sm:p-5 mb-6 sm:mb-8 animate-pulse">
+            <div className="flex justify-between mb-3">
+              <div className="h-4 w-48 bg-line rounded" />
+              <div className="h-4 w-12 bg-line rounded" />
+            </div>
+            <div className="h-3 bg-line rounded-full mb-2" />
+            <div className="h-3 w-40 bg-line rounded" />
+          </div>
+        ) : stats?.reportingProgress != null ? (
+          <Link
+            to="/reporting"
+            className="block bg-surface rounded-2xl shadow-lg border border-line p-4 sm:p-5 mb-6 sm:mb-8 hover:shadow-xl hover:border-primary/30 transition-all"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <FileSpreadsheet size={16} className="text-primary shrink-0" />
+                <h2 className="text-sm font-semibold text-body">Отчётность за прошедшие периоды</h2>
+              </div>
+              <span
+                className={`text-base sm:text-lg font-bold tabular-nums shrink-0 ${
+                  stats.reportingProgress.percent >= 90
+                    ? "text-emerald-600 dark:text-emerald-300"
+                    : stats.reportingProgress.percent >= 60
+                      ? "text-amber-600 dark:text-amber-300"
+                      : "text-red-600 dark:text-red-300"
+                }`}
+              >
+                {stats.reportingProgress.percent}%
+              </span>
+            </div>
+            <div className="h-2.5 bg-muted rounded-full overflow-hidden mb-2">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  stats.reportingProgress.percent >= 90
+                    ? "bg-emerald-500"
+                    : stats.reportingProgress.percent >= 60
+                      ? "bg-amber-400"
+                      : "bg-red-400"
+                }`}
+                style={{ width: `${stats.reportingProgress.percent}%` }}
+              />
+            </div>
+            <p className="text-xs text-subtle">
+              {stats.reportingProgress.total === 0
+                ? "Пока нет отчётов с прошедшим сроком сдачи"
+                : `${stats.reportingProgress.submitted} из ${stats.reportingProgress.total} отчётов сдано или принято`}
+            </p>
+          </Link>
+        ) : null)}
+
       {/* Task traffic light — visible to staff with task access */}
       {!hasRole("client") &&
         hasPermission("task", "view") &&
         (loading ? (
-          <div className="bg-surface rounded-2xl shadow-lg border border-line p-5 mb-8 animate-pulse">
+          <div className="bg-surface rounded-2xl shadow-lg border border-line p-4 sm:p-5 mb-6 sm:mb-8 animate-pulse">
             <div className="h-4 w-32 bg-line rounded mb-4" />
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
               <div className="h-16 bg-muted rounded-xl" />
               <div className="h-16 bg-muted rounded-xl" />
               <div className="h-16 bg-muted rounded-xl" />
             </div>
           </div>
         ) : stats?.tasks != null ? (
-          <div className="bg-surface rounded-2xl shadow-lg border border-line p-5 mb-8">
+          <div className="bg-surface rounded-2xl shadow-lg border border-line p-4 sm:p-5 mb-6 sm:mb-8">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <ClipboardList size={16} className="text-subtle" />
@@ -267,37 +323,38 @@ export default function DashboardPage() {
                 Все задачи <ArrowRight size={12} />
               </Link>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
               <Link
                 to="/tasks?status=OPEN&overdue=true"
-                className="flex flex-col items-center justify-center gap-1 p-3 rounded-xl bg-red-50 dark:bg-red-500/15 border border-red-100 dark:border-red-500/30 hover:bg-red-100 dark:hover:bg-red-500/15 transition-colors"
+                className="flex flex-col items-center justify-center gap-1 p-2.5 sm:p-3 rounded-xl bg-red-50 dark:bg-red-500/15 border border-red-100 dark:border-red-500/30 hover:bg-red-100 dark:hover:bg-red-500/15 transition-colors"
               >
-                <span className="text-2xl font-bold text-red-600 dark:text-red-300 tabular-nums">
+                <span className="text-xl sm:text-2xl font-bold text-red-600 dark:text-red-300 tabular-nums leading-none">
                   {stats.tasks.red}
                 </span>
-                <span className="text-xs text-red-500 dark:text-red-400 font-medium text-center leading-tight">
+                <span className="text-[11px] sm:text-xs text-red-500 dark:text-red-400 font-medium text-center leading-tight">
                   Просрочено
                 </span>
               </Link>
               <Link
                 to="/tasks?status=OPEN"
-                className="flex flex-col items-center justify-center gap-1 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/15 border border-amber-100 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-500/15 transition-colors"
+                className="flex flex-col items-center justify-center gap-1 p-2.5 sm:p-3 rounded-xl bg-amber-50 dark:bg-amber-500/15 border border-amber-100 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-500/15 transition-colors"
               >
-                <span className="text-2xl font-bold text-amber-600 dark:text-amber-300 tabular-nums">
+                <span className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-300 tabular-nums leading-none">
                   {stats.tasks.yellow}
                 </span>
-                <span className="text-xs text-amber-500 dark:text-amber-400 font-medium text-center leading-tight">
-                  Срочно (≤2 дня)
+                <span className="text-[11px] sm:text-xs text-amber-500 dark:text-amber-400 font-medium text-center leading-tight">
+                  <span className="sm:hidden">Срочно</span>
+                  <span className="hidden sm:inline">Срочно (≤2 дня)</span>
                 </span>
               </Link>
               <Link
                 to="/tasks"
-                className="flex flex-col items-center justify-center gap-1 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-100 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-500/15 transition-colors"
+                className="flex flex-col items-center justify-center gap-1 p-2.5 sm:p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-100 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-500/15 transition-colors"
               >
-                <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-300 tabular-nums">
+                <span className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-300 tabular-nums leading-none">
                   {stats.tasks.green}
                 </span>
-                <span className="text-xs text-emerald-500 dark:text-emerald-400 font-medium text-center leading-tight">
+                <span className="text-[11px] sm:text-xs text-emerald-500 dark:text-emerald-400 font-medium text-center leading-tight">
                   В норме
                 </span>
               </Link>
@@ -313,32 +370,32 @@ export default function DashboardPage() {
         hasPermission("section", "create") ||
         hasRole("manager") ||
         hasRole("accountant")) && (
-        <div className="flex flex-wrap gap-3 mb-8">
+        <div className="flex flex-wrap gap-2 sm:gap-3 mb-6 sm:mb-8">
           {(hasRole("manager") || hasRole("accountant")) && (
             <Link
               to="/my-payments"
-              className="inline-flex items-center gap-2 px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors flex-1 sm:flex-none min-w-0"
             >
-              <Banknote size={16} />
+              <Banknote size={16} className="shrink-0" />
               Оплаты
             </Link>
           )}
           {hasPermission("organization", "create") && (
             <Link
               to="/organizations"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all flex-1 sm:flex-none min-w-0"
             >
-              <Plus size={16} />
-              Новая организация
+              <Plus size={16} className="shrink-0" />
+              <span className="truncate">Новая организация</span>
             </Link>
           )}
           {hasPermission("section", "create") && (
             <Link
               to="/sections"
-              className="inline-flex items-center gap-2 px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors flex-1 sm:flex-none min-w-0"
             >
-              <Plus size={16} />
-              Новый участок
+              <Plus size={16} className="shrink-0" />
+              <span className="truncate">Новый участок</span>
             </Link>
           )}
         </div>
@@ -347,10 +404,43 @@ export default function DashboardPage() {
       {/* Recent organizations */}
       {!loading && stats?.recentOrganizations?.length > 0 && (
         <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden">
-          <div className="px-6 py-4 border-b border-line">
-            <h2 className="text-lg font-semibold text-heading">Последние организации</h2>
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-line">
+            <h2 className="text-base sm:text-lg font-semibold text-heading">
+              Последние организации
+            </h2>
           </div>
-          <table className="w-full text-sm">
+
+          {/* Mobile: card list */}
+          <ul className="sm:hidden divide-y divide-line">
+            {stats.recentOrganizations.map((org) => (
+              <li key={org.id}>
+                <Link
+                  to={`/organizations/${org.id}`}
+                  className="flex items-start justify-between gap-3 px-4 py-3 hover:bg-canvas/50 active:bg-canvas transition-colors"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-primary truncate">{org.name}</p>
+                    <div className="mt-1 flex items-center gap-2 text-xs text-subtle">
+                      {org.inn && <span className="tabular-nums">ИНН {org.inn}</span>}
+                      {org.section && (
+                        <span className="inline-flex items-center">
+                          <SectionIcon section={org.section} showNumber size={12} />
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <span
+                    className={`shrink-0 px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${STATUS_BADGE[org.status] || "bg-muted text-subtle"}`}
+                  >
+                    {STATUS_LABELS[org.status] || org.status}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+
+          {/* Desktop/tablet: table */}
+          <table className="hidden sm:table w-full text-sm">
             <thead>
               <tr className="border-b border-line bg-canvas/50">
                 <th className="text-left px-4 py-3 font-medium text-subtle">Название</th>
@@ -394,7 +484,7 @@ export default function DashboardPage() {
               ))}
             </tbody>
           </table>
-          <div className="px-6 py-3 border-t border-line">
+          <div className="px-4 sm:px-6 py-3 border-t border-line">
             <Link
               to="/organizations"
               className="text-sm text-primary hover:underline inline-flex items-center gap-1"

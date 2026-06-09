@@ -77,30 +77,68 @@ router.get("/", authenticate, async (req, res) => {
           lastName: true,
           isActive: true,
           lastSeenAt: true,
+          createdAt: true,
+          telegramBinding: { select: { id: true } },
           userRoles: { include: { role: { select: { name: true } } } },
           organizationMembers: {
-            include: {
-              organization: { select: { id: true, name: true } },
+            select: {
+              role: true,
+              organization: {
+                select: {
+                  id: true,
+                  name: true,
+                  status: true,
+                  debtAmount: true,
+                  monthlyPayment: true,
+                },
+              },
             },
           },
         },
       });
 
+      // Batch-fetch open ticket counts grouped by organization
+      const orgIds = users.flatMap((u) => u.organizationMembers.map((om) => om.organization.id));
+      const openByOrg = new Map<string, number>();
+      if (orgIds.length > 0) {
+        const grouped = await prisma.ticket.groupBy({
+          by: ["organizationId"],
+          where: {
+            organizationId: { in: orgIds },
+            status: { notIn: ["CLOSED"] },
+          },
+          _count: { _all: true },
+        });
+        for (const g of grouped) openByOrg.set(g.organizationId, g._count._all);
+      }
+
       res.json(
-        users.map((u) => ({
-          id: u.id,
-          email: u.email,
-          firstName: u.firstName,
-          lastName: u.lastName,
-          isActive: u.isActive,
-          lastSeenAt: u.lastSeenAt,
-          roles: u.userRoles.map((ur) => ur.role.name),
-          organizations: u.organizationMembers.map((om) => ({
+        users.map((u) => {
+          const orgs = u.organizationMembers.map((om) => ({
             id: om.organization.id,
             name: om.organization.name,
             role: om.role,
-          })),
-        })),
+            status: om.organization.status,
+            debtAmount: Number(om.organization.debtAmount ?? 0),
+            monthlyPayment: Number(om.organization.monthlyPayment ?? 0),
+            openTickets: openByOrg.get(om.organization.id) ?? 0,
+          }));
+          return {
+            id: u.id,
+            email: u.email,
+            firstName: u.firstName,
+            lastName: u.lastName,
+            isActive: u.isActive,
+            lastSeenAt: u.lastSeenAt,
+            createdAt: u.createdAt,
+            telegramConnected: !!u.telegramBinding,
+            roles: u.userRoles.map((ur) => ur.role.name),
+            organizations: orgs,
+            totalDebt: orgs.reduce((s, o) => s + (o.debtAmount > 0 ? o.debtAmount : 0), 0),
+            totalMonthlyPayment: orgs.reduce((s, o) => s + o.monthlyPayment, 0),
+            openTickets: orgs.reduce((s, o) => s + o.openTickets, 0),
+          };
+        }),
       );
     } else {
       const canSeeCompensation = isAdmin || req.user!.roles?.includes("supervisor") === true;

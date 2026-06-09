@@ -2,7 +2,19 @@ import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
-import { Search, Loader2, Pencil, Trash2, X, KeyRound } from "lucide-react";
+import {
+  Search,
+  Loader2,
+  Pencil,
+  Trash2,
+  X,
+  KeyRound,
+  AlertCircle,
+  MessageSquare,
+  Send,
+  Building2,
+  CalendarClock,
+} from "lucide-react";
 
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -22,6 +34,16 @@ function formatLastSeen(lastSeenAt) {
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days} дн. назад`;
   return new Date(lastSeenAt).toLocaleDateString("ru-RU");
+}
+
+function fmtMoney(n) {
+  if (n == null) return "—";
+  return Math.round(Number(n)).toLocaleString("ru-RU") + " ₽";
+}
+
+function fmtSince(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("ru-RU", { month: "short", year: "2-digit" });
 }
 
 export default function ClientsPage() {
@@ -74,12 +96,17 @@ export default function ClientsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-heading">Клиенты</h1>
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-heading">Клиенты</h1>
+        {clients.length > 0 && (
+          <span className="text-xs text-subtle bg-muted px-2 py-1 rounded-full">
+            {clients.length}
+          </span>
+        )}
       </div>
 
       {/* Search */}
-      <div className="relative mb-6">
+      <div className="relative mb-4 sm:mb-6">
         <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
         <input
           type="text"
@@ -90,106 +117,181 @@ export default function ClientsPage() {
         />
       </div>
 
-      {/* Table */}
-      <div className="bg-surface rounded-2xl shadow-lg border border-line overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center py-12 text-subtle">
-            <Loader2 size={24} className="animate-spin" />
+      {loading ? (
+        <div className="flex items-center justify-center py-12 text-subtle">
+          <Loader2 size={24} className="animate-spin" />
+        </div>
+      ) : clients.length === 0 ? (
+        <div className="text-center py-12 text-subtle text-sm">
+          {search ? "Ничего не найдено" : "Нет клиентов"}
+        </div>
+      ) : (
+        <>
+          {/* Mobile: card list */}
+          <div className="lg:hidden space-y-2.5">
+            {clients.map((c) => (
+              <ClientCard
+                key={c.id}
+                client={c}
+                isAdmin={isAdmin}
+                onEdit={() => setEditingClient(c)}
+                onDelete={() => handleDelete(c)}
+              />
+            ))}
           </div>
-        ) : clients.length === 0 ? (
-          <div className="text-center py-12 text-subtle text-sm">
-            {search ? "Ничего не найдено" : "Нет клиентов"}
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-line text-left text-subtle">
-                <th className="px-6 py-3 font-medium">Имя</th>
-                <th className="px-6 py-3 font-medium">Email</th>
-                <th className="px-6 py-3 font-medium">Организации</th>
-                <th className="px-6 py-3 font-medium">Статус</th>
-                {isAdmin && <th className="px-6 py-3 font-medium">Действия</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {clients.map((c) => (
-                <tr
-                  key={c.id}
-                  className={`border-b border-line hover:bg-canvas/50 ${!c.isActive ? "opacity-50" : ""}`}
-                >
-                  <td className="px-6 py-3 font-medium text-heading">
-                    {isAdmin ? (
-                      <Link to={`/users/${c.id}`} className="hover:text-primary transition-colors">
-                        {c.lastName} {c.firstName}
-                      </Link>
-                    ) : (
-                      <>
-                        {c.lastName} {c.firstName}
-                      </>
-                    )}
-                  </td>
-                  <td className="px-6 py-3 text-body">{c.email}</td>
-                  <td className="px-6 py-3">
-                    {c.organizations?.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {c.organizations.map((org) => (
-                          <Link
-                            key={org.id}
-                            to={`/organizations/${org.id}`}
-                            className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs font-medium hover:bg-primary/20 transition-colors"
-                          >
-                            {org.name}
-                          </Link>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-subtle">—</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-3">
-                    {c.isActive ? (
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`inline-block w-2 h-2 rounded-full ${isOnline(c.lastSeenAt) ? "bg-green-500" : "bg-slate-300"}`}
-                        />
-                        <span
-                          className={`text-xs font-medium ${isOnline(c.lastSeenAt) ? "text-green-600 dark:text-green-300" : "text-subtle"}`}
-                        >
-                          {formatLastSeen(c.lastSeenAt)}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-subtle bg-muted px-2 py-0.5 rounded-full text-xs font-medium">
-                        Неактивен
-                      </span>
-                    )}
-                  </td>
-                  {isAdmin && (
-                    <td className="px-6 py-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setEditingClient(c)}
-                          className="p-1.5 text-subtle hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
-                          title="Редактировать"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(c)}
-                          className="p-1.5 text-subtle hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/15 rounded-lg transition-colors"
-                          title={c.isActive ? "Деактивировать" : "Удалить навсегда"}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  )}
+
+          {/* Desktop: table */}
+          <div className="hidden lg:block bg-surface rounded-2xl shadow-lg border border-line overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-line text-left text-subtle bg-canvas/30">
+                  <th className="px-5 py-3 font-medium">Клиент</th>
+                  <th className="px-4 py-3 font-medium">Организации</th>
+                  <th className="px-4 py-3 font-medium text-right">Платёж / Долг</th>
+                  <th className="px-4 py-3 font-medium text-center" title="Открытые тикеты">
+                    <span className="inline-flex items-center gap-1">
+                      <MessageSquare size={13} />
+                      Тикеты
+                    </span>
+                  </th>
+                  <th className="px-4 py-3 font-medium">Был онлайн</th>
+                  <th className="px-4 py-3 font-medium">С нами</th>
+                  {isAdmin && <th className="px-4 py-3 font-medium w-20"></th>}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+              </thead>
+              <tbody>
+                {clients.map((c) => {
+                  const online = isOnline(c.lastSeenAt);
+                  const hasDebt = (c.totalDebt || 0) > 0;
+                  return (
+                    <tr
+                      key={c.id}
+                      className={`border-b border-line last:border-0 hover:bg-canvas/40 ${!c.isActive ? "opacity-50" : ""}`}
+                    >
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className={`w-2 h-2 rounded-full shrink-0 ${online ? "bg-emerald-500" : "bg-slate-300"}`}
+                            title={online ? "Онлайн" : "Не в сети"}
+                          />
+                          <div className="min-w-0">
+                            <div className="font-semibold text-heading leading-tight">
+                              {isAdmin ? (
+                                <Link
+                                  to={`/users/${c.id}`}
+                                  className="hover:text-primary transition-colors"
+                                >
+                                  {c.lastName} {c.firstName}
+                                </Link>
+                              ) : (
+                                `${c.lastName} ${c.firstName}`
+                              )}
+                            </div>
+                            <div className="text-xs text-subtle inline-flex items-center gap-1.5 mt-0.5">
+                              {c.email}
+                              {c.telegramConnected && (
+                                <span
+                                  className="inline-flex items-center text-sky-500"
+                                  title="Telegram подключён"
+                                >
+                                  <Send size={11} />
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {c.organizations?.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {c.organizations.map((org) => (
+                              <Link
+                                key={org.id}
+                                to={`/organizations/${org.id}`}
+                                className="inline-flex items-center gap-1 bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs font-medium hover:bg-primary/20 transition-colors"
+                              >
+                                {org.name}
+                              </Link>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-subtle">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">
+                        <div className="text-body">{fmtMoney(c.totalMonthlyPayment)}/мес</div>
+                        {hasDebt ? (
+                          <div className="inline-flex items-center gap-1 mt-0.5 text-xs font-bold text-red-600 dark:text-red-300">
+                            <AlertCircle size={11} />
+                            Долг {fmtMoney(c.totalDebt)}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-emerald-600 dark:text-emerald-300 mt-0.5">
+                            Без долга
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {c.openTickets > 0 ? (
+                          <span
+                            className={`inline-flex items-center justify-center min-w-6 h-6 px-2 rounded-full text-xs font-bold tabular-nums ${
+                              c.openTickets > 5
+                                ? "bg-red-500/15 text-red-600 dark:text-red-300"
+                                : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                            }`}
+                          >
+                            {c.openTickets}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-subtle">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {c.isActive ? (
+                          <span
+                            className={`text-xs font-medium ${online ? "text-emerald-600 dark:text-emerald-300" : "text-subtle"}`}
+                          >
+                            {formatLastSeen(c.lastSeenAt)}
+                          </span>
+                        ) : (
+                          <span className="text-subtle bg-muted px-2 py-0.5 rounded-full text-xs font-medium">
+                            Неактивен
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-subtle whitespace-nowrap">
+                        {fmtSince(c.createdAt)}
+                      </td>
+                      {isAdmin && (
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setEditingClient(c)}
+                              className="p-1.5 text-subtle hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
+                              title="Редактировать"
+                              aria-label="Редактировать"
+                            >
+                              <Pencil size={15} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(c)}
+                              className="p-1.5 text-subtle hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/15 rounded-lg transition-colors"
+                              title={c.isActive ? "Деактивировать" : "Удалить навсегда"}
+                              aria-label={c.isActive ? "Деактивировать" : "Удалить навсегда"}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       {editingClient && (
         <EditClientModal
@@ -201,6 +303,163 @@ export default function ClientsPage() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+function ClientCard({ client: c, isAdmin, onEdit, onDelete }) {
+  const online = isOnline(c.lastSeenAt);
+  const hasDebt = (c.totalDebt || 0) > 0;
+  return (
+    <div
+      className={`relative bg-surface border rounded-2xl p-3 overflow-hidden transition-colors ${
+        !c.isActive ? "opacity-55 border-line" : "border-line"
+      }`}
+    >
+      {/* Online accent */}
+      {c.isActive && (
+        <div
+          className="pointer-events-none absolute top-0 left-0 bottom-0 w-1"
+          style={{
+            background: online
+              ? "linear-gradient(180deg, #10b981 0%, #06b6d4 100%)"
+              : "linear-gradient(180deg, #cbd5e1 0%, #94a3b8 100%)",
+            boxShadow: online ? "0 0 12px 0 rgba(16,185,129,0.45)" : undefined,
+          }}
+        />
+      )}
+      {hasDebt && (
+        <div
+          className="pointer-events-none absolute -top-10 -right-10 w-32 h-32 rounded-full opacity-30 dark:opacity-25 blur-3xl"
+          style={{ background: "radial-gradient(circle, #ef4444 0%, transparent 70%)" }}
+        />
+      )}
+
+      <div className="relative pl-2">
+        {/* Top row: name + status */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`w-2 h-2 rounded-full shrink-0 ${online ? "bg-emerald-500" : "bg-slate-300"}`}
+              />
+              <div className="text-sm font-bold text-heading leading-tight truncate">
+                {isAdmin ? (
+                  <Link to={`/users/${c.id}`} className="hover:text-primary transition-colors">
+                    {c.lastName} {c.firstName}
+                  </Link>
+                ) : (
+                  `${c.lastName} ${c.firstName}`
+                )}
+              </div>
+            </div>
+            <div className="text-xs text-subtle mt-0.5 truncate inline-flex items-center gap-1.5">
+              {c.email}
+              {c.telegramConnected && (
+                <span className="inline-flex items-center text-sky-500" title="Telegram подключён">
+                  <Send size={11} />
+                </span>
+              )}
+            </div>
+          </div>
+          {!c.isActive && (
+            <span className="shrink-0 text-[10px] text-subtle bg-muted px-2 py-0.5 rounded-full font-medium">
+              Неактивен
+            </span>
+          )}
+        </div>
+
+        {/* Stats row */}
+        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+          <span
+            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-medium ${
+              online
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+                : "bg-muted text-subtle"
+            }`}
+          >
+            <CalendarClock size={10} />
+            {formatLastSeen(c.lastSeenAt)}
+          </span>
+          {c.openTickets > 0 && (
+            <span
+              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-bold ${
+                c.openTickets > 5
+                  ? "bg-red-500/15 text-red-600 dark:text-red-300"
+                  : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+              }`}
+            >
+              <MessageSquare size={10} />
+              {c.openTickets} тикет{c.openTickets === 1 ? "" : c.openTickets < 5 ? "а" : "ов"}
+            </span>
+          )}
+          {c.organizations?.length > 0 && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-canvas border border-line text-body">
+              <Building2 size={10} />
+              {c.organizations.length} орг.
+            </span>
+          )}
+          <span className="text-[11px] text-subtle ml-auto">с {fmtSince(c.createdAt)}</span>
+        </div>
+
+        {/* Organizations chips */}
+        {c.organizations?.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {c.organizations.map((org) => (
+              <Link
+                key={org.id}
+                to={`/organizations/${org.id}`}
+                className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-[11px] font-medium hover:bg-primary/20 transition-colors truncate max-w-[160px]"
+              >
+                {org.name}
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {/* Money row */}
+        <div className="flex items-baseline justify-between gap-2 mt-2 pt-2 border-t border-line/60">
+          <div className="text-xs text-subtle">
+            <span className="font-medium text-body tabular-nums">
+              {fmtMoney(c.totalMonthlyPayment)}
+            </span>{" "}
+            / мес
+          </div>
+          {hasDebt ? (
+            <div
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-bold text-red-600 dark:text-red-200 bg-red-500/10 tabular-nums"
+              style={{ boxShadow: "0 0 10px 0 rgba(239,68,68,0.35)" }}
+            >
+              <AlertCircle size={11} />
+              Долг {fmtMoney(c.totalDebt)}
+            </div>
+          ) : (
+            <div className="text-xs text-emerald-600 dark:text-emerald-300 font-medium">
+              ✓ Без долга
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        {isAdmin && (
+          <div className="flex items-center justify-end gap-1 mt-2 -mr-1">
+            <button
+              onClick={onEdit}
+              className="p-1.5 text-subtle hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
+              aria-label="Редактировать"
+            >
+              <Pencil size={14} />
+            </button>
+            <button
+              onClick={onDelete}
+              className="p-1.5 text-subtle hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/15 rounded-lg transition-colors"
+              aria-label={c.isActive ? "Деактивировать" : "Удалить навсегда"}
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
