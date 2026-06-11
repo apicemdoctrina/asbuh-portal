@@ -4,7 +4,6 @@ import {
   Plus,
   Pencil,
   Trash2,
-  X,
   Eye,
   EyeOff,
   Download,
@@ -19,6 +18,7 @@ import {
   FileText,
   CalendarClock,
 } from "lucide-react";
+import Modal from "./ui/Modal.jsx";
 
 const money = (n) =>
   Number(n).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -842,335 +842,317 @@ export default function BankAccountsCard({
       )}
 
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-md mx-4 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-heading">
-                {editingAccount
-                  ? `Редактировать счёт${bankName ? `: ${bankName}` : ""}`
-                  : "Новый банковский счёт"}
-              </h2>
-              <button onClick={() => setShowModal(false)} className="text-subtle hover:text-body">
-                <X size={20} />
+        <Modal
+          onClose={() => setShowModal(false)}
+          title={
+            editingAccount
+              ? `Редактировать счёт${bankName ? `: ${bankName}` : ""}`
+              : "Новый банковский счёт"
+          }
+          size="md"
+          footer={
+            <>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
+              >
+                Отмена
               </button>
-            </div>
-
-            <div className="flex flex-col gap-4">
-              {!editingAccount && (
-                <div>
-                  <label className="block text-sm font-medium text-body mb-2">Банк *</label>
-                  <div className="flex flex-wrap gap-2">
-                    {BANKS.map((b) => (
-                      <button
-                        key={b.name}
-                        type="button"
-                        onClick={() => {
-                          setBankName(b.name);
-                          setApiProvider(BANK_TO_PROVIDER[b.name] || "");
-                        }}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all ${
-                          bankName === b.name
-                            ? `${b.bg} ${b.text} border-current ring-2 ring-current/20`
-                            : `${b.bg} ${b.text} border-transparent opacity-60 hover:opacity-100`
-                        }`}
-                      >
-                        {b.name}
-                      </button>
-                    ))}
-                  </div>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
+              >
+                {submitting ? "Сохранение..." : "Сохранить"}
+              </button>
+            </>
+          }
+        >
+          <div className="flex flex-col gap-4">
+            {!editingAccount && (
+              <div>
+                <label className="block text-sm font-medium text-body mb-2">Банк *</label>
+                <div className="flex flex-wrap gap-2">
+                  {BANKS.map((b) => (
+                    <button
+                      key={b.name}
+                      type="button"
+                      onClick={() => {
+                        setBankName(b.name);
+                        setApiProvider(BANK_TO_PROVIDER[b.name] || "");
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all ${
+                        bankName === b.name
+                          ? `${b.bg} ${b.text} border-current ring-2 ring-current/20`
+                          : `${b.bg} ${b.text} border-transparent opacity-60 hover:opacity-100`
+                      }`}
+                    >
+                      {b.name}
+                    </button>
+                  ))}
                 </div>
-              )}
-              {showLogin && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-body mb-1">Логин</label>
-                    <input
-                      type="text"
-                      value={login}
-                      onChange={(e) => setLogin(e.target.value)}
-                      placeholder={editingAccount ? "Оставьте пустым, чтобы не менять" : ""}
-                      autoComplete="off"
-                      className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-body mb-1">Пароль</label>
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder={editingAccount ? "Оставьте пустым, чтобы не менять" : ""}
-                      autoComplete="new-password"
-                      className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                    />
-                  </div>
-                </>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-body mb-1">
-                  Номер счёта{" "}
-                  <span className="text-subtle font-normal">(20 цифр, нужен для API-выгрузки)</span>
-                </label>
-                <input
-                  type="text"
-                  value={accountNumber}
-                  onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, "").slice(0, 20))}
-                  inputMode="numeric"
-                  placeholder="40702810…"
-                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-body mb-1">Комментарий</label>
-                <input
-                  type="text"
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-body mb-1">
-                  Способ получения выписок
-                </label>
-                <select
-                  value={apiProvider}
-                  onChange={(e) => setApiProvider(e.target.value)}
-                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                >
-                  <option value="">Без подключения (ручная загрузка файлов)</option>
-                  {BANK_TO_PROVIDER[bankName] && (
-                    <option value={BANK_TO_PROVIDER[bankName]}>
-                      API {API_PROVIDER_LABELS[BANK_TO_PROVIDER[bankName]]} (автоматически)
-                    </option>
-                  )}
-                  <option value="email">Email (банк присылает выписки на общий ящик)</option>
-                </select>
-                {apiProvider === "email" && (
-                  <div className="mt-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 p-3 text-xs text-blue-900 dark:text-blue-200">
-                    В личном кабинете банка настройте автоотправку выписок в формате{" "}
-                    <strong>1C (1CClientBankExchange)</strong> на общий адрес, указанный
-                    администратором сервиса. Письма с вложениями будут разбираться автоматически
-                    каждые ~10 минут. Кнопка «Забрать выписку из банка» в этом режиме недоступна —
-                    банк присылает выписку сам.
-                  </div>
-                )}
-              </div>
-
-              {showLogin && apiProvider === "tochka" && (
-                <div className="border-t border-line pt-4">
-                  <label className="block text-sm font-medium text-body mb-1">
-                    Идентификатор счёта Точки (accountId)
-                  </label>
+            )}
+            {showLogin && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-body mb-1">Логин</label>
                   <input
                     type="text"
-                    value={apiAccountId}
-                    onChange={(e) => setApiAccountId(e.target.value)}
-                    placeholder="Если пусто — берётся номер счёта"
+                    value={login}
+                    onChange={(e) => setLogin(e.target.value)}
+                    placeholder={editingAccount ? "Оставьте пустым, чтобы не менять" : ""}
+                    autoComplete="off"
                     className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
-                  <p className="text-xs text-subtle mt-1">
-                    Подключение к API — через кнопку «Подключить» в карточке счёта.
-                  </p>
                 </div>
-              )}
-
-              {formError && (
-                <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
-                  {formError}
+                <div>
+                  <label className="block text-sm font-medium text-body mb-1">Пароль</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={editingAccount ? "Оставьте пустым, чтобы не менять" : ""}
+                    autoComplete="new-password"
+                    className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  />
                 </div>
-              )}
-
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={submitting}
-                  className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
-                >
-                  {submitting ? "Сохранение..." : "Сохранить"}
-                </button>
-              </div>
+              </>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-body mb-1">
+                Номер счёта{" "}
+                <span className="text-subtle font-normal">(20 цифр, нужен для API-выгрузки)</span>
+              </label>
+              <input
+                type="text"
+                value={accountNumber}
+                onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, "").slice(0, 20))}
+                inputMode="numeric"
+                placeholder="40702810…"
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
             </div>
-          </div>
-        </div>
-      )}
+            <div>
+              <label className="block text-sm font-medium text-body mb-1">Комментарий</label>
+              <input
+                type="text"
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+            </div>
 
-      {connectModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-md mx-4 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-heading">
-                Подключение: {connectModal.acc.bankName}
-              </h2>
-              <button
-                onClick={closeConnectModal}
-                className="text-subtle hover:text-body"
-                disabled={connectModal.busy}
+            <div>
+              <label className="block text-sm font-medium text-body mb-1">
+                Способ получения выписок
+              </label>
+              <select
+                value={apiProvider}
+                onChange={(e) => setApiProvider(e.target.value)}
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               >
-                <X size={20} />
-              </button>
+                <option value="">Без подключения (ручная загрузка файлов)</option>
+                {BANK_TO_PROVIDER[bankName] && (
+                  <option value={BANK_TO_PROVIDER[bankName]}>
+                    API {API_PROVIDER_LABELS[BANK_TO_PROVIDER[bankName]]} (автоматически)
+                  </option>
+                )}
+                <option value="email">Email (банк присылает выписки на общий ящик)</option>
+              </select>
+              {apiProvider === "email" && (
+                <div className="mt-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 p-3 text-xs text-blue-900 dark:text-blue-200">
+                  В личном кабинете банка настройте автоотправку выписок в формате{" "}
+                  <strong>1C (1CClientBankExchange)</strong> на общий адрес, указанный
+                  администратором сервиса. Письма с вложениями будут разбираться автоматически
+                  каждые ~10 минут. Кнопка «Забрать выписку из банка» в этом режиме недоступна —
+                  банк присылает выписку сам.
+                </div>
+              )}
             </div>
-            <div className="flex flex-col gap-4">
-              <div>
+
+            {showLogin && apiProvider === "tochka" && (
+              <div className="border-t border-line pt-4">
                 <label className="block text-sm font-medium text-body mb-1">
-                  Номер счёта <span className="text-subtle font-normal">(20 цифр)</span>
+                  Идентификатор счёта Точки (accountId)
                 </label>
                 <input
                   type="text"
-                  value={connectModal.accountNumber}
-                  onChange={(e) =>
-                    setConnectModal({
-                      ...connectModal,
-                      accountNumber: e.target.value.replace(/\D/g, "").slice(0, 20),
-                      error: "",
-                    })
-                  }
-                  inputMode="numeric"
-                  placeholder="40702810…"
-                  autoFocus
+                  value={apiAccountId}
+                  onChange={(e) => setApiAccountId(e.target.value)}
+                  placeholder="Если пусто — берётся номер счёта"
                   className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 />
                 <p className="text-xs text-subtle mt-1">
-                  Тот номер счёта, по которому ты подключаешь интеграцию. После
-                  &laquo;Подключить&raquo; откроется страница банка для подтверждения.
+                  Подключение к API — через кнопку «Подключить» в карточке счёта.
                 </p>
               </div>
-              {connectModal.error && (
-                <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm flex items-center gap-2">
-                  <AlertTriangle size={16} /> {connectModal.error}
-                </div>
-              )}
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={closeConnectModal}
-                  disabled={connectModal.busy}
-                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="button"
-                  onClick={submitConnectModal}
-                  disabled={connectModal.busy}
-                  className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50 inline-flex items-center gap-2"
-                >
-                  {connectModal.busy && <Loader2 size={16} className="animate-spin" />}
-                  Подключить
-                </button>
+            )}
+
+            {formError && (
+              <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
+                {formError}
               </div>
-            </div>
+            )}
           </div>
-        </div>
+        </Modal>
+      )}
+
+      {connectModal && (
+        <Modal
+          onClose={() => {
+            if (!connectModal.busy) closeConnectModal();
+          }}
+          title={`Подключение: ${connectModal.acc.bankName}`}
+          size="md"
+          footer={
+            <>
+              <button
+                type="button"
+                onClick={closeConnectModal}
+                disabled={connectModal.busy}
+                className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={submitConnectModal}
+                disabled={connectModal.busy}
+                className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50 inline-flex items-center gap-2"
+              >
+                {connectModal.busy && <Loader2 size={16} className="animate-spin" />}
+                Подключить
+              </button>
+            </>
+          }
+        >
+          <div className="flex flex-col gap-4">
+            <div>
+              <label className="block text-sm font-medium text-body mb-1">
+                Номер счёта <span className="text-subtle font-normal">(20 цифр)</span>
+              </label>
+              <input
+                type="text"
+                value={connectModal.accountNumber}
+                onChange={(e) =>
+                  setConnectModal({
+                    ...connectModal,
+                    accountNumber: e.target.value.replace(/\D/g, "").slice(0, 20),
+                    error: "",
+                  })
+                }
+                inputMode="numeric"
+                placeholder="40702810…"
+                autoFocus
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+              <p className="text-xs text-subtle mt-1">
+                Тот номер счёта, по которому ты подключаешь интеграцию. После
+                &laquo;Подключить&raquo; откроется страница банка для подтверждения.
+              </p>
+            </div>
+            {connectModal.error && (
+              <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm flex items-center gap-2">
+                <AlertTriangle size={16} /> {connectModal.error}
+              </div>
+            )}
+          </div>
+        </Modal>
       )}
 
       {fetchAccount && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-md mx-4 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-heading">
-                Выписка из банка: {fetchAccount.bankName}
-              </h2>
+        <Modal
+          onClose={() => {
+            if (!fetchBusy) closeFetch();
+          }}
+          title={`Выписка из банка: ${fetchAccount.bankName}`}
+          size="md"
+          footer={
+            <>
               <button
+                type="button"
                 onClick={closeFetch}
+                className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
                 disabled={fetchBusy}
-                className="text-subtle hover:text-body disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <X size={20} />
+                {fetchSaved ? "Закрыть" : "Отмена"}
               </button>
-            </div>
-
-            <div className="flex flex-col gap-4">
-              <div className="flex items-end gap-3">
-                <label className="text-xs text-subtle">
-                  С
-                  <input
-                    type="date"
-                    value={fetchStart}
-                    onChange={(e) => setFetchStart(e.target.value)}
-                    className="block mt-0.5 rounded-md border border-line bg-surface text-body text-sm px-2 py-1"
-                  />
-                </label>
-                <label className="text-xs text-subtle">
-                  По
-                  <input
-                    type="date"
-                    value={fetchEnd}
-                    onChange={(e) => setFetchEnd(e.target.value)}
-                    className="block mt-0.5 rounded-md border border-line bg-surface text-body text-sm px-2 py-1"
-                  />
-                </label>
-              </div>
-
-              {fetchError && (
-                <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm flex items-center gap-2">
-                  <AlertTriangle size={16} /> {fetchError}
-                </div>
-              )}
-
-              {fetchSaved && (
-                <div
-                  className={`p-3 rounded-lg text-sm border ${
-                    fetchSaved.docCount === 0
-                      ? "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30"
-                      : fetchSaved.status === "OK"
-                        ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30"
-                        : "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    {fetchSaved.docCount === 0 ? (
-                      <>
-                        <AlertTriangle size={16} /> Выписка сохранена, но операций за период нет.
-                      </>
-                    ) : fetchSaved.status === "OK" ? (
-                      <>
-                        <CheckCircle2 size={16} /> Сохранено {fetchSaved.docCount} операций, сверка
-                        сошлась.
-                      </>
-                    ) : (
-                      <>
-                        <AlertTriangle size={16} /> Сохранено {fetchSaved.docCount} операций,
-                        расхождение {money(fetchSaved.diff)} ₽.
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3">
+              {!fetchSaved && (
                 <button
                   type="button"
-                  onClick={closeFetch}
-                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
+                  onClick={runSave}
                   disabled={fetchBusy}
+                  className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50 inline-flex items-center gap-2"
                 >
-                  {fetchSaved ? "Закрыть" : "Отмена"}
+                  {fetchBusy && <Loader2 size={16} className="animate-spin" />}
+                  Сохранить файл
                 </button>
-                {!fetchSaved && (
-                  <button
-                    type="button"
-                    onClick={runSave}
-                    disabled={fetchBusy}
-                    className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50 inline-flex items-center gap-2"
-                  >
-                    {fetchBusy && <Loader2 size={16} className="animate-spin" />}
-                    Сохранить файл
-                  </button>
-                )}
-              </div>
+              )}
+            </>
+          }
+        >
+          <div className="flex flex-col gap-4">
+            <div className="flex items-end gap-3">
+              <label className="text-xs text-subtle">
+                С
+                <input
+                  type="date"
+                  value={fetchStart}
+                  onChange={(e) => setFetchStart(e.target.value)}
+                  className="block mt-0.5 rounded-md border border-line bg-surface text-body text-sm px-2 py-1"
+                />
+              </label>
+              <label className="text-xs text-subtle">
+                По
+                <input
+                  type="date"
+                  value={fetchEnd}
+                  onChange={(e) => setFetchEnd(e.target.value)}
+                  className="block mt-0.5 rounded-md border border-line bg-surface text-body text-sm px-2 py-1"
+                />
+              </label>
             </div>
+
+            {fetchError && (
+              <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm flex items-center gap-2">
+                <AlertTriangle size={16} /> {fetchError}
+              </div>
+            )}
+
+            {fetchSaved && (
+              <div
+                className={`p-3 rounded-lg text-sm border ${
+                  fetchSaved.docCount === 0
+                    ? "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30"
+                    : fetchSaved.status === "OK"
+                      ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30"
+                      : "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {fetchSaved.docCount === 0 ? (
+                    <>
+                      <AlertTriangle size={16} /> Выписка сохранена, но операций за период нет.
+                    </>
+                  ) : fetchSaved.status === "OK" ? (
+                    <>
+                      <CheckCircle2 size={16} /> Сохранено {fetchSaved.docCount} операций, сверка
+                      сошлась.
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle size={16} /> Сохранено {fetchSaved.docCount} операций,
+                      расхождение {money(fetchSaved.diff)} ₽.
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

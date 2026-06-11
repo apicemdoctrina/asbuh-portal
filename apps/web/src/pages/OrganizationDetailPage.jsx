@@ -25,6 +25,7 @@ import ContactsCard from "../components/ContactsCard.jsx";
 import DocumentsCard from "../components/DocumentsCard.jsx";
 import OrgCompletenessCard from "../components/OrgCompletenessCard.jsx";
 import OrgTransactionsCard from "../components/OrgTransactionsCard.jsx";
+import Modal from "../components/ui/Modal.jsx";
 
 const TAX_SYSTEM_LABELS = {
   USN6: "УСН 6%",
@@ -1399,150 +1400,146 @@ export default function OrganizationDetailPage() {
 
       {/* ── Invite Client Modal ── */}
       {showInvite && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-md mx-4 p-6">
-            <h2 className="text-lg font-bold text-heading mb-4">Пригласить клиента</h2>
-
-            {!inviteLink && !inviteError && (
-              <div>
-                <p className="text-sm text-subtle mb-4">
-                  Будет сгенерирована ссылка-приглашение для регистрации клиента в организации{" "}
-                  <span className="font-semibold text-heading">&laquo;{org.name}&raquo;</span>.
-                </p>
-                <label className="block text-sm font-medium text-body mb-1">
-                  Email клиента (необязательно)
-                </label>
-                <input
-                  type="email"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="client@example.com"
-                  className="w-full px-3 py-2 mb-2 border border-line rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                />
-                <p className="text-xs text-subtle mb-4">
-                  Если заполните — клиенту придёт приветственное письмо со ссылкой. Иначе только
-                  скопируете ссылку и отправите сами.
-                </p>
-                <button
-                  onClick={handleGenerateInvite}
-                  disabled={inviteLoading}
-                  className="w-full px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
-                >
-                  {inviteLoading
-                    ? "Генерация..."
-                    : inviteEmail.trim()
-                      ? "Сгенерировать и отправить"
-                      : "Сгенерировать ссылку"}
-                </button>
-              </div>
-            )}
-
-            {inviteLink && (
-              <div className="space-y-3">
-                {inviteEmailSent && (
-                  <div className="flex items-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 rounded-lg text-sm">
-                    <Check size={16} className="shrink-0" />
-                    <span>
-                      Приглашение отправлено на <strong>{inviteEmail.trim()}</strong>
-                    </span>
-                  </div>
-                )}
-                {inviteEmailWarning && (
-                  <div className="p-3 bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 rounded-lg text-sm">
-                    {inviteEmailWarning}
-                  </div>
-                )}
-                <p className="text-xs text-subtle">
-                  Ссылка-приглашение (можно скопировать и отправить вручную):
-                </p>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={inviteLink}
-                    className="w-full px-3 py-2 border border-line rounded-lg text-sm bg-canvas text-body"
-                  />
-                  <button
-                    onClick={handleCopyInvite}
-                    className="shrink-0 inline-flex items-center gap-1 px-3 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
-                  >
-                    {copied ? <Check size={16} /> : <Copy size={16} />}
-                    {copied ? "Скопировано" : "Копировать"}
-                  </button>
-                </div>
-                <p className="text-xs text-subtle">Действительна до: {inviteExpiry}</p>
-              </div>
-            )}
-
-            {inviteError && (
-              <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
-                {inviteError}
-              </div>
-            )}
-
-            <div className="flex justify-end mt-4">
+        <Modal
+          onClose={() => setShowInvite(false)}
+          title="Пригласить клиента"
+          size="md"
+          footer={
+            <button
+              onClick={() => setShowInvite(false)}
+              className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
+            >
+              Закрыть
+            </button>
+          }
+        >
+          {!inviteLink && !inviteError && (
+            <div>
+              <p className="text-sm text-subtle mb-4">
+                Будет сгенерирована ссылка-приглашение для регистрации клиента в организации{" "}
+                <span className="font-semibold text-heading">&laquo;{org.name}&raquo;</span>.
+              </p>
+              <label className="block text-sm font-medium text-body mb-1">
+                Email клиента (необязательно)
+              </label>
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="client@example.com"
+                className="w-full px-3 py-2 mb-2 border border-line rounded-lg text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+              />
+              <p className="text-xs text-subtle mb-4">
+                Если заполните — клиенту придёт приветственное письмо со ссылкой. Иначе только
+                скопируете ссылку и отправите сами.
+              </p>
               <button
-                onClick={() => setShowInvite(false)}
-                className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
+                onClick={handleGenerateInvite}
+                disabled={inviteLoading}
+                className="w-full px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
               >
-                Закрыть
+                {inviteLoading
+                  ? "Генерация..."
+                  : inviteEmail.trim()
+                    ? "Сгенерировать и отправить"
+                    : "Сгенерировать ссылку"}
               </button>
             </div>
-          </div>
-        </div>
+          )}
+
+          {inviteLink && (
+            <div className="space-y-3">
+              {inviteEmailSent && (
+                <div className="flex items-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 rounded-lg text-sm">
+                  <Check size={16} className="shrink-0" />
+                  <span>
+                    Приглашение отправлено на <strong>{inviteEmail.trim()}</strong>
+                  </span>
+                </div>
+              )}
+              {inviteEmailWarning && (
+                <div className="p-3 bg-amber-50 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 rounded-lg text-sm">
+                  {inviteEmailWarning}
+                </div>
+              )}
+              <p className="text-xs text-subtle">
+                Ссылка-приглашение (можно скопировать и отправить вручную):
+              </p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={inviteLink}
+                  className="w-full px-3 py-2 border border-line rounded-lg text-sm bg-canvas text-body"
+                />
+                <button
+                  onClick={handleCopyInvite}
+                  className="shrink-0 inline-flex items-center gap-1 px-3 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
+                >
+                  {copied ? <Check size={16} /> : <Copy size={16} />}
+                  {copied ? "Скопировано" : "Копировать"}
+                </button>
+              </div>
+              <p className="text-xs text-subtle">Действительна до: {inviteExpiry}</p>
+            </div>
+          )}
+
+          {inviteError && (
+            <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
+              {inviteError}
+            </div>
+          )}
+        </Modal>
       )}
 
       {/* ── Add Member Modal ── */}
       {showAddMember && hasRole("admin") && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-md mx-4 p-6">
-            <h2 className="text-lg font-bold text-heading mb-4">Добавить участника</h2>
-            <form onSubmit={handleAddMember} className="flex flex-col gap-4">
-              <div>
-                <label className="block text-sm font-medium text-body mb-1">Пользователь *</label>
-                <select
-                  value={selectedUser?.id || ""}
-                  onChange={(e) =>
-                    setSelectedUser(allUsers.find((u) => u.id === e.target.value) || null)
-                  }
-                  autoFocus
-                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
-                >
-                  <option value="">Выберите пользователя...</option>
-                  {allUsers.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.lastName} {u.firstName} — {u.email}
-                    </option>
-                  ))}
-                </select>
-                {allUsers.length === 0 && (
-                  <p className="text-xs text-subtle mt-1">Загрузка пользователей...</p>
-                )}
-              </div>
-              {memberError && (
-                <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
-                  {memberError}
-                </div>
+        <Modal onClose={() => setShowAddMember(false)} title="Добавить участника" size="md">
+          <form onSubmit={handleAddMember} className="flex flex-col gap-4">
+            <div>
+              <label className="block text-sm font-medium text-body mb-1">Пользователь *</label>
+              <select
+                value={selectedUser?.id || ""}
+                onChange={(e) =>
+                  setSelectedUser(allUsers.find((u) => u.id === e.target.value) || null)
+                }
+                autoFocus
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
+              >
+                <option value="">Выберите пользователя...</option>
+                {allUsers.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.lastName} {u.firstName} — {u.email}
+                  </option>
+                ))}
+              </select>
+              {allUsers.length === 0 && (
+                <p className="text-xs text-subtle mt-1">Загрузка пользователей...</p>
               )}
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowAddMember(false)}
-                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="submit"
-                  disabled={addingMember || !selectedUser}
-                  className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
-                >
-                  {addingMember ? "Добавление..." : "Добавить"}
-                </button>
+            </div>
+            {memberError && (
+              <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
+                {memberError}
               </div>
-            </form>
-          </div>
-        </div>
+            )}
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowAddMember(false)}
+                className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                type="submit"
+                disabled={addingMember || !selectedUser}
+                className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
+              >
+                {addingMember ? "Добавление..." : "Добавить"}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       {commentTask && (
@@ -1555,18 +1552,12 @@ export default function OrganizationDetailPage() {
 
       {/* ── Delete confirmation modal ── */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-surface rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4">
-            <h3 className="text-lg font-bold text-heading mb-2">Удалить организацию?</h3>
-            <p className="text-sm text-body mb-1">
-              Организация <span className="font-semibold">{org.name}</span> будет удалена
-              безвозвратно вместе со всеми данными: документами, банковскими счетами, контактами и
-              системными доступами.
-            </p>
-            <p className="text-sm text-red-600 dark:text-red-300 font-medium mb-5">
-              Это действие нельзя отменить.
-            </p>
-            <div className="flex items-center justify-end gap-2">
+        <Modal
+          onClose={() => !deleting && setShowDeleteConfirm(false)}
+          title="Удалить организацию?"
+          size="sm"
+          footer={
+            <>
               <button
                 onClick={() => setShowDeleteConfirm(false)}
                 disabled={deleting}
@@ -1600,9 +1591,18 @@ export default function OrganizationDetailPage() {
               >
                 {deleting ? "Удаление..." : "Удалить"}
               </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        >
+          <p className="text-sm text-body mb-1">
+            Организация <span className="font-semibold">{org.name}</span> будет удалена безвозвратно
+            вместе со всеми данными: документами, банковскими счетами, контактами и системными
+            доступами.
+          </p>
+          <p className="text-sm text-red-600 dark:text-red-300 font-medium mb-5">
+            Это действие нельзя отменить.
+          </p>
+        </Modal>
       )}
     </>
   );

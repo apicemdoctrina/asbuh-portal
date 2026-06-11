@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { api } from "../lib/api.js";
-import { X, Send, Mail, MessageCircle, Loader2 } from "lucide-react";
+import { Send, Mail, MessageCircle, Loader2 } from "lucide-react";
+import Modal from "./ui/Modal.jsx";
 
 const MONTHS = [
   "Январь",
@@ -118,119 +119,13 @@ export default function SendMessageModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-surface rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-line">
-          <h2 className="text-lg font-semibold text-heading">Отправить сообщение</h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
-          >
-            <X size={18} />
-          </button>
-        </div>
-        <div className="p-5 space-y-4">
-          {success && (
-            <div className="bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-300 px-4 py-3 rounded-lg text-sm font-medium">
-              Сообщение отправлено!
-            </div>
-          )}
-          {error && (
-            <div className="bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
-
-          {/* Template selector */}
-          <div>
-            <label className="block text-sm font-medium text-body mb-1">Шаблон</label>
-            <select
-              value={selectedTemplateId}
-              onChange={(e) => handleTemplateSelect(e.target.value)}
-              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-            >
-              <option value="">Без шаблона (произвольное сообщение)</option>
-              {templates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} ({t.channel === "EMAIL" ? "Email" : "Telegram"})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Channel */}
-          <div>
-            <label className="block text-sm font-medium text-body mb-1">Канал</label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setChannel("EMAIL")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border-2 transition-colors ${
-                  channel === "EMAIL"
-                    ? "border-primary bg-primary/5 text-primary"
-                    : "border-line text-body hover:border-line"
-                }`}
-              >
-                <Mail size={16} />
-                Email
-              </button>
-              <button
-                type="button"
-                onClick={() => setChannel("TELEGRAM")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border-2 transition-colors ${
-                  channel === "TELEGRAM"
-                    ? "border-primary bg-primary/5 text-primary"
-                    : "border-line text-body hover:border-line"
-                }`}
-              >
-                <MessageCircle size={16} />
-                Telegram
-              </button>
-            </div>
-          </div>
-
-          {/* Recipient */}
-          <div>
-            <label className="block text-sm font-medium text-body mb-1">
-              {channel === "EMAIL" ? "Email получателя" : "Telegram Chat ID"}
-            </label>
-            <input
-              type="text"
-              value={recipient}
-              onChange={(e) => setRecipient(e.target.value)}
-              placeholder={channel === "EMAIL" ? "client@example.com" : "123456789"}
-              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-            />
-          </div>
-
-          {/* Subject (email only) */}
-          {channel === "EMAIL" && (
-            <div>
-              <label className="block text-sm font-medium text-body mb-1">Тема</label>
-              <input
-                type="text"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="Запрос документов"
-                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-              />
-            </div>
-          )}
-
-          {/* Body */}
-          <div>
-            <label className="block text-sm font-medium text-body mb-1">Сообщение</label>
-            <textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              rows={6}
-              placeholder="Текст сообщения..."
-              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-y"
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center justify-end gap-3 p-5 border-t border-line">
+    <Modal
+      onClose={onClose}
+      title="Отправить сообщение"
+      size="lg"
+      bodyClassName="p-5 space-y-4"
+      footer={
+        <>
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-body hover:text-heading transition-colors"
@@ -245,8 +140,109 @@ export default function SendMessageModal({
             {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
             {sending ? "Отправка..." : "Отправить"}
           </button>
+        </>
+      }
+    >
+      <>
+        {success && (
+          <div className="bg-green-50 dark:bg-green-500/15 text-green-700 dark:text-green-300 px-4 py-3 rounded-lg text-sm font-medium">
+            Сообщение отправлено!
+          </div>
+        )}
+        {error && (
+          <div className="bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* Template selector */}
+        <div>
+          <label className="block text-sm font-medium text-body mb-1">Шаблон</label>
+          <select
+            value={selectedTemplateId}
+            onChange={(e) => handleTemplateSelect(e.target.value)}
+            className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          >
+            <option value="">Без шаблона (произвольное сообщение)</option>
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name} ({t.channel === "EMAIL" ? "Email" : "Telegram"})
+              </option>
+            ))}
+          </select>
         </div>
-      </div>
-    </div>
+
+        {/* Channel */}
+        <div>
+          <label className="block text-sm font-medium text-body mb-1">Канал</label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setChannel("EMAIL")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border-2 transition-colors ${
+                channel === "EMAIL"
+                  ? "border-primary bg-primary/5 text-primary"
+                  : "border-line text-body hover:border-line"
+              }`}
+            >
+              <Mail size={16} />
+              Email
+            </button>
+            <button
+              type="button"
+              onClick={() => setChannel("TELEGRAM")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border-2 transition-colors ${
+                channel === "TELEGRAM"
+                  ? "border-primary bg-primary/5 text-primary"
+                  : "border-line text-body hover:border-line"
+              }`}
+            >
+              <MessageCircle size={16} />
+              Telegram
+            </button>
+          </div>
+        </div>
+
+        {/* Recipient */}
+        <div>
+          <label className="block text-sm font-medium text-body mb-1">
+            {channel === "EMAIL" ? "Email получателя" : "Telegram Chat ID"}
+          </label>
+          <input
+            type="text"
+            value={recipient}
+            onChange={(e) => setRecipient(e.target.value)}
+            placeholder={channel === "EMAIL" ? "client@example.com" : "123456789"}
+            className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          />
+        </div>
+
+        {/* Subject (email only) */}
+        {channel === "EMAIL" && (
+          <div>
+            <label className="block text-sm font-medium text-body mb-1">Тема</label>
+            <input
+              type="text"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Запрос документов"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            />
+          </div>
+        )}
+
+        {/* Body */}
+        <div>
+          <label className="block text-sm font-medium text-body mb-1">Сообщение</label>
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={6}
+            placeholder="Текст сообщения..."
+            className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-y"
+          />
+        </div>
+      </>
+    </Modal>
   );
 }

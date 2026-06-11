@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useNavigate, useLocation } from "react-router";
-import { Bug, X, Loader2, Send, Camera, AlertCircle } from "lucide-react";
+import { Bug, Loader2, Send, Camera, AlertCircle } from "lucide-react";
 import { api } from "../lib/api.js";
+import Modal from "./ui/Modal.jsx";
 
 function pageTitle() {
   const h1 = document.querySelector("h1")?.textContent?.trim();
@@ -63,16 +64,6 @@ export default function BugReportButton() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const bodyRef = useRef(null);
-
-  // ESC закрывает модалку
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
 
   // На /support FAB прячем, чтобы не дублировать
   if (location.pathname.startsWith("/support")) return null;
@@ -178,16 +169,11 @@ export default function BugReportButton() {
       )}
 
       {open && (
-        <div
-          data-bug-report-skip="1"
-          className="fixed inset-0 z-[70] bg-black/50 flex items-center sm:items-center justify-center p-3 sm:p-6 overflow-y-auto"
-          onClick={() => !submitting && setOpen(false)}
-        >
-          <div
-            className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-lg my-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between p-4 sm:p-5 border-b border-line gap-3">
+        <div data-bug-report-skip="1">
+          <Modal
+            onClose={() => !submitting && setOpen(false)}
+            size="lg"
+            title={
               <div className="flex items-start gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shrink-0">
                   <Bug size={20} />
@@ -199,17 +185,10 @@ export default function BugReportButton() {
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => !submitting && setOpen(false)}
-                className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors shrink-0"
-                aria-label="Закрыть"
-                disabled={submitting}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={submit} className="p-4 sm:p-5 flex flex-col gap-3">
+            }
+            bodyClassName="p-4 sm:p-5"
+          >
+            <form onSubmit={submit} className="flex flex-col gap-3">
               <div>
                 <label className="block text-xs font-medium text-body mb-1">Тема</label>
                 <input
@@ -327,7 +306,7 @@ export default function BugReportButton() {
                 </button>
               </div>
             </form>
-          </div>
+          </Modal>
         </div>
       )}
     </>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "../lib/api.js";
-import { Plus, Pencil, Trash2, X, Eye, EyeOff } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
+import Modal from "./ui/Modal.jsx";
 
 const SYSTEM_TYPES = [
   {
@@ -246,111 +247,105 @@ export default function SystemAccessesCard({
       )}
 
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-md mx-4 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-heading">
-                {editingAccess ? "Редактировать доступ" : "Новый доступ"}
-              </h2>
-              <button onClick={() => setShowModal(false)} className="text-subtle hover:text-body">
-                <X size={20} />
+        <Modal
+          onClose={() => setShowModal(false)}
+          title={editingAccess ? "Редактировать доступ" : "Новый доступ"}
+          size="md"
+          footer={
+            <>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
+              >
+                Отмена
               </button>
-            </div>
-
-            <div className="flex flex-col gap-4">
-              <div>
-                <label className="block text-sm font-medium text-body mb-2">Система *</label>
-                <div className="flex gap-2">
-                  {SYSTEM_TYPES.map((t) => (
-                    <button
-                      key={t.value}
-                      type="button"
-                      onClick={() => setSystemType(t.value)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all ${
-                        systemType === t.value
-                          ? `${t.bg} ${t.text} border-current ring-2 ring-current/20`
-                          : `${t.bg} ${t.text} border-transparent opacity-60 hover:opacity-100`
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-body mb-1">
-                  Название <span className="text-subtle font-normal">(необязательно)</span>
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder='Например: "Основная касса"'
-                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-body mb-1">Логин</label>
-                <input
-                  type="text"
-                  value={login}
-                  onChange={(e) => setLogin(e.target.value)}
-                  placeholder={editingAccess ? "Оставьте пустым, чтобы не менять" : ""}
-                  autoComplete="off"
-                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-body mb-1">Пароль</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={editingAccess ? "Оставьте пустым, чтобы не менять" : ""}
-                  autoComplete="new-password"
-                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-body mb-1">Комментарий</label>
-                <input
-                  type="text"
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
-              </div>
-
-              {formError && (
-                <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
-                  {formError}
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={submitting}
-                  className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
-                >
-                  {submitting ? "Сохранение..." : "Сохранить"}
-                </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
+              >
+                {submitting ? "Сохранение..." : "Сохранить"}
+              </button>
+            </>
+          }
+        >
+          <div className="flex flex-col gap-4">
+            <div>
+              <label className="block text-sm font-medium text-body mb-2">Система *</label>
+              <div className="flex gap-2">
+                {SYSTEM_TYPES.map((t) => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => setSystemType(t.value)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all ${
+                      systemType === t.value
+                        ? `${t.bg} ${t.text} border-current ring-2 ring-current/20`
+                        : `${t.bg} ${t.text} border-transparent opacity-60 hover:opacity-100`
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
               </div>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-body mb-1">
+                Название <span className="text-subtle font-normal">(необязательно)</span>
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder='Например: "Основная касса"'
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-body mb-1">Логин</label>
+              <input
+                type="text"
+                value={login}
+                onChange={(e) => setLogin(e.target.value)}
+                placeholder={editingAccess ? "Оставьте пустым, чтобы не менять" : ""}
+                autoComplete="off"
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-body mb-1">Пароль</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={editingAccess ? "Оставьте пустым, чтобы не менять" : ""}
+                autoComplete="new-password"
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-body mb-1">Комментарий</label>
+              <input
+                type="text"
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+            </div>
+
+            {formError && (
+              <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
+                {formError}
+              </div>
+            )}
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

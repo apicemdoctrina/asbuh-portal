@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../lib/api.js";
-import { Plus, Pencil, Trash2, X, Phone, Mail, Send } from "lucide-react";
+import { Plus, Pencil, Trash2, Phone, Mail, Send } from "lucide-react";
+import Modal from "./ui/Modal.jsx";
 
 function normalizePhone(raw) {
   return raw.replace(/[^\d+]/g, "");
@@ -168,93 +169,85 @@ export default function ContactsCard({ organizationId, contacts, canEdit, onData
       )}
 
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-md mx-4 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-heading">
-                {editingContact ? "Редактировать контакт" : "Новый контакт"}
-              </h2>
-              <button onClick={() => setShowModal(false)} className="text-subtle hover:text-body">
-                <X size={20} />
+        <Modal
+          onClose={() => setShowModal(false)}
+          title={editingContact ? "Редактировать контакт" : "Новый контакт"}
+          size="md"
+          footer={
+            <>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
+              >
+                Отмена
               </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
+              >
+                {submitting ? "Сохранение..." : "Сохранить"}
+              </button>
+            </>
+          }
+        >
+          <div className="flex flex-col gap-4">
+            <div>
+              <label className="block text-sm font-medium text-body mb-1">Контактное лицо *</label>
+              <input
+                type="text"
+                value={contactPerson}
+                onChange={(e) => setContactPerson(e.target.value)}
+                autoFocus
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-body mb-1">Телефон</label>
+              <input
+                type="text"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-body mb-1">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-body mb-1">Telegram</label>
+              <input
+                type="text"
+                value={telegram}
+                onChange={(e) => setTelegram(e.target.value)}
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-body mb-1">Комментарий</label>
+              <input
+                type="text"
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
             </div>
 
-            <div className="flex flex-col gap-4">
-              <div>
-                <label className="block text-sm font-medium text-body mb-1">
-                  Контактное лицо *
-                </label>
-                <input
-                  type="text"
-                  value={contactPerson}
-                  onChange={(e) => setContactPerson(e.target.value)}
-                  autoFocus
-                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
+            {formError && (
+              <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
+                {formError}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-body mb-1">Телефон</label>
-                <input
-                  type="text"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-body mb-1">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-body mb-1">Telegram</label>
-                <input
-                  type="text"
-                  value={telegram}
-                  onChange={(e) => setTelegram(e.target.value)}
-                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-body mb-1">Комментарий</label>
-                <input
-                  type="text"
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
-              </div>
-
-              {formError && (
-                <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
-                  {formError}
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={submitting}
-                  className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
-                >
-                  {submitting ? "Сохранение..." : "Сохранить"}
-                </button>
-              </div>
-            </div>
+            )}
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

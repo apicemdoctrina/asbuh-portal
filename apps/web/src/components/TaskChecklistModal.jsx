@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "../lib/api.js";
-import { X, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
+import Modal from "./ui/Modal.jsx";
 
 export default function TaskChecklistModal({ task, onClose, onUpdate }) {
   const [items, setItems] = useState([]);
@@ -103,109 +104,18 @@ export default function TaskChecklistModal({ task, onClose, onUpdate }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-lg flex flex-col max-h-[80vh]">
-        {/* Header */}
-        <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-line">
-          <div className="min-w-0 pr-4">
-            <h2 className="text-base font-bold text-heading">Чек-лист</h2>
-            <p className="text-xs text-subtle mt-0.5 truncate">{task.title}</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="shrink-0 text-subtle hover:text-body transition-colors"
-          >
-            <X size={20} />
-          </button>
+    <Modal
+      onClose={onClose}
+      size="lg"
+      title={
+        <div className="min-w-0 pr-4">
+          <h2 className="text-base font-bold text-heading">Чек-лист</h2>
+          <p className="text-xs text-subtle mt-0.5 truncate">{task.title}</p>
         </div>
-
-        {/* Progress */}
-        {total > 0 && (
-          <div className="px-6 pt-4 pb-2">
-            <div className="flex items-center justify-between text-xs text-subtle mb-1.5">
-              <span>
-                {doneCount} из {total} выполнено
-              </span>
-              <span className="font-medium tabular-nums">{pct}%</span>
-            </div>
-            <div className="h-2 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-emerald-500 rounded-full transition-all duration-300"
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Items */}
-        <div className="flex-1 overflow-y-auto px-6 py-3 space-y-1 min-h-0">
-          {loading ? (
-            <p className="text-sm text-subtle py-4 text-center">Загрузка...</p>
-          ) : items.length === 0 ? (
-            <p className="text-sm text-subtle py-4 text-center">
-              Пока нет пунктов. Добавьте первый.
-            </p>
-          ) : (
-            items.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center gap-3 group py-1.5 rounded-lg hover:bg-canvas px-1 -mx-1"
-              >
-                <button
-                  onClick={() => handleToggle(item)}
-                  className={`w-5 h-5 shrink-0 rounded border-2 flex items-center justify-center transition-colors ${
-                    item.done
-                      ? "bg-emerald-500 border-emerald-500 text-white"
-                      : "border-line hover:border-primary"
-                  }`}
-                >
-                  {item.done && (
-                    <svg
-                      viewBox="0 0 10 8"
-                      className="w-3 h-3"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <polyline points="1,4 4,7 9,1" />
-                    </svg>
-                  )}
-                </button>
-                <span
-                  className={`flex-1 text-sm ${
-                    item.done ? "line-through text-subtle" : "text-body"
-                  }`}
-                >
-                  {item.text}
-                </span>
-                {item.dueDate && (
-                  <span
-                    className={`text-xs tabular-nums ${isOverdue(item) ? "text-red-500 dark:text-red-400 font-medium" : "text-subtle"}`}
-                  >
-                    {formatDate(item.dueDate)}
-                  </span>
-                )}
-                <input
-                  type="date"
-                  value={item.dueDate ? item.dueDate.slice(0, 10) : ""}
-                  onChange={(e) => handleDueDateChange(item, e.target.value)}
-                  onKeyDown={(e) => e.preventDefault()}
-                  className="opacity-0 group-hover:opacity-100 w-5 h-5 p-0 border-0 text-transparent cursor-pointer transition-all [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-datetime-edit]:hidden"
-                  title="Срок"
-                />
-                <button
-                  onClick={() => handleDelete(item)}
-                  className="opacity-0 group-hover:opacity-100 p-1 text-subtle hover:text-red-500 dark:hover:text-red-400 transition-all"
-                >
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Add input */}
-        <div className="px-6 pb-5 pt-3 border-t border-line flex gap-2">
+      }
+      bodyClassName="p-0"
+      footer={
+        <>
           <input
             ref={inputRef}
             type="text"
@@ -230,8 +140,89 @@ export default function TaskChecklistModal({ task, onClose, onUpdate }) {
           >
             <Plus size={15} />
           </button>
+        </>
+      }
+    >
+      {/* Progress */}
+      {total > 0 && (
+        <div className="px-6 pt-4 pb-2">
+          <div className="flex items-center justify-between text-xs text-subtle mb-1.5">
+            <span>
+              {doneCount} из {total} выполнено
+            </span>
+            <span className="font-medium tabular-nums">{pct}%</span>
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-emerald-500 rounded-full transition-all duration-300"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
         </div>
+      )}
+
+      {/* Items */}
+      <div className="px-6 py-3 space-y-1">
+        {loading ? (
+          <p className="text-sm text-subtle py-4 text-center">Загрузка...</p>
+        ) : items.length === 0 ? (
+          <p className="text-sm text-subtle py-4 text-center">Пока нет пунктов. Добавьте первый.</p>
+        ) : (
+          items.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-center gap-3 group py-1.5 rounded-lg hover:bg-canvas px-1 -mx-1"
+            >
+              <button
+                onClick={() => handleToggle(item)}
+                className={`w-5 h-5 shrink-0 rounded border-2 flex items-center justify-center transition-colors ${
+                  item.done
+                    ? "bg-emerald-500 border-emerald-500 text-white"
+                    : "border-line hover:border-primary"
+                }`}
+              >
+                {item.done && (
+                  <svg
+                    viewBox="0 0 10 8"
+                    className="w-3 h-3"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <polyline points="1,4 4,7 9,1" />
+                  </svg>
+                )}
+              </button>
+              <span
+                className={`flex-1 text-sm ${item.done ? "line-through text-subtle" : "text-body"}`}
+              >
+                {item.text}
+              </span>
+              {item.dueDate && (
+                <span
+                  className={`text-xs tabular-nums ${isOverdue(item) ? "text-red-500 dark:text-red-400 font-medium" : "text-subtle"}`}
+                >
+                  {formatDate(item.dueDate)}
+                </span>
+              )}
+              <input
+                type="date"
+                value={item.dueDate ? item.dueDate.slice(0, 10) : ""}
+                onChange={(e) => handleDueDateChange(item, e.target.value)}
+                onKeyDown={(e) => e.preventDefault()}
+                className="opacity-0 group-hover:opacity-100 w-5 h-5 p-0 border-0 text-transparent cursor-pointer transition-all [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-datetime-edit]:hidden"
+                title="Срок"
+              />
+              <button
+                onClick={() => handleDelete(item)}
+                className="opacity-0 group-hover:opacity-100 p-1 text-subtle hover:text-red-500 dark:hover:text-red-400 transition-all"
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          ))
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }

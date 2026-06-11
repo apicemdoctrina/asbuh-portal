@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from "react-router";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
 import { ArrowLeft, Pencil, Trash2, Building2, Loader2, X, User, KeyRound } from "lucide-react";
+import Modal from "../components/ui/Modal.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -402,189 +403,179 @@ function EditUserModal({ profile, isClient, isSelf, onClose, onUpdated }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-surface rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-heading">
-            Редактировать {isClient ? "клиента" : "сотрудника"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
-          >
-            <X size={20} />
-          </button>
+    <Modal
+      onClose={onClose}
+      title={`Редактировать ${isClient ? "клиента" : "сотрудника"}`}
+      size="md"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-body mb-1">Фамилия *</label>
+          <input
+            type="text"
+            value={form.lastName}
+            onChange={(e) => setField("lastName", e.target.value)}
+            className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-body mb-1">Имя *</label>
+          <input
+            type="text"
+            value={form.firstName}
+            onChange={(e) => setField("firstName", e.target.value)}
+            className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-body mb-1">Email *</label>
+          <input
+            type="email"
+            value={form.email}
+            onChange={(e) => setField("email", e.target.value)}
+            className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          />
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Salary — only for staff */}
+        {!isClient && (
           <div>
-            <label className="block text-sm font-medium text-body mb-1">Фамилия *</label>
+            <label className="block text-sm font-medium text-body mb-1">Зарплата (₽)</label>
             <input
-              type="text"
-              value={form.lastName}
-              onChange={(e) => setField("lastName", e.target.value)}
+              type="number"
+              min="0"
+              step="1"
+              value={form.salary}
+              onChange={(e) => setField("salary", e.target.value)}
+              placeholder="Не указана"
               className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
+        )}
+
+        {/* Role picker — only for staff */}
+        {!isClient && (
           <div>
-            <label className="block text-sm font-medium text-body mb-1">Имя *</label>
-            <input
-              type="text"
-              value={form.firstName}
-              onChange={(e) => setField("firstName", e.target.value)}
-              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-body mb-1">Email *</label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => setField("email", e.target.value)}
-              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-            />
-          </div>
-
-          {/* Salary — only for staff */}
-          {!isClient && (
-            <div>
-              <label className="block text-sm font-medium text-body mb-1">Зарплата (₽)</label>
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={form.salary}
-                onChange={(e) => setField("salary", e.target.value)}
-                placeholder="Не указана"
-                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-              />
-            </div>
-          )}
-
-          {/* Role picker — only for staff */}
-          {!isClient && (
-            <div>
-              <label className="block text-sm font-medium text-body mb-2">Роль</label>
-              <div className="flex flex-wrap gap-3">
-                {ASSIGNABLE_ROLES.map((r) => (
-                  <label
-                    key={r}
-                    className={`flex items-center gap-2 ${rolesDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                  >
-                    <input
-                      type="radio"
-                      name="editRole"
-                      checked={form.role === r}
-                      onChange={() => setField("role", r)}
-                      disabled={rolesDisabled}
-                      className="w-4 h-4 border-line text-primary focus:ring-primary/30"
-                    />
-                    <span className="text-sm text-body">{ROLE_LABELS[r]}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Active toggle — not for self or other admins */}
-          {!isSelf && !targetIsAdmin && (
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.isActive}
-                onChange={(e) => setField("isActive", e.target.checked)}
-                className="w-4 h-4 rounded border-line text-primary focus:ring-primary/30"
-              />
-              <span className="text-sm font-medium text-body">Активен</span>
-            </label>
-          )}
-
-          {error && (
-            <div className="text-sm text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-500/15 px-3 py-2 rounded-lg">
-              {error}
-            </div>
-          )}
-
-          {/* Password reset block */}
-          <div className="border-t border-line pt-4">
-            {!showPasswordBlock ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setShowPasswordBlock(true);
-                  setPasswordSuccess(false);
-                }}
-                className="flex items-center gap-2 text-sm text-subtle hover:text-primary transition-colors"
-              >
-                <KeyRound size={14} />
-                Сменить пароль
-              </button>
-            ) : (
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-body">Новый пароль</label>
-                <div className="flex gap-2">
+            <label className="block text-sm font-medium text-body mb-2">Роль</label>
+            <div className="flex flex-wrap gap-3">
+              {ASSIGNABLE_ROLES.map((r) => (
+                <label
+                  key={r}
+                  className={`flex items-center gap-2 ${rolesDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                >
                   <input
-                    type="text"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Минимум 8 символов"
-                    className="flex-1 px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    type="radio"
+                    name="editRole"
+                    checked={form.role === r}
+                    onChange={() => setField("role", r)}
+                    disabled={rolesDisabled}
+                    className="w-4 h-4 border-line text-primary focus:ring-primary/30"
                   />
-                  <button
-                    type="button"
-                    onClick={handleSetPassword}
-                    disabled={passwordSubmitting}
-                    className="px-3 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white shadow-lg shadow-[#6567F1]/30 transition-all disabled:opacity-50"
-                  >
-                    {passwordSubmitting ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      "Сохранить"
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowPasswordBlock(false);
-                      setNewPassword("");
-                      setPasswordError("");
-                    }}
-                    className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-                {passwordError && (
-                  <div className="text-sm text-red-600 dark:text-red-300">{passwordError}</div>
-                )}
-              </div>
-            )}
-            {passwordSuccess && (
-              <div className="text-sm text-green-600 dark:text-green-300 mt-1">
-                Пароль успешно изменён
-              </div>
-            )}
+                  <span className="text-sm text-body">{ROLE_LABELS[r]}</span>
+                </label>
+              ))}
+            </div>
           </div>
+        )}
 
-          <div className="flex justify-end gap-3 pt-2">
+        {/* Active toggle — not for self or other admins */}
+        {!isSelf && !targetIsAdmin && (
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.isActive}
+              onChange={(e) => setField("isActive", e.target.checked)}
+              className="w-4 h-4 rounded border-line text-primary focus:ring-primary/30"
+            />
+            <span className="text-sm font-medium text-body">Активен</span>
+          </label>
+        )}
+
+        {error && (
+          <div className="text-sm text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-500/15 px-3 py-2 rounded-lg">
+            {error}
+          </div>
+        )}
+
+        {/* Password reset block */}
+        <div className="border-t border-line pt-4">
+          {!showPasswordBlock ? (
             <button
               type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-body hover:text-heading transition-colors"
+              onClick={() => {
+                setShowPasswordBlock(true);
+                setPasswordSuccess(false);
+              }}
+              className="flex items-center gap-2 text-sm text-subtle hover:text-primary transition-colors"
             >
-              Отмена
+              <KeyRound size={14} />
+              Сменить пароль
             </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white shadow-lg shadow-[#6567F1]/30 transition-all disabled:opacity-50"
-            >
-              {submitting && <Loader2 size={14} className="animate-spin" />}
-              Сохранить
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          ) : (
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-body">Новый пароль</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Минимум 8 символов"
+                  className="flex-1 px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                />
+                <button
+                  type="button"
+                  onClick={handleSetPassword}
+                  disabled={passwordSubmitting}
+                  className="px-3 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white shadow-lg shadow-[#6567F1]/30 transition-all disabled:opacity-50"
+                >
+                  {passwordSubmitting ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    "Сохранить"
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPasswordBlock(false);
+                    setNewPassword("");
+                    setPasswordError("");
+                  }}
+                  className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              {passwordError && (
+                <div className="text-sm text-red-600 dark:text-red-300">{passwordError}</div>
+              )}
+            </div>
+          )}
+          {passwordSuccess && (
+            <div className="text-sm text-green-600 dark:text-green-300 mt-1">
+              Пароль успешно изменён
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-body hover:text-heading transition-colors"
+          >
+            Отмена
+          </button>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white shadow-lg shadow-[#6567F1]/30 transition-all disabled:opacity-50"
+          >
+            {submitting && <Loader2 size={14} className="animate-spin" />}
+            Сохранить
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }

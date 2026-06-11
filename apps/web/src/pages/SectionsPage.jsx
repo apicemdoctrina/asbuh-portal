@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { Plus, Search, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import SectionIcon from "../components/SectionIcon.jsx";
 import AnimalPicker from "../components/AnimalPicker.jsx";
+import Modal from "../components/ui/Modal.jsx";
 
 export default function SectionsPage() {
   const { hasPermission } = useAuth();
@@ -186,65 +187,70 @@ export default function SectionsPage() {
 
       {/* Create Modal */}
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-md mx-4 p-6">
-            <h2 className="text-lg font-bold text-heading mb-4">Новый участок</h2>
-            <form onSubmit={handleCreate} className="flex flex-col gap-4">
-              <div>
-                <label className="block text-sm font-medium text-body mb-1">Номер участка *</label>
-                <input
-                  type="number"
-                  required
-                  value={createNumber}
-                  onChange={(e) => setCreateNumber(e.target.value)}
-                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
+        <Modal
+          onClose={() => {
+            setShowCreate(false);
+            setCreateError("");
+            setCreateAnimal("");
+          }}
+          title="Новый участок"
+          size="md"
+        >
+          <form onSubmit={handleCreate} className="flex flex-col gap-4">
+            <div>
+              <label className="block text-sm font-medium text-body mb-1">Номер участка *</label>
+              <input
+                type="number"
+                required
+                value={createNumber}
+                onChange={(e) => setCreateNumber(e.target.value)}
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-body mb-1">Название</label>
+              <input
+                type="text"
+                value={createName}
+                onChange={(e) => setCreateName(e.target.value)}
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-body mb-2">Иконка</label>
+              <AnimalPicker
+                value={createAnimal}
+                onChange={setCreateAnimal}
+                usedAnimals={sections.filter((s) => s.animal).map((s) => s.animal)}
+              />
+            </div>
+            {createError && (
+              <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
+                {createError}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-body mb-1">Название</label>
-                <input
-                  type="text"
-                  value={createName}
-                  onChange={(e) => setCreateName(e.target.value)}
-                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-body mb-2">Иконка</label>
-                <AnimalPicker
-                  value={createAnimal}
-                  onChange={setCreateAnimal}
-                  usedAnimals={sections.filter((s) => s.animal).map((s) => s.animal)}
-                />
-              </div>
-              {createError && (
-                <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
-                  {createError}
-                </div>
-              )}
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCreate(false);
-                    setCreateError("");
-                    setCreateAnimal("");
-                  }}
-                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
-                >
-                  {creating ? "Создание..." : "Создать"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            )}
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreate(false);
+                  setCreateError("");
+                  setCreateAnimal("");
+                }}
+                className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                type="submit"
+                disabled={creating}
+                className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
+              >
+                {creating ? "Создание..." : "Создать"}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
     </>
   );

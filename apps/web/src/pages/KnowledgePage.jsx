@@ -17,6 +17,8 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 
+import Modal from "../components/ui/Modal.jsx";
+
 const RichTextEditor = lazy(() => import("../components/RichTextEditor.jsx"));
 
 const TYPE_LABELS = { ARTICLE: "Статья", VIDEO: "Видео", FILE: "Файл" };
@@ -459,220 +461,201 @@ function KnowledgeModal({ item, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-surface rounded-2xl shadow-xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-heading">
-            {isEdit ? "Редактировать" : "Новый материал"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
-          >
-            <X size={20} />
-          </button>
+    <Modal onClose={onClose} title={isEdit ? "Редактировать" : "Новый материал"} size="2xl">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Title */}
+        <div>
+          <label className="block text-sm font-medium text-body mb-1">Название *</label>
+          <input
+            type="text"
+            value={form.title}
+            onChange={(e) => setField("title", e.target.value)}
+            className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          />
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Title */}
+        {/* Type + Audience */}
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-body mb-1">Название *</label>
+            <label className="block text-sm font-medium text-body mb-1">Тип *</label>
+            <select
+              value={form.type}
+              onChange={(e) => setField("type", e.target.value)}
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
+            >
+              <option value="ARTICLE">Статья</option>
+              <option value="VIDEO">Видео</option>
+              <option value="FILE">Файл</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-body mb-1">Аудитория *</label>
+            <select
+              value={form.audience}
+              onChange={(e) => setField("audience", e.target.value)}
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
+            >
+              <option value="STAFF">Сотрудники</option>
+              <option value="CLIENT">Клиенты</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Cover image */}
+        <div>
+          <label className="block text-sm font-medium text-body mb-1">Обложка</label>
+          {coverPreview && (
+            <div className="relative mb-2 rounded-lg overflow-hidden h-32">
+              <img src={coverPreview} alt="" className="w-full h-full object-cover" />
+              <button
+                type="button"
+                onClick={() => {
+                  setCoverImage(null);
+                  setCoverPreview(null);
+                }}
+                className="absolute top-2 right-2 p-1 bg-black/50 rounded-full text-white hover:bg-black/70"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+          {!coverPreview && (
+            <label className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-line rounded-lg cursor-pointer hover:border-primary/30 hover:bg-primary/5 transition-colors">
+              <ImagePlus size={18} className="text-subtle" />
+              <span className="text-sm text-subtle">Загрузить обложку</span>
+              <input type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />
+            </label>
+          )}
+        </div>
+
+        {/* Tags */}
+        <div>
+          <label className="block text-sm font-medium text-body mb-1">Теги</label>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {PRESET_TAGS.filter((t) => !form.tags.includes(t)).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => addTag(t)}
+                className="px-2.5 py-1 rounded-full text-xs font-medium border border-line text-subtle hover:border-primary hover:text-primary transition-colors"
+              >
+                + {t}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {form.tags.map((t) => (
+              <span
+                key={t}
+                className="inline-flex items-center gap-1 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-medium"
+              >
+                {t}
+                <button
+                  type="button"
+                  onClick={() => removeTag(t)}
+                  className="hover:text-red-500 dark:hover:text-red-400"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            ))}
+          </div>
+          <input
+            type="text"
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyDown={handleTagKeyDown}
+            placeholder="Свой тег (Enter для добавления)"
+            className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          />
+        </div>
+
+        {/* Description (short, for all types) */}
+        <div>
+          <label className="block text-sm font-medium text-body mb-1">Краткое описание</label>
+          <textarea
+            value={form.description}
+            onChange={(e) => setField("description", e.target.value)}
+            rows={2}
+            placeholder="Отображается на карточке..."
+            className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
+          />
+        </div>
+
+        {/* Rich text editor for ARTICLE */}
+        {form.type === "ARTICLE" && (
+          <div>
+            <label className="block text-sm font-medium text-body mb-1">Текст статьи</label>
+            <Suspense
+              fallback={
+                <div className="h-52 border border-line rounded-lg flex items-center justify-center text-subtle">
+                  <Loader2 size={20} className="animate-spin" />
+                </div>
+              }
+            >
+              <RichTextEditor
+                content={form.content}
+                onChange={(html) => setField("content", html)}
+              />
+            </Suspense>
+          </div>
+        )}
+
+        {/* URL for VIDEO */}
+        {form.type === "VIDEO" && (
+          <div>
+            <label className="block text-sm font-medium text-body mb-1">Ссылка на видео *</label>
             <input
-              type="text"
-              value={form.title}
-              onChange={(e) => setField("title", e.target.value)}
+              type="url"
+              value={form.url}
+              onChange={(e) => setField("url", e.target.value)}
+              placeholder="https://youtube.com/..."
               className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
+        )}
 
-          {/* Type + Audience */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-body mb-1">Тип *</label>
-              <select
-                value={form.type}
-                onChange={(e) => setField("type", e.target.value)}
-                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
-              >
-                <option value="ARTICLE">Статья</option>
-                <option value="VIDEO">Видео</option>
-                <option value="FILE">Файл</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-body mb-1">Аудитория *</label>
-              <select
-                value={form.audience}
-                onChange={(e) => setField("audience", e.target.value)}
-                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface"
-              >
-                <option value="STAFF">Сотрудники</option>
-                <option value="CLIENT">Клиенты</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Cover image */}
+        {/* File upload for FILE */}
+        {form.type === "FILE" && (
           <div>
-            <label className="block text-sm font-medium text-body mb-1">Обложка</label>
-            {coverPreview && (
-              <div className="relative mb-2 rounded-lg overflow-hidden h-32">
-                <img src={coverPreview} alt="" className="w-full h-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCoverImage(null);
-                    setCoverPreview(null);
-                  }}
-                  className="absolute top-2 right-2 p-1 bg-black/50 rounded-full text-white hover:bg-black/70"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            )}
-            {!coverPreview && (
-              <label className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-line rounded-lg cursor-pointer hover:border-primary/30 hover:bg-primary/5 transition-colors">
-                <ImagePlus size={18} className="text-subtle" />
-                <span className="text-sm text-subtle">Загрузить обложку</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleCoverChange}
-                />
-              </label>
-            )}
-          </div>
-
-          {/* Tags */}
-          <div>
-            <label className="block text-sm font-medium text-body mb-1">Теги</label>
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {PRESET_TAGS.filter((t) => !form.tags.includes(t)).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => addTag(t)}
-                  className="px-2.5 py-1 rounded-full text-xs font-medium border border-line text-subtle hover:border-primary hover:text-primary transition-colors"
-                >
-                  + {t}
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {form.tags.map((t) => (
-                <span
-                  key={t}
-                  className="inline-flex items-center gap-1 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-medium"
-                >
-                  {t}
-                  <button
-                    type="button"
-                    onClick={() => removeTag(t)}
-                    className="hover:text-red-500 dark:hover:text-red-400"
-                  >
-                    <X size={12} />
-                  </button>
-                </span>
-              ))}
-            </div>
+            <label className="block text-sm font-medium text-body mb-1">
+              Файл {!isEdit && "*"}
+            </label>
             <input
-              type="text"
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={handleTagKeyDown}
-              placeholder="Свой тег (Enter для добавления)"
-              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              type="file"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              className="w-full text-sm text-body file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
             />
+            {isEdit && item?.originalName && !file && (
+              <p className="mt-1 text-xs text-subtle">Текущий файл: {item.originalName}</p>
+            )}
           </div>
+        )}
 
-          {/* Description (short, for all types) */}
-          <div>
-            <label className="block text-sm font-medium text-body mb-1">Краткое описание</label>
-            <textarea
-              value={form.description}
-              onChange={(e) => setField("description", e.target.value)}
-              rows={2}
-              placeholder="Отображается на карточке..."
-              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
-            />
+        {error && (
+          <div className="text-sm text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-500/15 px-3 py-2 rounded-lg">
+            {error}
           </div>
+        )}
 
-          {/* Rich text editor for ARTICLE */}
-          {form.type === "ARTICLE" && (
-            <div>
-              <label className="block text-sm font-medium text-body mb-1">Текст статьи</label>
-              <Suspense
-                fallback={
-                  <div className="h-52 border border-line rounded-lg flex items-center justify-center text-subtle">
-                    <Loader2 size={20} className="animate-spin" />
-                  </div>
-                }
-              >
-                <RichTextEditor
-                  content={form.content}
-                  onChange={(html) => setField("content", html)}
-                />
-              </Suspense>
-            </div>
-          )}
-
-          {/* URL for VIDEO */}
-          {form.type === "VIDEO" && (
-            <div>
-              <label className="block text-sm font-medium text-body mb-1">Ссылка на видео *</label>
-              <input
-                type="url"
-                value={form.url}
-                onChange={(e) => setField("url", e.target.value)}
-                placeholder="https://youtube.com/..."
-                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-              />
-            </div>
-          )}
-
-          {/* File upload for FILE */}
-          {form.type === "FILE" && (
-            <div>
-              <label className="block text-sm font-medium text-body mb-1">
-                Файл {!isEdit && "*"}
-              </label>
-              <input
-                type="file"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-                className="w-full text-sm text-body file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-              />
-              {isEdit && item?.originalName && !file && (
-                <p className="mt-1 text-xs text-subtle">Текущий файл: {item.originalName}</p>
-              )}
-            </div>
-          )}
-
-          {error && (
-            <div className="text-sm text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-500/15 px-3 py-2 rounded-lg">
-              {error}
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-body hover:text-heading transition-colors"
-            >
-              Отмена
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white shadow-lg shadow-[#6567F1]/30 transition-all disabled:opacity-50"
-            >
-              {submitting && <Loader2 size={14} className="animate-spin" />}
-              {isEdit ? "Сохранить" : "Создать"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="flex justify-end gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-body hover:text-heading transition-colors"
+          >
+            Отмена
+          </button>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white shadow-lg shadow-[#6567F1]/30 transition-all disabled:opacity-50"
+          >
+            {submitting && <Loader2 size={14} className="animate-spin" />}
+            {isEdit ? "Сохранить" : "Создать"}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }

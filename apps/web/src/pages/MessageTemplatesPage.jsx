@@ -1,17 +1,8 @@
 import { useState, useEffect } from "react";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
-import {
-  Plus,
-  Pencil,
-  Trash2,
-  X,
-  Save,
-  Mail,
-  MessageCircle,
-  Loader2,
-  FileText,
-} from "lucide-react";
+import { Plus, Pencil, Trash2, Save, Mail, MessageCircle, Loader2, FileText } from "lucide-react";
+import Modal from "../components/ui/Modal.jsx";
 
 const CHANNEL_LABELS = { EMAIL: "Email", TELEGRAM: "Telegram" };
 const CHANNEL_ICONS = { EMAIL: Mail, TELEGRAM: MessageCircle };
@@ -201,81 +192,13 @@ export default function MessageTemplatesPage() {
 
       {/* Create/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-surface rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-5 border-b border-line">
-              <h2 className="text-lg font-semibold text-heading">
-                {editing ? "Редактировать шаблон" : "Новый шаблон"}
-              </h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-body mb-1">Название</label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Запрос документов"
-                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-body mb-1">Канал</label>
-                <select
-                  value={form.channel}
-                  onChange={(e) => setForm({ ...form, channel: e.target.value })}
-                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                >
-                  <option value="EMAIL">Email</option>
-                  <option value="TELEGRAM">Telegram</option>
-                </select>
-              </div>
-              {form.channel === "EMAIL" && (
-                <div>
-                  <label className="block text-sm font-medium text-body mb-1">Тема письма</label>
-                  <input
-                    type="text"
-                    value={form.subject}
-                    onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                    placeholder="Запрос документов — {{orgName}}"
-                    className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                  />
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-body mb-1">Текст сообщения</label>
-                <textarea
-                  value={form.body}
-                  onChange={(e) => setForm({ ...form, body: e.target.value })}
-                  rows={6}
-                  placeholder="Здравствуйте, {{contactPerson}}!&#10;&#10;Просим предоставить документы..."
-                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-y"
-                />
-              </div>
-              <div className="bg-canvas rounded-lg p-3">
-                <p className="text-xs font-medium text-subtle mb-1.5">Доступные переменные:</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {PLACEHOLDER_HELP.map((p) => (
-                    <button
-                      key={p.key}
-                      type="button"
-                      onClick={() => setForm({ ...form, body: form.body + `{{${p.key}}}` })}
-                      className="text-xs bg-surface border border-line px-2 py-1 rounded-md hover:bg-primary/5 hover:border-primary/20 transition-colors"
-                      title={p.desc}
-                    >
-                      {`{{${p.key}}}`}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-3 p-5 border-t border-line">
+        <Modal
+          onClose={() => setShowModal(false)}
+          title={editing ? "Редактировать шаблон" : "Новый шаблон"}
+          size="lg"
+          bodyClassName="p-5 space-y-4"
+          footer={
+            <>
               <button
                 onClick={() => setShowModal(false)}
                 className="px-4 py-2 text-sm font-medium text-body hover:text-heading transition-colors"
@@ -290,9 +213,69 @@ export default function MessageTemplatesPage() {
                 <Save size={16} />
                 {saving ? "Сохранение..." : "Сохранить"}
               </button>
+            </>
+          }
+        >
+          <div>
+            <label className="block text-sm font-medium text-body mb-1">Название</label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="Запрос документов"
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-body mb-1">Канал</label>
+            <select
+              value={form.channel}
+              onChange={(e) => setForm({ ...form, channel: e.target.value })}
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            >
+              <option value="EMAIL">Email</option>
+              <option value="TELEGRAM">Telegram</option>
+            </select>
+          </div>
+          {form.channel === "EMAIL" && (
+            <div>
+              <label className="block text-sm font-medium text-body mb-1">Тема письма</label>
+              <input
+                type="text"
+                value={form.subject}
+                onChange={(e) => setForm({ ...form, subject: e.target.value })}
+                placeholder="Запрос документов — {{orgName}}"
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-body mb-1">Текст сообщения</label>
+            <textarea
+              value={form.body}
+              onChange={(e) => setForm({ ...form, body: e.target.value })}
+              rows={6}
+              placeholder="Здравствуйте, {{contactPerson}}!&#10;&#10;Просим предоставить документы..."
+              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-y"
+            />
+          </div>
+          <div className="bg-canvas rounded-lg p-3">
+            <p className="text-xs font-medium text-subtle mb-1.5">Доступные переменные:</p>
+            <div className="flex flex-wrap gap-1.5">
+              {PLACEHOLDER_HELP.map((p) => (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => setForm({ ...form, body: form.body + `{{${p.key}}}` })}
+                  className="text-xs bg-surface border border-line px-2 py-1 rounded-md hover:bg-primary/5 hover:border-primary/20 transition-colors"
+                  title={p.desc}
+                >
+                  {`{{${p.key}}}`}
+                </button>
+              ))}
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

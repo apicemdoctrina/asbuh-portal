@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { ArrowLeft, Save, UserPlus, Trash2, Search, Loader2 } from "lucide-react";
 import SectionIcon from "../components/SectionIcon.jsx";
 import AnimalPicker from "../components/AnimalPicker.jsx";
+import Modal from "../components/ui/Modal.jsx";
 
 export default function SectionDetailPage() {
   const { id } = useParams();
@@ -355,146 +356,143 @@ export default function SectionDetailPage() {
 
       {/* Add Member Modal */}
       {showAddMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-surface rounded-2xl shadow-2xl border border-line w-full max-w-md mx-4 p-6">
-            <h2 className="text-lg font-bold text-heading mb-4">Добавить участника</h2>
-            <form onSubmit={handleAddMember} className="flex flex-col gap-4">
-              {/* User picker */}
-              <div>
-                <label className="block text-sm font-medium text-body mb-1">Сотрудник *</label>
-                <div className="relative mb-1">
-                  <Search
-                    size={15}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle"
-                  />
-                  <input
-                    type="text"
-                    value={memberSearch}
-                    onChange={(e) => setMemberSearch(e.target.value)}
-                    placeholder="Фильтр по имени или email..."
-                    autoFocus
-                    className="w-full pl-9 pr-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                  />
-                </div>
-                <div className="border border-line rounded-lg overflow-hidden h-48 overflow-y-auto">
-                  {loadingUsers ? (
-                    <div className="flex items-center justify-center h-full text-subtle">
-                      <Loader2 size={18} className="animate-spin" />
-                    </div>
-                  ) : allUsers.length === 0 ? (
-                    <div className="flex items-center justify-center h-full text-sm text-subtle">
-                      Все сотрудники уже добавлены
-                    </div>
-                  ) : (
-                    (() => {
-                      const q = memberSearch.toLowerCase();
-                      const filtered = allUsers.filter(
-                        (u) =>
-                          !q ||
-                          `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) ||
-                          u.email.toLowerCase().includes(q),
-                      );
-                      return filtered.length === 0 ? (
-                        <div className="flex items-center justify-center h-full text-sm text-subtle">
-                          Не найдено
-                        </div>
-                      ) : (
-                        filtered.map((u) => (
-                          <button
-                            key={u.id}
-                            type="button"
-                            onClick={() => setSelectedUser(selectedUser?.id === u.id ? null : u)}
-                            className={`w-full text-left px-3 py-2.5 text-sm transition-colors border-b border-line last:border-0 ${
-                              selectedUser?.id === u.id
-                                ? "bg-primary/10 text-primary font-medium"
-                                : "hover:bg-canvas text-body"
-                            }`}
-                          >
-                            <div className="font-medium">
-                              {u.lastName} {u.firstName}
-                            </div>
-                            <div className="text-xs text-subtle">{u.email}</div>
-                          </button>
-                        ))
-                      );
-                    })()
-                  )}
-                </div>
+        <Modal onClose={() => setShowAddMember(false)} title="Добавить участника" size="md">
+          <form onSubmit={handleAddMember} className="flex flex-col gap-4">
+            {/* User picker */}
+            <div>
+              <label className="block text-sm font-medium text-body mb-1">Сотрудник *</label>
+              <div className="relative mb-1">
+                <Search
+                  size={15}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle"
+                />
+                <input
+                  type="text"
+                  value={memberSearch}
+                  onChange={(e) => setMemberSearch(e.target.value)}
+                  placeholder="Фильтр по имени или email..."
+                  autoFocus
+                  className="w-full pl-9 pr-4 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-body mb-1">Роль *</label>
-                <select
-                  value={memberRole}
-                  onChange={(e) => setMemberRole(e.target.value)}
-                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                >
-                  <option value="accountant">Бухгалтер</option>
-                  <option value="auditor">Аудитор</option>
-                </select>
-              </div>
-
-              <div className="border-t border-line pt-3">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={memberIsTemporary}
-                    onChange={(e) => setMemberIsTemporary(e.target.checked)}
-                    className="w-4 h-4 rounded border-line text-primary focus:ring-primary/30"
-                  />
-                  <span className="text-sm font-medium text-body">Временное назначение</span>
-                </label>
-                {memberIsTemporary && (
-                  <div className="mt-3 space-y-3 pl-6">
-                    <div>
-                      <label className="block text-sm font-medium text-body mb-1">
-                        Действует до *
-                      </label>
-                      <input
-                        type="date"
-                        value={memberExpiresAt}
-                        onChange={(e) => setMemberExpiresAt(e.target.value)}
-                        min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
-                        className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-body mb-1">Причина</label>
-                      <input
-                        type="text"
-                        value={memberReason}
-                        onChange={(e) => setMemberReason(e.target.value)}
-                        placeholder="Замена, отпуск и т.д."
-                        className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                      />
-                    </div>
+              <div className="border border-line rounded-lg overflow-hidden h-48 overflow-y-auto">
+                {loadingUsers ? (
+                  <div className="flex items-center justify-center h-full text-subtle">
+                    <Loader2 size={18} className="animate-spin" />
                   </div>
+                ) : allUsers.length === 0 ? (
+                  <div className="flex items-center justify-center h-full text-sm text-subtle">
+                    Все сотрудники уже добавлены
+                  </div>
+                ) : (
+                  (() => {
+                    const q = memberSearch.toLowerCase();
+                    const filtered = allUsers.filter(
+                      (u) =>
+                        !q ||
+                        `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) ||
+                        u.email.toLowerCase().includes(q),
+                    );
+                    return filtered.length === 0 ? (
+                      <div className="flex items-center justify-center h-full text-sm text-subtle">
+                        Не найдено
+                      </div>
+                    ) : (
+                      filtered.map((u) => (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onClick={() => setSelectedUser(selectedUser?.id === u.id ? null : u)}
+                          className={`w-full text-left px-3 py-2.5 text-sm transition-colors border-b border-line last:border-0 ${
+                            selectedUser?.id === u.id
+                              ? "bg-primary/10 text-primary font-medium"
+                              : "hover:bg-canvas text-body"
+                          }`}
+                        >
+                          <div className="font-medium">
+                            {u.lastName} {u.firstName}
+                          </div>
+                          <div className="text-xs text-subtle">{u.email}</div>
+                        </button>
+                      ))
+                    );
+                  })()
                 )}
               </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-body mb-1">Роль *</label>
+              <select
+                value={memberRole}
+                onChange={(e) => setMemberRole(e.target.value)}
+                className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              >
+                <option value="accountant">Бухгалтер</option>
+                <option value="auditor">Аудитор</option>
+              </select>
+            </div>
 
-              {memberError && (
-                <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
-                  {memberError}
+            <div className="border-t border-line pt-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={memberIsTemporary}
+                  onChange={(e) => setMemberIsTemporary(e.target.checked)}
+                  className="w-4 h-4 rounded border-line text-primary focus:ring-primary/30"
+                />
+                <span className="text-sm font-medium text-body">Временное назначение</span>
+              </label>
+              {memberIsTemporary && (
+                <div className="mt-3 space-y-3 pl-6">
+                  <div>
+                    <label className="block text-sm font-medium text-body mb-1">
+                      Действует до *
+                    </label>
+                    <input
+                      type="date"
+                      value={memberExpiresAt}
+                      onChange={(e) => setMemberExpiresAt(e.target.value)}
+                      min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                      className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-body mb-1">Причина</label>
+                    <input
+                      type="text"
+                      value={memberReason}
+                      onChange={(e) => setMemberReason(e.target.value)}
+                      placeholder="Замена, отпуск и т.д."
+                      className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    />
+                  </div>
                 </div>
               )}
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowAddMember(false)}
-                  className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="submit"
-                  disabled={addingMember || !selectedUser}
-                  className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
-                >
-                  {addingMember ? "Добавление..." : "Добавить"}
-                </button>
+            </div>
+
+            {memberError && (
+              <div className="p-3 bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300 rounded-lg text-sm">
+                {memberError}
               </div>
-            </form>
-          </div>
-        </div>
+            )}
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowAddMember(false)}
+                className="px-4 py-2 border-2 border-primary/20 text-primary hover:bg-primary/5 rounded-lg text-sm font-medium transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                type="submit"
+                disabled={addingMember || !selectedUser}
+                className="px-4 py-2 bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white rounded-lg shadow-lg shadow-[#6567F1]/30 text-sm font-medium transition-all disabled:opacity-50"
+              >
+                {addingMember ? "Добавление..." : "Добавить"}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
     </>
   );

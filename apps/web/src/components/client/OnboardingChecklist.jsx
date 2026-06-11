@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { Check, MessageCircle, Users, BookOpen, X, Mail, Phone, Send } from "lucide-react";
+import { Check, MessageCircle, Users, BookOpen, Mail, Phone, Send } from "lucide-react";
 import { Link } from "react-router";
 import { api } from "../../lib/api.js";
+import Modal from "../ui/Modal.jsx";
 
 export default function OnboardingChecklist() {
   const [data, setData] = useState(null);
@@ -154,49 +155,30 @@ export default function OnboardingChecklist() {
 
 function ManagersModal({ managers, onClose }) {
   return (
-    <div
-      className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-surface rounded-2xl shadow-xl border border-line max-w-lg w-full max-h-[80vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between p-5 border-b border-line">
-          <h3 className="text-lg font-semibold text-heading">Ваша команда ASBUH</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="p-5 space-y-3">
-          {managers.length === 0 ? (
-            <p className="text-sm text-subtle text-center py-4">
-              Команда пока не назначена. Свяжитесь с поддержкой:{" "}
-              <a href="mailto:info@asbuh.com" className="text-primary font-medium">
-                info@asbuh.com
-              </a>
-            </p>
-          ) : (
-            managers.map((m) => <ManagerCard key={m.id} m={m} />)
-          )}
-        </div>
-
-        <div className="p-5 pt-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white text-sm font-semibold shadow-lg shadow-[#6567F1]/30 transition-all"
-          >
-            Понятно
-          </button>
-        </div>
+    <Modal onClose={onClose} title="Ваша команда ASBUH" size="lg" bodyClassName="">
+      <div className="p-5 space-y-3">
+        {managers.length === 0 ? (
+          <p className="text-sm text-subtle text-center py-4">
+            Команда пока не назначена. Свяжитесь с поддержкой:{" "}
+            <a href="mailto:info@asbuh.com" className="text-primary font-medium">
+              info@asbuh.com
+            </a>
+          </p>
+        ) : (
+          managers.map((m) => <ManagerCard key={m.id} m={m} />)
+        )}
       </div>
-    </div>
+
+      <div className="p-5 pt-0">
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white text-sm font-semibold shadow-lg shadow-[#6567F1]/30 transition-all"
+        >
+          Понятно
+        </button>
+      </div>
+    </Modal>
   );
 }
 

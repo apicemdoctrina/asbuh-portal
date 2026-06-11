@@ -2,7 +2,8 @@ import { useState, useCallback } from "react";
 import { useDebouncedEffect } from "../hooks/useDebouncedEffect.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
-import { Search, Plus, X, Loader2, Pencil, Trash2, Phone, Briefcase } from "lucide-react";
+import { Search, Plus, Loader2, Pencil, Trash2, Phone, Briefcase } from "lucide-react";
+import Modal from "../components/ui/Modal.jsx";
 
 function normalizePhone(raw) {
   return raw.replace(/[^\d+]/g, "");
@@ -308,83 +309,69 @@ function ContactModal({ contact, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-surface rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-heading">
-            {isEdit ? "Редактировать контакт" : "Новый контакт"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
-          >
-            <X size={20} />
-          </button>
+    <Modal onClose={onClose} title={isEdit ? "Редактировать контакт" : "Новый контакт"} size="md">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-body mb-1">Имя *</label>
+          <input
+            type="text"
+            value={form.name}
+            onChange={(e) => setField("name", e.target.value)}
+            className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-body mb-1">Должность</label>
+          <input
+            type="text"
+            value={form.position}
+            onChange={(e) => setField("position", e.target.value)}
+            className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-body mb-1">Телефон</label>
+          <input
+            type="text"
+            value={form.phone}
+            onChange={(e) => setField("phone", e.target.value)}
+            className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-body mb-1">Комментарий</label>
+          <textarea
+            value={form.comment}
+            onChange={(e) => setField("comment", e.target.value)}
+            rows={3}
+            className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
+          />
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-body mb-1">Имя *</label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => setField("name", e.target.value)}
-              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-            />
+        {error && (
+          <div className="text-sm text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-500/15 px-3 py-2 rounded-lg">
+            {error}
           </div>
-          <div>
-            <label className="block text-sm font-medium text-body mb-1">Должность</label>
-            <input
-              type="text"
-              value={form.position}
-              onChange={(e) => setField("position", e.target.value)}
-              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-body mb-1">Телефон</label>
-            <input
-              type="text"
-              value={form.phone}
-              onChange={(e) => setField("phone", e.target.value)}
-              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-body mb-1">Комментарий</label>
-            <textarea
-              value={form.comment}
-              onChange={(e) => setField("comment", e.target.value)}
-              rows={3}
-              className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
-            />
-          </div>
+        )}
 
-          {error && (
-            <div className="text-sm text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-500/15 px-3 py-2 rounded-lg">
-              {error}
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-body hover:text-heading transition-colors"
-            >
-              Отмена
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white shadow-lg shadow-[#6567F1]/30 transition-all disabled:opacity-50"
-            >
-              {submitting && <Loader2 size={14} className="animate-spin" />}
-              {isEdit ? "Сохранить" : "Создать"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="flex justify-end gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-body hover:text-heading transition-colors"
+          >
+            Отмена
+          </button>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-[#6567F1] to-[#5557E1] hover:from-[#5557E1] hover:to-[#4547D1] text-white shadow-lg shadow-[#6567F1]/30 transition-all disabled:opacity-50"
+          >
+            {submitting && <Loader2 size={14} className="animate-spin" />}
+            {isEdit ? "Сохранить" : "Создать"}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }
