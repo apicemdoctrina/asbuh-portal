@@ -1,6 +1,7 @@
 import prisma from "./prisma.js";
 import { notifyWithTelegram } from "./notify.js";
 import { logAudit } from "./audit.js";
+import { scheduleDailyAt } from "./scheduler.js";
 
 export async function revokeExpiredSectionMemberships(): Promise<void> {
   const now = new Date();
@@ -48,15 +49,8 @@ export async function revokeExpiredSectionMemberships(): Promise<void> {
 }
 
 export function startTemporarySectionRevoker(): void {
-  // Run once at startup to catch anything that expired while we were down
-  revokeExpiredSectionMemberships().catch(console.error);
-
-  // Then every hour — at 02:xx run the sweep
-  const INTERVAL_MS = 60 * 60 * 1000;
-  setInterval(() => {
-    const hour = new Date().getHours();
-    if (hour === 2) {
-      revokeExpiredSectionMemberships().catch(console.error);
-    }
-  }, INTERVAL_MS);
+  // Run once at startup to catch anything that expired while we were down,
+  // then every night at 02:00
+  revokeExpiredSectionMemberships().catch((err) => console.error("[job:section-revoker]", err));
+  scheduleDailyAt("section-revoker", revokeExpiredSectionMemberships, 2, 0);
 }

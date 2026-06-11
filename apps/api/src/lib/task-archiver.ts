@@ -1,4 +1,5 @@
 import prisma from "./prisma.js";
+import { scheduleDailyAt } from "./scheduler.js";
 
 const ARCHIVE_AFTER_DAYS = 30;
 
@@ -21,15 +22,7 @@ export async function archiveOldTasks(): Promise<void> {
 }
 
 export function startTaskArchiver(): void {
-  // Run once at startup
-  archiveOldTasks().catch(console.error);
-
-  // Then every night at 03:00
-  const INTERVAL_MS = 60 * 60 * 1000; // check every hour
-  setInterval(() => {
-    const hour = new Date().getHours();
-    if (hour === 3) {
-      archiveOldTasks().catch(console.error);
-    }
-  }, INTERVAL_MS);
+  // Run once at startup, then every night at 03:00
+  archiveOldTasks().catch((err) => console.error("[job:task-archiver]", err));
+  scheduleDailyAt("task-archiver", archiveOldTasks, 3, 0);
 }

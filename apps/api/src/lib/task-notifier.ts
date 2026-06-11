@@ -9,6 +9,7 @@ import prisma from "./prisma.js";
 import { sendMessage } from "./telegram.js";
 import { createNotification } from "./notify.js";
 import { isNotificationEnabled } from "./notification-prefs.js";
+import { scheduleInterval, scheduleDailyAt } from "./scheduler.js";
 
 const REMINDER_HOURS = 24; // remind when dueDate is within this many hours
 
@@ -67,9 +68,7 @@ export async function notifyAssigned(task: {
 // ─── Periodic: deadline reminder (every 30 min) ───────────────────────────────
 
 export function startDeadlineReminder(): void {
-  checkDeadlines().catch(console.error);
-  setInterval(() => checkDeadlines().catch(console.error), 30 * 60 * 1000);
-  console.log(`[Notifier] Deadline reminder started (every 30 min, window: ${REMINDER_HOURS}h)`);
+  scheduleInterval("deadline-reminder", checkDeadlines, 30 * 60 * 1000, { runOnStart: true });
 }
 
 async function checkDeadlines(): Promise<void> {
@@ -144,9 +143,7 @@ async function checkDeadlines(): Promise<void> {
 // ─── Periodic: escalation to managers when tasks become overdue ───────────────
 
 export function startEscalationNotifier(): void {
-  checkEscalations().catch(console.error);
-  setInterval(() => checkEscalations().catch(console.error), 60 * 60 * 1000);
-  console.log("[Notifier] Escalation notifier started (every 60 min)");
+  scheduleInterval("escalation-notifier", checkEscalations, 60 * 60 * 1000, { runOnStart: true });
 }
 
 async function checkEscalations(): Promise<void> {
@@ -219,21 +216,7 @@ async function checkEscalations(): Promise<void> {
 // ─── Daily digest at 09:00 ───────────────────────────────────────────────────
 
 export function startDailyNotifier(): void {
-  scheduleNextRun();
-  console.log("[Notifier] Daily task notifier scheduled");
-}
-
-function scheduleNextRun(): void {
-  const now = new Date();
-  const next = new Date(now);
-  next.setHours(9, 0, 0, 0);
-  if (next <= now) next.setDate(next.getDate() + 1);
-
-  const delay = next.getTime() - now.getTime();
-  setTimeout(() => {
-    sendDailyDigest().catch(console.error);
-    setInterval(() => sendDailyDigest().catch(console.error), 24 * 60 * 60 * 1000);
-  }, delay);
+  scheduleDailyAt("daily-digest", sendDailyDigest, 9, 0);
 }
 
 async function sendDailyDigest(): Promise<void> {

@@ -4,15 +4,13 @@ import { logAudit } from "../lib/audit.js";
 import { notifyWithTelegram } from "../lib/notify.js";
 import { authenticate, requirePermission } from "../middleware/auth.js";
 import { parsePagination, isPrismaUniqueError } from "../lib/route-helpers.js";
+import { sectionScope } from "../lib/scoping.js";
 import type { Prisma } from "@prisma/client";
 
 const router = Router();
 
-/** Build a Prisma `where` filter that enforces data-scoping rules. */
-function getScopedWhere(userId: string, roles: string[]): Prisma.SectionWhereInput {
-  if (roles.includes("admin") || roles.includes("supervisor")) return {};
-  return { members: { some: { userId } } };
-}
+// Scope-логика централизована в lib/scoping.ts
+const getScopedWhere = sectionScope;
 
 // GET /api/sections — list with search, pagination, sort
 router.get("/", authenticate, requirePermission("section", "view"), async (req, res) => {

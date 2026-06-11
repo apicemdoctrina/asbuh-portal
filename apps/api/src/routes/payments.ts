@@ -3,92 +3,22 @@ import prisma from "../lib/prisma.js";
 import { Prisma } from "@prisma/client";
 import { authenticate, requireRole } from "../middleware/auth.js";
 import { logAudit } from "../lib/audit.js";
+import {
+  DEBT_BASE_DATE,
+  MANUAL_BASE_DATE,
+  calcExpected,
+  recalcOrgDebt,
+  ORG_EXPECTED_SELECT,
+} from "../lib/debt.js";
+import {
+  TOCHKA_TOKEN,
+  tochkaFetch,
+  fetchTochkaTransactions,
+  importTochkaIncoming,
+  autoMatchTransactions,
+} from "../lib/tochka-sync.js";
 
 const router = Router();
-
-// ─── Tochka Bank Open Banking API helpers ────────────────────────────────────
-
-const TOCHKA_API_BASE = "https://enter.tochka.com/uapi/open-banking/v1.0";
-const TOCHKA_TOKEN = process.env.TOCHKA_JWT_TOKEN || "";
-
-async function tochkaFetch(path: string, opts?: RequestInit): Promise<Response> {
-  return fetch(`${TOCHKA_API_BASE}${path}`, {
-    ...opts,
-    headers: {
-      Authorization: `Bearer ${TOCHKA_TOKEN}`,
-      "Content-Type": "application/json",
-      ...opts?.headers,
-    },
-  });
-}
-
-/** Create a statement request and poll until ready. Returns transactions array. */
-async function fetchTochkaTransactions(
-  accountId: string,
-  startDate: string,
-  endDate: string,
-): Promise<TochkaTransaction[]> {
-  // 1. Create statement
-  const createRes = await tochkaFetch("/statements", {
-    method: "POST",
-    body: JSON.stringify({
-      Data: {
-        Statement: {
-          accountId,
-          startDateTime: startDate,
-          endDateTime: endDate,
-        },
-      },
-    }),
-  });
-
-  if (!createRes.ok) {
-    const err = await createRes.text();
-    throw new Error(`Tochka create statement error ${createRes.status}: ${err}`);
-  }
-
-  const createData = await createRes.json();
-  const statementId = createData?.Data?.Statement?.statementId;
-  if (!statementId) throw new Error("No statementId in response");
-
-  // 2. Poll until Ready (max 60 seconds)
-  const encodedAccId = encodeURIComponent(accountId);
-  const pollPath = `/accounts/${encodedAccId}/statements/${statementId}`;
-
-  for (let attempt = 0; attempt < 20; attempt++) {
-    await new Promise((r) => setTimeout(r, 3000));
-
-    const pollRes = await tochkaFetch(pollPath);
-    if (!pollRes.ok) continue;
-
-    const pollData = await pollRes.json();
-    const stmts = pollData?.Data?.Statement;
-    if (!Array.isArray(stmts) || stmts.length === 0) continue;
-
-    const stmt = stmts[0];
-    if (stmt.status === "Error") throw new Error("Statement generation failed");
-    if (stmt.status === "Ready" || stmt.status === "Complete") {
-      return (stmt.Transaction || []) as TochkaTransaction[];
-    }
-  }
-
-  throw new Error("Statement polling timed out");
-}
-
-interface TochkaTransaction {
-  transactionId: string;
-  paymentId?: string;
-  creditDebitIndicator: "Credit" | "Debit";
-  status: string;
-  documentNumber?: string;
-  documentProcessDate: string;
-  description?: string;
-  Amount: { amount: number; currency: string };
-  DebtorParty?: { inn?: string; name?: string; kpp?: string };
-  DebtorAccount?: { identification?: string };
-  CreditorParty?: { inn?: string; name?: string; kpp?: string };
-  CreditorAccount?: { identification?: string };
-}
 
 // ─── Bank account management ─────────────────────────────────────────────────
 
@@ -218,56 +148,11 @@ router.post("/sync", authenticate, requireRole("admin", "supervisor"), async (re
     // Fetch transactions from Tochka via statement API
     const allTx = await fetchTochkaTransactions(account.accountNumber, from, to);
 
-    // Filter only incoming payments (Credit), exclude deposit returns and deposit interest
-    const DEPOSIT_KEYWORDS =
-      /возврат.*депозит|депозит.*возврат|возврат.*размещ|размещ.*возврат|процент.*депозит|депозит.*процент|выплата.*процент.*по.*депозит|%.*депозит|депозитн/i;
-    const incoming = allTx.filter(
-      (tx) => tx.creditDebitIndicator === "Credit" && !DEPOSIT_KEYWORDS.test(tx.description || ""),
+    // Import incoming (Credit, без депозитных возвратов) + auto-matching
+    const { imported, skipped, incoming, depositReturns } = await importTochkaIncoming(
+      account.id,
+      allTx,
     );
-
-    let imported = 0;
-    let skipped = 0;
-    let depositReturns = 0;
-
-    // Count filtered deposit returns for audit
-    const allCredit = allTx.filter((tx) => tx.creditDebitIndicator === "Credit");
-    depositReturns = allCredit.length - incoming.length;
-
-    for (const tx of incoming) {
-      const externalId = tx.transactionId;
-
-      // Skip if already imported
-      const exists = await prisma.bankTransaction.findUnique({
-        where: { externalId },
-      });
-      if (exists) {
-        skipped++;
-        continue;
-      }
-
-      await prisma.bankTransaction.create({
-        data: {
-          bankAccountId: account.id,
-          externalId,
-          date: new Date(tx.documentProcessDate),
-          amount: Number(tx.Amount?.amount ?? 0),
-          payerName: tx.DebtorParty?.name || null,
-          payerInn: tx.DebtorParty?.inn || null,
-          payerAccount: tx.DebtorAccount?.identification || null,
-          purpose: tx.description || null,
-          matchStatus: "UNMATCHED",
-        },
-      });
-      imported++;
-    }
-
-    // Update last sync time
-    await prisma.bankAccount.update({
-      where: { id: account.id },
-      data: { lastSyncAt: new Date() },
-    });
-
-    // Run auto-matching
     const matched = await autoMatchTransactions();
 
     await logAudit({
@@ -282,7 +167,7 @@ router.post("/sync", authenticate, requireRole("admin", "supervisor"), async (re
         skipped,
         matched,
         totalFromBank: allTx.length,
-        incoming: incoming.length,
+        incoming,
         depositReturns,
       },
       ipAddress: req.ip,
@@ -296,66 +181,6 @@ router.post("/sync", authenticate, requireRole("admin", "supervisor"), async (re
   }
 });
 
-// ─── Auto-matching logic ─────────────────────────────────────────────────────
-
-async function autoMatchTransactions(): Promise<number> {
-  const unmatched = await prisma.bankTransaction.findMany({
-    where: { matchStatus: "UNMATCHED" },
-  });
-
-  // Load all active organizations with INN
-  const orgs = await prisma.organization.findMany({
-    where: {
-      status: { notIn: ["left", "closed", "ceased", "archived"] },
-      paymentDestination: "BANK_TOCHKA",
-    },
-    select: { id: true, name: true, inn: true },
-  });
-
-  let matchedCount = 0;
-
-  for (const tx of unmatched) {
-    let orgId: string | null = null;
-
-    // 1. Match by payer INN
-    if (tx.payerInn) {
-      const org = orgs.find((o) => o.inn === tx.payerInn);
-      if (org) orgId = org.id;
-    }
-
-    // 2. Fallback: match by name in payer name or purpose
-    if (!orgId) {
-      const searchIn = `${tx.payerName || ""} ${tx.purpose || ""}`.toLowerCase();
-      const org = orgs.find((o) => {
-        if (!o.name) return false;
-        // Clean org name for matching (remove quotes, legal form)
-        const cleanName = o.name
-          .replace(/[«»"']/g, "")
-          .replace(/^(ООО|ИП|АО|ПАО|НКО)\s*/i, "")
-          .trim()
-          .toLowerCase();
-        return cleanName.length >= 3 && searchIn.includes(cleanName);
-      });
-      if (org) orgId = org.id;
-    }
-
-    if (orgId) {
-      await prisma.bankTransaction.update({
-        where: { id: tx.id },
-        data: {
-          organizationId: orgId,
-          matchStatus: "AUTO",
-          matchedAt: new Date(),
-          matchedBy: "auto",
-        },
-      });
-      matchedCount++;
-    }
-  }
-
-  return matchedCount;
-}
-
 // POST /api/payments/rematch — re-run auto-matching
 router.post("/rematch", authenticate, requireRole("admin", "supervisor"), async (_req, res) => {
   try {
@@ -366,136 +191,6 @@ router.post("/rematch", authenticate, requireRole("admin", "supervisor"), async 
     res.status(500).json({ error: "Internal server error" });
   }
 });
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-const DEBT_BASE_DATE = new Date(2025, 0, 1);
-const MANUAL_BASE_DATE = new Date(2026, 0, 1);
-
-function monthsBetween(from: Date, to: Date): number {
-  return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
-}
-
-function monthStart(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), 1);
-}
-
-interface OrgForExpected {
-  monthlyPayment: unknown;
-  serviceStartDate: Date | null;
-  priceHistory: Array<{ price: unknown; effectiveFrom: Date }>;
-}
-
-function calcExpected(org: OrgForExpected, baseDate = DEBT_BASE_DATE): number {
-  const now = new Date();
-  const currentMonth1st = new Date(now.getFullYear(), now.getMonth(), 1);
-  const start =
-    org.serviceStartDate && org.serviceStartDate > baseDate
-      ? monthStart(org.serviceStartDate)
-      : baseDate;
-  if (start >= currentMonth1st) return 0;
-
-  const history = org.priceHistory;
-  if (!history || history.length === 0) {
-    return Number(org.monthlyPayment ?? 0) * monthsBetween(start, currentMonth1st);
-  }
-
-  let total = 0;
-  for (let i = 0; i < history.length; i++) {
-    const iStart = monthStart(history[i].effectiveFrom);
-    const iEnd =
-      i + 1 < history.length ? monthStart(history[i + 1].effectiveFrom) : currentMonth1st;
-    const from = iStart < start ? start : iStart;
-    const to = iEnd > currentMonth1st ? currentMonth1st : iEnd;
-    const months = monthsBetween(from, to);
-    if (months > 0) total += Number(history[i].price) * months;
-  }
-  return total;
-}
-
-const ORG_EXPECTED_SELECT = {
-  id: true,
-  monthlyPayment: true,
-  serviceStartDate: true,
-  clientGroupId: true,
-  paymentDestination: true,
-  priceHistory: {
-    select: { price: true, effectiveFrom: true },
-    orderBy: { effectiveFrom: "asc" as const },
-  },
-} as const;
-
-// Recalculate debtAmount for a single org after transaction status change
-async function recalcOrgDebt(orgId: string): Promise<void> {
-  const org = await prisma.organization.findUnique({
-    where: { id: orgId },
-    select: ORG_EXPECTED_SELECT,
-  });
-  if (!org) return;
-
-  // Non-bank orgs should have zero debt (they are tracked separately)
-  if (org.paymentDestination !== "BANK_TOCHKA") {
-    await prisma.organization.update({
-      where: { id: orgId },
-      data: { debtAmount: 0 },
-    });
-    return;
-  }
-
-  // If org is in a group, calculate group-level debt (same logic as reconciliation)
-  if (org.clientGroupId) {
-    const groupOrgs = await prisma.organization.findMany({
-      where: { clientGroupId: org.clientGroupId },
-      select: ORG_EXPECTED_SELECT,
-    });
-    const bankMembers = groupOrgs.filter((o) => o.paymentDestination === "BANK_TOCHKA");
-    const bankMemberIds = bankMembers.map((o) => o.id);
-    const groupExpected = bankMembers.reduce((s, o) => s + calcExpected(o), 0);
-    const groupAgg = await prisma.bankTransaction.aggregate({
-      where: {
-        organizationId: { in: bankMemberIds },
-        matchStatus: { in: ["AUTO", "MANUAL"] },
-        date: { gte: DEBT_BASE_DATE },
-      },
-      _sum: { amount: true },
-    });
-    const groupReceived = Number(groupAgg._sum.amount ?? 0);
-    const groupDebt = Math.max(0, groupExpected - groupReceived);
-    // Store 0 per org — debt lives at group level
-    for (const gOrg of groupOrgs) {
-      await prisma.organization.update({
-        where: { id: gOrg.id },
-        data: { debtAmount: 0 },
-      });
-    }
-    // Store group debt on the org with highest monthlyPayment for display in org list
-    if (bankMembers.length > 0) {
-      const flagship = bankMembers.reduce((best, o) =>
-        Number(o.monthlyPayment ?? 0) > Number(best.monthlyPayment ?? 0) ? o : best,
-      );
-      await prisma.organization.update({
-        where: { id: flagship.id },
-        data: { debtAmount: groupDebt },
-      });
-    }
-  } else {
-    const expected = calcExpected(org);
-    const agg = await prisma.bankTransaction.aggregate({
-      where: {
-        organizationId: orgId,
-        matchStatus: { in: ["AUTO", "MANUAL"] },
-        date: { gte: DEBT_BASE_DATE },
-      },
-      _sum: { amount: true },
-    });
-    const received = Number(agg._sum.amount ?? 0);
-    const debt = Math.max(0, expected - received);
-    await prisma.organization.update({
-      where: { id: orgId },
-      data: { debtAmount: debt },
-    });
-  }
-}
 
 // ─── Manual match ────────────────────────────────────────────────────────────
 
@@ -770,6 +465,26 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
           })
         : [];
 
+    // One groupBy instead of an aggregate per org/group — N orgs → 1 query
+    const relevantOrgIds = [
+      ...orgs.filter((o) => !o.clientGroupId).map((o) => o.id),
+      ...allGroupOrgs.filter((o) => o.paymentDestination === "BANK_TOCHKA").map((o) => o.id),
+    ];
+    const sums = relevantOrgIds.length
+      ? await prisma.bankTransaction.groupBy({
+          by: ["organizationId"],
+          where: {
+            organizationId: { in: relevantOrgIds },
+            matchStatus: { in: ["AUTO", "MANUAL"] },
+            date: { gte: DEBT_BASE_DATE },
+          },
+          _sum: { amount: true },
+        })
+      : [];
+    const receivedByOrg = new Map(
+      sums.map((s) => [s.organizationId as string, Number(s._sum.amount ?? 0)]),
+    );
+
     const processedGroups = new Set<string>();
     const results: Array<{
       orgId: string;
@@ -800,15 +515,7 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
 
         // Group-level totals (only bank-paying orgs)
         const groupExpected = bankMembers.reduce((s, o) => s + calcExpected(o), 0);
-        const groupAgg = await prisma.bankTransaction.aggregate({
-          where: {
-            organizationId: { in: bankMemberIds },
-            matchStatus: { in: ["AUTO", "MANUAL"] },
-            date: { gte: DEBT_BASE_DATE },
-          },
-          _sum: { amount: true },
-        });
-        const groupReceived = Number(groupAgg._sum.amount ?? 0);
+        const groupReceived = bankMemberIds.reduce((s, id) => s + (receivedByOrg.get(id) ?? 0), 0);
         const groupDebt = Math.max(0, groupExpected - groupReceived);
 
         for (const gOrg of groupMembers) {
@@ -834,15 +541,7 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
 
       // Non-group org
       const expected = calcExpected(org);
-      const agg = await prisma.bankTransaction.aggregate({
-        where: {
-          organizationId: org.id,
-          matchStatus: { in: ["AUTO", "MANUAL"] },
-          date: { gte: DEBT_BASE_DATE },
-        },
-        _sum: { amount: true },
-      });
-      const received = Number(agg._sum.amount ?? 0);
+      const received = receivedByOrg.get(org.id) ?? 0;
       const debt = Math.max(0, expected - received);
 
       results.push({
@@ -859,14 +558,9 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
       });
     }
 
-    // Update debtAmount on each organization
-    // For grouped orgs: 0 for all, then flagship gets the group debt
-    for (const r of results) {
-      await prisma.organization.update({
-        where: { id: r.orgId },
-        data: { debtAmount: r.groupId ? 0 : r.debt },
-      });
-    }
+    // Final debt per org: grouped orgs get 0, flagship carries the group debt
+    const debtByOrg = new Map<string, number>();
+    for (const r of results) debtByOrg.set(r.orgId, r.groupId ? 0 : r.debt);
     // Assign group debt to flagship (highest monthlyPayment) per group
     const groupFlagships = new Map<string, { id: string; payment: number; debt: number }>();
     for (const r of results) {
@@ -878,22 +572,34 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
       }
     }
     for (const f of groupFlagships.values()) {
-      if (f.debt > 0) {
-        await prisma.organization.update({
-          where: { id: f.id },
-          data: { debtAmount: f.debt },
-        });
-      }
+      if (f.debt > 0) debtByOrg.set(f.id, f.debt);
     }
 
-    // Zero out debt for orgs that no longer pay via bank
-    await prisma.organization.updateMany({
-      where: {
-        paymentDestination: { not: "BANK_TOCHKA" },
-        debtAmount: { gt: 0 },
-      },
-      data: { debtAmount: 0 },
-    });
+    // Batch the writes atomically: zeroes via one updateMany, the rest individually.
+    // A crash mid-recalc can no longer leave debts half-updated.
+    const zeroIds = [...debtByOrg].filter(([, d]) => d === 0).map(([id]) => id);
+    const nonZero = [...debtByOrg].filter(([, d]) => d !== 0);
+    await prisma.$transaction([
+      ...(zeroIds.length
+        ? [
+            prisma.organization.updateMany({
+              where: { id: { in: zeroIds } },
+              data: { debtAmount: 0 },
+            }),
+          ]
+        : []),
+      ...nonZero.map(([id, debt]) =>
+        prisma.organization.update({ where: { id }, data: { debtAmount: debt } }),
+      ),
+      // Zero out debt for orgs that no longer pay via bank
+      prisma.organization.updateMany({
+        where: {
+          paymentDestination: { not: "BANK_TOCHKA" },
+          debtAmount: { gt: 0 },
+        },
+        data: { debtAmount: 0 },
+      }),
+    ]);
 
     // Calculate totals: count group debt once per group
     const countedGroups = new Set<string>();
@@ -1530,7 +1236,7 @@ router.post(
         userId: req.user!.userId,
         entity: "bank_transaction",
         entityId: tx.id,
-        details: `Staff manual: ${amount} for org ${organizationId}`,
+        details: { note: `Staff manual: ${amount} for org ${organizationId}` },
       });
 
       // Recalc debt for the org
@@ -1543,83 +1249,5 @@ router.post(
     }
   },
 );
-
-// ─── Auto-sync bank transactions daily ───────────────────────────────────────
-
-async function syncBankNow(): Promise<void> {
-  if (!TOCHKA_TOKEN) {
-    console.log("[bank-sync] TOCHKA_JWT_TOKEN not configured, skipping");
-    return;
-  }
-
-  const account = await prisma.bankAccount.findFirst({ orderBy: { createdAt: "asc" } });
-  if (!account) {
-    console.log("[bank-sync] No bank account configured, skipping");
-    return;
-  }
-
-  const today = new Date().toISOString().slice(0, 10);
-  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
-
-  const DEPOSIT_KEYWORDS =
-    /возврат.*депозит|депозит.*возврат|возврат.*размещ|размещ.*возврат|процент.*депозит|депозит.*процент|выплата.*процент.*по.*депозит|%.*депозит|депозитн/i;
-
-  const allTx = await fetchTochkaTransactions(account.accountNumber, weekAgo, today);
-  const incoming = allTx.filter(
-    (tx) => tx.creditDebitIndicator === "Credit" && !DEPOSIT_KEYWORDS.test(tx.description || ""),
-  );
-
-  let imported = 0;
-  for (const tx of incoming) {
-    const externalId = tx.transactionId;
-    const exists = await prisma.bankTransaction.findUnique({ where: { externalId } });
-    if (exists) continue;
-
-    await prisma.bankTransaction.create({
-      data: {
-        bankAccountId: account.id,
-        externalId,
-        date: new Date(tx.documentProcessDate),
-        amount: Number(tx.Amount?.amount ?? 0),
-        payerName: tx.DebtorParty?.name || null,
-        payerInn: tx.DebtorParty?.inn || null,
-        payerAccount: tx.DebtorAccount?.identification || null,
-        purpose: tx.description || null,
-        matchStatus: "UNMATCHED",
-      },
-    });
-    imported++;
-  }
-
-  await prisma.bankAccount.update({
-    where: { id: account.id },
-    data: { lastSyncAt: new Date() },
-  });
-
-  const matched = await autoMatchTransactions();
-
-  console.log(`[bank-sync] Done: imported=${imported}, matched=${matched}`);
-}
-
-export function startBankAutoSync(): void {
-  // Run daily at 07:00
-  function scheduleNext() {
-    const now = new Date();
-    const next = new Date(now);
-    next.setHours(7, 0, 0, 0);
-    if (next <= now) next.setDate(next.getDate() + 1);
-    const delay = next.getTime() - now.getTime();
-    setTimeout(async () => {
-      try {
-        await syncBankNow();
-      } catch (err) {
-        console.error("[bank-sync] Error:", err);
-      }
-      scheduleNext();
-    }, delay);
-    console.log(`[bank-sync] Next sync scheduled at ${next.toLocaleString("ru-RU")}`);
-  }
-  scheduleNext();
-}
 
 export default router;

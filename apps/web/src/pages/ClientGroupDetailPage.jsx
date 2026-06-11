@@ -4,6 +4,7 @@ import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { ArrowLeft, Pencil, Save, X, Building2, Loader2, Users } from "lucide-react";
 import OrgTransactionsCard from "../components/OrgTransactionsCard.jsx";
+import { fmtMoney } from "../lib/format.js";
 
 const PAYMENT_DEST_LABELS = {
   BANK_TOCHKA: "Банк (Точка)",
@@ -25,11 +26,6 @@ const STATUS_COLORS = {
   left: "bg-red-100 dark:bg-red-500/15 text-red-600 dark:text-red-300",
   closed: "bg-red-100 dark:bg-red-500/15 text-red-600 dark:text-red-300",
 };
-
-function fmtMoney(val) {
-  if (val == null) return "—";
-  return Number(val).toLocaleString("ru-RU") + " ₽";
-}
 
 export default function ClientGroupDetailPage() {
   const { id } = useParams();

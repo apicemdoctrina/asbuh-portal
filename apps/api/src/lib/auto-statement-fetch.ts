@@ -22,6 +22,7 @@ import { reconcile } from "./statement-reconcile.js";
 import { syncStatementTransactions } from "./org-finance.js";
 import { logAudit } from "./audit.js";
 import { UPLOADS_DIR } from "./upload.js";
+import { scheduleDailyAt } from "./scheduler.js";
 
 /** YYYY-MM-DD для UTC-времени `t`. */
 function isoDayUTC(t: Date): string {
@@ -185,27 +186,7 @@ async function runOnce(): Promise<void> {
   console.log(`[auto-statement-fetch] готово: ok=${ok} fail=${fail}`);
 }
 
-/**
- * Стартует таймер на ежедневный запуск в 07:00 UTC (= 09:00 GMT+2).
- * После каждого срабатывания планирует следующее.
- */
+/** Ежедневный запуск в 07:00 UTC (= 09:00 GMT+2). */
 export function startAutoStatementFetcher(): void {
-  function scheduleNext() {
-    const now = new Date();
-    const next = new Date(now);
-    next.setUTCHours(7, 0, 0, 0);
-    if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
-    const ms = next.getTime() - now.getTime();
-
-    setTimeout(async () => {
-      try {
-        await runOnce();
-      } catch (err) {
-        console.error("[auto-statement-fetch] фатальная ошибка:", err);
-      }
-      scheduleNext();
-    }, ms);
-  }
-  scheduleNext();
-  console.log("[auto-statement-fetch] запланировано: ежедневно 07:00 UTC (09:00 GMT+2)");
+  scheduleDailyAt("auto-statement-fetch", runOnce, 7, 0, { utc: true });
 }

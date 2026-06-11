@@ -3,6 +3,8 @@ import { randomUUID } from "crypto";
 import prisma from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
 import { authenticate, requirePermission } from "../middleware/auth.js";
+import { parsePagination } from "../lib/route-helpers.js";
+import { taskScope } from "../lib/scoping.js";
 import { notifyAssigned } from "../lib/task-notifier.js";
 import { createNotification, notifyWithTelegram } from "../lib/notify.js";
 
@@ -111,31 +113,8 @@ router.get("/", authenticate, requirePermission("task", "view"), async (req, res
       // Inside an org card — show all tasks for that org
       where.organizationId = organizationId as string;
     } else {
-      const roles = req.user!.roles;
-      const userId = req.user!.userId;
-      const isAdminOrSup = roles.some((r) => ["admin", "supervisor"].includes(r));
-      const isMgrOrAcc = roles.some((r) => ["manager", "accountant"].includes(r));
-
-      if (isAdminOrSup) {
-        // no scope filter — sees everything
-      } else if (isMgrOrAcc) {
-        // Tasks on any org within the user's sections +
-        // personal tasks (no org) they created or are assigned to
-        where.OR = [
-          { organization: { section: { members: { some: { userId } } } } },
-          {
-            AND: [
-              { organizationId: null },
-              {
-                OR: [{ createdById: userId }, { assignees: { some: { userId } } }],
-              },
-            ],
-          },
-        ];
-      } else {
-        // Client / other — only own created or assigned
-        where.OR = [{ createdById: userId }, { assignees: { some: { userId } } }];
-      }
+      // Scope-логика централизована в lib/scoping.ts
+      Object.assign(where, taskScope(req.user!.userId, req.user!.roles));
     }
 
     if (assignedToId) where.assignees = { some: { userId: assignedToId as string } };
@@ -145,10 +124,14 @@ router.get("/", authenticate, requirePermission("task", "view"), async (req, res
       where.status = { notIn: ["DONE", "CANCELLED"] };
     }
 
+    // Bounded list: default 500, optional ?page/?limit (response stays an array)
+    const { limit, skip } = parsePagination(req.query.page, req.query.limit ?? 500, 500);
     const tasks = await prisma.task.findMany({
       where,
       include: INCLUDE,
       orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
+      take: limit,
+      skip,
     });
 
     // Compute hasUnreadComments for each task
@@ -220,38 +203,43 @@ router.post("/", authenticate, requirePermission("task", "create"), async (req, 
     // Tasks created for multiple orgs at once share a groupId
     const groupId = orgIdList.length > 1 ? randomUUID() : undefined;
 
-    const createdTasks = [];
-
     // Default visibleToClient: true for REPORTING tasks, false otherwise
     const resolvedVisibleToClient =
       typeof visibleToClient === "boolean"
         ? visibleToClient
         : (category || "OTHER") === "REPORTING";
 
-    for (const orgId of orgIdList) {
-      const task = await prisma.task.create({
-        data: {
-          title: title.trim(),
-          description: description?.trim() || null,
-          priority: priority || "MEDIUM",
-          category: category || "OTHER",
-          dueDate: dueDate ? new Date(dueDate) : null,
-          recurrenceType: recurrenceType || null,
-          recurrenceInterval: recurrenceInterval ? Number(recurrenceInterval) : 1,
-          groupId: groupId ?? null,
-          organizationId: orgId || null,
-          createdById: req.user.userId,
-          visibleToClient: resolvedVisibleToClient,
-          assignees: assigneeIds.length
-            ? { create: assigneeIds.map((uid) => ({ userId: uid })) }
-            : undefined,
-        },
-        include: INCLUDE,
-      });
+    // Все задачи мульти-орг набора создаются атомарно: падение посередине
+    // больше не оставляет «половину» набора
+    const createdTasks = await prisma.$transaction(
+      orgIdList.map((orgId) =>
+        prisma.task.create({
+          data: {
+            title: title.trim(),
+            description: description?.trim() || null,
+            priority: priority || "MEDIUM",
+            category: category || "OTHER",
+            dueDate: dueDate ? new Date(dueDate) : null,
+            recurrenceType: recurrenceType || null,
+            recurrenceInterval: recurrenceInterval ? Number(recurrenceInterval) : 1,
+            groupId: groupId ?? null,
+            organizationId: orgId || null,
+            createdById: req.user!.userId,
+            visibleToClient: resolvedVisibleToClient,
+            assignees: assigneeIds.length
+              ? { create: assigneeIds.map((uid) => ({ userId: uid })) }
+              : undefined,
+          },
+          include: INCLUDE,
+        }),
+      ),
+    );
 
+    // Side effects (audit + notifications) — после коммита
+    for (const task of createdTasks) {
       await logAudit({
         action: "task.create",
-        userId: req.user.userId,
+        userId: req.user!.userId,
         entity: "task",
         entityId: task.id,
         details: { title: task.title },
@@ -279,8 +267,6 @@ router.post("/", authenticate, requirePermission("task", "create"), async (req, 
           taskLink,
         ).catch(console.error);
       }
-
-      createdTasks.push(task);
     }
 
     res.status(201).json(createdTasks.length === 1 ? createdTasks[0] : createdTasks);
@@ -315,10 +301,10 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
     });
     if (!existing) return res.status(404).json({ error: "Task not found" });
 
-    const isAssignee = existing.assignees.some((a) => a.userId === req.user.userId);
+    const isAssignee = existing.assignees.some((a) => a.userId === req.user!.userId);
     if (
-      !isAdminOrManager(req.user.roles) &&
-      existing.createdById !== req.user.userId &&
+      !isAdminOrManager(req.user!.roles) &&
+      existing.createdById !== req.user!.userId &&
       !isAssignee
     ) {
       return res.status(403).json({ error: "Forbidden" });
@@ -397,7 +383,7 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
 
     await logAudit({
       action: "task.update",
-      userId: req.user.userId,
+      userId: req.user!.userId,
       entity: "task",
       entityId: task.id,
       details: data,
@@ -579,7 +565,7 @@ router.delete("/:id", authenticate, requirePermission("task", "delete"), async (
     const existing = await prisma.task.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ error: "Task not found" });
 
-    if (!isAdminOrManager(req.user.roles) && existing.createdById !== req.user.userId) {
+    if (!isAdminOrManager(req.user!.roles) && existing.createdById !== req.user!.userId) {
       return res.status(403).json({ error: "Forbidden" });
     }
 
@@ -587,7 +573,7 @@ router.delete("/:id", authenticate, requirePermission("task", "delete"), async (
 
     await logAudit({
       action: "task.delete",
-      userId: req.user.userId,
+      userId: req.user!.userId,
       entity: "task",
       entityId: id,
       details: { title: existing.title },
@@ -642,7 +628,7 @@ router.post("/:id/comments", authenticate, requirePermission("task", "view"), as
     if (!task) return res.status(404).json({ error: "Task not found" });
 
     const comment = await prisma.taskComment.create({
-      data: { taskId: id, authorId: req.user.userId, text: text.trim() },
+      data: { taskId: id, authorId: req.user!.userId, text: text.trim() },
       include: { author: { select: COMMENT_AUTHOR_SELECT } },
     });
 

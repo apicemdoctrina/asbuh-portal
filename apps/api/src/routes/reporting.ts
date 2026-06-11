@@ -6,30 +6,12 @@ import { logAudit } from "../lib/audit.js";
 import { authenticate, requirePermission, requireRole } from "../middleware/auth.js";
 import { sendZodError } from "../lib/route-helpers.js";
 import { isReportApplicable } from "../lib/report-task-generator.js";
+import { orgViewScope } from "../lib/scoping.js";
 
 const router = Router();
 
-// ─── Scope helpers (same pattern as organizations) ───
-
-function getViewScopeWhere(userId: string, roles: string[]): Prisma.OrganizationWhereInput {
-  if (roles.includes("admin") || roles.includes("supervisor")) return {};
-  if (roles.includes("manager") || roles.includes("accountant")) {
-    return {
-      OR: [
-        { section: { members: { some: { userId } } } },
-        {
-          clientGroupId: { not: null },
-          clientGroup: {
-            organizations: {
-              some: { section: { members: { some: { userId } } } },
-            },
-          },
-        },
-      ],
-    };
-  }
-  return { members: { some: { userId } } };
-}
+// Scope-логика централизована в lib/scoping.ts
+const getViewScopeWhere = orgViewScope;
 
 // ─── Validators ───
 

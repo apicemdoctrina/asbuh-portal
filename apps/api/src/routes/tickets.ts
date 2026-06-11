@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Router, Request, Response } from "express";
 import multer from "multer";
 import path from "path";
@@ -16,6 +15,8 @@ import {
   getClientUserIdsForOrg,
 } from "../lib/client-email.js";
 import { typograph } from "../lib/typograph.js";
+import { ticketScope } from "../lib/scoping.js";
+import type { Prisma } from "@prisma/client";
 
 const router = Router();
 
@@ -84,19 +85,9 @@ const updateTicketSchema = z.object({
 
 // ==================== Helpers ====================
 
-function getTicketScopedWhere(req: Request): Record<string, any> {
-  const roles: string[] = req.user!.roles;
-  const userId = req.user!.userId;
-
-  if (roles.includes("admin") || roles.includes("supervisor")) return {};
-  if (roles.includes("manager")) {
-    return { organization: { section: { members: { some: { userId } } } } };
-  }
-  if (roles.includes("accountant")) {
-    return { organization: { section: { members: { some: { userId } } } } };
-  }
-  // client
-  return { organization: { members: { some: { userId, role: "client" } } } };
+// Scope-логика централизована в lib/scoping.ts
+function getTicketScopedWhere(req: Request): Prisma.TicketWhereInput {
+  return ticketScope(req.user!.userId, req.user!.roles);
 }
 
 function isClientOnly(req: Request): boolean {
@@ -130,13 +121,13 @@ router.get(
         req.query;
       const scopedWhere = getTicketScopedWhere(req);
 
-      const where: any = { ...scopedWhere };
+      const where: Prisma.TicketWhereInput = { ...scopedWhere };
       if (status) {
         const statuses = (status as string).split(",");
-        where.status = { in: statuses };
+        where.status = { in: statuses as Prisma.EnumTicketStatusFilter["in"] };
       }
-      if (type) where.type = type as string;
-      if (priority) where.priority = priority as string;
+      if (type) where.type = type as Prisma.EnumTicketTypeFilter["equals"];
+      if (priority) where.priority = priority as Prisma.EnumTicketPriorityFilter["equals"];
       if (organizationId) where.organizationId = organizationId as string;
       if (assignedToId) where.assignedToId = assignedToId as string;
       if (search) where.subject = { contains: search as string, mode: "insensitive" };
@@ -217,10 +208,10 @@ router.get(
 
       if (!ticket) return res.status(404).json({ error: "Ticket not found" });
 
-      const msgWhere: any = { ticketId: id, deletedAt: null };
+      const msgWhere: Prisma.TicketMessageWhereInput = { ticketId: id, deletedAt: null };
       if (clientOnly) msgWhere.isInternal = false;
 
-      const msgQuery: any = {
+      const msgQuery: Prisma.TicketMessageFindManyArgs = {
         where: msgWhere,
         include: {
           author: { select: { id: true, firstName: true, lastName: true, avatarPath: true } },
@@ -290,7 +281,7 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const parsed = createTicketSchema.safeParse(req.body);
-      if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
       const { subject, type, organizationId, body } = parsed.data;
       const userId = req.user!.userId;
@@ -324,7 +315,7 @@ router.post(
       const ticket = await prisma.ticket.create({
         data: {
           subject: typograph(subject),
-          type: (type as any) || "QUESTION",
+          type: type || "QUESTION",
           organizationId,
           createdById: userId,
           assignedToId,
@@ -395,7 +386,7 @@ router.patch(
   async (req: Request, res: Response) => {
     try {
       const parsed = updateTicketSchema.safeParse(req.body);
-      if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
       const { id } = req.params;
       const scopedWhere = getTicketScopedWhere(req);
@@ -403,7 +394,7 @@ router.patch(
       const existing = await prisma.ticket.findFirst({ where: { id, ...scopedWhere } });
       if (!existing) return res.status(404).json({ error: "Ticket not found" });
 
-      const data: any = {};
+      const data: Prisma.TicketUncheckedUpdateInput = {};
       if (parsed.data.status !== undefined) {
         data.status = parsed.data.status;
         if (parsed.data.status === "CLOSED") data.closedAt = new Date();
@@ -589,7 +580,7 @@ router.post(
       });
 
       // Auto-status transition
-      const statusUpdate: any = { updatedAt: new Date() };
+      const statusUpdate: Prisma.TicketUncheckedUpdateInput = { updatedAt: new Date() };
       if (clientOnly && ticket.status === "WAITING_CLIENT") {
         statusUpdate.status = "IN_PROGRESS";
       } else if (!clientOnly && !internal) {

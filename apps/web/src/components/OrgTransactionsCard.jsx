@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../lib/api.js";
+import { fmtMoney } from "../lib/format.js";
 import {
   Wallet,
   Loader2,
@@ -12,11 +13,6 @@ import {
   AlertCircle,
   CheckCircle2,
 } from "lucide-react";
-
-function fmtMoney(val) {
-  if (val == null) return "—";
-  return Number(val).toLocaleString("ru-RU") + " ₽";
-}
 
 function fmtDate(val) {
   if (!val) return "—";

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useDebouncedEffect } from "../hooks/useDebouncedEffect.js";
 import { Link } from "react-router";
 import { api } from "../lib/api.js";
+import { fmtMoney } from "../lib/format.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
   Plus,
@@ -101,11 +102,6 @@ function statusBadge(status) {
     blacklisted: "bg-slate-900 text-white",
   };
   return map[status] || "bg-muted text-subtle";
-}
-
-function fmtMoney(val) {
-  if (val == null) return "—";
-  return Number(val).toLocaleString("ru-RU") + " ₽";
 }
 
 // ─── Column definitions ────────────────────────────────────────────────────────

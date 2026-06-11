@@ -27,6 +27,7 @@ import { opHash } from "./op-hash.js";
 import { logAudit } from "./audit.js";
 import { UPLOADS_DIR } from "./upload.js";
 import type { ParsedStatement, ParsedOperation } from "./statement-types.js";
+import { scheduleInterval } from "./scheduler.js";
 
 const INTERVAL_MS = 30 * 60 * 1000; // 30 минут
 
@@ -285,8 +286,5 @@ async function runOnce(): Promise<void> {
  * сервиса (чтобы не дублировать ежедневный 09:00 GMT+2, если он только что отработал).
  */
 export function startNearRealtimeBankSync(): void {
-  setInterval(() => {
-    runOnce().catch((err) => console.error("[nrt-sync] фатальная ошибка:", err));
-  }, INTERVAL_MS);
-  console.log(`[nrt-sync] запланировано: каждые ${INTERVAL_MS / 60_000} минут`);
+  scheduleInterval("nrt-sync", runOnce, INTERVAL_MS);
 }

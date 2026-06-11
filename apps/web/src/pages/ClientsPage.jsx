@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router";
 import { api } from "../lib/api.js";
+import { fmtMoney as fmtMoneyBase } from "../lib/format.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
   Search,
@@ -36,10 +37,8 @@ function formatLastSeen(lastSeenAt) {
   return new Date(lastSeenAt).toLocaleDateString("ru-RU");
 }
 
-function fmtMoney(n) {
-  if (n == null) return "—";
-  return Math.round(Number(n)).toLocaleString("ru-RU") + " ₽";
-}
+// Здесь суммы агрегированные — округляем до рубля
+const fmtMoney = (n) => fmtMoneyBase(n, { round: true });
 
 function fmtSince(iso) {
   if (!iso) return "—";

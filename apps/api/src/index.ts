@@ -8,7 +8,7 @@ import {
 } from "./lib/task-notifier.js";
 import { startTaskArchiver } from "./lib/task-archiver.js";
 import { startReportDeadlineNotifier } from "./lib/report-task-generator.js";
-import { startBankAutoSync } from "./routes/payments.js";
+import { startBankAutoSync } from "./lib/tochka-sync.js";
 import { startTemporarySectionRevoker } from "./lib/section-revoker.js";
 import { initHealthAlerts } from "./lib/health-alerts.js";
 import { startWeeklyClientDigest } from "./lib/client-digest.js";

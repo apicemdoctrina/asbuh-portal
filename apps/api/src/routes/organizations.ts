@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { Prisma } from "@prisma/client";
+import { Prisma, type TaxSystem } from "@prisma/client";
 import fs from "node:fs/promises";
 import path from "node:path";
 import multer from "multer";
@@ -12,6 +12,7 @@ import { encrypt, decrypt } from "../lib/crypto.js";
 import { summarize } from "../lib/org-finance.js";
 import { authenticate, requirePermission, requireRole } from "../middleware/auth.js";
 import { parsePagination, isPrismaUniqueError, sendZodError } from "../lib/route-helpers.js";
+import { orgStrictScope, orgViewScope } from "../lib/scoping.js";
 import {
   createOrganizationSchema,
   updateOrganizationSchema,
@@ -35,40 +36,9 @@ const secretsLimiter = rateLimit({
 
 const router = Router();
 
-/** Strict scope — own sections only. Used for write operations (PUT/DELETE). */
-function getScopedWhere(userId: string, roles: string[]): Prisma.OrganizationWhereInput {
-  if (roles.includes("admin") || roles.includes("supervisor")) return {};
-  if (roles.includes("manager") || roles.includes("accountant")) {
-    return {
-      section: { members: { some: { userId } } },
-    };
-  }
-  return { members: { some: { userId } } };
-}
-
-/**
- * View scope — own sections PLUS orgs in any client group that contains
- * at least one org from the user's sections.  Used for GET list/detail.
- */
-function getViewScopeWhere(userId: string, roles: string[]): Prisma.OrganizationWhereInput {
-  if (roles.includes("admin") || roles.includes("supervisor")) return {};
-  if (roles.includes("manager") || roles.includes("accountant")) {
-    return {
-      OR: [
-        { section: { members: { some: { userId } } } },
-        {
-          clientGroupId: { not: null },
-          clientGroup: {
-            organizations: {
-              some: { section: { members: { some: { userId } } } },
-            },
-          },
-        },
-      ],
-    };
-  }
-  return { members: { some: { userId } } };
-}
+// Scope-логика централизована в lib/scoping.ts
+const getScopedWhere = orgStrictScope;
+const getViewScopeWhere = orgViewScope;
 
 /** Notify all section members (except actorUserId) that a new org was added to their section. */
 async function notifySectionMembers(
@@ -308,8 +278,14 @@ router.get("/", authenticate, requirePermission("organization", "view"), async (
       ...(sectionId ? { sectionId: String(sectionId) } : {}),
       ...(clientGroupId ? { clientGroupId: String(clientGroupId) } : {}),
       ...statusFilter,
-      ...(taxSystem ? { taxSystems: { has: String(taxSystem) } } : {}),
-      ...(paymentDestination ? { paymentDestination: String(paymentDestination) } : {}),
+      ...(taxSystem ? { taxSystems: { has: String(taxSystem) as TaxSystem } } : {}),
+      ...(paymentDestination
+        ? {
+            paymentDestination: String(
+              paymentDestination,
+            ) as Prisma.OrganizationWhereInput["paymentDestination"],
+          }
+        : {}),
       ...(search
         ? {
             OR: [
