@@ -9,6 +9,7 @@ const cfg = {
   redirectUri: "https://app.test/api/statements/sber/callback",
   clientId: "cid",
   clientSecret: "secret",
+  scope: "openid statements",
   dispatcher: undefined as never, // в тестах fetch замокан, диспетчер не используется
 };
 

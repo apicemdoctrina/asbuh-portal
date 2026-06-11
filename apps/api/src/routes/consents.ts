@@ -66,7 +66,7 @@ router.post("/accept", authenticate, async (req, res) => {
     const userId = req.user!.userId;
     const parsed = acceptSchema.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.errors[0].message });
+      res.status(400).json({ error: parsed.error.issues[0].message });
       return;
     }
 

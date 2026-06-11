@@ -42,8 +42,11 @@ function nextMonthDay(from: Date, day: number): Date {
   return new Date(from.getFullYear(), from.getMonth() + 1, day);
 }
 
+/** Черновик шаблона — visibleToClient проставляется по категории перед возвратом. */
+type TaskTemplateDraft = Omit<TaskTemplate, "visibleToClient">;
+
 export function generateTaskTemplates(org: OrgParams): TaskTemplate[] {
-  const tasks: TaskTemplate[] = [];
+  const tasks: TaskTemplateDraft[] = [];
   const now = new Date();
   const nextQ = nextQuarterDeadline(now);
 
@@ -235,9 +238,5 @@ export function generateTaskTemplates(org: OrgParams): TaskTemplate[] {
 
   // Default client visibility: REPORTING tasks (декларации, отчёты) видны клиенту;
   // PAYMENT/DOCUMENTS/OTHER — внутренние, бухгалтер может включить вручную.
-  for (const t of tasks) {
-    t.visibleToClient = t.category === "REPORTING";
-  }
-
-  return tasks;
+  return tasks.map((t) => ({ ...t, visibleToClient: t.category === "REPORTING" }));
 }

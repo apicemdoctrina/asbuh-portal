@@ -293,7 +293,7 @@ function adaptImapFlow(flow: ImapFlow, mailbox: string): ImapClient {
     },
     async searchUnseen() {
       const uids = await flow.search({ seen: false }, { uid: true });
-      return uids ?? [];
+      return uids || []; // false (нет ящика/ошибка поиска) → пустой список
     },
     async fetchRaw(uid) {
       const msg = await flow.fetchOne(String(uid), { source: true, envelope: true }, { uid: true });

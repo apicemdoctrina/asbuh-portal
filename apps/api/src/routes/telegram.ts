@@ -15,7 +15,7 @@ function generateCode(): string {
 router.get("/status", authenticate, async (req, res) => {
   try {
     const binding = await prisma.telegramBinding.findUnique({
-      where: { userId: req.user.userId },
+      where: { userId: req.user!.userId },
     });
 
     if (!binding) {
@@ -52,8 +52,8 @@ router.post("/connect", authenticate, async (req, res) => {
     const codeExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
 
     await prisma.telegramBinding.upsert({
-      where: { userId: req.user.userId },
-      create: { userId: req.user.userId, code, codeExpiresAt },
+      where: { userId: req.user!.userId },
+      create: { userId: req.user!.userId, code, codeExpiresAt },
       update: { code, codeExpiresAt, chatId: null, username: null, connectedAt: null },
     });
 
@@ -68,7 +68,7 @@ router.post("/connect", authenticate, async (req, res) => {
 // DELETE /api/telegram/disconnect
 router.delete("/disconnect", authenticate, async (req, res) => {
   try {
-    await prisma.telegramBinding.deleteMany({ where: { userId: req.user.userId } });
+    await prisma.telegramBinding.deleteMany({ where: { userId: req.user!.userId } });
     res.status(204).send();
   } catch (err) {
     console.error("DELETE /api/telegram/disconnect error:", err);
