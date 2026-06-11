@@ -1,7 +1,10 @@
 import jwt from "jsonwebtoken";
 import { randomBytes } from "node:crypto";
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
+const JWT_SECRET = process.env.JWT_SECRET ?? "";
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET is required — set it in apps/api/.env (see .env.example)");
+}
 const TTL_MS = 5 * 60 * 1000;
 
 export interface OAuthState {

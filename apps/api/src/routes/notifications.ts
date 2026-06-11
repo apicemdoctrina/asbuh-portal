@@ -1,25 +1,43 @@
 import { Router } from "express";
+import crypto from "node:crypto";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
-import { verifyAccessToken } from "../lib/tokens.js";
 import { addConnection, removeConnection } from "../lib/sse-manager.js";
 
 const router = Router();
 
-// GET /api/notifications/stream?token=ACCESS_TOKEN
-// Note: EventSource doesn't support custom headers, so auth via query param
+// Одноразовые SSE-тикеты: EventSource не умеет заголовки, а access token в query
+// попадает в логи nginx. Тикет живёт 30 секунд и сгорает при первом использовании.
+const TICKET_TTL_MS = 30_000;
+const sseTickets = new Map<string, { userId: string; expiresAt: number }>();
+
+function sweepTickets() {
+  const now = Date.now();
+  for (const [k, v] of sseTickets) if (v.expiresAt < now) sseTickets.delete(k);
+}
+
+// POST /api/notifications/stream-ticket — выдать одноразовый тикет для SSE
+router.post("/stream-ticket", authenticate, (req, res) => {
+  sweepTickets();
+  const ticket = crypto.randomBytes(24).toString("hex");
+  sseTickets.set(ticket, {
+    userId: req.user!.userId,
+    expiresAt: Date.now() + TICKET_TTL_MS,
+  });
+  res.json({ ticket });
+});
+
+// GET /api/notifications/stream?ticket=ONE_TIME_TICKET
 router.get("/stream", async (req, res) => {
-  const token = req.query.token as string;
-  if (!token) return res.status(401).end();
+  const ticket = req.query.ticket as string;
+  if (!ticket) return res.status(401).end();
 
-  let payload: { userId: string };
-  try {
-    payload = verifyAccessToken(token) as { userId: string };
-  } catch {
-    return res.status(401).end();
-  }
+  sweepTickets();
+  const entry = sseTickets.get(ticket);
+  if (!entry) return res.status(401).end();
+  sseTickets.delete(ticket); // одноразовый
 
-  const userId = payload.userId;
+  const userId = entry.userId;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -46,7 +64,7 @@ router.get("/", authenticate, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 30, 100);
     const notifications = await prisma.notification.findMany({
-      where: { userId: req.user.userId },
+      where: { userId: req.user!.userId },
       orderBy: { createdAt: "desc" },
       take: limit,
     });
@@ -61,7 +79,7 @@ router.get("/", authenticate, async (req, res) => {
 router.patch("/read-all", authenticate, async (req, res) => {
   try {
     await prisma.notification.updateMany({
-      where: { userId: req.user.userId, readAt: null },
+      where: { userId: req.user!.userId, readAt: null },
       data: { readAt: new Date() },
     });
     res.status(204).send();
@@ -75,7 +93,7 @@ router.patch("/read-all", authenticate, async (req, res) => {
 router.patch("/:id/read", authenticate, async (req, res) => {
   try {
     const notif = await prisma.notification.findFirst({
-      where: { id: req.params.id, userId: req.user.userId },
+      where: { id: req.params.id, userId: req.user!.userId },
     });
     if (!notif) return res.status(404).json({ error: "Not found" });
 

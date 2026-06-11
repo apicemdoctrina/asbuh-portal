@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import { X, Plus, Megaphone, Loader2, Trash2, ChevronUp, Send } from "lucide-react";
 import { api } from "../lib/api.js";
+import { sanitizeHtml } from "../lib/sanitize.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
 const RichTextEditor = lazy(() => import("./RichTextEditor.jsx"));
@@ -271,7 +272,7 @@ export default function AnnouncementsPanel({ onClose, onUnreadChange }) {
                         </p>
                         <div
                           className="tiptap-content text-sm text-body mt-1"
-                          dangerouslySetInnerHTML={{ __html: item.body }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(item.body) }}
                         />
                         <p className="text-xs text-subtle mt-2">
                           {formatDate(item.publishedAt)} · {item.author}

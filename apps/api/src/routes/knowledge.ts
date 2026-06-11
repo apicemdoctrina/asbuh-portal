@@ -1,5 +1,6 @@
 import { Router } from "express";
 import multer from "multer";
+import type { Prisma } from "@prisma/client";
 import path from "node:path";
 import fs from "node:fs/promises";
 import prisma from "../lib/prisma.js";
@@ -9,6 +10,7 @@ import { createKnowledgeItemSchema, updateKnowledgeItemSchema } from "../lib/val
 import { upload, UPLOADS_DIR } from "../lib/upload.js";
 import { parsePagination } from "../lib/route-helpers.js";
 import { typograph, typographHtml } from "../lib/typograph.js";
+import { sanitizeRichHtml } from "../lib/sanitize.js";
 
 const router = Router();
 
@@ -83,8 +85,7 @@ router.get("/", authenticate, requirePermission("knowledge_item", "view"), async
 
     const isClient = req.user!.roles.includes("client");
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = {};
+    const where: Prisma.KnowledgeItemWhereInput = {};
 
     // Clients can only see CLIENT audience
     if (isClient) {
@@ -185,7 +186,8 @@ router.post(
           audience,
           tags,
           description: description ? typograph(description) : null,
-          content: type === "ARTICLE" ? (content ? typographHtml(content) : null) : null,
+          content:
+            type === "ARTICLE" ? (content ? sanitizeRichHtml(typographHtml(content)) : null) : null,
           url: type === "VIDEO" ? (url ?? null) : null,
           coverImagePath: coverImage ? coverImage.filename : null,
           coverImageName: coverImage
@@ -251,7 +253,7 @@ router.put(
       if (typeof updateData.description === "string")
         updateData.description = typograph(updateData.description);
       if (typeof updateData.content === "string")
-        updateData.content = typographHtml(updateData.content);
+        updateData.content = sanitizeRichHtml(typographHtml(updateData.content));
 
       // If a new file is uploaded, replace the old one
       if (file) {
@@ -389,8 +391,7 @@ router.get(
     try {
       const isClient = req.user!.roles.includes("client");
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const where: any = { id: req.params.id };
+      const where: Prisma.KnowledgeItemWhereInput = { id: req.params.id };
       if (isClient) where.audience = "CLIENT";
 
       const item = await prisma.knowledgeItem.findFirst({ where });

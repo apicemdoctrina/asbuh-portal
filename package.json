@@ -10,6 +10,7 @@
     "dev:api": "npm run dev -w apps/api",
     "build": "npm run build -w apps/web && npm run build -w apps/api",
     "lint": "npm run lint -w apps/web && npm run lint -w apps/api",
+    "typecheck": "npm run typecheck -w apps/api",
     "lint:fix": "npm run lint:fix -w apps/web && npm run lint:fix -w apps/api",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -17,6 +18,9 @@
     "test:ci": "npm run test:ci -w apps/web && npm run test:ci -w apps/api",
     "dev:db": "docker compose up -d",
     "prepare": "husky"
+  },
+  "overrides": {
+    "@types/express-serve-static-core": "5.0.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.27.0",

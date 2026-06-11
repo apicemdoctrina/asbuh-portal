@@ -58,13 +58,24 @@ export function NotificationProvider({ children }) {
     }, 5000);
   }, []);
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     if (!mountedRef.current || !user) return;
-    const token = getAccessToken();
-    if (!token) return;
+    if (!getAccessToken()) return;
+
+    // Одноразовый тикет вместо access token в URL — токен не светится в логах сервера
+    let ticket;
+    try {
+      const ticketRes = await api("/api/notifications/stream-ticket", { method: "POST" });
+      if (!ticketRes.ok) throw new Error("ticket request failed");
+      ({ ticket } = await ticketRes.json());
+    } catch {
+      reconnectTimerRef.current = setTimeout(connect, 5000);
+      return;
+    }
+    if (!mountedRef.current) return;
 
     const es = new EventSource(
-      `${API_BASE}/api/notifications/stream?token=${encodeURIComponent(token)}`,
+      `${API_BASE}/api/notifications/stream?ticket=${encodeURIComponent(ticket)}`,
     );
     esRef.current = es;
 

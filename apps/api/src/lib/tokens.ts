@@ -1,8 +1,11 @@
 import jwt from "jsonwebtoken";
 import crypto from "node:crypto";
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
-const ACCESS_EXPIRES = process.env.JWT_ACCESS_EXPIRES || "15m";
+const JWT_SECRET = process.env.JWT_SECRET ?? "";
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET is required — set it in apps/api/.env (see .env.example)");
+}
+const ACCESS_EXPIRES = (process.env.JWT_ACCESS_EXPIRES || "15m") as jwt.SignOptions["expiresIn"];
 
 export interface AccessTokenPayload {
   userId: string;

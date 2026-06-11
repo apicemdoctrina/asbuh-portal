@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import authRouter from "./routes/auth.js";
 import usersRouter from "./routes/users.js";
@@ -37,12 +38,35 @@ const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",")
   : ["http://localhost:5173"];
 
+// Security headers. CORP "cross-origin" — картинки из /uploads встраиваются
+// фронтом с другого origin в dev (vite :5173 → api :3000).
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
-// Serve uploaded files (cover images, inline images)
-app.use("/uploads", express.static(UPLOADS_DIR));
+// Serve uploaded files — ONLY images (avatars, covers, inline illustrations, screenshots).
+// Documents/statements/ticket attachments live in the same dir but must go through
+// the authorized download endpoints (organizations, statements, tickets, support).
+const PUBLIC_IMAGE_RE = /\.(png|jpe?g|gif|webp|bmp)$/i;
+app.use("/uploads/tickets", (_req, res) => {
+  res.status(404).json({ error: "Not found" });
+});
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    if (!PUBLIC_IMAGE_RE.test(req.path)) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    next();
+  },
+  express.static(UPLOADS_DIR, {
+    setHeaders: (res) => {
+      res.setHeader("X-Content-Type-Options", "nosniff");
+    },
+  }),
+);
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });

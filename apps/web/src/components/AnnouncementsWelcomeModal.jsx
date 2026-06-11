@@ -1,5 +1,6 @@
 import { X, Megaphone } from "lucide-react";
 import { api } from "../lib/api.js";
+import { sanitizeHtml } from "../lib/sanitize.js";
 
 const TYPE_META = {
   FEATURE: {
@@ -81,7 +82,7 @@ export default function AnnouncementsWelcomeModal({ items, onClose }) {
                 <p className="text-sm font-semibold text-heading">{item.title}</p>
                 <div
                   className="tiptap-content text-sm text-body mt-1"
-                  dangerouslySetInnerHTML={{ __html: item.body }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(item.body) }}
                 />
               </div>
             );

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router";
 import { api } from "../lib/api.js";
+import { sanitizeHtml } from "../lib/sanitize.js";
 import { ArrowLeft, Download, ExternalLink, Loader2 } from "lucide-react";
 
 const TYPE_LABELS = { ARTICLE: "Статья", VIDEO: "Видео", FILE: "Файл" };
@@ -186,7 +187,7 @@ export default function KnowledgeArticlePage() {
         <div className="bg-surface rounded-2xl shadow-lg border border-line p-4 sm:p-8">
           <div
             className="tiptap-content text-body"
-            dangerouslySetInnerHTML={{ __html: item.content }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(item.content) }}
           />
         </div>
       )}

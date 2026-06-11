@@ -64,6 +64,20 @@ function attachmentUrl(att) {
   return `${import.meta.env.VITE_API_URL || ""}/uploads/${att.fileKey || att.fileName}`;
 }
 
+// Не-картиночные файлы статика не отдаёт — качаем через авторизованный эндпоинт
+async function downloadAttachment(att) {
+  const key = att.fileKey || att.fileName;
+  const res = await api(`/api/support/files/${encodeURIComponent(key)}`);
+  if (!res.ok) return;
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = att.originalName || att.fileName || "file";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function isImage(att) {
   const mime = att.mimeType || "";
   if (mime.startsWith("image/")) return true;
@@ -136,11 +150,10 @@ function MessageAttachments({ items, mine }) {
           );
         }
         return (
-          <a
+          <button
             key={i}
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
+            type="button"
+            onClick={() => downloadAttachment(att)}
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-line bg-canvas text-xs text-body hover:border-primary/40 hover:text-primary transition-colors max-w-[260px]"
           >
             <FileText size={14} className="shrink-0" />
@@ -148,7 +161,7 @@ function MessageAttachments({ items, mine }) {
             {att.fileSize ? (
               <span className="text-subtle shrink-0">· {formatBytes(att.fileSize)}</span>
             ) : null}
-          </a>
+          </button>
         );
       })}
     </div>

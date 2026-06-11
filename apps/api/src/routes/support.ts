@@ -1,8 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
+import path from "node:path";
+import fs from "node:fs";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
-import { upload } from "../lib/upload.js";
+import { upload, UPLOADS_DIR } from "../lib/upload.js";
 import { createNotification } from "../lib/notify.js";
 import { typograph } from "../lib/typograph.js";
 
@@ -320,6 +322,50 @@ router.patch("/threads/:id", authenticate, async (req, res) => {
     res.json(withAvatarUrl(thread));
   } catch (err) {
     console.error("support thread patch:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * GET /api/support/files/:key — авторизованная выдача не-картиночных вложений.
+ * Публичная статика /uploads отдаёт только картинки, документы — только здесь.
+ */
+router.get("/files/:key", authenticate, async (req, res) => {
+  try {
+    const key = req.params.key;
+    // UUID-имя от multer + расширение из whitelist — исключает path traversal
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\.[a-z0-9]{1,5})?$/i.test(key)
+    ) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+
+    // Файл обязан быть вложением сообщения поддержки, а тред — доступен запрашивающему.
+    // Без этой проверки эндпоинт отдавал бы любой файл из общего UPLOADS_DIR
+    // (документы организаций, выписки) любому залогиненному пользователю.
+    const user = req.user!;
+    const message = await prisma.supportMessage.findFirst({
+      where: {
+        attachments: { array_contains: [{ fileKey: key }] },
+        ...(isStaff(user.roles) ? {} : { thread: { userId: user.userId } }),
+      },
+      select: { id: true },
+    });
+    if (!message) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+
+    const filePath = path.join(UPLOADS_DIR, key);
+    if (!fs.existsSync(filePath)) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.download(filePath);
+  } catch (err) {
+    console.error("support file download:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

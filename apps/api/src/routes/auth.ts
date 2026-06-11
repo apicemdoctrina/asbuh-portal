@@ -537,7 +537,7 @@ router.post("/forgot-password", authLimiter, async (req, res) => {
 });
 
 // POST /api/auth/reset-password
-router.post("/reset-password", async (req, res) => {
+router.post("/reset-password", authLimiter, async (req, res) => {
   try {
     const { token, password } = req.body;
     if (!token || !password) {
@@ -564,6 +564,10 @@ router.post("/reset-password", async (req, res) => {
       where: { id: resetToken.userId },
       data: { passwordHash: await hashPassword(password as string) },
     });
+
+    // Revoke all active sessions — a password reset must log out everyone,
+    // including a potential attacker holding a live refresh token
+    await prisma.refreshToken.deleteMany({ where: { userId: resetToken.userId } });
 
     await auditFromReq(req, {
       action: "password_reset",

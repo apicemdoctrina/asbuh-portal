@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     env: {
       ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      JWT_SECRET: "test-jwt-secret",
     },
   },
 });

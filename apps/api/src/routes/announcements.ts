@@ -4,6 +4,7 @@ import { authenticate, requireRole } from "../middleware/auth.js";
 import { sendMessage } from "../lib/telegram.js";
 import { isNotificationEnabled } from "../lib/notification-prefs.js";
 import { typograph, typographHtml } from "../lib/typograph.js";
+import { sanitizeRichHtml } from "../lib/sanitize.js";
 
 const router = Router();
 
@@ -84,7 +85,7 @@ router.post("/", authenticate, requireRole("admin"), async (req, res) => {
     const announcement = await prisma.announcement.create({
       data: {
         title: typograph(title.trim()),
-        body: typographHtml(body.trim()),
+        body: sanitizeRichHtml(typographHtml(body.trim())),
         type: announcementType as "FEATURE" | "FIX" | "CHANGE" | "REMOVAL",
         audience: announcementAudience as "STAFF" | "CLIENT",
         authorId: req.user!.userId,
@@ -197,7 +198,9 @@ async function sendTelegramAnnouncement(title: string, body: string, type: strin
         (await isNotificationEnabled(b.userId, "announcement")) ? b : null,
       ),
     );
-    const targets = allowed.filter((b): b is NonNullable<typeof b> => b !== null);
+    const targets = allowed.filter(
+      (b): b is NonNullable<typeof b> & { chatId: string } => b !== null && b.chatId !== null,
+    );
     await Promise.allSettled(targets.map((b) => sendMessage(b.chatId, text)));
   } catch (err) {
     console.error("[announcements] Telegram push error:", err);
