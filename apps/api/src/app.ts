@@ -11,7 +11,7 @@ import workContactsRouter from "./routes/work-contacts.js";
 import auditLogsRouter from "./routes/audit-logs.js";
 import knowledgeRouter from "./routes/knowledge.js";
 import managementRouter from "./routes/management/index.js";
-import tasksRouter from "./routes/tasks.js";
+import tasksRouter from "./routes/tasks/index.js";
 import telegramRouter from "./routes/telegram.js";
 import notificationsRouter from "./routes/notifications.js";
 import messagesRouter from "./routes/messages.js";
