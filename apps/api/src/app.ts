@@ -19,7 +19,7 @@ import ticketsRouter from "./routes/tickets.js";
 import clientGroupsRouter from "./routes/client-groups.js";
 import announcementsRouter from "./routes/announcements.js";
 import reportingRouter from "./routes/reporting.js";
-import paymentsRouter from "./routes/payments.js";
+import paymentsRouter from "./routes/payments/index.js";
 import statementsRouter from "./routes/statements.js";
 import healthRouter from "./routes/health.js";
 import clientDashboardRouter from "./routes/client-dashboard.js";
