@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../lib/api.js";
+import { useApi, jsonFetcher } from "../hooks/useApi.js";
 import OrgFinanceSection from "../components/OrgFinanceSection.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
@@ -249,8 +250,6 @@ export default function OrganizationDetailPage() {
   const isAdmin = hasRole("admin") || hasRole("supervisor");
 
   const [organization, setOrganization] = useState(null);
-  const [sections, setSections] = useState([]);
-  const [clientGroups, setClientGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -277,8 +276,6 @@ export default function OrganizationDetailPage() {
   const [inviteEmailSent, setInviteEmailSent] = useState(false);
   const [inviteEmailWarning, setInviteEmailWarning] = useState("");
 
-  // Tasks for this org (shown in OrgOpenTasksBanner)
-  const [orgTasks, setOrgTasks] = useState([]);
   const [commentTask, setCommentTask] = useState(null);
   const [priceHistoryOpen, setPriceHistoryOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -286,23 +283,19 @@ export default function OrganizationDetailPage() {
 
   const canEdit = hasPermission("organization", "edit") && organization?._editable !== false;
 
-  useEffect(() => {
-    if (hasPermission("section", "view")) {
-      api("/api/sections?limit=100")
-        .then((res) => (res.ok ? res.json() : { sections: [] }))
-        .then((data) => setSections(data.sections || []))
-        .catch(() => {});
-    }
-  }, [hasPermission]);
+  const { data: sectionsData } = useApi(
+    jsonFetcher(() => api("/api/sections?limit=100")),
+    [],
+    { enabled: hasPermission("section", "view") },
+  );
+  const sections = sectionsData?.sections ?? [];
 
-  useEffect(() => {
-    if (hasPermission("organization", "view")) {
-      api("/api/client-groups")
-        .then((res) => (res.ok ? res.json() : []))
-        .then((data) => setClientGroups(Array.isArray(data) ? data : []))
-        .catch(() => {});
-    }
-  }, [hasPermission]);
+  const { data: clientGroupsData } = useApi(
+    jsonFetcher(() => api("/api/client-groups")),
+    [],
+    { enabled: hasPermission("organization", "view") },
+  );
+  const clientGroups = Array.isArray(clientGroupsData) ? clientGroupsData : [];
 
   function populateForm(data) {
     setForm({
@@ -391,19 +384,13 @@ export default function OrganizationDetailPage() {
     }
   }, []);
 
-  const fetchOrgTasks = useCallback(async () => {
-    if (!hasPermission("task", "view")) return;
-    try {
-      const res = await api(`/api/tasks?organizationId=${id}`);
-      if (res.ok) setOrgTasks(await res.json());
-    } catch {
-      // silent
-    }
-  }, [id, hasPermission]);
-
-  useEffect(() => {
-    fetchOrgTasks();
-  }, [fetchOrgTasks]);
+  // Tasks for this org (shown in OrgOpenTasksBanner)
+  const { data: orgTasksData, refetch: fetchOrgTasks } = useApi(
+    jsonFetcher(() => api(`/api/tasks?organizationId=${id}`)),
+    [id],
+    { enabled: hasPermission("task", "view") },
+  );
+  const orgTasks = orgTasksData ?? [];
 
   useEffect(() => {
     if (!showAddMember) return;
@@ -1629,17 +1616,14 @@ const BANNER_STATUS_COLORS = {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function OrgTicketsCard({ organizationId }) {
-  const [tickets, setTickets] = useState([]);
-  const [loading, setLoading] = useState(true);
   const { hasPermission } = useAuth();
 
-  useEffect(() => {
-    api(`/api/tickets?organizationId=${organizationId}&limit=10`)
-      .then((r) => r.json())
-      .then((data) => setTickets(data.tickets || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+  const { data: ticketsData, loading } = useApi(async () => {
+    const res = await api(`/api/tickets?organizationId=${organizationId}&limit=10`);
+    const data = await res.json();
+    return data.tickets || [];
   }, [organizationId]);
+  const tickets = ticketsData ?? [];
 
   const statusLabel = {
     NEW: "Новый",

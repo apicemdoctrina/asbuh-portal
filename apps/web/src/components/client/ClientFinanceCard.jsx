@@ -1,35 +1,21 @@
-import { useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Loader2 } from "lucide-react";
 import { api } from "../../lib/api";
+import { useApi } from "../../hooks/useApi.js";
 
 const money = (n) =>
   Number(n).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function ClientFinanceCard({ organizationId }) {
-  const [summary, setSummary] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [forbidden, setForbidden] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    (async () => {
-      try {
-        const res = await api(`/api/organizations/${organizationId}/finance`);
-        if (!active) return;
-        if (res.ok) setSummary((await res.json()).summary);
-        else if (res.status === 403) setForbidden(true);
-      } catch {
-        // сеть недоступна — карточку просто не показываем
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
+  // 403 → forbidden (публикация выключена), сетевая ошибка → карточку просто не показываем
+  const { data, loading } = useApi(async () => {
+    const res = await api(`/api/organizations/${organizationId}/finance`);
+    if (res.ok) return { summary: (await res.json()).summary, forbidden: false };
+    if (res.status === 403) return { summary: null, forbidden: true };
+    return { summary: null, forbidden: false };
   }, [organizationId]);
+  const summary = data?.summary ?? null;
+  const forbidden = data?.forbidden ?? false;
 
   if (forbidden) return null; // публикация выключена — секции нет
   if (loading) {

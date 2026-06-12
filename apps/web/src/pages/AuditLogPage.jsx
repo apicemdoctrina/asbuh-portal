@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useDebouncedEffect } from "../hooks/useDebouncedEffect.js";
+import { useApi } from "../hooks/useApi.js";
 import { api } from "../lib/api.js";
 import {
   Search,
@@ -236,17 +237,15 @@ export default function AuditLogPage() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [expandedId, setExpandedId] = useState(null);
-  const [actionOptions, setActionOptions] = useState([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const activeFilters = (entity ? 1 : 0) + (action ? 1 : 0) + (from ? 1 : 0) + (to ? 1 : 0);
 
   // Load distinct actions for the filter dropdown
-  useEffect(() => {
-    api("/api/audit-logs/actions")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((actions) => setActionOptions(actions))
-      .catch(() => {});
+  const { data: actionsData } = useApi(async () => {
+    const r = await api("/api/audit-logs/actions");
+    return r.ok ? r.json() : [];
   }, []);
+  const actionOptions = actionsData ?? [];
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);

@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { api } from "../lib/api.js";
+import { useApi, jsonFetcher } from "../hooks/useApi.js";
 import { fmtMoney } from "../lib/format.js";
 import {
   Wallet,
@@ -47,34 +48,25 @@ export default function OrgTransactionsCard({
   debtAmount = null,
   monthlyPayment = null,
 }) {
-  const [transactions, setTransactions] = useState([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const limit = 20;
 
-  const fetchTx = useCallback(async () => {
-    setLoading(true);
-    try {
+  const {
+    data,
+    loading,
+    refetch: fetchTx,
+  } = useApi(
+    jsonFetcher(() => {
       const params = new URLSearchParams({ page: String(page), limit: String(limit) });
       if (organizationId) params.set("organizationId", organizationId);
       if (clientGroupId) params.set("clientGroupId", clientGroupId);
-      const res = await api(`/api/payments/transactions?${params}`);
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      setTransactions(data.transactions);
-      setTotal(data.total);
-    } catch {
-      /* */
-    } finally {
-      setLoading(false);
-    }
-  }, [organizationId, clientGroupId, page]);
-
-  useEffect(() => {
-    fetchTx();
-  }, [fetchTx]);
+      return api(`/api/payments/transactions?${params}`);
+    }),
+    [organizationId, clientGroupId, page],
+  );
+  const transactions = data?.transactions ?? [];
+  const total = data?.total ?? 0;
 
   async function handleIgnore(txId) {
     await api(`/api/payments/transactions/${txId}/ignore`, { method: "PUT" });

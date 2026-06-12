@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
+import { useApi } from "../hooks/useApi.js";
 import { ArrowLeft, Pencil, Trash2, Building2, Loader2, X, User, KeyRound } from "lucide-react";
 import Modal from "../components/ui/Modal.jsx";
 
@@ -42,39 +43,32 @@ export default function UserProfilePage() {
   const { user: me, hasRole } = useAuth();
   const isAdmin = hasRole("admin");
 
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [editOpen, setEditOpen] = useState(false);
 
-  const fetchProfile = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
+  const {
+    data: profile,
+    loading,
+    error,
+    refetch: fetchProfile,
+  } = useApi(
+    async () => {
       const res = await api(`/api/users/${id}`);
-      if (res.ok) {
-        setProfile(await res.json());
-      } else if (res.status === 403) {
+      if (res.ok) return res.json();
+      if (res.status === 403) {
         navigate("/");
-      } else if (res.status === 404) {
-        setError("Пользователь не найден");
-      } else {
-        setError("Ошибка загрузки");
+        return null;
       }
-    } catch {
-      setError("Сетевая ошибка");
-    } finally {
-      setLoading(false);
-    }
-  }, [id, navigate]);
+      const err = new Error(`HTTP ${res.status}`);
+      err.userMessage = res.status === 404 ? "Пользователь не найден" : "Ошибка загрузки";
+      throw err;
+    },
+    [id],
+    { enabled: isAdmin, errorMessage: "Сетевая ошибка" },
+  );
 
   useEffect(() => {
-    if (!isAdmin) {
-      navigate("/");
-      return;
-    }
-    fetchProfile();
-  }, [isAdmin, fetchProfile, navigate]);
+    if (!isAdmin) navigate("/");
+  }, [isAdmin, navigate]);
 
   async function handleDelete() {
     if (!profile) return;

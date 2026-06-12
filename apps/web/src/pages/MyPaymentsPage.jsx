@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { Link } from "react-router";
 import { api } from "../lib/api.js";
+import { useApi, jsonFetcher } from "../hooks/useApi.js";
 import {
   Search,
   ChevronLeft,
@@ -18,16 +19,33 @@ function fmt(val) {
 }
 
 export default function MyPaymentsPage() {
-  const [transactions, setTransactions] = useState([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
   const limit = 50;
+
+  const {
+    data,
+    loading,
+    refetch: fetchTx,
+  } = useApi(
+    jsonFetcher(() => {
+      const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+      if (search) params.set("search", search);
+      return api(`/api/payments/my-transactions?${params}`);
+    }),
+    [page, search],
+  );
+  const transactions = data?.transactions ?? [];
+  const total = data?.total ?? 0;
 
   // Add payment form
   const [showAdd, setShowAdd] = useState(false);
-  const [orgs, setOrgs] = useState([]);
+  const { data: orgsData } = useApi(async () => {
+    const r = await api("/api/organizations?limit=1000");
+    const d = r.ok ? await r.json() : { organizations: [] };
+    return d.organizations || [];
+  }, []);
+  const orgs = orgsData ?? [];
   const [addForm, setAddForm] = useState({
     organizationId: "",
     amount: "",
@@ -35,34 +53,6 @@ export default function MyPaymentsPage() {
     purpose: "",
   });
   const [saving, setSaving] = useState(false);
-
-  const fetchTx = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ page: String(page), limit: String(limit) });
-      if (search) params.set("search", search);
-      const res = await api(`/api/payments/my-transactions?${params}`);
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      setTransactions(data.transactions);
-      setTotal(data.total);
-    } catch {
-      /* */
-    } finally {
-      setLoading(false);
-    }
-  }, [page, search]);
-
-  useEffect(() => {
-    fetchTx();
-  }, [fetchTx]);
-
-  useEffect(() => {
-    api("/api/organizations?limit=1000")
-      .then((r) => (r.ok ? r.json() : { organizations: [] }))
-      .then((d) => setOrgs(d.organizations || []))
-      .catch(() => {});
-  }, []);
 
   async function handleAdd() {
     if (!addForm.organizationId || !addForm.amount || !addForm.date) return;

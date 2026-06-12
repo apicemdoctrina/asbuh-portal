@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, Fragment } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router";
 import { api } from "../lib/api.js";
+import { useApi, jsonFetcher } from "../hooks/useApi.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
   RefreshCw,
@@ -61,45 +62,35 @@ function fmt(val) {
 // ─── Tab: Transactions ───────────────────────────────────────────────────────
 
 function TransactionsTab({ onOrgClick }) {
-  const [transactions, setTransactions] = useState([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [matchFilter, setMatchFilter] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [orgs, setOrgs] = useState([]);
   const [matchingId, setMatchingId] = useState(null);
   const [matchOrgId, setMatchOrgId] = useState("");
   const limit = 50;
 
-  const fetchTx = useCallback(async () => {
-    setLoading(true);
-    try {
+  const {
+    data,
+    loading,
+    refetch: fetchTx,
+  } = useApi(
+    jsonFetcher(() => {
       const params = new URLSearchParams({ page: String(page), limit: String(limit) });
       if (search) params.set("search", search);
       if (matchFilter) params.set("matchStatus", matchFilter);
-      const res = await api(`/api/payments/transactions?${params}`);
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      setTransactions(data.transactions);
-      setTotal(data.total);
-    } catch {
-      /* */
-    } finally {
-      setLoading(false);
-    }
-  }, [page, search, matchFilter]);
+      return api(`/api/payments/transactions?${params}`);
+    }),
+    [page, search, matchFilter],
+  );
+  const transactions = data?.transactions ?? [];
+  const total = data?.total ?? 0;
 
-  useEffect(() => {
-    fetchTx();
-  }, [fetchTx]);
-
-  useEffect(() => {
-    api("/api/organizations?limit=1000")
-      .then((r) => (r.ok ? r.json() : { organizations: [] }))
-      .then((d) => setOrgs(d.organizations || []))
-      .catch(() => {});
+  const { data: orgsData } = useApi(async () => {
+    const res = await api("/api/organizations?limit=1000");
+    const d = res.ok ? await res.json() : { organizations: [] };
+    return d.organizations || [];
   }, []);
+  const orgs = orgsData ?? [];
 
   async function handleMatch(txId) {
     if (!matchOrgId) return;
@@ -755,17 +746,13 @@ function ReconciliationTab() {
 
 function SummaryTab() {
   const [period, setPeriod] = useState("all");
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    setLoading(true);
-    api(`/api/payments/summary?year=${period}`)
-      .then((r) => (r.ok ? r.json() : { months: [] }))
-      .then((d) => setData(d.months || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+  const { data: monthsData, loading } = useApi(async () => {
+    const res = await api(`/api/payments/summary?year=${period}`);
+    const d = res.ok ? await res.json() : { months: [] };
+    return d.months || [];
   }, [period]);
+  const data = monthsData ?? [];
 
   const totalAll = data.reduce((s, m) => s + m.total, 0);
 
@@ -1178,27 +1165,16 @@ export default function PaymentsPage() {
   const [tab, setTab] = useState(() => searchParams.get("tab") || "reconciliation");
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
-  const [accounts, setAccounts] = useState([]);
   const [showSetup, setShowSetup] = useState(false);
   const [tochkaAccounts, setTochkaAccounts] = useState(null);
   const [loadingTochka, setLoadingTochka] = useState(false);
   const [syncPeriod, setSyncPeriod] = useState("all");
 
-  const fetchAccounts = useCallback(async () => {
-    try {
-      const res = await api("/api/payments/accounts");
-      if (res.ok) {
-        const data = await res.json();
-        setAccounts(data);
-      }
-    } catch {
-      /* */
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchAccounts();
-  }, [fetchAccounts]);
+  const { data: accountsData, refetch: fetchAccounts } = useApi(
+    jsonFetcher(() => api("/api/payments/accounts")),
+    [],
+  );
+  const accounts = accountsData ?? [];
 
   async function handleFetchTochkaAccounts() {
     setLoadingTochka(true);

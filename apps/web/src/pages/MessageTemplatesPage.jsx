@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { api } from "../lib/api.js";
+import { useApi, jsonFetcher } from "../hooks/useApi.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { Plus, Pencil, Trash2, Save, Mail, MessageCircle, Loader2, FileText } from "lucide-react";
 import Modal from "../components/ui/Modal.jsx";
@@ -17,8 +18,15 @@ const PLACEHOLDER_HELP = [
 
 export default function MessageTemplatesPage() {
   const { hasPermission } = useAuth();
-  const [templates, setTemplates] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data,
+    loading,
+    refetch: loadTemplates,
+  } = useApi(
+    jsonFetcher(() => api("/api/messages/templates")),
+    [],
+  );
+  const templates = data ?? [];
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: "", subject: "", body: "", channel: "EMAIL" });
@@ -27,20 +35,6 @@ export default function MessageTemplatesPage() {
   const canCreate = hasPermission("message", "create");
   const canEdit = hasPermission("message", "edit");
   const canDelete = hasPermission("message", "delete");
-
-  useEffect(() => {
-    loadTemplates();
-  }, []);
-
-  async function loadTemplates() {
-    setLoading(true);
-    try {
-      const res = await api("/api/messages/templates");
-      if (res.ok) setTemplates(await res.json());
-    } finally {
-      setLoading(false);
-    }
-  }
 
   function openCreate() {
     setEditing(null);

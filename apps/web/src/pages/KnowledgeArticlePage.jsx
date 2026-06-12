@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router";
 import { api } from "../lib/api.js";
+import { useApi } from "../hooks/useApi.js";
 import { sanitizeHtml } from "../lib/sanitize.js";
 import { ArrowLeft, Download, ExternalLink, Loader2 } from "lucide-react";
 
@@ -9,27 +9,20 @@ const AUDIENCE_LABELS = { STAFF: "Сотрудники", CLIENT: "Клиенты
 
 export default function KnowledgeArticlePage() {
   const { id } = useParams();
-  const [item, setItem] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const res = await api(`/api/knowledge/${id}`);
-        if (res.ok) {
-          setItem(await res.json());
-        } else {
-          setError("Материал не найден");
-        }
-      } catch {
-        setError("Ошибка загрузки");
-      } finally {
-        setLoading(false);
-      }
+  // errorMessage по умолчанию ("Ошибка загрузки") — для сетевых ошибок;
+  // userMessage — точный текст для ответа сервера не-ok (как в исходном коде)
+  const {
+    data: item,
+    loading,
+    error,
+  } = useApi(async () => {
+    const res = await api(`/api/knowledge/${id}`);
+    if (!res.ok) {
+      const err = new Error("Материал не найден");
+      err.userMessage = "Материал не найден";
+      throw err;
     }
-    load();
+    return res.json();
   }, [id]);
 
   async function handleDownload() {

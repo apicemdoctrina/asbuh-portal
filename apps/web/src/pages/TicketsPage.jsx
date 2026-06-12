@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
+import { useApi, jsonFetcher } from "../hooks/useApi.js";
 import {
   Plus,
   Loader2,
@@ -81,11 +82,6 @@ export default function TicketsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [tickets, setTickets] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
   const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "");
   const [typeFilter, setTypeFilter] = useState(searchParams.get("type") || "");
   const [search, setSearch] = useState(searchParams.get("search") || "");
@@ -120,32 +116,21 @@ export default function TicketsPage() {
     }
   }, []);
 
-  const fetchTickets = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
+  const { data, loading, error } = useApi(
+    jsonFetcher(() => {
       const params = new URLSearchParams();
       if (statusFilter) params.set("status", statusFilter);
       if (typeFilter) params.set("type", typeFilter);
       if (search) params.set("search", search);
       params.set("page", String(page));
       params.set("limit", "20");
-
-      const res = await api(`/api/tickets?${params}`);
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      setTickets(data.tickets);
-      setTotal(data.total);
-    } catch {
-      setError("Не удалось загрузить тикеты");
-    } finally {
-      setLoading(false);
-    }
-  }, [statusFilter, typeFilter, search, page]);
-
-  useEffect(() => {
-    fetchTickets();
-  }, [fetchTickets]);
+      return api(`/api/tickets?${params}`);
+    }),
+    [statusFilter, typeFilter, search, page],
+    { errorMessage: "Не удалось загрузить тикеты" },
+  );
+  const tickets = data?.tickets ?? [];
+  const total = data?.total ?? 0;
 
   useEffect(() => {
     if (!showCreate) return;

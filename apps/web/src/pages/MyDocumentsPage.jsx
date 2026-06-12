@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "react-router";
 import {
   Loader2,
@@ -11,33 +11,29 @@ import {
   X,
 } from "lucide-react";
 import { api } from "../lib/api.js";
+import { useApi } from "../hooks/useApi.js";
 
 export default function MyDocumentsPage() {
-  const [tickets, setTickets] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [uploadingId, setUploadingId] = useState(null);
 
-  async function load() {
-    setLoading(true);
-    setError("");
-    try {
+  const {
+    data,
+    loading,
+    error,
+    refetch: load,
+  } = useApi(
+    async () => {
       const res = await api(
         "/api/tickets?type=DOCUMENT_REQUEST&status=NEW,WAITING_CLIENT&limit=50",
       );
       if (!res.ok) throw new Error("Не удалось загрузить запросы");
-      const data = await res.json();
-      setTickets(data.tickets || []);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
+      const d = await res.json();
+      return d.tickets || [];
+    },
+    [],
+    { errorMessage: "Не удалось загрузить запросы" },
+  );
+  const tickets = data ?? [];
 
   if (loading) {
     return (

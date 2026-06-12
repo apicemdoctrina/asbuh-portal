@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import { Loader2, Lightbulb, Archive, ArchiveRestore, Check, ExternalLink } from "lucide-react";
 import { api } from "../lib/api.js";
+import { useApi, jsonFetcher } from "../hooks/useApi.js";
 
 function formatDate(iso) {
   try {
@@ -17,24 +18,18 @@ function formatDate(iso) {
 }
 
 export default function AdminSuggestionsPage() {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [showArchived, setShowArchived] = useState(false);
   const [updatingId, setUpdatingId] = useState(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await api(`/api/suggestions${showArchived ? "?archived=1" : ""}`);
-      if (res.ok) setItems(await res.json());
-    } finally {
-      setLoading(false);
-    }
-  }, [showArchived]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const {
+    data,
+    loading,
+    setData: setItems,
+  } = useApi(
+    jsonFetcher(() => api(`/api/suggestions${showArchived ? "?archived=1" : ""}`)),
+    [showArchived],
+  );
+  const items = data ?? [];
 
   async function patch(id, body) {
     setUpdatingId(id);

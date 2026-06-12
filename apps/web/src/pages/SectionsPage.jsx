@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { Link } from "react-router";
 import { api } from "../lib/api.js";
+import { useApi, jsonFetcher } from "../hooks/useApi.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { Plus, Search, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import SectionIcon from "../components/SectionIcon.jsx";
@@ -9,12 +10,8 @@ import Modal from "../components/ui/Modal.jsx";
 
 export default function SectionsPage() {
   const { hasPermission } = useAuth();
-  const [sections, setSections] = useState([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
   // Create modal state
   const [showCreate, setShowCreate] = useState(false);
@@ -26,27 +23,22 @@ export default function SectionsPage() {
 
   const limit = 50;
 
-  const fetchSections = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
+  const {
+    data,
+    loading,
+    error,
+    refetch: fetchSections,
+  } = useApi(
+    jsonFetcher(() => {
       const params = new URLSearchParams({ page: String(page), limit: String(limit) });
       if (search) params.set("search", search);
-      const res = await api(`/api/sections?${params}`);
-      if (!res.ok) throw new Error("Failed to load sections");
-      const data = await res.json();
-      setSections(data.sections);
-      setTotal(data.total);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, search]);
-
-  useEffect(() => {
-    fetchSections();
-  }, [fetchSections]);
+      return api(`/api/sections?${params}`);
+    }),
+    [page, search],
+    { errorMessage: "Failed to load sections" },
+  );
+  const sections = data?.sections ?? [];
+  const total = data?.total ?? 0;
 
   const totalPages = Math.ceil(total / limit);
 

@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { api } from "../lib/api.js";
+import { useApi, jsonFetcher } from "../hooks/useApi.js";
 import {
   Mail,
   MessageCircle,
@@ -20,29 +21,15 @@ const STATUS_CONFIG = {
 };
 
 export default function MessageHistoryCard({ orgId, onSendClick }) {
-  const [messages, setMessages] = useState([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const limit = 10;
 
-  useEffect(() => {
-    loadMessages();
-  }, [orgId, page]);
-
-  async function loadMessages() {
-    setLoading(true);
-    try {
-      const res = await api(`/api/messages/history/${orgId}?page=${page}&limit=${limit}`);
-      if (res.ok) {
-        const data = await res.json();
-        setMessages(data.data);
-        setTotal(data.total);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }
+  const { data, loading } = useApi(
+    jsonFetcher(() => api(`/api/messages/history/${orgId}?page=${page}&limit=${limit}`)),
+    [orgId, page],
+  );
+  const messages = data?.data ?? [];
+  const total = data?.total ?? 0;
 
   const totalPages = Math.ceil(total / limit);
 

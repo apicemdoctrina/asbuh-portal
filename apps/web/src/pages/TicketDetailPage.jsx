@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link } from "react-router";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
+import { useApi } from "../hooks/useApi.js";
 import {
   Loader2,
   Send,
@@ -58,8 +59,6 @@ export default function TicketDetailPage() {
   const [files, setFiles] = useState([]);
   const [sending, setSending] = useState(false);
 
-  const [staff, setStaff] = useState([]);
-
   // Mobile: открыть панель управления (статус/приоритет/исполнитель) как bottom-sheet
   const [mobileManageOpen, setMobileManageOpen] = useState(false);
 
@@ -67,6 +66,17 @@ export default function TicketDetailPage() {
     hasRole("admin") || hasRole("supervisor") || hasRole("manager") || hasRole("accountant");
   const canEdit = hasPermission("ticket", "edit");
   const canDeleteMsg = hasRole("admin") || hasRole("supervisor") || hasRole("manager");
+
+  const { data: staffData } = useApi(
+    async () => {
+      const res = await api("/api/users?limit=200");
+      const data = await res.json();
+      return Array.isArray(data) ? data : data.users || [];
+    },
+    [],
+    { enabled: isStaff },
+  );
+  const staff = staffData ?? [];
 
   // Кого мы ждём в качестве «читателя» (для индикатора ✓✓ на наших сообщениях)
   const otherSideReadAt = isStaff ? ticket?.lastReadByClientAt : ticket?.lastReadByStaffAt;
@@ -127,16 +137,6 @@ export default function TicketDetailPage() {
       markRead();
     }
   }, [loading, ticket, markRead]);
-
-  useEffect(() => {
-    if (!isStaff) return;
-    api("/api/users?limit=200")
-      .then((r) => r.json())
-      .then((data) => {
-        setStaff(Array.isArray(data) ? data : data.users || []);
-      })
-      .catch(() => {});
-  }, [isStaff]);
 
   const initialScrollDone = useRef(false);
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../lib/api.js";
+import { useApi, jsonFetcher } from "../hooks/useApi.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
   TrendingUp,
@@ -1043,45 +1044,52 @@ export default function ManagementPage() {
   const { hasRole } = useAuth();
   const navigate = useNavigate();
 
-  const [sections, setSections] = useState([]);
-  const [staffByRole, setStaffByRole] = useState([]);
-  const [bankStats, setBankStats] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const allowed = hasRole("admin") || hasRole("supervisor");
 
   useEffect(() => {
-    if (!hasRole("admin") && !hasRole("supervisor")) {
-      navigate("/");
-      return;
-    }
-    loadAll();
+    if (!allowed) navigate("/");
   }, []);
 
-  async function loadAll() {
-    setLoading(true);
-    setError(null);
-    try {
-      const [sectionsRes, dashRes, bankRes] = await Promise.all([
-        api("/api/sections?limit=100"),
-        api("/api/management/dashboard"),
-        api("/api/management/bank-stats"),
-      ]);
-      if (!sectionsRes.ok) throw new Error("Ошибка загрузки участков");
-      const sectionsData = await sectionsRes.json();
-      setSections(sectionsData.sections ?? []);
-      if (dashRes.ok) {
-        const dash = await dashRes.json();
-        setStaffByRole(dash?.staff?.byRole ?? []);
-      }
-      if (bankRes.ok) setBankStats(await bankRes.json());
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
+  const {
+    data: sectionsData,
+    loading: sectionsLoading,
+    error,
+    refetch: fetchSections,
+  } = useApi(
+    jsonFetcher(() => api("/api/sections?limit=100")),
+    [],
+    { enabled: allowed, errorMessage: "Ошибка загрузки участков" },
+  );
+  const {
+    data: dashData,
+    loading: dashLoading,
+    refetch: fetchDash,
+  } = useApi(
+    jsonFetcher(() => api("/api/management/dashboard")),
+    [],
+    { enabled: allowed },
+  );
+  const {
+    data: bankStats,
+    loading: bankLoading,
+    refetch: fetchBank,
+  } = useApi(
+    jsonFetcher(() => api("/api/management/bank-stats")),
+    [],
+    { enabled: allowed },
+  );
+
+  const sections = sectionsData?.sections ?? [];
+  const staffByRole = dashData?.staff?.byRole ?? [];
+  const loading = sectionsLoading || dashLoading || bankLoading;
+
+  function loadAll() {
+    fetchSections();
+    fetchDash();
+    fetchBank();
   }
 
-  if (loading)
+  if (loading || !allowed)
     return (
       <div className="flex items-center justify-center h-64 text-subtle text-sm">Загрузка...</div>
     );

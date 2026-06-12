@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -24,6 +24,7 @@ import {
   Filter,
 } from "lucide-react";
 import { api } from "../lib/api";
+import { useApi, jsonFetcher } from "../hooks/useApi.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
 const money = (n) =>
@@ -38,11 +39,8 @@ const moneyShort = (n) => {
 
 export default function OrgFinanceSection({ organizationId, financeVisibleToClient, onToggle }) {
   const { hasPermission } = useAuth();
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [reloadKey, setReloadKey] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState(null); // { ok, status, diff, id } | { error }
   const [opSearch, setOpSearch] = useState("");
@@ -52,27 +50,16 @@ export default function OrgFinanceSection({ organizationId, financeVisibleToClie
   const [opTo, setOpTo] = useState("");
   const [opExpanded, setOpExpanded] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    const qs = new URLSearchParams();
-    if (from) qs.set("from", from);
-    if (to) qs.set("to", to);
-    (async () => {
-      try {
-        const res = await api(`/api/organizations/${organizationId}/finance?${qs.toString()}`);
-        if (!active) return;
-        if (res.ok) setData(await res.json());
-      } catch {
-        // игнорируем сетевую ошибку — покажем пустое состояние
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [organizationId, from, to, reloadKey]);
+  // Сетевая ошибка/не-ok игнорируются (error не рендерим) — покажем пустое состояние
+  const { data, loading, refetch } = useApi(
+    jsonFetcher(() => {
+      const qs = new URLSearchParams();
+      if (from) qs.set("from", from);
+      if (to) qs.set("to", to);
+      return api(`/api/organizations/${organizationId}/finance?${qs.toString()}`);
+    }),
+    [organizationId, from, to],
+  );
 
   async function onUpload(e) {
     const file = e.target.files?.[0];
@@ -93,7 +80,7 @@ export default function OrgFinanceSection({ organizationId, financeVisibleToClie
           diff: body.reconcile.totalDiff,
           id: body.statement.id,
         });
-        setReloadKey((k) => k + 1); // обновить аналитику
+        refetch(); // обновить аналитику
       } else {
         const body = await res.json().catch(() => ({}));
         setUploadResult({ error: body.error || "Ошибка загрузки" });

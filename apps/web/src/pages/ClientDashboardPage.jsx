@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { api } from "../lib/api.js";
+import { useApi, jsonFetcher } from "../hooks/useApi.js";
 import ClientOrgDashboard from "../components/client/ClientOrgDashboard.jsx";
 import ClientGroupDashboard from "../components/client/ClientGroupDashboard.jsx";
 import OnboardingChecklist from "../components/client/OnboardingChecklist.jsx";
@@ -14,34 +14,18 @@ function Skeleton() {
 }
 
 export default function ClientDashboardPage() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  async function load() {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await api("/api/client/dashboard");
-      if (!res.ok) throw new Error("Не удалось загрузить дашборд");
-      setData(await res.json());
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      await load();
-      if (cancelled) setData(null);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const {
+    data,
+    loading,
+    error,
+    refetch: load,
+  } = useApi(
+    jsonFetcher(() => api("/api/client/dashboard")),
+    [],
+    {
+      errorMessage: "Не удалось загрузить дашборд",
+    },
+  );
 
   if (loading) return <Skeleton />;
 

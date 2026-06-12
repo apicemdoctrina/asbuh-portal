@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api } from "../lib/api.js";
+import { useApi, jsonFetcher } from "../hooks/useApi.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
   Loader2,
@@ -207,13 +208,16 @@ function StatusCell({ entry, orgId, rtId, year, period, canEdit, onUpdate, compa
 
 // ─── Report Types Manager Modal ───
 function ReportTypesModal({ onClose, onSaved }) {
-  const [types, setTypes] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: typesData,
+    loading,
+    refetch: loadTypes,
+  } = useApi(
+    jsonFetcher(() => api("/api/reporting/types")),
+    [],
+  );
+  const types = typesData ?? [];
   const [form, setForm] = useState(null); // null = closed, {} = new/edit
-
-  useEffect(() => {
-    loadTypes();
-  }, []);
 
   // Lock body scroll while modal is open
   useEffect(() => {
@@ -223,18 +227,6 @@ function ReportTypesModal({ onClose, onSaved }) {
       document.body.style.overflow = prev;
     };
   }, []);
-
-  async function loadTypes() {
-    setLoading(true);
-    try {
-      const res = await api("/api/reporting/types");
-      if (res.ok) setTypes(await res.json());
-    } catch {
-      /* */
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function handleSave() {
     const method = form.id ? "PUT" : "POST";
@@ -436,8 +428,6 @@ export default function ReportingPage() {
   const [year, setYear] = useState(new Date().getFullYear());
   const [period, setPeriod] = useState(getCurrentPeriod("QUARTERLY"));
 
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [showTypes, setShowTypes] = useState(false);
   const [sectionFilter, setSectionFilter] = useState("");
   const [search, setSearch] = useState("");
@@ -445,23 +435,17 @@ export default function ReportingPage() {
 
   const periods = getPeriods(frequency);
 
-  const fetchMatrix = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await api(
-        `/api/reporting/matrix?year=${year}&period=${period}&frequency=${frequency}`,
-      );
-      if (res.ok) setData(await res.json());
-    } catch {
-      /* */
-    } finally {
-      setLoading(false);
-    }
-  }, [year, period, frequency]);
-
-  useEffect(() => {
-    fetchMatrix();
-  }, [fetchMatrix]);
+  const {
+    data,
+    loading,
+    refetch: fetchMatrix,
+    setData,
+  } = useApi(
+    jsonFetcher(() =>
+      api(`/api/reporting/matrix?year=${year}&period=${period}&frequency=${frequency}`),
+    ),
+    [year, period, frequency],
+  );
 
   // When frequency changes, reset period to current
   useEffect(() => {
