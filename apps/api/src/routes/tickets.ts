@@ -93,7 +93,8 @@ function getTicketScopedWhere(req: Request): Prisma.TicketWhereInput {
 function isClientOnly(req: Request): boolean {
   const roles: string[] = req.user!.roles;
   return (
-    roles.includes("client") && !roles.some((r) => ["admin", "manager", "accountant"].includes(r))
+    roles.includes("client") &&
+    !roles.some((r) => ["admin", "supervisor", "manager", "accountant"].includes(r))
   );
 }
 
@@ -530,6 +531,8 @@ router.delete("/:id", authenticate, requireRole("admin"), async (req: Request, r
 router.post(
   "/:id/messages",
   authenticate,
+  // ticket:view есть у всех ролей — гейт от пользователей вообще без тикет-прав
+  requirePermission("ticket", "view"),
   ticketUpload.array("files", 5),
   async (req: Request, res: Response) => {
     try {
