@@ -61,6 +61,32 @@ describe("useApi", () => {
     expect(result.current.data).toBe("fresh");
   });
 
+  it("debounces auto-refetch but keeps manual refetch immediate", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetcher = vi.fn().mockResolvedValue("v");
+      const { rerender } = renderHook(({ q }) => useApi(fetcher, [q], { debounce: 300 }), {
+        initialProps: { q: "a" },
+      });
+      expect(fetcher).not.toHaveBeenCalled();
+      // Быстрая смена deps до истечения таймера — предыдущий таймер сбрасывается
+      await act(async () => {
+        vi.advanceTimersByTime(200);
+      });
+      rerender({ q: "ab" });
+      await act(async () => {
+        vi.advanceTimersByTime(200);
+      });
+      expect(fetcher).not.toHaveBeenCalled();
+      await act(async () => {
+        vi.advanceTimersByTime(100);
+      });
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("exposes setData for optimistic updates", async () => {
     const fetcher = vi.fn().mockResolvedValue([1]);
     const { result } = renderHook(() => useApi(fetcher, []));

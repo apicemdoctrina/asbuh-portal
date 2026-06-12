@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { Link } from "react-router";
+import { useApi, jsonFetcher } from "../hooks/useApi.js";
 import { api } from "../lib/api.js";
 import { fmtMoney as fmtMoneyBase } from "../lib/format.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -50,31 +51,23 @@ export default function ClientsPage() {
   const { hasRole } = useAuth();
   const isAdmin = hasRole("admin");
 
-  const [clients, setClients] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [editingClient, setEditingClient] = useState(null);
 
-  const fetchClients = useCallback(async () => {
-    setLoading(true);
-    try {
+  const {
+    data,
+    loading,
+    refetch: fetchClients,
+  } = useApi(
+    jsonFetcher(() => {
       const qs = new URLSearchParams({ role: "client" });
       if (search) qs.set("search", search);
-      const res = await api(`/api/users?${qs}`);
-      if (res.ok) {
-        setClients(await res.json());
-      }
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  }, [search]);
-
-  useEffect(() => {
-    const timer = setTimeout(fetchClients, 300);
-    return () => clearTimeout(timer);
-  }, [fetchClients]);
+      return api(`/api/users?${qs}`);
+    }),
+    [search],
+    { debounce: 300 },
+  );
+  const clients = data ?? [];
 
   async function handleDelete(c) {
     const msg = c.isActive

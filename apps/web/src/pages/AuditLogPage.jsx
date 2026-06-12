@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { useDebouncedEffect } from "../hooks/useDebouncedEffect.js";
-import { useApi } from "../hooks/useApi.js";
+import { useState, useEffect } from "react";
+import { useApi, jsonFetcher } from "../hooks/useApi.js";
 import { api } from "../lib/api.js";
 import {
   Search,
@@ -227,10 +226,7 @@ const ENTITY_OPTIONS = [
 const LIMIT = 50;
 
 export default function AuditLogPage() {
-  const [logs, setLogs] = useState([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [entity, setEntity] = useState("");
   const [action, setAction] = useState("");
@@ -247,9 +243,8 @@ export default function AuditLogPage() {
   }, []);
   const actionOptions = actionsData ?? [];
 
-  const fetchLogs = useCallback(async () => {
-    setLoading(true);
-    try {
+  const { data: logsData, loading } = useApi(
+    jsonFetcher(() => {
       const params = new URLSearchParams();
       params.set("page", String(page));
       params.set("limit", String(LIMIT));
@@ -259,20 +254,13 @@ export default function AuditLogPage() {
       if (from) params.set("from", from);
       if (to) params.set("to", to);
 
-      const res = await api(`/api/audit-logs?${params.toString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        setLogs(data.data);
-        setTotal(data.total);
-      }
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  }, [page, search, entity, action, from, to]);
-
-  useDebouncedEffect(fetchLogs, [fetchLogs]);
+      return api(`/api/audit-logs?${params.toString()}`);
+    }),
+    [page, search, entity, action, from, to],
+    { debounce: 300 },
+  );
+  const logs = logsData?.data ?? [];
+  const total = logsData?.total ?? 0;
 
   useEffect(() => {
     setPage(1);

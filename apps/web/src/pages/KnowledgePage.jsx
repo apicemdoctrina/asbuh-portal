@@ -1,6 +1,6 @@
-import { useState, useCallback, useMemo, lazy, Suspense } from "react";
+import { useState, useMemo, lazy, Suspense } from "react";
 import { useNavigate } from "react-router";
-import { useDebouncedEffect } from "../hooks/useDebouncedEffect.js";
+import { useApi, jsonFetcher } from "../hooks/useApi.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
 import {
@@ -39,9 +39,6 @@ const TYPE_COLORS = {
 
 export default function KnowledgePage() {
   const { hasPermission, hasRole } = useAuth();
-  const [items, setItems] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [audienceFilter, setAudienceFilter] = useState("");
@@ -57,29 +54,25 @@ export default function KnowledgePage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const activeFilters = (typeFilter ? 1 : 0) + (audienceFilter ? 1 : 0) + (tagFilter ? 1 : 0);
 
-  const fetchItems = useCallback(async () => {
-    setLoading(true);
-    try {
+  const {
+    data,
+    loading,
+    refetch: fetchItems,
+  } = useApi(
+    jsonFetcher(() => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (typeFilter) params.set("type", typeFilter);
       if (audienceFilter) params.set("audience", audienceFilter);
       if (tagFilter) params.set("tag", tagFilter);
       const qs = params.toString();
-      const res = await api(`/api/knowledge${qs ? `?${qs}` : ""}`);
-      if (res.ok) {
-        const data = await res.json();
-        setItems(data.data);
-        setTotal(data.total);
-      }
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  }, [search, typeFilter, audienceFilter, tagFilter]);
-
-  useDebouncedEffect(fetchItems, [fetchItems]);
+      return api(`/api/knowledge${qs ? `?${qs}` : ""}`);
+    }),
+    [search, typeFilter, audienceFilter, tagFilter],
+    { debounce: 300 },
+  );
+  const items = data?.data ?? [];
+  const total = data?.total ?? 0;
 
   function handleSaved() {
     setShowModal(false);

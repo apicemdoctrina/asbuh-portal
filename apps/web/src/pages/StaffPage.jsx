@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { useDebouncedEffect } from "../hooks/useDebouncedEffect.js";
+import { useState } from "react";
+import { useApi } from "../hooks/useApi.js";
 import { Link } from "react-router";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
@@ -90,9 +90,6 @@ function getPrimaryRole(roles) {
 
 export default function StaffPage() {
   const { user, hasRole } = useAuth();
-  const [users, setUsers] = useState([]);
-  const [workloadMap, setWorkloadMap] = useState({});
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
@@ -102,30 +99,29 @@ export default function StaffPage() {
   const isSupervisor = hasRole("supervisor");
   const canManageCompensation = isAdmin || isSupervisor;
 
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    try {
+  const {
+    data,
+    loading,
+    refetch: fetchUsers,
+  } = useApi(
+    async () => {
       const qs = new URLSearchParams({ excludeRole: "client" });
       if (search) qs.set("search", search);
       const [usersRes, analyticsRes] = await Promise.all([
         api(`/api/users?${qs}`),
         api("/api/management/analytics"),
       ]);
-      if (usersRes.ok) setUsers(await usersRes.json());
-      if (analyticsRes.ok) {
-        const analytics = await analyticsRes.json();
-        const map = {};
-        for (const w of analytics.workload ?? []) map[w.userId] = w;
-        setWorkloadMap(map);
-      }
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  }, [search]);
-
-  useDebouncedEffect(fetchUsers, [fetchUsers]);
+      if (!usersRes.ok || !analyticsRes.ok) throw new Error("HTTP error");
+      const [users, analytics] = await Promise.all([usersRes.json(), analyticsRes.json()]);
+      const map = {};
+      for (const w of analytics.workload ?? []) map[w.userId] = w;
+      return { users, workloadMap: map };
+    },
+    [search],
+    { debounce: 300 },
+  );
+  const users = data?.users ?? [];
+  const workloadMap = data?.workloadMap ?? {};
 
   function handleCreated() {
     setShowCreateModal(false);

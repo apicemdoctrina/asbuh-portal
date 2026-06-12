@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { useDebouncedEffect } from "../hooks/useDebouncedEffect.js";
+import { useState } from "react";
+import { useApi, jsonFetcher } from "../hooks/useApi.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
 import { Search, Plus, Loader2, Pencil, Trash2, Phone, Briefcase } from "lucide-react";
@@ -11,9 +11,6 @@ function normalizePhone(raw) {
 
 export default function WorkContactsPage() {
   const { hasPermission } = useAuth();
-  const [contacts, setContacts] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingContact, setEditingContact] = useState(null);
@@ -22,24 +19,20 @@ export default function WorkContactsPage() {
   const canEdit = hasPermission("work_contact", "edit");
   const canDelete = hasPermission("work_contact", "delete");
 
-  const fetchContacts = useCallback(async () => {
-    setLoading(true);
-    try {
+  const {
+    data,
+    loading,
+    refetch: fetchContacts,
+  } = useApi(
+    jsonFetcher(() => {
       const params = search ? `?search=${encodeURIComponent(search)}` : "";
-      const res = await api(`/api/work-contacts${params}`);
-      if (res.ok) {
-        const data = await res.json();
-        setContacts(data.data);
-        setTotal(data.total);
-      }
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  }, [search]);
-
-  useDebouncedEffect(fetchContacts, [fetchContacts]);
+      return api(`/api/work-contacts${params}`);
+    }),
+    [search],
+    { debounce: 300 },
+  );
+  const contacts = data?.data ?? [];
+  const total = data?.total ?? 0;
 
   function handleSaved() {
     setShowModal(false);
