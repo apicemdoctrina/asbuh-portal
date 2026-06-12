@@ -1,195 +1,11 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useParams, useNavigate, Link } from "react-router";
-import {
-  LifeBuoy,
-  Plus,
-  Send,
-  Loader2,
-  CheckCircle2,
-  X,
-  Mail,
-  Paperclip,
-  FileText,
-  Check,
-  CheckCheck,
-  ChevronLeft,
-} from "lucide-react";
+import { useParams, useNavigate } from "react-router";
+import { LifeBuoy, Plus, X } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
-
-const STATUS_LABEL = {
-  OPEN: {
-    text: "Открыто",
-    cls: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
-  },
-  RESOLVED: {
-    text: "Решено",
-    cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
-  },
-  CLOSED: {
-    text: "Закрыто",
-    cls: "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
-  },
-};
-
-function formatTime(d) {
-  if (!d) return "";
-  const date = new Date(d);
-  const today = new Date();
-  const sameDay =
-    date.getFullYear() === today.getFullYear() &&
-    date.getMonth() === today.getMonth() &&
-    date.getDate() === today.getDate();
-  return sameDay
-    ? date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
-    : date.toLocaleString("ru-RU", {
-        day: "2-digit",
-        month: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-}
-
-function fullName(u) {
-  if (!u) return "—";
-  return `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email;
-}
-
-function avatarUrl(u) {
-  if (!u?.avatarUrl) return null;
-  return `${import.meta.env.VITE_API_URL || ""}${u.avatarUrl}`;
-}
-
-function attachmentUrl(att) {
-  return `${import.meta.env.VITE_API_URL || ""}/uploads/${att.fileKey || att.fileName}`;
-}
-
-// Не-картиночные файлы статика не отдаёт — качаем через авторизованный эндпоинт
-async function downloadAttachment(att) {
-  const key = att.fileKey || att.fileName;
-  const res = await api(`/api/support/files/${encodeURIComponent(key)}`);
-  if (!res.ok) return;
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = att.originalName || att.fileName || "file";
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function isImage(att) {
-  const mime = att.mimeType || "";
-  if (mime.startsWith("image/")) return true;
-  const name = (att.originalName || att.fileName || "").toLowerCase();
-  return /\.(png|jpe?g|gif|webp|bmp)$/.test(name);
-}
-
-function formatBytes(n) {
-  if (!n) return "";
-  if (n < 1024) return `${n} Б`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} КБ`;
-  return `${(n / 1024 / 1024).toFixed(1)} МБ`;
-}
-
-function PendingAttachments({ items, onRemove }) {
-  if (!items || items.length === 0) return null;
-  return (
-    <div className="flex flex-wrap gap-2 mt-2">
-      {items.map((att, i) => {
-        const url = attachmentUrl(att);
-        const label = att.originalName || att.fileName || "файл";
-        return (
-          <div
-            key={i}
-            className="relative inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-line bg-canvas text-xs text-body max-w-[260px]"
-          >
-            {isImage(att) ? (
-              <img src={url} alt="" className="w-8 h-8 object-cover rounded" />
-            ) : (
-              <FileText size={14} className="shrink-0" />
-            )}
-            <span className="truncate">{label}</span>
-            {att.fileSize ? (
-              <span className="text-subtle shrink-0">{formatBytes(att.fileSize)}</span>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => onRemove(i)}
-              className="p-0.5 rounded text-subtle hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-              title="Убрать"
-            >
-              <X size={12} />
-            </button>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function MessageAttachments({ items, mine }) {
-  if (!items || items.length === 0) return null;
-  return (
-    <div className={`flex flex-wrap gap-2 mt-1 ${mine ? "justify-end" : "justify-start"}`}>
-      {items.map((att, i) => {
-        const url = attachmentUrl(att);
-        const label = att.originalName || att.fileName || "файл";
-        if (isImage(att)) {
-          return (
-            <a
-              key={i}
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block max-w-[240px] rounded-lg overflow-hidden border border-line bg-canvas hover:opacity-90 transition-opacity"
-              title={label}
-            >
-              <img src={url} alt={label} className="block max-h-48 object-cover" />
-            </a>
-          );
-        }
-        return (
-          <button
-            key={i}
-            type="button"
-            onClick={() => downloadAttachment(att)}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-line bg-canvas text-xs text-body hover:border-primary/40 hover:text-primary transition-colors max-w-[260px]"
-          >
-            <FileText size={14} className="shrink-0" />
-            <span className="truncate">{label}</span>
-            {att.fileSize ? (
-              <span className="text-subtle shrink-0">· {formatBytes(att.fileSize)}</span>
-            ) : null}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function Avatar({ user, size = 32 }) {
-  const url = avatarUrl(user);
-  if (url) {
-    return (
-      <img
-        src={url}
-        alt=""
-        style={{ width: size, height: size }}
-        className="rounded-full object-cover border border-line shrink-0"
-      />
-    );
-  }
-  const initials = `${(user?.firstName?.[0] || "").toUpperCase()}${(user?.lastName?.[0] || "").toUpperCase()}`;
-  return (
-    <div
-      style={{ width: size, height: size }}
-      className="rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-xs shrink-0"
-    >
-      {initials || "?"}
-    </div>
-  );
-}
+import ThreadList from "../components/support/ThreadList.jsx";
+import NewThreadForm from "../components/support/NewThreadForm.jsx";
+import ThreadView from "../components/support/ThreadView.jsx";
 
 export default function SupportPage() {
   const { id } = useParams();
@@ -212,8 +28,6 @@ export default function SupportPage() {
   const [newAttachments, setNewAttachments] = useState([]);
   const [uploadingCount, setUploadingCount] = useState(0);
   const messagesEndRef = useRef(null);
-  const replyFileInputRef = useRef(null);
-  const newFileInputRef = useRef(null);
 
   async function uploadOne(file) {
     const fd = new FormData();
@@ -444,97 +258,12 @@ export default function SupportPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-3 sm:gap-4">
         {/* Список тредов */}
-        <aside
-          className={`bg-surface rounded-2xl shadow-sm border border-line overflow-hidden lg:flex flex-col h-[calc(100vh-180px)] sm:h-[calc(100vh-220px)] lg:h-[calc(100vh-220px)] ${
-            showListMobile ? "flex" : "hidden"
-          }`}
-        >
-          <div className="p-3 border-b border-line text-xs font-medium text-subtle uppercase tracking-wide">
-            {isStaff ? "Все обращения" : "Мои обращения"}
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            {threads === null ? (
-              <div className="p-6 flex items-center justify-center text-subtle">
-                <Loader2 size={20} className="animate-spin" />
-              </div>
-            ) : threads.length === 0 ? (
-              <div className="p-6 text-center text-sm text-subtle">
-                {isStaff
-                  ? "Пока нет обращений"
-                  : "У вас пока нет обращений. Нажмите «Новое обращение»."}
-              </div>
-            ) : (
-              <ul className="flex flex-col">
-                {threads.map((t) => {
-                  const last = t.messages?.[0];
-                  const isActive = thread?.id === t.id;
-                  const hasUnreadForUser = !isStaff && last && last.isStaff && !last.readAt;
-                  const hasUnreadForStaff = isStaff && last && !last.isStaff && !last.readAt;
-                  return (
-                    <li key={t.id}>
-                      <Link
-                        to={`/support/${t.id}`}
-                        className={`block px-4 py-3 border-b border-line hover:bg-muted transition-colors ${
-                          isActive ? "bg-primary/5 border-l-2 border-l-primary" : ""
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <div className="text-sm font-medium text-heading truncate flex-1">
-                            {t.subject}
-                          </div>
-                          <span
-                            className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ${STATUS_LABEL[t.status].cls}`}
-                          >
-                            {STATUS_LABEL[t.status].text}
-                          </span>
-                        </div>
-                        {isStaff && (
-                          <div className="text-xs text-subtle truncate mb-1">
-                            от {fullName(t.user)}
-                          </div>
-                        )}
-                        {last && (
-                          <div className="text-xs text-subtle truncate flex items-center gap-1">
-                            {(hasUnreadForUser || hasUnreadForStaff) && (
-                              <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
-                            )}
-                            <span className="truncate">{last.body}</span>
-                          </div>
-                        )}
-                        <div className="text-[11px] text-subtle mt-1">
-                          {formatTime(t.lastMessageAt)}
-                        </div>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-          {!isStaff && (
-            <div className="border-t border-line bg-canvas/60 p-3 flex flex-col gap-2">
-              <div className="text-[11px] uppercase tracking-wide text-subtle font-medium">
-                Не работает чат? Напишите напрямую
-              </div>
-              <a
-                href="mailto:support@asbuh.com"
-                className="flex items-center gap-2 px-3 py-2 rounded-lg border border-line bg-surface hover:border-primary/40 hover:text-primary transition-colors text-sm text-body group"
-              >
-                <Mail size={16} className="text-subtle group-hover:text-primary shrink-0" />
-                <span className="truncate">support@asbuh.com</span>
-              </a>
-              <a
-                href="https://t.me/apicem_doctrina"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 px-3 py-2 rounded-lg border border-line bg-surface hover:border-primary/40 hover:text-primary transition-colors text-sm text-body group"
-              >
-                <Send size={16} className="text-subtle group-hover:text-primary shrink-0" />
-                <span className="truncate">Telegram: @apicem_doctrina</span>
-              </a>
-            </div>
-          )}
-        </aside>
+        <ThreadList
+          threads={threads}
+          activeThreadId={thread?.id}
+          isStaff={isStaff}
+          visibleOnMobile={showListMobile}
+        />
 
         {/* Окно треда */}
         <section
@@ -543,96 +272,20 @@ export default function SupportPage() {
           }`}
         >
           {showNewForm ? (
-            <form onSubmit={submitNewThread} className="p-6 flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-heading">Новое обращение</h2>
-                <button
-                  type="button"
-                  onClick={() => setShowNewForm(false)}
-                  className="p-1.5 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-body mb-1">Тема</label>
-                <input
-                  type="text"
-                  value={newSubject}
-                  onChange={(e) => setNewSubject(e.target.value)}
-                  placeholder="Кратко опишите проблему"
-                  required
-                  minLength={3}
-                  maxLength={200}
-                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-body mb-1">Сообщение</label>
-                <textarea
-                  value={newBody}
-                  onChange={(e) => setNewBody(e.target.value)}
-                  onPaste={(e) => handlePaste(e, "new")}
-                  placeholder="Опишите проблему подробно. Можно вставить скриншот через Ctrl+V."
-                  rows={8}
-                  maxLength={10_000}
-                  className="w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
-                <PendingAttachments
-                  items={newAttachments}
-                  onRemove={(idx) => setNewAttachments((p) => p.filter((_, i) => i !== idx))}
-                />
-                <div className="mt-2 flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => newFileInputRef.current?.click()}
-                    className="inline-flex items-center gap-2 text-xs text-subtle hover:text-primary transition-colors"
-                  >
-                    <Paperclip size={14} />
-                    Прикрепить файл
-                  </button>
-                  {uploadingCount > 0 && (
-                    <span className="inline-flex items-center gap-1 text-xs text-subtle">
-                      <Loader2 size={12} className="animate-spin" />
-                      Загрузка…
-                    </span>
-                  )}
-                  <input
-                    ref={newFileInputRef}
-                    type="file"
-                    multiple
-                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
-                    onChange={(e) => {
-                      handleFiles(Array.from(e.target.files || []), "new");
-                      e.target.value = "";
-                    }}
-                    className="hidden"
-                  />
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  type="submit"
-                  disabled={
-                    creating ||
-                    !newSubject.trim() ||
-                    (!newBody.trim() && newAttachments.length === 0) ||
-                    uploadingCount > 0
-                  }
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-[#6567F1] to-[#5557E1] text-white text-sm font-medium shadow-lg shadow-[#6567F1]/30 hover:from-[#5557E1] hover:to-[#4547D1] disabled:opacity-50 transition-all"
-                >
-                  {creating ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                  Отправить
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowNewForm(false)}
-                  className="px-4 py-2 rounded-lg text-sm text-body hover:bg-muted transition-colors"
-                >
-                  Отмена
-                </button>
-              </div>
-            </form>
+            <NewThreadForm
+              subject={newSubject}
+              onSubjectChange={setNewSubject}
+              body={newBody}
+              onBodyChange={setNewBody}
+              attachments={newAttachments}
+              onRemoveAttachment={(idx) => setNewAttachments((p) => p.filter((_, i) => i !== idx))}
+              uploadingCount={uploadingCount}
+              creating={creating}
+              onSubmit={submitNewThread}
+              onClose={() => setShowNewForm(false)}
+              onFiles={(files) => handleFiles(files, "new")}
+              onPaste={(e) => handlePaste(e, "new")}
+            />
           ) : !thread ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-10 gap-3">
               <LifeBuoy size={48} className="text-subtle" />
@@ -646,193 +299,25 @@ export default function SupportPage() {
               </p>
             </div>
           ) : (
-            <>
-              <header className="p-3 sm:p-4 border-b border-line flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
-                <div className="flex items-start gap-2 flex-1 min-w-0">
-                  <Link
-                    to="/support"
-                    className="lg:hidden shrink-0 -ml-1 p-1.5 rounded-lg text-subtle hover:text-primary hover:bg-primary/5 transition-colors"
-                    aria-label="К списку обращений"
-                  >
-                    <ChevronLeft size={20} />
-                  </Link>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-base sm:text-lg font-bold text-heading truncate flex-1 min-w-0">
-                        {thread.subject}
-                      </h2>
-                      <span
-                        className={`shrink-0 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ${STATUS_LABEL[thread.status].cls}`}
-                      >
-                        {STATUS_LABEL[thread.status].text}
-                      </span>
-                    </div>
-                    <div className="text-xs text-subtle mt-0.5 truncate">
-                      Открыто {formatTime(thread.createdAt)}
-                      {isStaff && ` · ${fullName(thread.user)}`}
-                    </div>
-                  </div>
-                </div>
-                {isStaff && thread.status !== "CLOSED" && (
-                  <div className="flex items-center gap-2 sm:shrink-0">
-                    {thread.status === "OPEN" && (
-                      <button
-                        onClick={() => changeStatus("RESOLVED")}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200/70 dark:hover:bg-emerald-500/25 transition-colors"
-                      >
-                        <CheckCircle2 size={14} />
-                        Решено
-                      </button>
-                    )}
-                    <button
-                      onClick={() => changeStatus("CLOSED")}
-                      className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-body hover:bg-line transition-colors"
-                    >
-                      Закрыть
-                    </button>
-                  </div>
-                )}
-                {isStaff && thread.status === "CLOSED" && (
-                  <button
-                    onClick={() => changeStatus("OPEN")}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-body hover:bg-line transition-colors sm:shrink-0"
-                  >
-                    Переоткрыть
-                  </button>
-                )}
-              </header>
-
-              <div className="flex-1 overflow-y-auto p-3 sm:p-4 flex flex-col gap-3 bg-canvas/50">
-                {loadingThread && !thread.messages ? (
-                  <div className="flex items-center justify-center py-8 text-subtle">
-                    <Loader2 size={20} className="animate-spin" />
-                  </div>
-                ) : (
-                  (thread.messages || []).map((m) => {
-                    const mine = m.authorId === user?.id;
-                    return (
-                      <div
-                        key={m.id}
-                        className={`flex gap-2 ${mine ? "flex-row-reverse" : "flex-row"}`}
-                      >
-                        <Avatar user={m.author} size={32} />
-                        <div
-                          className={`max-w-[78%] ${mine ? "items-end" : "items-start"} flex flex-col gap-0.5`}
-                        >
-                          <div
-                            className={`text-[11px] text-subtle flex items-center gap-1 ${mine ? "justify-end" : "justify-start"}`}
-                          >
-                            <span>{fullName(m.author)}</span>
-                            {m.isStaff && (
-                              <span className="text-primary font-medium">(поддержка)</span>
-                            )}
-                            <span>·</span>
-                            <span>{formatTime(m.createdAt)}</span>
-                            {mine && (
-                              <span
-                                className="inline-flex items-center"
-                                title={
-                                  m.readAt ? `Прочитано ${formatTime(m.readAt)}` : "Отправлено"
-                                }
-                              >
-                                {m.readAt ? (
-                                  <CheckCheck size={13} className="text-primary" />
-                                ) : (
-                                  <Check size={13} />
-                                )}
-                              </span>
-                            )}
-                          </div>
-                          {m.body && (
-                            <div
-                              className={`px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words ${
-                                mine
-                                  ? "bg-primary text-white rounded-tr-sm"
-                                  : "bg-surface border border-line rounded-tl-sm text-body"
-                              }`}
-                            >
-                              {m.body}
-                            </div>
-                          )}
-                          <MessageAttachments items={m.attachments} mine={mine} />
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-
-              {thread.status !== "CLOSED" ? (
-                <form
-                  onSubmit={submitReply}
-                  className="border-t border-line p-3 flex flex-col gap-2"
-                >
-                  <PendingAttachments
-                    items={replyAttachments}
-                    onRemove={(idx) => setReplyAttachments((p) => p.filter((_, i) => i !== idx))}
-                  />
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => replyFileInputRef.current?.click()}
-                      className="shrink-0 h-11 w-11 flex items-center justify-center rounded-lg text-subtle hover:text-primary hover:bg-primary/5 transition-colors"
-                      title="Прикрепить файл (или Ctrl+V для скрина)"
-                    >
-                      {uploadingCount > 0 ? (
-                        <Loader2 size={18} className="animate-spin" />
-                      ) : (
-                        <Paperclip size={18} />
-                      )}
-                    </button>
-                    <input
-                      ref={replyFileInputRef}
-                      type="file"
-                      multiple
-                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
-                      onChange={(e) => {
-                        handleFiles(Array.from(e.target.files || []), "reply");
-                        e.target.value = "";
-                      }}
-                      className="hidden"
-                    />
-                    <textarea
-                      value={body}
-                      onChange={(e) => setBody(e.target.value)}
-                      onPaste={(e) => handlePaste(e, "reply")}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                          submitReply(e);
-                        }
-                      }}
-                      placeholder=""
-                      rows={1}
-                      maxLength={10_000}
-                      className="flex-1 h-11 px-3 py-2.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none leading-6"
-                    />
-                    <button
-                      type="submit"
-                      disabled={
-                        sending ||
-                        uploadingCount > 0 ||
-                        (!body.trim() && replyAttachments.length === 0)
-                      }
-                      className="shrink-0 h-11 w-11 flex items-center justify-center rounded-lg bg-gradient-to-r from-[#6567F1] to-[#5557E1] text-white shadow-lg shadow-[#6567F1]/30 hover:from-[#5557E1] hover:to-[#4547D1] disabled:opacity-50 transition-all"
-                    >
-                      {sending ? (
-                        <Loader2 size={16} className="animate-spin" />
-                      ) : (
-                        <Send size={16} />
-                      )}
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <div className="border-t border-line p-4 text-center text-sm text-subtle bg-muted">
-                  Тред закрыт. Если есть новые вопросы — создайте новое обращение.
-                </div>
-              )}
-            </>
+            <ThreadView
+              thread={thread}
+              loadingThread={loadingThread}
+              isStaff={isStaff}
+              userId={user?.id}
+              onChangeStatus={changeStatus}
+              body={body}
+              onBodyChange={setBody}
+              sending={sending}
+              uploadingCount={uploadingCount}
+              replyAttachments={replyAttachments}
+              onRemoveReplyAttachment={(idx) =>
+                setReplyAttachments((p) => p.filter((_, i) => i !== idx))
+              }
+              onSubmitReply={submitReply}
+              onFiles={(files) => handleFiles(files, "reply")}
+              onPaste={(e) => handlePaste(e, "reply")}
+              messagesEndRef={messagesEndRef}
+            />
           )}
         </section>
       </div>
