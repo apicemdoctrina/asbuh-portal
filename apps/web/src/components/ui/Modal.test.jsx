@@ -69,4 +69,45 @@ describe("Modal", () => {
     fireEvent.mouseDown(screen.getByRole("dialog"));
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it("Escape closes only the topmost of nested modals", () => {
+    const onCloseOuter = vi.fn();
+    const onCloseInner = vi.fn();
+    render(
+      <>
+        <Modal onClose={onCloseOuter} title="Внешняя">
+          x
+        </Modal>
+        <Modal onClose={onCloseInner} title="Внутренняя">
+          y
+        </Modal>
+      </>,
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onCloseInner).toHaveBeenCalledTimes(1);
+    expect(onCloseOuter).not.toHaveBeenCalled();
+  });
+
+  it("renders sheet variant with drag handle and rounded-t panel", () => {
+    render(
+      <Modal onClose={() => {}} title="Лист" sheet size="lg">
+        контент
+      </Modal>,
+    );
+    const overlay = screen.getByRole("dialog");
+    expect(overlay.className).toContain("items-end");
+    const panel = overlay.firstChild;
+    expect(panel.className).toContain("rounded-t-3xl");
+    expect(panel.className).toContain("sm:max-w-lg");
+    expect(panel.className).toContain("animate-slide-up");
+  });
+
+  it("supports xl size", () => {
+    render(
+      <Modal onClose={() => {}} title="T" size="xl">
+        x
+      </Modal>,
+    );
+    expect(screen.getByRole("dialog").firstChild.className).toContain("max-w-xl");
+  });
 });
