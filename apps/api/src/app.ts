@@ -3,7 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import authRouter from "./routes/auth.js";
-import usersRouter from "./routes/users.js";
+import usersRouter from "./routes/users/index.js";
 import sectionsRouter from "./routes/sections.js";
 import organizationsRouter from "./routes/organizations/index.js";
 import statsRouter from "./routes/stats.js";
