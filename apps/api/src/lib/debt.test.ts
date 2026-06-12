@@ -245,4 +245,41 @@ describe("recalcOrgDebt", () => {
       data: { debtAmount: 0 },
     });
   });
+
+  it("РЕГРЕССИЯ: архивная орга с max платежом не флагман — как в /payments/reconcile", async () => {
+    mockFn(prisma.organization.findUnique).mockResolvedValue(
+      selectedOrg("org-a", 1000, { clientGroupId: "grp-1", status: "active" }),
+    );
+    mockFn(prisma.organization.findMany).mockResolvedValue([
+      selectedOrg("org-a", 1000, { clientGroupId: "grp-1", status: "active" }),
+      // архивная банковская орга с наибольшим платежом — участвует в expected,
+      // но долг на неё вешать нельзя
+      selectedOrg("org-x", 9000, { clientGroupId: "grp-1", status: "archived" }),
+    ]);
+    mockFn(prisma.bankTransaction.aggregate).mockResolvedValue({ _sum: { amount: 0 } });
+
+    await recalcOrgDebt("org-a");
+
+    expect(prisma.organization.update).toHaveBeenCalledTimes(1);
+    expect(mockFn(prisma.organization.update).mock.calls[0][0].where).toEqual({ id: "org-a" });
+  });
+
+  it("группа без активных платящих банковских орг → все занулены, долг никому не пишется", async () => {
+    mockFn(prisma.organization.findUnique).mockResolvedValue(
+      selectedOrg("org-a", 1000, { clientGroupId: "grp-1", status: "archived" }),
+    );
+    mockFn(prisma.organization.findMany).mockResolvedValue([
+      selectedOrg("org-a", 1000, { clientGroupId: "grp-1", status: "archived" }),
+      selectedOrg("org-b", null, { clientGroupId: "grp-1", status: "active" }),
+    ]);
+    mockFn(prisma.bankTransaction.aggregate).mockResolvedValue({ _sum: { amount: 0 } });
+
+    await recalcOrgDebt("org-a");
+
+    expect(prisma.organization.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["org-a", "org-b"] } },
+      data: { debtAmount: 0 },
+    });
+    expect(prisma.organization.update).not.toHaveBeenCalled();
+  });
 });

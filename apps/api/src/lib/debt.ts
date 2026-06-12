@@ -10,6 +10,17 @@ export const DEBT_BASE_DATE = new Date(2025, 0, 1);
 /** Ручные платежи (карта/наличные) — с 01.01.2026. */
 export const MANUAL_BASE_DATE = new Date(2026, 0, 1);
 
+/** Статусы, при которых организация не участвует в начислении долга. */
+export const NON_PAYING_STATUSES = [
+  "left",
+  "closed",
+  "not_paying",
+  "ceased",
+  "own",
+  "blacklisted",
+  "archived",
+] as const;
+
 export function monthsBetween(from: Date, to: Date): number {
   return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
 }
@@ -85,7 +96,7 @@ export async function recalcOrgDebt(orgId: string): Promise<void> {
   if (org.clientGroupId) {
     const groupOrgs = await prisma.organization.findMany({
       where: { clientGroupId: org.clientGroupId },
-      select: ORG_EXPECTED_SELECT,
+      select: { ...ORG_EXPECTED_SELECT, status: true },
     });
     const bankMembers = groupOrgs.filter((o) => o.paymentDestination === "BANK_TOCHKA");
     const bankMemberIds = bankMembers.map((o) => o.id);
@@ -102,9 +113,16 @@ export async function recalcOrgDebt(orgId: string): Promise<void> {
     const groupDebt = Math.max(0, groupExpected - groupReceived);
     // Debt lives at group level: zero everyone, flagship (highest monthlyPayment)
     // carries the group debt. Atomic — no half-updated group on crash.
+    // Флагман выбирается только среди активных платящих орг — тот же фильтр,
+    // что у /payments/reconcile, иначе долг повиснет на архивной орге.
+    const flagshipCandidates = bankMembers.filter(
+      (o) =>
+        !NON_PAYING_STATUSES.includes(o.status as (typeof NON_PAYING_STATUSES)[number]) &&
+        Number(o.monthlyPayment ?? 0) > 0,
+    );
     const flagship =
-      bankMembers.length > 0
-        ? bankMembers.reduce((best, o) =>
+      flagshipCandidates.length > 0
+        ? flagshipCandidates.reduce((best, o) =>
             Number(o.monthlyPayment ?? 0) > Number(best.monthlyPayment ?? 0) ? o : best,
           )
         : null;

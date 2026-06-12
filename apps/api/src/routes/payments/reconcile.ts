@@ -6,6 +6,7 @@ import { logAudit } from "../../lib/audit.js";
 import {
   DEBT_BASE_DATE,
   MANUAL_BASE_DATE,
+  NON_PAYING_STATUSES,
   calcExpected,
   recalcOrgDebt,
   ORG_EXPECTED_SELECT,
@@ -23,9 +24,7 @@ router.post("/reconcile", authenticate, requireRole("admin", "supervisor"), asyn
       where: {
         paymentDestination: "BANK_TOCHKA",
         monthlyPayment: { not: null, gt: 0 },
-        status: {
-          notIn: ["left", "closed", "not_paying", "ceased", "own", "blacklisted", "archived"],
-        },
+        status: { notIn: [...NON_PAYING_STATUSES] },
       },
       select: {
         id: true,
@@ -257,9 +256,7 @@ router.post(
         where: {
           paymentDestination: { in: ["CARD", "CASH"] },
           monthlyPayment: { not: null, gt: 0 },
-          status: {
-            notIn: ["left", "closed", "not_paying", "ceased", "own", "blacklisted", "archived"],
-          },
+          status: { notIn: [...NON_PAYING_STATUSES] },
         },
         select: {
           id: true,
