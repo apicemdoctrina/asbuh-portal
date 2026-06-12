@@ -19,6 +19,10 @@ const prismaMock = vi.hoisted(() => ({
 
 vi.mock("./prisma.js", () => ({ default: prismaMock }));
 
+// recalcOrgDebt дергается после авто-матчинга — мокаем, чтобы не тащить prisma-логику долга
+const recalcOrgDebtMock = vi.hoisted(() => vi.fn());
+vi.mock("./debt.js", () => ({ recalcOrgDebt: recalcOrgDebtMock }));
+
 import {
   importTochkaIncoming,
   autoMatchTransactions,
@@ -153,14 +157,14 @@ describe("autoMatchTransactions", () => {
   const orgRomashka = { id: "org-1", name: "ООО «Ромашка»", inn: "7700000001" };
   const orgVasilek = { id: "org-2", name: "ИП Василёк", inn: "7800000002" };
 
-  it("запрашивает только UNMATCHED транзакции и только активные BANK_TOCHKA организации", async () => {
+  it("запрашивает только UNMATCHED банковские (не ручные) транзакции и только активные BANK_TOCHKA организации", async () => {
     prismaMock.bankTransaction.findMany.mockResolvedValue([]);
     prismaMock.organization.findMany.mockResolvedValue([]);
 
     await autoMatchTransactions();
 
     expect(prismaMock.bankTransaction.findMany).toHaveBeenCalledWith({
-      where: { matchStatus: "UNMATCHED" },
+      where: { matchStatus: "UNMATCHED", isManual: false },
     });
     expect(prismaMock.organization.findMany).toHaveBeenCalledWith({
       where: {
@@ -253,5 +257,47 @@ describe("autoMatchTransactions", () => {
 
     expect(matched).toBe(2);
     expect(prismaMock.bankTransaction.update).toHaveBeenCalledTimes(2);
+  });
+
+  it("имя матчится только по границам слова: «Мир» не цепляет «Мираж-строй»", async () => {
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      { id: "tx-9", payerInn: null, payerName: "ООО Мираж-строй", purpose: "Оплата аренды" },
+      { id: "tx-10", payerInn: null, payerName: null, purpose: "Оплата от ООО Мир за услуги" },
+    ]);
+    prismaMock.organization.findMany.mockResolvedValue([
+      { id: "org-mir", name: "ООО «Мир»", inn: null },
+    ]);
+
+    const matched = await autoMatchTransactions();
+
+    expect(matched).toBe(1);
+    expect(prismaMock.bankTransaction.update).toHaveBeenCalledTimes(1);
+    expect(prismaMock.bankTransaction.update.mock.calls[0][0].where.id).toBe("tx-10");
+  });
+
+  it("после матчинга пересчитывает долг — один раз на каждую затронутую организацию", async () => {
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      { id: "tx-11", payerInn: "7700000001", payerName: null, purpose: null },
+      { id: "tx-12", payerInn: "7700000001", payerName: null, purpose: null },
+      { id: "tx-13", payerInn: "7800000002", payerName: null, purpose: null },
+    ]);
+    prismaMock.organization.findMany.mockResolvedValue([orgRomashka, orgVasilek]);
+
+    await autoMatchTransactions();
+
+    expect(recalcOrgDebtMock).toHaveBeenCalledTimes(2);
+    expect(recalcOrgDebtMock).toHaveBeenCalledWith("org-1");
+    expect(recalcOrgDebtMock).toHaveBeenCalledWith("org-2");
+  });
+
+  it("без совпадений пересчёт долга не вызывается", async () => {
+    prismaMock.bankTransaction.findMany.mockResolvedValue([
+      { id: "tx-14", payerInn: "5555555555", payerName: "ООО Чужой", purpose: null },
+    ]);
+    prismaMock.organization.findMany.mockResolvedValue([orgRomashka]);
+
+    await autoMatchTransactions();
+
+    expect(recalcOrgDebtMock).not.toHaveBeenCalled();
   });
 });

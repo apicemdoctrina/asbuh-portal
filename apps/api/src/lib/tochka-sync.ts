@@ -1,5 +1,6 @@
 import prisma from "./prisma.js";
 import { scheduleDailyAt } from "./scheduler.js";
+import { recalcOrgDebt } from "./debt.js";
 
 /**
  * Интеграция с Точка Банк (Open Banking API): получение выписок,
@@ -143,8 +144,10 @@ export async function importTochkaIncoming(
 
 /** Авто-матчинг UNMATCHED транзакций: по ИНН плательщика, затем по имени. */
 export async function autoMatchTransactions(): Promise<number> {
+  // Только банковские импорты: ручные транзакции создаются сотрудником
+  // осознанно (в т.ч. намеренно без организации) — их не трогаем.
   const unmatched = await prisma.bankTransaction.findMany({
-    where: { matchStatus: "UNMATCHED" },
+    where: { matchStatus: "UNMATCHED", isManual: false },
   });
 
   // Load all active organizations with INN
@@ -157,6 +160,7 @@ export async function autoMatchTransactions(): Promise<number> {
   });
 
   let matchedCount = 0;
+  const affectedOrgIds = new Set<string>();
 
   for (const tx of unmatched) {
     let orgId: string | null = null;
@@ -178,7 +182,12 @@ export async function autoMatchTransactions(): Promise<number> {
           .replace(/^(ООО|ИП|АО|ПАО|НКО)\s*/i, "")
           .trim()
           .toLowerCase();
-        return cleanName.length >= 3 && searchIn.includes(cleanName);
+        if (cleanName.length < 3) return false;
+        // Совпадение только по границам слова: substring-поиск ловил ложные
+        // привязки («Мир» внутри «Мираж-строй»). \b не работает с кириллицей,
+        // поэтому границы заданы lookaround'ами по буквам/цифрам.
+        const escaped = cleanName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return new RegExp(`(?<![a-zа-яё0-9])${escaped}(?![a-zа-яё0-9])`).test(searchIn);
       });
       if (org) orgId = org.id;
     }
@@ -194,7 +203,14 @@ export async function autoMatchTransactions(): Promise<number> {
         },
       });
       matchedCount++;
+      affectedOrgIds.add(orgId);
     }
+  }
+
+  // Долг должен пересчитываться после ЛЮБОГО изменения транзакции —
+  // авто-матчинг не исключение, иначе debtAmount устаревает до ручной сверки.
+  for (const orgId of affectedOrgIds) {
+    await recalcOrgDebt(orgId);
   }
 
   return matchedCount;
