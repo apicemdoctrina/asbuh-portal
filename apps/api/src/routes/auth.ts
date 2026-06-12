@@ -10,6 +10,7 @@ import { sendPasswordResetEmail } from "../lib/mailer.js";
 import { sendInviteEmail } from "../lib/invite-email.js";
 import { sendMessage } from "../lib/telegram.js";
 import { orgStrictScope } from "../lib/scoping.js";
+import { normalizeEmail } from "../lib/route-helpers.js";
 import crypto from "node:crypto";
 
 const router = Router();
@@ -19,11 +20,12 @@ const REFRESH_EXPIRES_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 // POST /api/auth/login
 router.post("/login", authLimiter, async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
+    const { email: rawEmail, password } = req.body;
+    if (!rawEmail || !password) {
       res.status(400).json({ error: "Email and password are required" });
       return;
     }
+    const email = normalizeEmail(rawEmail);
 
     const user = await prisma.user.findUnique({
       where: { email },
@@ -166,8 +168,8 @@ router.post("/logout", authenticate, async (req, res) => {
 // POST /api/auth/staff — admin-only: create staff user
 router.post("/staff", authenticate, requireRole("admin"), async (req, res) => {
   try {
-    const { email, password, firstName, lastName, roleNames } = req.body;
-    if (!email || !password || !firstName || !lastName) {
+    const { email: rawEmail, password, firstName, lastName, roleNames } = req.body;
+    if (!rawEmail || !password || !firstName || !lastName) {
       res.status(400).json({ error: "email, password, firstName, lastName are required" });
       return;
     }
@@ -175,6 +177,7 @@ router.post("/staff", authenticate, requireRole("admin"), async (req, res) => {
       res.status(400).json({ error: "Password must be at least 8 characters" });
       return;
     }
+    const email = normalizeEmail(rawEmail);
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
@@ -182,28 +185,29 @@ router.post("/staff", authenticate, requireRole("admin"), async (req, res) => {
       return;
     }
 
-    const passwordHash = await hashPassword(password);
-
-    const user = await prisma.user.create({
-      data: { email, passwordHash, firstName, lastName },
-    });
-
-    // Assign exactly one role
+    // Validate role BEFORE creating the user — no orphan users on bad input
     const validRoles = Array.isArray(roleNames) ? roleNames : [];
     if (validRoles.length !== 1) {
-      // clean up created user if role invalid
-      await prisma.user.delete({ where: { id: user.id } });
       res.status(400).json({ error: "Необходимо выбрать ровно одну роль" });
       return;
     }
     const roles = await prisma.role.findMany({ where: { name: { in: validRoles } } });
     if (roles.length === 0) {
-      await prisma.user.delete({ where: { id: user.id } });
       res.status(400).json({ error: "Недопустимая роль" });
       return;
     }
-    await prisma.userRole.createMany({
-      data: roles.map((r) => ({ userId: user.id, roleId: r.id })),
+
+    const passwordHash = await hashPassword(password);
+
+    // Атомарно: пользователь без роли не должен появиться даже при сбое
+    const user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: { email, passwordHash, firstName, lastName },
+      });
+      await tx.userRole.createMany({
+        data: roles.map((r) => ({ userId: created.id, roleId: r.id })),
+      });
+      return created;
     });
 
     await auditFromReq(req, {
@@ -413,8 +417,8 @@ router.post("/accept-invite", authenticate, async (req, res) => {
 // POST /api/auth/register — public: client self-registration via invite token
 router.post("/register", authLimiter, async (req, res) => {
   try {
-    const { email, password, firstName, lastName, inviteToken } = req.body;
-    if (!email || !password || !firstName || !lastName || !inviteToken) {
+    const { email: rawEmail, password, firstName, lastName, inviteToken } = req.body;
+    if (!rawEmail || !password || !firstName || !lastName || !inviteToken) {
       res.status(400).json({
         error: "email, password, firstName, lastName, inviteToken are required",
       });
@@ -424,6 +428,7 @@ router.post("/register", authLimiter, async (req, res) => {
       res.status(400).json({ error: "Password must be at least 8 characters" });
       return;
     }
+    const email = normalizeEmail(rawEmail);
 
     const invite = await prisma.inviteToken.findUnique({ where: { token: inviteToken } });
     if (!invite) {
@@ -512,7 +517,7 @@ router.post("/forgot-password", authLimiter, async (req, res) => {
     if (!email) return res.status(400).json({ error: "email required" });
 
     const user = await prisma.user.findUnique({
-      where: { email: (email as string).toLowerCase().trim() },
+      where: { email: normalizeEmail(email) },
     });
 
     // Always 200 — don't reveal whether email exists

@@ -143,6 +143,19 @@ describe("POST /api/auth/login", () => {
     expect(createArg.data.tokenHash).not.toBe(rawRefresh);
   });
 
+  it("РЕГРЕССИЯ: email нормализуется (trim + lowercase) — как в forgot-password", async () => {
+    asMock(prisma.user.findUnique).mockResolvedValue(dbUser());
+
+    const res = await request(app)
+      .post("/api/auth/login")
+      .send({ email: "  User@EXAMPLE.com ", password: PASSWORD });
+
+    expect(res.status).toBe(200);
+    expect(prisma.user.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { email: "user@example.com" } }),
+    );
+  });
+
   it("401 with wrong password, audit login_failed", async () => {
     asMock(prisma.user.findUnique).mockResolvedValue(dbUser());
 
@@ -785,6 +798,28 @@ describe("POST /api/auth/register", () => {
     expect(cookie).toBeDefined();
     expect(cookie).toContain("HttpOnly");
   });
+
+  it("нормализует email при регистрации (trim + lowercase)", async () => {
+    asMock(prisma.inviteToken.findUnique).mockResolvedValue(invite());
+    asMock(prisma.user.findUnique).mockResolvedValue(null);
+    asMock(prisma.role.findUnique).mockResolvedValue({ id: "role-client", name: "client" });
+    asMock(prisma.user.create).mockResolvedValue({
+      id: "new-u1",
+      email: "new@example.com",
+      firstName: "New",
+      lastName: "Client",
+    });
+
+    const res = await request(app)
+      .post("/api/auth/register")
+      .send({ ...validBody, email: "  New@EXAMPLE.com " });
+
+    expect(res.status).toBe(201);
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { email: "new@example.com" },
+    });
+    expect(asMock(prisma.user.create).mock.calls[0][0].data.email).toBe("new@example.com");
+  });
 });
 
 // ── POST /api/auth/staff ─────────────────────────────────────
@@ -841,9 +876,8 @@ describe("POST /api/auth/staff", () => {
     });
   });
 
-  it("400 when roleNames has not exactly one role — created user is rolled back", async () => {
+  it("400 when roleNames has not exactly one role — user is not created at all", async () => {
     asMock(prisma.user.findUnique).mockResolvedValue(null);
-    asMock(prisma.user.create).mockResolvedValue({ id: "staff-1" });
 
     const res = await request(app)
       .post("/api/auth/staff")
@@ -858,6 +892,61 @@ describe("POST /api/auth/staff", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error).toBe("Необходимо выбрать ровно одну роль");
-    expect(prisma.user.delete).toHaveBeenCalledWith({ where: { id: "staff-1" } });
+    // роль валидируется ДО создания — ни create, ни rollback-delete
+    expect(prisma.user.create).not.toHaveBeenCalled();
+    expect(prisma.user.delete).not.toHaveBeenCalled();
+  });
+
+  it("user create + role assignment выполняются атомарно в $transaction", async () => {
+    asMock(prisma.user.findUnique).mockResolvedValue(null);
+    asMock(prisma.user.create).mockResolvedValue({
+      id: "staff-1",
+      email: "staff@example.com",
+      firstName: "Anna",
+      lastName: "Buh",
+    });
+    asMock(prisma.role.findMany).mockResolvedValue([{ id: "role-acc", name: "accountant" }]);
+
+    await request(app)
+      .post("/api/auth/staff")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        email: "staff@example.com",
+        password: "password123",
+        firstName: "Anna",
+        lastName: "Buh",
+        roleNames: ["accountant"],
+      });
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(typeof asMock(prisma.$transaction).mock.calls[0][0]).toBe("function");
+  });
+
+  it("нормализует email при создании сотрудника (trim + lowercase)", async () => {
+    asMock(prisma.user.findUnique).mockResolvedValue(null);
+    asMock(prisma.user.create).mockResolvedValue({
+      id: "staff-1",
+      email: "anna@example.com",
+      firstName: "Anna",
+      lastName: "Buh",
+    });
+    asMock(prisma.role.findMany).mockResolvedValue([{ id: "role-acc", name: "accountant" }]);
+
+    const res = await request(app)
+      .post("/api/auth/staff")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        email: "  Anna@Example.COM ",
+        password: "password123",
+        firstName: "Anna",
+        lastName: "Buh",
+        roleNames: ["accountant"],
+      });
+
+    expect(res.status).toBe(201);
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { email: "anna@example.com" },
+    });
+    expect(asMock(prisma.user.create).mock.calls[0][0].data.email).toBe("anna@example.com");
   });
 });

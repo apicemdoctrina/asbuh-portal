@@ -24,6 +24,15 @@ export function isPrismaUniqueError(err: unknown): boolean {
 }
 
 /**
+ * Канонизация email: trim + lowercase. Применять во ВСЕХ местах, где email
+ * пишется в БД или используется для поиска пользователя — рассинхрон
+ * (login без нормализации vs forgot-password с ней) уже приводил к багу.
+ */
+export function normalizeEmail(value: unknown): string {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+/**
  * Send a standardized Zod validation error response.
  */
 export function sendZodError(res: Response, error: ZodError, message = "Validation failed") {
