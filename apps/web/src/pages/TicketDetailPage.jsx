@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
 import { useApi } from "../hooks/useApi.js";
+import Modal from "../components/ui/Modal.jsx";
 import {
   Loader2,
   Send,
@@ -619,105 +620,88 @@ export default function TicketDetailPage() {
         </div>
       )}
 
-      {/* Mobile: bottom-sheet с управлением */}
+      {/* Mobile: bottom-sheet с управлением (виден только < lg) */}
       {isStaff && mobileManageOpen && (
-        <div
-          className="lg:hidden fixed inset-0 z-50 flex items-end justify-center bg-black/40"
-          onClick={() => setMobileManageOpen(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-surface w-full max-h-[88vh] rounded-t-3xl shadow-2xl border-x border-t border-line flex flex-col animate-slide-up"
+        <div className="lg:hidden">
+          <Modal
+            onClose={() => setMobileManageOpen(false)}
+            title="Управление"
+            sheet
+            bodyClassName="px-5 py-4 space-y-4"
           >
-            <div className="pt-2 pb-1 flex justify-center shrink-0">
-              <div className="w-10 h-1 rounded-full bg-line" />
+            {/* Информация */}
+            <div className="space-y-2">
+              <div>
+                <label className="text-xs text-subtle">Организация</label>
+                <Link
+                  to={`/organizations/${ticket.organization?.id}`}
+                  className="block text-sm text-primary hover:underline"
+                >
+                  {ticket.organization?.name}
+                </Link>
+              </div>
+              <div>
+                <label className="text-xs text-subtle">Автор</label>
+                <p className="text-sm text-heading">
+                  {ticket.createdBy?.firstName} {ticket.createdBy?.lastName}
+                </p>
+              </div>
+              <div>
+                <label className="text-xs text-subtle">Создан</label>
+                <p className="text-sm text-heading">
+                  {new Date(ticket.createdAt).toLocaleString("ru")}
+                </p>
+              </div>
             </div>
-            <div className="flex items-center justify-between px-5 pt-2 pb-3 border-b border-line shrink-0">
-              <h2 className="text-base font-bold text-heading">Управление</h2>
-              <button
-                type="button"
-                onClick={() => setMobileManageOpen(false)}
-                className="p-2 -mr-1 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
-                aria-label="Закрыть"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-              {/* Информация */}
-              <div className="space-y-2">
+
+            {canEdit && (
+              <div className="space-y-3 pt-3 border-t border-line">
                 <div>
-                  <label className="text-xs text-subtle">Организация</label>
-                  <Link
-                    to={`/organizations/${ticket.organization?.id}`}
-                    className="block text-sm text-primary hover:underline"
+                  <label className="text-xs text-subtle mb-1 block">Статус</label>
+                  <select
+                    value={ticket.status}
+                    onChange={(e) => handleStatusChange(e.target.value)}
+                    className="w-full px-3 py-3 border border-line rounded-lg text-base bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   >
-                    {ticket.organization?.name}
-                  </Link>
+                    {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
-                  <label className="text-xs text-subtle">Автор</label>
-                  <p className="text-sm text-heading">
-                    {ticket.createdBy?.firstName} {ticket.createdBy?.lastName}
-                  </p>
+                  <label className="text-xs text-subtle mb-1 block">Приоритет</label>
+                  <select
+                    value={ticket.priority}
+                    onChange={(e) => handlePriorityChange(e.target.value)}
+                    className="w-full px-3 py-3 border border-line rounded-lg text-base bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  >
+                    {Object.entries(PRIORITY_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
-                  <label className="text-xs text-subtle">Создан</label>
-                  <p className="text-sm text-heading">
-                    {new Date(ticket.createdAt).toLocaleString("ru")}
-                  </p>
+                  <label className="text-xs text-subtle mb-1 block">Назначен</label>
+                  <select
+                    value={ticket.assignedToId || ""}
+                    onChange={(e) => handleAssignChange(e.target.value)}
+                    className="w-full px-3 py-3 border border-line rounded-lg text-base bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  >
+                    <option value="">Не назначен</option>
+                    {staff.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.firstName} {s.lastName}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
-
-              {canEdit && (
-                <div className="space-y-3 pt-3 border-t border-line">
-                  <div>
-                    <label className="text-xs text-subtle mb-1 block">Статус</label>
-                    <select
-                      value={ticket.status}
-                      onChange={(e) => handleStatusChange(e.target.value)}
-                      className="w-full px-3 py-3 border border-line rounded-lg text-base bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                    >
-                      {Object.entries(STATUS_LABELS).map(([k, v]) => (
-                        <option key={k} value={k}>
-                          {v}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-subtle mb-1 block">Приоритет</label>
-                    <select
-                      value={ticket.priority}
-                      onChange={(e) => handlePriorityChange(e.target.value)}
-                      className="w-full px-3 py-3 border border-line rounded-lg text-base bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                    >
-                      {Object.entries(PRIORITY_LABELS).map(([k, v]) => (
-                        <option key={k} value={k}>
-                          {v}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-subtle mb-1 block">Назначен</label>
-                    <select
-                      value={ticket.assignedToId || ""}
-                      onChange={(e) => handleAssignChange(e.target.value)}
-                      className="w-full px-3 py-3 border border-line rounded-lg text-base bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                    >
-                      <option value="">Не назначен</option>
-                      {staff.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.firstName} {s.lastName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+            )}
+          </Modal>
         </div>
       )}
     </div>

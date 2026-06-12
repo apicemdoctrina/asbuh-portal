@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
 import { useApi, jsonFetcher } from "../hooks/useApi.js";
+import Modal from "../components/ui/Modal.jsx";
 import {
   Plus,
   Loader2,
@@ -12,7 +13,6 @@ import {
   AlertTriangle,
   Upload,
   Search,
-  X,
   Filter,
   ChevronDown,
 } from "lucide-react";
@@ -385,37 +385,15 @@ export default function TicketsPage() {
 
       {/* Create Modal — centered on sm+, bottom-sheet on mobile */}
       {showCreate && (
-        <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 sm:bg-black/30 sm:backdrop-blur-sm sm:p-4"
-          onClick={() => setShowCreate(false)}
+        <Modal
+          onClose={() => setShowCreate(false)}
+          title={isClient ? "Новое обращение" : "Создать тикет"}
+          size="lg"
+          sheet
+          bodyClassName="p-0"
         >
-          <form
-            onSubmit={handleCreate}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-surface w-full sm:max-w-lg max-h-[92vh] sm:max-h-[90vh] rounded-t-3xl sm:rounded-2xl shadow-2xl border-x border-t sm:border border-line flex flex-col animate-slide-up sm:animate-none"
-          >
-            {/* Drag handle (mobile only) */}
-            <div className="sm:hidden pt-2 pb-1 flex justify-center shrink-0">
-              <div className="w-10 h-1 rounded-full bg-line" />
-            </div>
-
-            {/* Sticky header */}
-            <div className="flex items-center justify-between px-5 pt-2 sm:pt-4 pb-3 border-b border-line shrink-0">
-              <h2 className="text-base sm:text-lg font-bold text-heading">
-                {isClient ? "Новое обращение" : "Создать тикет"}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setShowCreate(false)}
-                className="p-2 -mr-1 rounded-lg text-subtle hover:text-body hover:bg-muted transition-colors"
-                aria-label="Закрыть"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Scrollable body */}
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 sm:space-y-4">
+          <form onSubmit={handleCreate}>
+            <div className="px-5 py-4 space-y-3 sm:space-y-4">
               <div>
                 <label className="block text-sm font-medium text-body mb-1">Организация</label>
                 <select
@@ -475,8 +453,8 @@ export default function TicketsPage() {
               )}
             </div>
 
-            {/* Sticky footer */}
-            <div className="flex gap-2 sm:gap-3 px-5 py-3 border-t border-line bg-surface shrink-0">
+            {/* Footer (внутри формы — скроллится вместе с телом) */}
+            <div className="flex gap-2 sm:gap-3 px-5 py-3 border-t border-line bg-surface">
               <button
                 type="button"
                 onClick={() => setShowCreate(false)}
@@ -493,7 +471,7 @@ export default function TicketsPage() {
               </button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
     </div>
   );

@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router";
 import { api } from "../lib/api.js";
+import Modal from "./ui/Modal.jsx";
 import {
-  X,
   Send,
   CalendarDays,
   AlertTriangle,
@@ -142,169 +142,23 @@ export default function TaskCommentsModal({ task: initialTask, onClose, onUpdate
   const assignees = task.assignees || [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
-      <div className="bg-surface rounded-t-2xl sm:rounded-2xl shadow-2xl border border-line w-full max-w-xl flex flex-col max-h-[92vh] sm:max-h-[85vh]">
-        {/* Header */}
-        <div className="flex items-start justify-between px-4 sm:px-6 pt-4 sm:pt-5 pb-3 border-b border-line gap-3">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-base sm:text-lg font-bold text-heading leading-tight break-words">
-              {task.title}
-            </h2>
-            {task.organization && (
-              <p className="text-xs text-subtle mt-0.5 truncate">{task.organization.name}</p>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            aria-label="Закрыть"
-            className="shrink-0 p-1 -m-1 text-subtle hover:text-body transition-colors"
-          >
-            <X size={20} />
-          </button>
+    <Modal
+      onClose={onClose}
+      size="xl"
+      sheet
+      bodyClassName="p-0"
+      title={
+        <div className="min-w-0 flex-1">
+          <h2 className="text-base sm:text-lg font-bold text-heading leading-tight break-words">
+            {task.title}
+          </h2>
+          {task.organization && (
+            <p className="text-xs text-subtle mt-0.5 truncate">{task.organization.name}</p>
+          )}
         </div>
-
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto min-h-0">
-          {/* Meta */}
-          <div className="px-4 sm:px-6 py-3 border-b border-line space-y-3">
-            {/* Badges */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span
-                className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${STATUS_COLORS[task.status]}`}
-              >
-                {STATUS_LABELS[task.status] || task.status}
-              </span>
-              {task.priority && (
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${PRIORITY_COLORS[task.priority]}`}
-                >
-                  {PRIORITY_LABELS[task.priority]}
-                </span>
-              )}
-              {task.category && (
-                <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-primary/10 text-primary">
-                  {CATEGORY_LABELS[task.category] || task.category}
-                </span>
-              )}
-              {task.dueDate && (
-                <span
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                    overdue ? "bg-red-500/10 text-red-600 dark:text-red-300" : "bg-muted text-body"
-                  }`}
-                >
-                  {overdue ? <AlertTriangle size={11} /> : <CalendarDays size={11} />}
-                  {formatDueDate(task.dueDate)}
-                  {overdue && " · просрочена"}
-                </span>
-              )}
-            </div>
-
-            {/* Description */}
-            {task.description && (
-              <p className="text-sm text-body whitespace-pre-wrap break-words">
-                {task.description}
-              </p>
-            )}
-
-            {/* Assignees */}
-            {assignees.length > 0 && (
-              <div className="flex items-start gap-2 text-xs">
-                <UserIcon size={13} className="text-subtle mt-0.5 shrink-0" />
-                <div className="flex flex-wrap gap-1.5">
-                  {assignees.map((a) => (
-                    <span
-                      key={a.userId || a.user?.id}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-canvas border border-line text-body"
-                    >
-                      <span className="w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[8px] font-bold">
-                        {(a.user?.lastName?.[0] || "").toUpperCase()}
-                        {(a.user?.firstName?.[0] || "").toUpperCase()}
-                      </span>
-                      {a.user?.lastName} {a.user?.firstName}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Quick status change */}
-            <div>
-              <div className="text-[10px] font-semibold text-subtle uppercase tracking-wider mb-1.5">
-                Изменить статус
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {QUICK_STATUSES.map((s) => {
-                  const active = task.status === s;
-                  return (
-                    <button
-                      key={s}
-                      type="button"
-                      disabled={statusSaving || active}
-                      onClick={() => handleStatusChange(s)}
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
-                        active
-                          ? `${STATUS_COLORS[s]} shadow-sm cursor-default`
-                          : "border-line text-subtle hover:text-body hover:bg-canvas"
-                      } ${statusSaving && !active ? "opacity-50" : ""}`}
-                    >
-                      {statusSaving && active ? (
-                        <Loader2 size={11} className="animate-spin" />
-                      ) : null}
-                      {STATUS_LABELS[s]}
-                    </button>
-                  );
-                })}
-                <Link
-                  to="/tasks"
-                  className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-primary hover:bg-primary/5 transition-colors"
-                  title="Открыть на странице задач для подробного редактирования"
-                >
-                  <ExternalLink size={11} />
-                  Подробнее
-                </Link>
-              </div>
-            </div>
-          </div>
-
-          {/* Comments */}
-          <div className="px-4 sm:px-6 py-4 space-y-4">
-            <div className="text-[10px] font-semibold text-subtle uppercase tracking-wider">
-              Комментарии {comments.length > 0 && `(${comments.length})`}
-            </div>
-            {loading ? (
-              <p className="text-sm text-subtle">Загрузка...</p>
-            ) : comments.length === 0 ? (
-              <p className="text-sm text-subtle">Пока нет комментариев. Напишите первый.</p>
-            ) : (
-              comments.map((c) => (
-                <div key={c.id} className="flex gap-3">
-                  <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold shrink-0 mt-0.5">
-                    {(c.author.firstName[0] || "").toUpperCase()}
-                    {(c.author.lastName[0] || "").toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline gap-2 flex-wrap">
-                      <span className="text-xs font-semibold text-body">
-                        {c.author.lastName} {c.author.firstName}
-                      </span>
-                      <span className="text-[10px] text-subtle">{formatDate(c.createdAt)}</span>
-                    </div>
-                    <p className="text-sm text-body mt-0.5 whitespace-pre-wrap break-words">
-                      {c.text}
-                    </p>
-                  </div>
-                </div>
-              ))
-            )}
-            <div ref={bottomRef} />
-          </div>
-        </div>
-
-        {/* Input */}
-        <form
-          onSubmit={handleSend}
-          className="px-4 sm:px-6 pb-4 sm:pb-5 pt-3 border-t border-line flex gap-2 items-end"
-        >
+      }
+      footer={
+        <form onSubmit={handleSend} className="flex-1 flex gap-2 items-end">
           <textarea
             rows={2}
             value={text}
@@ -322,7 +176,135 @@ export default function TaskCommentsModal({ task: initialTask, onClose, onUpdate
             <Send size={15} />
           </button>
         </form>
+      }
+    >
+      {/* Meta */}
+      <div className="px-4 sm:px-6 py-3 border-b border-line space-y-3">
+        {/* Badges */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span
+            className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${STATUS_COLORS[task.status]}`}
+          >
+            {STATUS_LABELS[task.status] || task.status}
+          </span>
+          {task.priority && (
+            <span
+              className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${PRIORITY_COLORS[task.priority]}`}
+            >
+              {PRIORITY_LABELS[task.priority]}
+            </span>
+          )}
+          {task.category && (
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-primary/10 text-primary">
+              {CATEGORY_LABELS[task.category] || task.category}
+            </span>
+          )}
+          {task.dueDate && (
+            <span
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                overdue ? "bg-red-500/10 text-red-600 dark:text-red-300" : "bg-muted text-body"
+              }`}
+            >
+              {overdue ? <AlertTriangle size={11} /> : <CalendarDays size={11} />}
+              {formatDueDate(task.dueDate)}
+              {overdue && " · просрочена"}
+            </span>
+          )}
+        </div>
+
+        {/* Description */}
+        {task.description && (
+          <p className="text-sm text-body whitespace-pre-wrap break-words">{task.description}</p>
+        )}
+
+        {/* Assignees */}
+        {assignees.length > 0 && (
+          <div className="flex items-start gap-2 text-xs">
+            <UserIcon size={13} className="text-subtle mt-0.5 shrink-0" />
+            <div className="flex flex-wrap gap-1.5">
+              {assignees.map((a) => (
+                <span
+                  key={a.userId || a.user?.id}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-canvas border border-line text-body"
+                >
+                  <span className="w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[8px] font-bold">
+                    {(a.user?.lastName?.[0] || "").toUpperCase()}
+                    {(a.user?.firstName?.[0] || "").toUpperCase()}
+                  </span>
+                  {a.user?.lastName} {a.user?.firstName}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Quick status change */}
+        <div>
+          <div className="text-[10px] font-semibold text-subtle uppercase tracking-wider mb-1.5">
+            Изменить статус
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {QUICK_STATUSES.map((s) => {
+              const active = task.status === s;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  disabled={statusSaving || active}
+                  onClick={() => handleStatusChange(s)}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
+                    active
+                      ? `${STATUS_COLORS[s]} shadow-sm cursor-default`
+                      : "border-line text-subtle hover:text-body hover:bg-canvas"
+                  } ${statusSaving && !active ? "opacity-50" : ""}`}
+                >
+                  {statusSaving && active ? <Loader2 size={11} className="animate-spin" /> : null}
+                  {STATUS_LABELS[s]}
+                </button>
+              );
+            })}
+            <Link
+              to="/tasks"
+              className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-primary hover:bg-primary/5 transition-colors"
+              title="Открыть на странице задач для подробного редактирования"
+            >
+              <ExternalLink size={11} />
+              Подробнее
+            </Link>
+          </div>
+        </div>
       </div>
-    </div>
+
+      {/* Comments */}
+      <div className="px-4 sm:px-6 py-4 space-y-4">
+        <div className="text-[10px] font-semibold text-subtle uppercase tracking-wider">
+          Комментарии {comments.length > 0 && `(${comments.length})`}
+        </div>
+        {loading ? (
+          <p className="text-sm text-subtle">Загрузка...</p>
+        ) : comments.length === 0 ? (
+          <p className="text-sm text-subtle">Пока нет комментариев. Напишите первый.</p>
+        ) : (
+          comments.map((c) => (
+            <div key={c.id} className="flex gap-3">
+              <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold shrink-0 mt-0.5">
+                {(c.author.firstName[0] || "").toUpperCase()}
+                {(c.author.lastName[0] || "").toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className="text-xs font-semibold text-body">
+                    {c.author.lastName} {c.author.firstName}
+                  </span>
+                  <span className="text-[10px] text-subtle">{formatDate(c.createdAt)}</span>
+                </div>
+                <p className="text-sm text-body mt-0.5 whitespace-pre-wrap break-words">{c.text}</p>
+              </div>
+            </div>
+          ))
+        )}
+        <div ref={bottomRef} />
+      </div>
+    </Modal>
   );
 }
