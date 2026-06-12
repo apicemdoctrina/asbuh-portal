@@ -1,9 +1,24 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// debt.ts тянет prisma на верхнем уровне — мокаем, тестируем чистую логику
-vi.mock("./prisma.js", () => ({ default: {} }));
+// debt.ts тянет prisma на верхнем уровне — мокаем; calcExpected/monthsBetween —
+// чистая логика, recalcOrgDebt дёргает organization/bankTransaction/$transaction
+vi.mock("./prisma.js", () => ({
+  default: {
+    organization: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+    },
+    bankTransaction: { aggregate: vi.fn() },
+    $transaction: vi.fn(),
+  },
+}));
 
-const { calcExpected, monthsBetween } = await import("./debt.js");
+const { calcExpected, monthsBetween, recalcOrgDebt } = await import("./debt.js");
+const prisma = (await import("./prisma.js")).default;
+
+const mockFn = (f: unknown) => f as ReturnType<typeof vi.fn>;
 
 /** Дата `n` месяцев назад, середина месяца — проверяет нормализацию к 1-му числу. */
 function monthsAgo(n: number): Date {
@@ -90,5 +105,144 @@ describe("calcExpected", () => {
       priceHistory: [],
     };
     expect(calcExpected(org)).toBe(0);
+  });
+});
+
+// ── recalcOrgDebt ────────────────────────────────────────────
+
+/** Организация в форме ORG_EXPECTED_SELECT: 3 месяца обслуживания, без истории цен. */
+function selectedOrg(id: string, monthly: number | null, extra: Record<string, unknown> = {}) {
+  return {
+    id,
+    monthlyPayment: monthly,
+    serviceStartDate: monthsAgo(3),
+    clientGroupId: null,
+    paymentDestination: "BANK_TOCHKA",
+    priceHistory: [],
+    ...extra,
+  };
+}
+
+describe("recalcOrgDebt", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("орга не найдена → выходит молча, ничего не пишет", async () => {
+    mockFn(prisma.organization.findUnique).mockResolvedValue(null);
+
+    await expect(recalcOrgDebt("missing")).resolves.toBeUndefined();
+
+    expect(prisma.organization.update).not.toHaveBeenCalled();
+    expect(prisma.organization.updateMany).not.toHaveBeenCalled();
+    expect(prisma.bankTransaction.aggregate).not.toHaveBeenCalled();
+  });
+
+  it("не-BANK_TOCHKA орга → debtAmount 0 без расчёта транзакций", async () => {
+    mockFn(prisma.organization.findUnique).mockResolvedValue(
+      selectedOrg("org-card", 1000, { paymentDestination: "CARD" }),
+    );
+
+    await recalcOrgDebt("org-card");
+
+    expect(prisma.organization.update).toHaveBeenCalledWith({
+      where: { id: "org-card" },
+      data: { debtAmount: 0 },
+    });
+    expect(prisma.bankTransaction.aggregate).not.toHaveBeenCalled();
+  });
+
+  it("без группы: долг = expected − received", async () => {
+    mockFn(prisma.organization.findUnique).mockResolvedValue(selectedOrg("org-1", 1000));
+    mockFn(prisma.bankTransaction.aggregate).mockResolvedValue({ _sum: { amount: 2500 } });
+
+    await recalcOrgDebt("org-1");
+
+    // expected = 3 × 1000 = 3000, received 2500 → долг 500
+    expect(prisma.organization.update).toHaveBeenCalledWith({
+      where: { id: "org-1" },
+      data: { debtAmount: 500 },
+    });
+    // в received входят только AUTO/MANUAL с DEBT_BASE_DATE
+    const aggWhere = mockFn(prisma.bankTransaction.aggregate).mock.calls[0][0].where;
+    expect(aggWhere.organizationId).toBe("org-1");
+    expect(aggWhere.matchStatus).toEqual({ in: ["AUTO", "MANUAL"] });
+    expect(aggWhere.date).toEqual({ gte: DEBT_BASE_DATE });
+  });
+
+  it("без группы: переплата → долг 0, не отрицательный", async () => {
+    mockFn(prisma.organization.findUnique).mockResolvedValue(selectedOrg("org-1", 1000));
+    mockFn(prisma.bankTransaction.aggregate).mockResolvedValue({ _sum: { amount: 99999 } });
+
+    await recalcOrgDebt("org-1");
+
+    expect(prisma.organization.update).toHaveBeenCalledWith({
+      where: { id: "org-1" },
+      data: { debtAmount: 0 },
+    });
+  });
+
+  it("без группы: monthlyPayment null → долг 0 без падения", async () => {
+    mockFn(prisma.organization.findUnique).mockResolvedValue(selectedOrg("org-1", null));
+    mockFn(prisma.bankTransaction.aggregate).mockResolvedValue({ _sum: { amount: null } });
+
+    await expect(recalcOrgDebt("org-1")).resolves.toBeUndefined();
+
+    expect(prisma.organization.update).toHaveBeenCalledWith({
+      where: { id: "org-1" },
+      data: { debtAmount: 0 },
+    });
+  });
+
+  it("группа: долг на флагмана, остальные 0; CARD-члены не участвуют в расчёте", async () => {
+    mockFn(prisma.organization.findUnique).mockResolvedValue(
+      selectedOrg("org-a", 1000, { clientGroupId: "grp-1" }),
+    );
+    mockFn(prisma.organization.findMany).mockResolvedValue([
+      selectedOrg("org-a", 1000, { clientGroupId: "grp-1" }),
+      selectedOrg("org-b", 2000, { clientGroupId: "grp-1" }),
+      // CARD-орг с максимальным платежом — не флагман и не в expected
+      selectedOrg("org-c", 9000, { clientGroupId: "grp-1", paymentDestination: "CARD" }),
+    ]);
+    mockFn(prisma.bankTransaction.aggregate).mockResolvedValue({ _sum: { amount: 4000 } });
+
+    await recalcOrgDebt("org-a");
+
+    // received агрегируется только по банковским членам группы
+    const aggWhere = mockFn(prisma.bankTransaction.aggregate).mock.calls[0][0].where;
+    expect(aggWhere.organizationId).toEqual({ in: ["org-a", "org-b"] });
+
+    // зануление всех членов группы (включая CARD)
+    expect(prisma.organization.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["org-a", "org-b", "org-c"] } },
+      data: { debtAmount: 0 },
+    });
+    // groupExpected = 3×1000 + 3×2000 = 9000, received 4000 → долг 5000
+    // флагман — org-b (наибольший monthlyPayment среди банковских)
+    expect(prisma.organization.update).toHaveBeenCalledTimes(1);
+    expect(prisma.organization.update).toHaveBeenCalledWith({
+      where: { id: "org-b" },
+      data: { debtAmount: 5000 },
+    });
+    // атомарно — одной транзакцией
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("группа: переплата → у флагмана долг 0", async () => {
+    mockFn(prisma.organization.findUnique).mockResolvedValue(
+      selectedOrg("org-a", 1000, { clientGroupId: "grp-1" }),
+    );
+    mockFn(prisma.organization.findMany).mockResolvedValue([
+      selectedOrg("org-a", 1000, { clientGroupId: "grp-1" }),
+      selectedOrg("org-b", 2000, { clientGroupId: "grp-1" }),
+    ]);
+    mockFn(prisma.bankTransaction.aggregate).mockResolvedValue({ _sum: { amount: 100000 } });
+
+    await recalcOrgDebt("org-a");
+
+    expect(prisma.organization.update).toHaveBeenCalledWith({
+      where: { id: "org-b" },
+      data: { debtAmount: 0 },
+    });
   });
 });
