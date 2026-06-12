@@ -5,7 +5,7 @@ import cookieParser from "cookie-parser";
 import authRouter from "./routes/auth.js";
 import usersRouter from "./routes/users.js";
 import sectionsRouter from "./routes/sections.js";
-import organizationsRouter from "./routes/organizations.js";
+import organizationsRouter from "./routes/organizations/index.js";
 import statsRouter from "./routes/stats.js";
 import workContactsRouter from "./routes/work-contacts.js";
 import auditLogsRouter from "./routes/audit-logs.js";
