@@ -269,7 +269,27 @@ router.get("/me", authenticate, async (req, res) => {
 // PUT /api/users/me — update own profile
 router.put("/me", authenticate, async (req, res) => {
   try {
-    const parsed = updateProfileSchema.parse(req.body);
+    const { currentPassword, ...parsed } = updateProfileSchema.parse(req.body);
+
+    // Смена email — только с подтверждением паролем: угнанный access-токен
+    // не должен позволять перевесить аккаунт на чужой адрес (перехват reset-ссылок)
+    if (parsed.email !== undefined) {
+      const me = await prisma.user.findUnique({
+        where: { id: req.user!.userId },
+        select: { email: true, passwordHash: true },
+      });
+      if (me && parsed.email !== me.email) {
+        if (!currentPassword) {
+          res.status(400).json({ error: "Для смены email укажите текущий пароль" });
+          return;
+        }
+        const valid = await comparePassword(currentPassword, me.passwordHash);
+        if (!valid) {
+          res.status(403).json({ error: "Неверный текущий пароль" });
+          return;
+        }
+      }
+    }
 
     try {
       const updated = await prisma.user.update({

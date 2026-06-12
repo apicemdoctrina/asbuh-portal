@@ -1033,6 +1033,18 @@ router.delete(
         return;
       }
 
+      // Staff: тот же скоуп, что и при создании — иначе IDOR на удаление чужих
+      // транзакций (recalcOrgDebt изменит долг чужой организации)
+      const roles: string[] = req.user!.roles || [];
+      const isAdmin = roles.includes("admin") || roles.includes("supervisor");
+      if (!isAdmin && tx.organizationId) {
+        const staffOrgIds = await getStaffOrgIds(req.user!.userId);
+        if (!staffOrgIds.includes(tx.organizationId)) {
+          res.status(403).json({ error: "Нет доступа к этой организации" });
+          return;
+        }
+      }
+
       await prisma.bankTransaction.delete({ where: { id: req.params.id } });
 
       if (tx.organizationId) await recalcOrgDebt(tx.organizationId);

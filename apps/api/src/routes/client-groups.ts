@@ -4,13 +4,15 @@ import { logAudit } from "../lib/audit.js";
 import { authenticate, requirePermission } from "../middleware/auth.js";
 import { sendZodError } from "../lib/route-helpers.js";
 import { createClientGroupSchema, updateClientGroupSchema } from "../lib/validators.js";
+import { clientGroupScope } from "../lib/scoping.js";
 
 const router = Router();
 
-// GET /api/client-groups — list all groups
+// GET /api/client-groups — list groups (в скоупе вызывающего)
 router.get("/", authenticate, requirePermission("organization", "view"), async (req, res) => {
   try {
     const groups = await prisma.clientGroup.findMany({
+      where: clientGroupScope(req.user!.userId, req.user!.roles),
       orderBy: { name: "asc" },
       include: {
         _count: { select: { organizations: true } },
@@ -26,8 +28,9 @@ router.get("/", authenticate, requirePermission("organization", "view"), async (
 // GET /api/client-groups/:id — detail with organizations
 router.get("/:id", authenticate, requirePermission("organization", "view"), async (req, res) => {
   try {
-    const group = await prisma.clientGroup.findUnique({
-      where: { id: req.params.id },
+    // Скоуп обязателен: детали группы включают долги и платежи её организаций
+    const group = await prisma.clientGroup.findFirst({
+      where: { id: req.params.id, ...clientGroupScope(req.user!.userId, req.user!.roles) },
       include: {
         organizations: {
           orderBy: { name: "asc" },
@@ -88,7 +91,9 @@ router.put("/:id", authenticate, requirePermission("organization", "edit"), asyn
       sendZodError(res, result.error);
       return;
     }
-    const existing = await prisma.clientGroup.findUnique({ where: { id: req.params.id } });
+    const existing = await prisma.clientGroup.findFirst({
+      where: { id: req.params.id, ...clientGroupScope(req.user!.userId, req.user!.roles) },
+    });
     if (!existing) {
       res.status(404).json({ error: "Client group not found" });
       return;
@@ -119,7 +124,9 @@ router.delete(
   requirePermission("organization", "delete"),
   async (req, res) => {
     try {
-      const existing = await prisma.clientGroup.findUnique({ where: { id: req.params.id } });
+      const existing = await prisma.clientGroup.findFirst({
+        where: { id: req.params.id, ...clientGroupScope(req.user!.userId, req.user!.roles) },
+      });
       if (!existing) {
         res.status(404).json({ error: "Client group not found" });
         return;

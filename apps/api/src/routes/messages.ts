@@ -5,6 +5,7 @@ import { logAudit } from "../lib/audit.js";
 import { sendEmail } from "../lib/mailer.js";
 import { authenticate, requirePermission } from "../middleware/auth.js";
 import { parsePagination, sendZodError } from "../lib/route-helpers.js";
+import { orgViewScope } from "../lib/scoping.js";
 
 const router = Router();
 
@@ -163,13 +164,43 @@ router.post(
 
       const { templateId, recipient, subject, body, channel } = parsed.data;
 
-      // Verify org exists
-      const org = await prisma.organization.findUnique({
-        where: { id: req.params.orgId },
-        select: { id: true, name: true },
+      // Org должна существовать и входить в скоуп отправителя (view-scope, как и список
+      // организаций) — иначе любой бухгалтер шлёт сообщения от лица чужих организаций
+      const org = await prisma.organization.findFirst({
+        where: { id: req.params.orgId, ...orgViewScope(req.user!.userId, req.user!.roles) },
+        select: {
+          id: true,
+          name: true,
+          contacts: { select: { email: true, telegram: true } },
+          members: {
+            select: {
+              user: { select: { email: true, telegramBinding: { select: { chatId: true } } } },
+            },
+          },
+        },
       });
       if (!org) {
         res.status(404).json({ error: "Organization not found" });
+        return;
+      }
+
+      // Получатель — только известный адрес этой организации (контакты + участники):
+      // произвольный recipient превращал бы прод-SMTP/TG-бот в открытый релей
+      const norm = (s: string) => s.trim().toLowerCase().replace(/^@/, "");
+      const allowed = new Set<string>();
+      if (channel === "EMAIL") {
+        for (const c of org.contacts) if (c.email) allowed.add(norm(c.email));
+        for (const m of org.members) if (m.user.email) allowed.add(norm(m.user.email));
+      } else {
+        for (const c of org.contacts) if (c.telegram) allowed.add(norm(c.telegram));
+        for (const m of org.members) {
+          if (m.user.telegramBinding?.chatId) allowed.add(norm(m.user.telegramBinding.chatId));
+        }
+      }
+      if (!allowed.has(norm(recipient))) {
+        res.status(403).json({
+          error: "Получатель должен быть контактом организации или её участником",
+        });
         return;
       }
 

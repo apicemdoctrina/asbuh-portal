@@ -221,6 +221,8 @@ export const updateProfileSchema = z.object({
   email: z.string().email().optional(),
   phone: z.string().nullable().optional(),
   birthDate: z.coerce.date().nullable().optional(),
+  // Требуется при смене email (подтверждение личности), в БД не пишется
+  currentPassword: z.string().min(1).optional(),
 });
 
 export const changePasswordSchema = z.object({

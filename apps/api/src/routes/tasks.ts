@@ -4,7 +4,7 @@ import prisma from "../lib/prisma.js";
 import { logAudit } from "../lib/audit.js";
 import { authenticate, requirePermission } from "../middleware/auth.js";
 import { parsePagination } from "../lib/route-helpers.js";
-import { taskScope } from "../lib/scoping.js";
+import { taskScope, orgStrictScope } from "../lib/scoping.js";
 import { notifyAssigned } from "../lib/task-notifier.js";
 import { createNotification, notifyWithTelegram } from "../lib/notify.js";
 
@@ -25,6 +25,38 @@ const COMMENT_AUTHOR_SELECT = { id: true, firstName: true, lastName: true };
 
 function isAdminOrManager(roles: string[]) {
   return roles.some((r) => ["admin", "supervisor", "manager"].includes(r));
+}
+
+/**
+ * Все ли организации из списка существуют и входят в strict-скоуп пользователя?
+ * Без этой проверки body.organizationId(s) позволяет вешать задачи на чужие организации.
+ */
+async function allOrgsAccessible(
+  userId: string,
+  roles: string[],
+  orgIds: (string | null | undefined)[],
+): Promise<boolean> {
+  const ids = [...new Set(orgIds.filter((id): id is string => !!id))];
+  if (ids.length === 0) return true;
+  const found = await prisma.organization.findMany({
+    where: { id: { in: ids }, ...orgStrictScope(userId, roles) },
+    select: { id: true },
+  });
+  return found.length === ids.length;
+}
+
+/**
+ * Загрузить задачу для подроутов (delete, comments, checklist): задача должна
+ * входить в taskScope пользователя либо он её создатель/исполнитель — иначе
+ * по прямому id доступны задачи чужих участков.
+ */
+async function findTaskInScope(id: string, userId: string, roles: string[]) {
+  return prisma.task.findFirst({
+    where: {
+      id,
+      OR: [taskScope(userId, roles), { createdById: userId }, { assignees: { some: { userId } } }],
+    },
+  });
 }
 
 /**
@@ -110,7 +142,12 @@ router.get("/", authenticate, requirePermission("task", "view"), async (req, res
     if (status) where.status = status;
 
     if (organizationId) {
-      // Inside an org card — show all tasks for that org
+      // Inside an org card — show all tasks for that org (организация — в скоупе вызывающего)
+      if (
+        !(await allOrgsAccessible(req.user!.userId, req.user!.roles, [organizationId as string]))
+      ) {
+        return res.status(403).json({ error: "Нет доступа к этой организации" });
+      }
       where.organizationId = organizationId as string;
     } else {
       // Scope-логика централизована в lib/scoping.ts
@@ -199,6 +236,10 @@ router.post("/", authenticate, requirePermission("task", "create"), async (req, 
       Array.isArray(organizationIds) && organizationIds.length > 0
         ? organizationIds
         : [organizationId || null];
+
+    if (!(await allOrgsAccessible(req.user!.userId, req.user!.roles, orgIdList))) {
+      return res.status(403).json({ error: "Нет доступа к одной из организаций" });
+    }
 
     // Tasks created for multiple orgs at once share a groupId
     const groupId = orgIdList.length > 1 ? randomUUID() : undefined;
@@ -295,8 +336,17 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
       visibleToClient,
     } = req.body;
 
-    const existing = await prisma.task.findUnique({
-      where: { id },
+    // taskScope (участки) ИЛИ личная связь с задачей — менеджер/бухгалтер не может
+    // редактировать задачи чужих участков, к которым не имеет отношения
+    const existing = await prisma.task.findFirst({
+      where: {
+        id,
+        OR: [
+          taskScope(req.user!.userId, req.user!.roles),
+          { createdById: req.user!.userId },
+          { assignees: { some: { userId: req.user!.userId } } },
+        ],
+      },
       include: { assignees: { select: { userId: true } } },
     });
     if (!existing) return res.status(404).json({ error: "Task not found" });
@@ -308,6 +358,15 @@ router.put("/:id", authenticate, requirePermission("task", "edit"), async (req, 
       !isAssignee
     ) {
       return res.status(403).json({ error: "Forbidden" });
+    }
+
+    // Перенос/клонирование на другие организации — только в пределах скоупа
+    const targetOrgIds: (string | null | undefined)[] = [
+      ...(organizationId && organizationId !== existing.organizationId ? [organizationId] : []),
+      ...(Array.isArray(addOrganizationIds) ? addOrganizationIds : []),
+    ];
+    if (!(await allOrgsAccessible(req.user!.userId, req.user!.roles, targetOrgIds))) {
+      return res.status(403).json({ error: "Нет доступа к одной из организаций" });
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -562,7 +621,7 @@ router.delete("/:id", authenticate, requirePermission("task", "delete"), async (
   try {
     const { id } = req.params;
 
-    const existing = await prisma.task.findUnique({ where: { id } });
+    const existing = await findTaskInScope(id, req.user!.userId, req.user!.roles);
     if (!existing) return res.status(404).json({ error: "Task not found" });
 
     if (!isAdminOrManager(req.user!.roles) && existing.createdById !== req.user!.userId) {
@@ -591,7 +650,7 @@ router.get("/:id/comments", authenticate, requirePermission("task", "view"), asy
   try {
     const { id } = req.params;
 
-    const task = await prisma.task.findUnique({ where: { id } });
+    const task = await findTaskInScope(id, req.user!.userId, req.user!.roles);
     if (!task) return res.status(404).json({ error: "Task not found" });
 
     const comments = await prisma.taskComment.findMany({
@@ -624,7 +683,7 @@ router.post("/:id/comments", authenticate, requirePermission("task", "view"), as
       return res.status(400).json({ error: "text is required" });
     }
 
-    const task = await prisma.task.findUnique({ where: { id } });
+    const task = await findTaskInScope(id, req.user!.userId, req.user!.roles);
     if (!task) return res.status(404).json({ error: "Task not found" });
 
     const comment = await prisma.taskComment.create({
@@ -654,7 +713,7 @@ router.post("/:id/comments", authenticate, requirePermission("task", "view"), as
 // GET /api/tasks/:id/checklist
 router.get("/:id/checklist", authenticate, requirePermission("task", "view"), async (req, res) => {
   try {
-    const task = await prisma.task.findUnique({ where: { id: req.params.id } });
+    const task = await findTaskInScope(req.params.id, req.user!.userId, req.user!.roles);
     if (!task) return res.status(404).json({ error: "Task not found" });
 
     const items = await prisma.taskChecklistItem.findMany({
@@ -675,7 +734,7 @@ router.post("/:id/checklist", authenticate, requirePermission("task", "edit"), a
     const { text, dueDate } = req.body;
     if (!text?.trim()) return res.status(400).json({ error: "text is required" });
 
-    const task = await prisma.task.findUnique({ where: { id: req.params.id } });
+    const task = await findTaskInScope(req.params.id, req.user!.userId, req.user!.roles);
     if (!task) return res.status(404).json({ error: "Task not found" });
 
     const last = await prisma.taskChecklistItem.findFirst({
@@ -715,6 +774,9 @@ router.patch(
   requirePermission("task", "edit"),
   async (req, res) => {
     try {
+      const task = await findTaskInScope(req.params.id, req.user!.userId, req.user!.roles);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+
       const existing = await prisma.taskChecklistItem.findFirst({
         where: { id: req.params.itemId, taskId: req.params.id },
       });
@@ -776,6 +838,9 @@ router.delete(
   requirePermission("task", "edit"),
   async (req, res) => {
     try {
+      const task = await findTaskInScope(req.params.id, req.user!.userId, req.user!.roles);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+
       const existing = await prisma.taskChecklistItem.findFirst({
         where: { id: req.params.itemId, taskId: req.params.id },
       });

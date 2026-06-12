@@ -12,7 +12,7 @@ import { encrypt, decrypt } from "../lib/crypto.js";
 import { summarize } from "../lib/org-finance.js";
 import { authenticate, requirePermission, requireRole } from "../middleware/auth.js";
 import { parsePagination, isPrismaUniqueError, sendZodError } from "../lib/route-helpers.js";
-import { orgStrictScope, orgViewScope } from "../lib/scoping.js";
+import { orgStrictScope, orgViewScope, clientGroupScope } from "../lib/scoping.js";
 import {
   createOrganizationSchema,
   updateOrganizationSchema,
@@ -131,6 +131,10 @@ async function notifyOrgPaymentChanged(
 /** Check if user has only client-level access (no admin/manager/accountant). */
 function isClientOnly(roles: string[]): boolean {
   return !roles.some((r) => ["admin", "manager", "accountant"].includes(r));
+}
+
+function isAdminLike(roles: string[]): boolean {
+  return roles.includes("admin") || roles.includes("supervisor");
 }
 
 /** Mask bank account secrets for staff: login/password → "***", null stays null. */
@@ -404,6 +408,11 @@ router.post("/", authenticate, requirePermission("organization", "create"), asyn
         validated.monthlyPayment === null ? null : new Prisma.Decimal(validated.monthlyPayment);
     }
     if (validated.debtAmount !== undefined) {
+      // debtAmount — server-computed; задать стартовый долг вручную может только admin/supervisor
+      if (validated.debtAmount !== null && !isAdminLike(req.user!.roles)) {
+        res.status(403).json({ error: "Задолженность изменяет только администратор" });
+        return;
+      }
       createData.debtAmount =
         validated.debtAmount === null ? null : new Prisma.Decimal(validated.debtAmount);
     }
@@ -760,6 +769,63 @@ router.put("/:id", authenticate, requirePermission("organization", "edit"), asyn
           res.status(403).json({ error: "No access to this section" });
           return;
         }
+      }
+    }
+
+    // debtAmount — server-computed (recalcOrgDebt/reconcile); вручную меняет только admin/supervisor
+    if (validated.debtAmount !== undefined && !isAdminLike(req.user!.roles)) {
+      const incoming =
+        validated.debtAmount === null ? null : new Prisma.Decimal(validated.debtAmount as string);
+      const current = existing.debtAmount;
+      const changed =
+        (incoming == null) !== (current == null) ||
+        (incoming != null && current != null && !incoming.equals(current));
+      if (changed) {
+        res.status(403).json({ error: "Задолженность изменяет только администратор" });
+        return;
+      }
+      delete (validated as Record<string, unknown>).debtAmount;
+    }
+
+    // clientGroupId — группа должна существовать и быть в скоупе вызывающего
+    // (иначе подмена группового долга через привязку к чужой группе)
+    if (validated.clientGroupId) {
+      const group = await prisma.clientGroup.findFirst({
+        where: {
+          id: validated.clientGroupId,
+          ...clientGroupScope(req.user!.userId, req.user!.roles),
+        },
+        select: { id: true },
+      });
+      if (!group) {
+        res.status(404).json({ error: "Client group not found" });
+        return;
+      }
+    }
+
+    // monthlyPayment при наличии истории цен — read-only производная (последняя цена):
+    // прямое изменение рассинхронизировало бы calcExpected/долг — меняется через price-history
+    if (validated.monthlyPayment !== undefined) {
+      const incoming =
+        validated.monthlyPayment === null
+          ? null
+          : new Prisma.Decimal(validated.monthlyPayment as string);
+      const current = existing.monthlyPayment;
+      const changed =
+        (incoming == null) !== (current == null) ||
+        (incoming != null && current != null && !incoming.equals(current));
+      if (changed) {
+        const historyCount = await prisma.priceHistory.count({
+          where: { organizationId: req.params.id },
+        });
+        if (historyCount > 0) {
+          res.status(409).json({
+            error: "Сумма оплаты управляется историей цен — измените её в блоке «История цен»",
+          });
+          return;
+        }
+      } else {
+        delete (validated as Record<string, unknown>).monthlyPayment;
       }
     }
 
@@ -2047,8 +2113,8 @@ router.get(
   requirePermission("task", "create"),
   async (req, res) => {
     try {
-      const org = await prisma.organization.findUnique({
-        where: { id: req.params.id },
+      const org = await prisma.organization.findFirst({
+        where: { id: req.params.id, ...getScopedWhere(req.user!.userId, req.user!.roles) },
         select: {
           form: true,
           taxSystems: true,
@@ -2086,8 +2152,8 @@ router.post(
   requirePermission("task", "create"),
   async (req, res) => {
     try {
-      const org = await prisma.organization.findUnique({
-        where: { id: req.params.id },
+      const org = await prisma.organization.findFirst({
+        where: { id: req.params.id, ...getScopedWhere(req.user!.userId, req.user!.roles) },
         select: {
           form: true,
           taxSystems: true,
@@ -2161,8 +2227,8 @@ router.post(
         return;
       }
 
-      const org = await prisma.organization.findUnique({
-        where: { id: req.params.id },
+      const org = await prisma.organization.findFirst({
+        where: { id: req.params.id, ...getScopedWhere(req.user!.userId, req.user!.roles) },
         select: { id: true, monthlyPayment: true },
       });
       if (!org) {
@@ -2215,11 +2281,22 @@ router.delete(
   requirePermission("organization", "edit"),
   async (req, res) => {
     try {
-      const before = await prisma.organization.findUnique({
-        where: { id: req.params.id },
+      const before = await prisma.organization.findFirst({
+        where: { id: req.params.id, ...getScopedWhere(req.user!.userId, req.user!.roles) },
         select: { monthlyPayment: true },
       });
-      await prisma.priceHistory.delete({ where: { id: req.params.entryId } });
+      if (!before) {
+        res.status(404).json({ error: "Organization not found" });
+        return;
+      }
+      // deleteMany с organizationId — запись должна принадлежать именно этой организации
+      const deleted = await prisma.priceHistory.deleteMany({
+        where: { id: req.params.entryId, organizationId: req.params.id },
+      });
+      if (deleted.count === 0) {
+        res.status(404).json({ error: "Price entry not found" });
+        return;
+      }
 
       // Update monthlyPayment to the latest remaining price
       const latest = await prisma.priceHistory.findFirst({

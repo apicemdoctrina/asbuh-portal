@@ -9,6 +9,7 @@ import { authenticate, requireRole, requirePermission } from "../middleware/auth
 import { sendPasswordResetEmail } from "../lib/mailer.js";
 import { sendInviteEmail } from "../lib/invite-email.js";
 import { sendMessage } from "../lib/telegram.js";
+import { orgStrictScope } from "../lib/scoping.js";
 import crypto from "node:crypto";
 
 const router = Router();
@@ -246,14 +247,19 @@ router.post(
         return;
       }
 
-      const org = await prisma.organization.findUnique({ where: { id: organizationId } });
+      // Strict scope: инвайт = выдача клиентского доступа к организации,
+      // не-админ может приглашать только в организации своих участков
+      const org = await prisma.organization.findFirst({
+        where: { id: organizationId, ...orgStrictScope(req.user!.userId, req.user!.roles) },
+      });
       if (!org) {
         res.status(404).json({ error: "Organization not found" });
         return;
       }
 
       const token = crypto.randomBytes(32).toString("hex");
-      const hours = Number(expiresInHours) || INVITE_DEFAULT_HOURS;
+      // 1 час … 30 дней, иначе можно выпустить вечный инвайт-токен
+      const hours = Math.min(Math.max(Number(expiresInHours) || INVITE_DEFAULT_HOURS, 1), 24 * 30);
 
       const invite = await prisma.inviteToken.create({
         data: {

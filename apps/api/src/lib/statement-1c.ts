@@ -46,6 +46,15 @@ const DOC_ORDER = [
   "НазначениеПлатежа",
 ];
 
+/**
+ * Формат построчный (`Ключ=Значение`): перевод строки внутри ключа/значения
+ * позволил бы подделать структуру файла (вставить СекцияДокумент/КонецДокумента).
+ * Вычищаем при записи — независимо от того, откуда пришли данные.
+ */
+function clean(s: string): string {
+  return s.replace(/[\r\n]+/g, " ");
+}
+
 /** Пишет ключи в заданном порядке, затем оставшиеся raw-ключи (без потерь). */
 function writeFields(
   out: string[],
@@ -57,12 +66,12 @@ function writeFields(
   for (const key of order) {
     const val = key in override ? override[key] : raw[key];
     if (val !== undefined) {
-      out.push(`${key}=${val}`);
+      out.push(`${key}=${clean(val)}`);
       written.add(key);
     }
   }
   for (const [key, val] of Object.entries(raw)) {
-    if (!written.has(key)) out.push(`${key}=${val}`);
+    if (!written.has(key)) out.push(`${clean(key)}=${clean(val)}`);
   }
 }
 
@@ -96,7 +105,7 @@ export function generate1c(st: ParsedStatement): Buffer {
 }
 
 function writeDoc(out: string[], op: ParsedOperation) {
-  out.push(`СекцияДокумент=${op.docType}`);
+  out.push(`СекцияДокумент=${clean(op.docType)}`);
   writeFields(out, op.raw, DOC_ORDER);
   out.push("КонецДокумента");
 }

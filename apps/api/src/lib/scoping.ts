@@ -50,6 +50,18 @@ export function orgViewScope(userId: string, roles: string[]): Prisma.Organizati
   return { members: { some: { userId } } };
 }
 
+/**
+ * Scope клиентских групп: группа доступна, если содержит хотя бы одну организацию
+ * из досягаемости пользователя (участки для staff, membership для клиента).
+ */
+export function clientGroupScope(userId: string, roles: string[]): Prisma.ClientGroupWhereInput {
+  if (isAdminLike(roles)) return {};
+  if (isStaffScoped(roles)) {
+    return { organizations: { some: { section: { members: { some: { userId } } } } } };
+  }
+  return { organizations: { some: { members: { some: { userId } } } } };
+}
+
 /** Scope участков: staff видит свои, клиент — ничего (нет membership в Section). */
 export function sectionScope(userId: string, roles: string[]): Prisma.SectionWhereInput {
   if (isAdminLike(roles)) return {};

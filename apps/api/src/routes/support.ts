@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import path from "node:path";
 import fs from "node:fs";
+import crypto from "node:crypto";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { upload, UPLOADS_DIR } from "../lib/upload.js";
@@ -116,10 +117,56 @@ router.get("/threads", authenticate, async (req, res) => {
 const attachmentInputSchema = z.object({
   fileName: z.string(),
   fileKey: z.string(),
+  // HMAC-токен принадлежности: выдаётся /upload, подтверждает, что файл загрузил автор
+  fileToken: z.string(),
   originalName: z.string().optional(),
   fileSize: z.number().int().nonnegative().optional(),
   mimeType: z.string().optional(),
 });
+
+type AttachmentInput = z.infer<typeof attachmentInputSchema>;
+
+/**
+ * Подпись fileKey за конкретным пользователем. Без неё в attachments можно было бы
+ * передать чужой UUID из общего UPLOADS_DIR (документ организации, выписку) и затем
+ * скачать его через /files/:key, «выдав» себе доступ через собственный тред.
+ * Метаданные входят в подпись — отображаемые имя/размер/тип нельзя подменить.
+ */
+function signFileKey(
+  fileKey: string,
+  userId: string,
+  meta: { originalName?: string; fileSize?: number; mimeType?: string },
+): string {
+  const payload = JSON.stringify([
+    fileKey,
+    userId,
+    meta.originalName ?? "",
+    meta.fileSize ?? 0,
+    meta.mimeType ?? "",
+  ]);
+  return crypto
+    .createHmac("sha256", process.env.JWT_SECRET ?? "")
+    .update(payload)
+    .digest("hex");
+}
+
+/** Проверяет токены вложений и убирает их из сохраняемых данных. Null — токен невалиден. */
+function verifyAttachments(
+  atts: AttachmentInput[] | undefined,
+  userId: string,
+): Omit<AttachmentInput, "fileToken">[] | null | undefined {
+  if (!atts) return undefined;
+  const out: Omit<AttachmentInput, "fileToken">[] = [];
+  for (const { fileToken, ...rest } of atts) {
+    const given = Buffer.from(fileToken);
+    const expected = Buffer.from(signFileKey(rest.fileKey, userId, rest));
+    if (given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) {
+      return null;
+    }
+    out.push(rest);
+  }
+  return out;
+}
 
 const createThreadSchema = z
   .object({
@@ -141,6 +188,11 @@ router.post("/threads", authenticate, async (req, res) => {
     }
     const user = req.user!;
     const userIsStaff = isStaff(user.roles);
+    const attachments = verifyAttachments(parsed.data.attachments, user.userId);
+    if (attachments === null) {
+      res.status(403).json({ error: "Вложение не принадлежит отправителю" });
+      return;
+    }
     parsed.data.subject = typograph(parsed.data.subject);
     parsed.data.body = typograph(parsed.data.body);
     const thread = await prisma.supportThread.create({
@@ -152,7 +204,7 @@ router.post("/threads", authenticate, async (req, res) => {
             body: parsed.data.body,
             authorId: user.userId,
             isStaff: userIsStaff,
-            attachments: parsed.data.attachments ?? undefined,
+            attachments: attachments ?? undefined,
           },
         },
       },
@@ -262,13 +314,18 @@ router.post("/threads/:id/messages", authenticate, async (req, res) => {
       return;
     }
     const userIsStaff = isStaff(user.roles);
+    const attachments = verifyAttachments(parsed.data.attachments, user.userId);
+    if (attachments === null) {
+      res.status(403).json({ error: "Вложение не принадлежит отправителю" });
+      return;
+    }
     const message = await prisma.supportMessage.create({
       data: {
         threadId: found.thread.id,
         body: typograph(parsed.data.body),
         authorId: user.userId,
         isStaff: userIsStaff,
-        attachments: parsed.data.attachments ?? undefined,
+        attachments: attachments ?? undefined,
       },
       include: { author: { select: authorSelect } },
     });
@@ -379,6 +436,11 @@ router.post("/upload", authenticate, upload.single("file"), (req, res) => {
   res.json({
     fileName: req.file.filename,
     fileKey: req.file.filename,
+    fileToken: signFileKey(req.file.filename, req.user!.userId, {
+      originalName: req.file.originalname,
+      fileSize: req.file.size,
+      mimeType: req.file.mimetype,
+    }),
     originalName: req.file.originalname,
     fileSize: req.file.size,
     mimeType: req.file.mimetype,

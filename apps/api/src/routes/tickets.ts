@@ -657,6 +657,11 @@ router.delete(
     try {
       const { id, msgId } = req.params;
 
+      // Тикет должен входить в скоуп — иначе manager удаляет сообщения чужих секций
+      const scopedWhere = getTicketScopedWhere(req);
+      const ticket = await prisma.ticket.findFirst({ where: { id, ...scopedWhere } });
+      if (!ticket) return res.status(404).json({ error: "Ticket not found" });
+
       const message = await prisma.ticketMessage.findFirst({
         where: { id: msgId, ticketId: id, deletedAt: null },
       });

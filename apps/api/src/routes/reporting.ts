@@ -13,6 +13,23 @@ const router = Router();
 // Scope-логика централизована в lib/scoping.ts
 const getViewScopeWhere = orgViewScope;
 
+/**
+ * Все ли организации из списка доступны пользователю? Скоуп тот же, что у GET-матрицы
+ * (view-scope), иначе можно перетирать отчётность чужих организаций по body.organizationId.
+ * Заодно отсекает несуществующие id (upsert-create упал бы по FK → 500).
+ */
+async function allOrgsInScope(
+  user: { userId: string; roles: string[] },
+  orgIds: string[],
+): Promise<boolean> {
+  const unique = [...new Set(orgIds)];
+  const found = await prisma.organization.findMany({
+    where: { id: { in: unique }, ...getViewScopeWhere(user.userId, user.roles) },
+    select: { id: true },
+  });
+  return found.length === unique.length;
+}
+
 // ─── Validators ───
 
 const reportTypeSchema = z.object({
@@ -207,6 +224,16 @@ router.put("/entries", authenticate, requirePermission("reporting", "edit"), asy
   const user = req.user!;
 
   try {
+    if (
+      !(await allOrgsInScope(
+        user,
+        parsed.data.map((e) => e.organizationId),
+      ))
+    ) {
+      res.status(403).json({ error: "Нет доступа к одной из организаций" });
+      return;
+    }
+
     const results = await prisma.$transaction(
       parsed.data.map((entry) =>
         prisma.reportEntry.upsert({
@@ -264,6 +291,11 @@ router.put("/entry", authenticate, requirePermission("reporting", "edit"), async
   const entry = parsed.data;
 
   try {
+    if (!(await allOrgsInScope(user, [entry.organizationId]))) {
+      res.status(403).json({ error: "Нет доступа к этой организации" });
+      return;
+    }
+
     const result = await prisma.reportEntry.upsert({
       where: {
         organizationId_reportTypeId_year_period: {

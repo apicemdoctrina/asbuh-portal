@@ -214,8 +214,21 @@ async function loadFetched(
 }
 
 // Схема правок: клиент присылает счета с операциями; raw синхронизируется на сервере.
+// raw-пары попадают verbatim в файл 1CClientBankExchange (`Ключ=Значение` на строку):
+// перевод строки или `=` в ключе позволил бы подделать секции файла — отклоняем;
+// переводы строк в значениях вычищаем (вторая линия защиты — в statement-1c.ts).
+const rawKeySchema = z
+  .string()
+  .min(1)
+  .max(128)
+  .refine((k) => !/[=\r\n]/.test(k), { message: "Недопустимый ключ raw-поля" });
+const rawValueSchema = z
+  .string()
+  .max(4000)
+  .transform((v) => v.replace(/[\r\n]+/g, " "));
+const rawRecordSchema = z.record(rawKeySchema, rawValueSchema);
 const opEditSchema = z.object({
-  docType: z.string(),
+  docType: z.string().transform((v) => v.replace(/[\r\n]+/g, " ")),
   number: z.string(),
   date: z.string(),
   amount: z.coerce.number(),
@@ -227,7 +240,7 @@ const opEditSchema = z.object({
   payeeInn: z.string().nullable(),
   payeeAccount: z.string().nullable(),
   purpose: z.string().nullable(),
-  raw: z.record(z.string(), z.string()).default({}),
+  raw: rawRecordSchema.default({}),
 });
 const accEditSchema = z.object({
   accountNumber: z.string(),
@@ -236,7 +249,7 @@ const accEditSchema = z.object({
   totalIn: z.coerce.number().default(0),
   totalOut: z.coerce.number().default(0),
   hasClosing: z.boolean().default(true),
-  raw: z.record(z.string(), z.string()).default({}),
+  raw: rawRecordSchema.default({}),
   operations: z.array(opEditSchema),
 });
 const editSchema = z.object({ accounts: z.array(accEditSchema).min(1) });

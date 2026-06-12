@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import { authenticate } from "../middleware/auth.js";
 import { isReportApplicable } from "../lib/report-task-generator.js";
+import { orgStrictScope, sectionScope } from "../lib/scoping.js";
 
 const COMPLETENESS_TOTAL = 17;
 
@@ -49,14 +50,9 @@ function calcOrgScore(org: OrgCompletenessRow): number {
 
 const router = Router();
 
-/** Build a Prisma `where` filter that enforces data-scoping rules. */
-function getOrgWhere(userId: string, roles: string[]): Prisma.OrganizationWhereInput {
-  if (roles.includes("admin")) return {};
-  if (roles.includes("manager") || roles.includes("accountant")) {
-    return { section: { members: { some: { userId } } } };
-  }
-  return { members: { some: { userId } } };
-}
+// Scope-логика централизована в lib/scoping.ts: локальная копия не имела ветки
+// supervisor, и он проваливался в client-scope (документированный pitfall)
+const getOrgWhere = orgStrictScope;
 
 /** Check if user has a specific permission via their roles. */
 async function hasPermission(userId: string, entity: string, action: string): Promise<boolean> {
@@ -133,10 +129,8 @@ router.get("/", authenticate, async (req, res) => {
 
     // 4: sections count (only if user can view sections)
     if (canViewSections) {
-      const sectionWhere: Prisma.SectionWhereInput = isAdmin
-        ? {}
-        : { members: { some: { userId } } };
-      queries.push(prisma.section.count({ where: sectionWhere }));
+      // sectionScope: admin/supervisor — все участки, staff — свои
+      queries.push(prisma.section.count({ where: sectionScope(userId, roles) }));
     }
 
     // 5: staff count (only if admin)

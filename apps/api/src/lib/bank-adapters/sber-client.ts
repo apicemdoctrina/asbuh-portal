@@ -212,7 +212,7 @@ async function fetchSummary(
   cfg: SberConfig,
 ): Promise<{ opening: number; closing: number; totalIn: number; totalOut: number; ok: boolean }> {
   try {
-    const url = `/fintech/api/v2/statement/summary?accountNumber=${accountNumber}&statementDate=${dateISO}`;
+    const url = `/fintech/api/v2/statement/summary?accountNumber=${encodeURIComponent(accountNumber)}&statementDate=${dateISO}`;
     const r = await sberFetch(cfg.baseUrl, cfg, url, { method: "GET", headers: auth });
     if (!r.ok) {
       if (process.env.DEBUG_SBER) {
@@ -272,11 +272,11 @@ export async function fetchSberIncrement(
   for (let page = 1; page <= 50; page++) {
     let url: string;
     if (since) {
-      url = `/fintech/api/v2/statement/increment?accountNumber=${accountNumber}&lastModifyDate=${toSberDateTime(since)}&page=${page}`;
+      url = `/fintech/api/v2/statement/increment?accountNumber=${encodeURIComponent(accountNumber)}&lastModifyDate=${toSberDateTime(since)}&page=${page}`;
     } else {
       // Первый прогон: курсора нет — берём сегодняшний день целиком.
       const today = new Date().toISOString().slice(0, 10);
-      url = `/fintech/api/v2/statement/increment?accountNumber=${accountNumber}&statementDate=${today}&page=${page}`;
+      url = `/fintech/api/v2/statement/increment?accountNumber=${encodeURIComponent(accountNumber)}&statementDate=${today}&page=${page}`;
     }
     const r = await sberFetch(cfg.baseUrl, cfg, url, { method: "GET", headers: auth });
     if (r.status === 401 || r.status === 403) {
@@ -325,7 +325,7 @@ export async function fetchDailyFile(
   // SCOPE_B2BSaaS_… (обходим невключённый сервис FILES).
   const transactions: SberTxn[] = [];
   for (let page = 1; page <= 50; page++) {
-    const url = `/fintech/api/v2/statement/transactions?accountNumber=${accountNumber}&statementDate=${dateISO}&page=${page}`;
+    const url = `/fintech/api/v2/statement/transactions?accountNumber=${encodeURIComponent(accountNumber)}&statementDate=${dateISO}&page=${page}`;
     const r = await sberFetch(cfg.baseUrl, cfg, url, { method: "GET", headers: auth });
     if (r.status === 401 || r.status === 403) {
       throw new BankApiError("Сбер отклонил токен при запросе операций");

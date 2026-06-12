@@ -32,6 +32,9 @@ export default function ProfilePage() {
   );
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMsg, setProfileMsg] = useState(null);
+  // Пароль для подтверждения смены email (бэкенд требует его при изменении адреса)
+  const [emailPassword, setEmailPassword] = useState("");
+  const emailChanged = email !== (user?.email || "");
 
   // Avatar
   const fileRef = useRef(null);
@@ -191,6 +194,7 @@ export default function ProfilePage() {
           email,
           phone: phone || null,
           birthDate: birthDate || null,
+          ...(emailChanged && emailPassword ? { currentPassword: emailPassword } : {}),
         }),
       });
       const data = await res.json();
@@ -198,6 +202,7 @@ export default function ProfilePage() {
         setProfileMsg({ type: "error", text: data.error || "Ошибка сохранения" });
         return;
       }
+      setEmailPassword("");
       setProfileMsg({ type: "success", text: "Данные сохранены" });
       // Refresh user context
       await fetchMe();
@@ -340,6 +345,21 @@ export default function ProfilePage() {
                 required
               />
             </div>
+            {emailChanged && (
+              <div>
+                <label className="block text-sm font-medium text-body mb-1">
+                  Текущий пароль <span className="text-subtle">(для смены email)</span>
+                </label>
+                <input
+                  type="password"
+                  value={emailPassword}
+                  onChange={(e) => setEmailPassword(e.target.value)}
+                  autoComplete="current-password"
+                  className={inputClass}
+                  required
+                />
+              </div>
+            )}
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-body mb-1">
