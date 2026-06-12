@@ -11,6 +11,7 @@ import {
   INCLUDE,
   isAdminOrManager,
   allOrgsAccessible,
+  orgVisible,
   findTaskInScope,
   notifyTaskRecipients,
   calcNextDue,
@@ -37,10 +38,9 @@ router.get("/", authenticate, requirePermission("task", "view"), async (req, res
     if (status) where.status = status;
 
     if (organizationId) {
-      // Inside an org card — show all tasks for that org (организация — в скоупе вызывающего)
-      if (
-        !(await allOrgsAccessible(req.user!.userId, req.user!.roles, [organizationId as string]))
-      ) {
+      // Inside an org card — show all tasks for that org. Чтение по view-скоупу:
+      // организация из клиентской группы видна менеджеру — её задачи тоже.
+      if (!(await orgVisible(req.user!.userId, req.user!.roles, organizationId as string))) {
         return res.status(403).json({ error: "Нет доступа к этой организации" });
       }
       where.organizationId = organizationId as string;

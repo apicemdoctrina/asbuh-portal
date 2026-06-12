@@ -1,5 +1,5 @@
 import prisma from "../../lib/prisma.js";
-import { taskScope, orgStrictScope } from "../../lib/scoping.js";
+import { taskScope, orgStrictScope, orgViewScope } from "../../lib/scoping.js";
 import { notifyWithTelegram } from "../../lib/notify.js";
 
 const ASSIGNEE_SELECT = { id: true, firstName: true, lastName: true };
@@ -35,6 +35,20 @@ export async function allOrgsAccessible(
     select: { id: true },
   });
   return found.length === ids.length;
+}
+
+/**
+ * Видна ли организация пользователю (view-скоуп — включает орги клиентских
+ * групп, содержащих орги его участков). Для ЧТЕНИЯ задач по ?organizationId:
+ * раз карточка организации видна, её задачи тоже должны открываться.
+ * Для записи (создание/перенос задач) остаётся строгий allOrgsAccessible.
+ */
+export async function orgVisible(userId: string, roles: string[], orgId: string): Promise<boolean> {
+  const found = await prisma.organization.findFirst({
+    where: { id: orgId, ...orgViewScope(userId, roles) },
+    select: { id: true },
+  });
+  return Boolean(found);
 }
 
 /**

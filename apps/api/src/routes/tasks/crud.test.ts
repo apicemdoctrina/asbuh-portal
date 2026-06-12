@@ -17,7 +17,7 @@ vi.mock("../../lib/prisma.js", () => {
     taskComment: { groupBy: vi.fn() },
     taskCommentRead: { findMany: vi.fn() },
     taskAssignee: { deleteMany: vi.fn(), createMany: vi.fn() },
-    organization: { findMany: vi.fn() },
+    organization: { findMany: vi.fn(), findFirst: vi.fn() },
     user: {},
     rolePermission: { count: vi.fn() },
     auditLog: { create: vi.fn() },
@@ -164,10 +164,10 @@ describe("GET /api/tasks — архив и organizationId", () => {
     expect(where.archivedAt).toBeNull();
   });
 
-  it("organizationId вне strict-скоупа manager → 403", async () => {
+  it("organizationId вне view-скоупа manager → 403", async () => {
     fn(prisma.rolePermission.count).mockResolvedValue(1);
-    // allOrgsAccessible: организация не найдена в скоупе пользователя
-    fn(prisma.organization.findMany).mockResolvedValue([]);
+    // orgVisible: организация не найдена в view-скоупе пользователя
+    fn(prisma.organization.findFirst).mockResolvedValue(null);
 
     const res = await request(app)
       .get("/api/tasks?organizationId=alien-org")
@@ -175,17 +175,28 @@ describe("GET /api/tasks — архив и organizationId", () => {
 
     expect(res.status).toBe(403);
     expect(prisma.task.findMany).not.toHaveBeenCalled();
-    // Проверка организации идёт через orgStrictScope (секции manager-а)
-    const orgWhere = fn(prisma.organization.findMany).mock.calls[0][0].where;
+    // Чтение задач по организации — view-скоуп (секции + клиентские группы),
+    // как у карточки организации
+    const orgWhere = fn(prisma.organization.findFirst).mock.calls[0][0].where;
     expect(orgWhere).toEqual({
-      id: { in: ["alien-org"] },
-      section: { members: { some: { userId: "manager-id" } } },
+      id: "alien-org",
+      OR: [
+        { section: { members: { some: { userId: "manager-id" } } } },
+        {
+          clientGroupId: { not: null },
+          clientGroup: {
+            organizations: {
+              some: { section: { members: { some: { userId: "manager-id" } } } },
+            },
+          },
+        },
+      ],
     });
   });
 
   it("organizationId в скоупе manager: where.organizationId без OR-скоупа", async () => {
     mockHappyList();
-    fn(prisma.organization.findMany).mockResolvedValue([{ id: "org-1" }]);
+    fn(prisma.organization.findFirst).mockResolvedValue({ id: "org-1" });
 
     const res = await request(app)
       .get("/api/tasks?organizationId=org-1")
@@ -195,5 +206,18 @@ describe("GET /api/tasks — архив и organizationId", () => {
     const where = fn(prisma.task.findMany).mock.calls[0][0].where;
     expect(where.organizationId).toBe("org-1");
     expect(where).not.toHaveProperty("OR");
+  });
+
+  it("РЕГРЕССИЯ: орг из клиентской группы (вне strict, в view) → задачи доступны", async () => {
+    mockHappyList([{ id: "t1", title: "Сдать НДС" }]);
+    // findFirst по view-скоупу находит организацию (через клиентскую группу)
+    fn(prisma.organization.findFirst).mockResolvedValue({ id: "group-org" });
+
+    const res = await request(app)
+      .get("/api/tasks?organizationId=group-org")
+      .set("Authorization", `Bearer ${managerToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
   });
 });
