@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getStatementScopedWhere } from "./statements.js";
+import { getStatementScopedWhere } from "./statements/helpers.js";
 
 describe("getStatementScopedWhere", () => {
   it("returns {} for admin and supervisor", () => {

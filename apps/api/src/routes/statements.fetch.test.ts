@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { mapBankError, buildAuthorizeUrl } from "./statements.js";
+import { mapBankError } from "./statements/helpers.js";
+import { buildAuthorizeUrl } from "./statements/oauth-sber.js";
 import { BankConfigError, BankApiError } from "../lib/bank-adapters/index.js";
 
 describe("mapBankError", () => {

@@ -20,7 +20,7 @@ import clientGroupsRouter from "./routes/client-groups.js";
 import announcementsRouter from "./routes/announcements.js";
 import reportingRouter from "./routes/reporting.js";
 import paymentsRouter from "./routes/payments/index.js";
-import statementsRouter from "./routes/statements.js";
+import statementsRouter from "./routes/statements/index.js";
 import healthRouter from "./routes/health.js";
 import clientDashboardRouter from "./routes/client-dashboard.js";
 import clientOnboardingRouter from "./routes/client-onboarding.js";
